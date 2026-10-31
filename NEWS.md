@@ -1,5 +1,11 @@
 # framework (development version)
 
+* With the Quarto tool off, `make_notebook()` makes Jupyter notebooks (an
+  `.ipynb` for the R kernel) when the Jupyter tool is on, R Markdown when
+  rmarkdown is installed, and plain scripts otherwise. `type = "jupyter"`
+  and `.ipynb` names work in any project. Creating a project with the
+  Jupyter tool offers to register the R kernel (`IRkernel::installspec()`)
+  in interactive sessions and prints the command otherwise
 * `new()` and `new_project()` build projects the same way framework.pub
   does: the user's settings, the structure, then tools and sets, resolved
   into one spec. New `tools`, `package_sets`, and `skill_sets` arguments

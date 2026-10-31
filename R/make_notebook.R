@@ -13,10 +13,13 @@
 #'   - .Rmd: RMarkdown notebook
 #'   - .R: R script
 #'   Examples: `1-init`, `1-init.qmd`, `analysis.Rmd`, `script.R`
-#' @param type Character. File type: "quarto", "rmarkdown", or "script".
-#'   Auto-detected from extension if provided. If NULL (default):
+#' @param type Character. File type: "quarto", "rmarkdown", "script", or
+#'   "jupyter" (an .ipynb for the R kernel). Auto-detected from extension if
+#'   provided. If NULL (default):
 #'   1. Checks config `default_notebook_format` (or legacy `options$default_notebook_format`)
-#'   2. Falls back to "quarto" (Framework is Quarto-first)
+#'   2. Falls back to "quarto", unless the project turned the Quarto tool
+#'      off: then "jupyter" when the Jupyter tool is on, "rmarkdown" when
+#'      rmarkdown is installed, and "script" otherwise
 #' @param dir Character. Directory to create the file in. Uses your project's
 #'   configured `directories$notebooks` setting. Default: "notebooks/".
 #' @param stub Character. Name of the stub template to use. Defaults to
@@ -96,13 +99,17 @@ make_notebook <- function(name,
     default_format <- cfg$options$default_notebook_format %||% cfg$default_notebook_format
 
     if (!is.null(default_format)) {
-      type <- match.arg(default_format, c("quarto", "rmarkdown", "script"))
+      type <- match.arg(default_format, c("quarto", "rmarkdown", "script", "jupyter"))
     } else {
-      type <- "quarto"  # Default to Quarto (Framework is Quarto-first)
+      type <- .default_notebook_type(cfg)
     }
   } else {
     # Validate explicit type
-    type <- match.arg(type, c("quarto", "rmarkdown", "script"))
+    type <- match.arg(type, c("quarto", "rmarkdown", "script", "jupyter"))
+  }
+  if (grepl("\\.ipynb$", name, ignore.case = TRUE)) type <- "jupyter"
+  if (identical(type, "jupyter")) {
+    return(.make_jupyter_notebook(name, dir, subdir, overwrite))
   }
 
   # Normalize extension and detect type
@@ -275,6 +282,55 @@ make_notebook <- function(name,
   content
 }
 
+
+# The notebook kind for a project: Quarto unless the project turned the
+# Quarto tool off. Then Jupyter when that tool is on, R Markdown when
+# rmarkdown is installed, and a plain script otherwise.
+#' @keywords internal
+.default_notebook_type <- function(cfg) {
+  tools <- cfg$tools
+  if (is.null(tools) || !isFALSE(tools$quarto)) return("quarto")
+  if (isTRUE(tools$jupyter)) return("jupyter")
+  if (requireNamespace("rmarkdown", quietly = TRUE)) return("rmarkdown")
+  "script"
+}
+
+# A Jupyter notebook for the R kernel (IRkernel) that starts with scaffold()
+#' @keywords internal
+.make_jupyter_notebook <- function(name, dir = NULL, subdir = NULL, overwrite = FALSE) {
+  base <- .slugify(sub("\\.ipynb$", "", name, ignore.case = TRUE))
+  dir <- dir %||% .get_notebook_dir_from_config()
+  if (!is.null(subdir)) dir <- file.path(dir, subdir)
+  dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+  path <- file.path(dir, paste0(base, ".ipynb"))
+  if (file.exists(path) && !overwrite) {
+    stop(sprintf("File already exists: %s\nUse overwrite = TRUE to replace it.", path))
+  }
+  cell <- function(type, source) {
+    out <- list(cell_type = type, metadata = stats::setNames(list(), character()), source = as.list(source))
+    if (identical(type, "code")) {
+      out$execution_count <- NULL
+      out["execution_count"] <- list(NULL)
+      out$outputs <- list()
+    }
+    out
+  }
+  notebook <- list(
+    cells = list(
+      cell("markdown", paste0("# ", sub("\\.ipynb$", "", basename(name), ignore.case = TRUE))),
+      cell("code", "framework::scaffold()")
+    ),
+    metadata = list(
+      kernelspec = list(display_name = "R", language = "R", name = "ir"),
+      language_info = list(name = "R")
+    ),
+    nbformat = 4L,
+    nbformat_minor = 5L
+  )
+  jsonlite::write_json(notebook, path, auto_unbox = TRUE, pretty = TRUE, null = "null")
+  message(sprintf("Created Jupyter notebook: %s", path))
+  invisible(path)
+}
 
 #' Normalize Notebook Name and Detect Type
 #'

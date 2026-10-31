@@ -171,6 +171,10 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     }
   }
 
+  if (!headless && .spec_tool_on(spec, "jupyter")) {
+    .offer_jupyter_kernel()
+  }
+
   message("[ok] Project created: ", project_dir)
   list(success = TRUE, path = project_dir, id = project_id)
 }
@@ -401,4 +405,21 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   json <- jsonlite::toJSON(settings, auto_unbox = TRUE, pretty = 2)
   .spec_write_text(project_dir, ".claude/settings.json", json)
   message("  Created: .claude/settings.json (keeps Claude Code out of ", paste(restricted, collapse = ", "), ")")
+}
+
+# Jupyter needs the R kernel registered once per machine. That writes to the
+# user's Jupyter folder, outside R's own, so it only happens when the user
+# says yes in an interactive session. Otherwise this prints the command.
+#' @keywords internal
+.offer_jupyter_kernel <- function() {
+  command <- "IRkernel::installspec()"
+  if (rlang::is_interactive() && requireNamespace("IRkernel", quietly = TRUE) &&
+      isTRUE(utils::askYesNo("Register the R kernel with Jupyter now?", default = FALSE))) {
+    IRkernel::installspec()
+    return(invisible(TRUE))
+  }
+  message("To run R notebooks in Jupyter, register the R kernel once on this machine: ",
+          if (requireNamespace("IRkernel", quietly = TRUE)) command
+          else paste0('install.packages("IRkernel"); ', command))
+  invisible(FALSE)
 }

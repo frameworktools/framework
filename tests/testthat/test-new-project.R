@@ -51,3 +51,24 @@ test_that("bare has no core files, and unknown tools are errors", {
   expect_error(local_new(tools = "pants"), "Unknown tool")
   expect_error(local_new(type = "Bad Type"), "pattern")
 })
+
+test_that("make_notebook() follows the tools when Quarto is off", {
+  expect_identical(framework:::.default_notebook_type(list()), "quarto")
+  expect_identical(framework:::.default_notebook_type(list(tools = list(quarto = TRUE))), "quarto")
+  expect_identical(framework:::.default_notebook_type(list(tools = list(quarto = FALSE, jupyter = TRUE))), "jupyter")
+
+  dir <- local_new(tools = c(quarto = FALSE, jupyter = TRUE))
+  withr::local_dir(dir)
+  path <- suppressMessages(make_notebook("First look"))
+  expect_match(path, "first-look\\.ipynb$")
+  nb <- jsonlite::read_json(path)
+  expect_identical(nb$metadata$kernelspec$name, "ir")
+  expect_identical(unlist(nb$cells[[2]]$source), "framework::scaffold()")
+  expect_true("IRkernel" %in% vapply(settings_read()$packages$default_packages, `[[`, "", "name"))
+})
+
+test_that("the Jupyter kernel step is only offered", {
+  withr::local_options(rlang_interactive = FALSE)
+  expect_message(res <- framework:::.offer_jupyter_kernel(), "installspec")
+  expect_false(res)
+})

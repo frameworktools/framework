@@ -43,6 +43,7 @@ Suggests:
     htmltools,
     htmlwidgets,
     httr2,
+    IRkernel,
     keyring,
     jsonvalidate,
     askpass,

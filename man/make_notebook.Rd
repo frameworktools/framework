@@ -22,11 +22,14 @@ make_notebook(
 Examples: \code{1-init}, \code{1-init.qmd}, \code{analysis.Rmd}, \code{script.R}
 }}
 
-\item{type}{Character. File type: "quarto", "rmarkdown", or "script".
-Auto-detected from extension if provided. If NULL (default):
+\item{type}{Character. File type: "quarto", "rmarkdown", "script", or
+"jupyter" (an .ipynb for the R kernel). Auto-detected from extension if
+provided. If NULL (default):
 \enumerate{
 \item Checks config \code{default_notebook_format} (or legacy \code{options$default_notebook_format})
-\item Falls back to "quarto" (Framework is Quarto-first)
+\item Falls back to "quarto", unless the project turned the Quarto tool
+off: then "jupyter" when the Jupyter tool is on, "rmarkdown" when
+rmarkdown is installed, and "script" otherwise
 }}
 
 \item{dir}{Character. Directory to create the file in. Uses your project's
