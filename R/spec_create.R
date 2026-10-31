@@ -84,8 +84,10 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   message("Creating project in: ", project_dir)
 
   type <- spec$type
-  is_bare <- identical(type, "bare")
-  use_split_files <- type %in% c("project", "project_sensitive")
+  is_bare <- !.spec_core_files(spec)
+  use_split_files <- identical(.spec_settings_layout(spec), "split")
+  tools <- spec$tools %||% list()
+  tools$renv <- .spec_tool_on(spec, "renv")
   args <- .spec_to_create_args(spec)
 
   .create_project_directories(project_dir, spec$directories, args$extra_directories, spec$render_dirs)
@@ -109,7 +111,9 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     render_dirs = spec$render_dirs,
     quarto = spec$quarto,
     security = spec$security,
-    data_hooks = spec$data_hooks
+    data_hooks = spec$data_hooks,
+    tools = tools,
+    settings_layout = .spec_settings_layout(spec)
   )
   if (use_split_files) {
     .create_connections_file(project_dir, spec$connections, connections_rel_path)
@@ -137,11 +141,11 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   # Blueprint files last, so they replace generated stubs of the same name
   .spec_write_files(project_dir, spec)
 
-  if (isTRUE(spec$packages$use_renv)) {
+  if (isTRUE(tools$renv)) {
     .init_renv(project_dir)
   }
 
-  if (!is_bare) {
+  if (!is_bare && .spec_tool_on(spec, "quarto")) {
     quarto_result <- quarto_generate_all(
       project_path = project_dir,
       project_type = type,

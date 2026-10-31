@@ -1,0 +1,17 @@
+{
+  "id": "uv",
+  "name": "uv",
+  "description": "Manages the project's Python environment with uv: pyproject.toml and uv.lock.",
+  "category": "reproducibility",
+  "language": [
+    "python"
+  ],
+  "requires": [],
+  "conflicts": [],
+  "layer": {
+    "tools": {
+      "uv": true
+    }
+  },
+  "language_layers": {}
+}

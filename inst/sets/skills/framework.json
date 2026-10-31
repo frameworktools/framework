@@ -1,0 +1,25 @@
+{
+  "id": "framework",
+  "name": "Framework",
+  "description": "How to work in a Framework project: notebooks and scripts, reading and saving data, packages, and outputs.",
+  "language": [
+    "r",
+    "python"
+  ],
+  "layer": {
+    "skills": {
+      "framework-workflow": {
+        "package": true
+      },
+      "framework-data": {
+        "package": true
+      },
+      "framework-packages": {
+        "package": true
+      },
+      "framework-outputs": {
+        "package": true
+      }
+    }
+  }
+}

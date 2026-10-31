@@ -1,0 +1,42 @@
+{
+  "id": "tidyverse-analysis",
+  "name": "tidyverse analysis",
+  "description": "The tidyverse packages most analyses use, loaded by scaffold().",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "dplyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "tidyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "ggplot2": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "purrr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "stringr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "forcats": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "lubridate": {
+          "source": "cran",
+          "auto_attach": true
+        }
+      }
+    }
+  }
+}

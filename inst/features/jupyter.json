@@ -1,0 +1,39 @@
+{
+  "id": "jupyter",
+  "name": "Jupyter",
+  "description": "Jupyter notebooks, with the kernel for the project's language: IRkernel for R and ipykernel for Python.",
+  "category": "outputs",
+  "language": [
+    "r",
+    "python"
+  ],
+  "requires": [],
+  "conflicts": [],
+  "layer": {
+    "tools": {
+      "jupyter": true
+    }
+  },
+  "language_layers": {
+    "r": {
+      "packages": {
+        "default_packages": {
+          "IRkernel": {
+            "source": "cran",
+            "auto_attach": false
+          }
+        }
+      }
+    },
+    "python": {
+      "packages": {
+        "default_packages": {
+          "ipykernel": {
+            "source": "pypi",
+            "auto_attach": false
+          }
+        }
+      }
+    }
+  }
+}

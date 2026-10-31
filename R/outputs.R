@@ -135,6 +135,23 @@ NULL
 # Table saving
 # -----------------------------------------------------------------------------
 
+# The folder for one kind of output. A project with private and public
+# output folders (sensitive data on, or outputs_private_* directories) splits
+# by `public`; any other project has one folder per kind.
+#' @keywords internal
+.output_dir <- function(kind, public = FALSE) {
+  cfg <- tryCatch(settings_read(), error = function(e) NULL)
+  dirs <- cfg$directories %||% list()
+  split <- isTRUE(cfg$security$sensitive) ||
+    !is.null(dirs[[paste0("outputs_private_", kind)]]) ||
+    !is.null(dirs[[paste0("outputs_public_", kind)]])
+  if (!split) {
+    return(config(paste0("outputs_", kind)) %||% file.path("outputs", kind))
+  }
+  side <- if (public) "public" else "private"
+  config(paste0("outputs_", side, "_", kind)) %||% file.path("outputs", side, kind)
+}
+
 #' Save a table to the outputs directory
 #'
 #' Saves a data frame or tibble to the configured tables directory.
@@ -173,19 +190,7 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 
 
   # Get the appropriate tables directory
-  cfg <- tryCatch(settings_read(), error = function(e) NULL)
-  project_type <- cfg$project_type %||% "project"
-
-  if (project_type == "project_sensitive") {
-    dir_key <- if (public) "outputs_public_tables" else "outputs_private_tables"
-  } else {
-    dir_key <- "outputs_tables"
-  }
-
-  tables_dir <- config(dir_key)
-  if (is.null(tables_dir)) {
-    tables_dir <- if (public) "outputs/public/tables" else "outputs/tables"
-  }
+  tables_dir <- .output_dir("tables", public)
 
   # Ensure directory exists (lazy creation)
   .ensure_output_dir(tables_dir, "tables")
@@ -287,19 +292,7 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
   checkmate::assert_flag(overwrite)
 
   # Get the appropriate figures directory
-  cfg <- tryCatch(settings_read(), error = function(e) NULL)
-  project_type <- cfg$project_type %||% "project"
-
-  if (project_type == "project_sensitive") {
-    dir_key <- if (public) "outputs_public_figures" else "outputs_private_figures"
-  } else {
-    dir_key <- "outputs_figures"
-  }
-
-  figures_dir <- config(dir_key)
-  if (is.null(figures_dir)) {
-    figures_dir <- if (public) "outputs/public/figures" else "outputs/figures"
-  }
+  figures_dir <- .output_dir("figures", public)
 
   # Ensure directory exists (lazy creation)
   .ensure_output_dir(figures_dir, "figures")
@@ -372,19 +365,7 @@ save_model <- function(model, name, public = FALSE, overwrite = TRUE, ...) {
   checkmate::assert_flag(overwrite)
 
   # Get the appropriate models directory
-  cfg <- tryCatch(settings_read(), error = function(e) NULL)
-  project_type <- cfg$project_type %||% "project"
-
-  if (project_type == "project_sensitive") {
-    dir_key <- if (public) "outputs_public_models" else "outputs_private_models"
-  } else {
-    dir_key <- "outputs_models"
-  }
-
-  models_dir <- config(dir_key)
-  if (is.null(models_dir)) {
-    models_dir <- if (public) "outputs/public/models" else "outputs/models"
-  }
+  models_dir <- .output_dir("models", public)
 
   # Ensure directory exists (lazy creation)
   .ensure_output_dir(models_dir, "models")
@@ -453,19 +434,7 @@ save_report <- function(file, name = NULL, public = FALSE, overwrite = TRUE, mov
   checkmate::assert_flag(move)
 
   # Get the appropriate reports directory
-  cfg <- tryCatch(settings_read(), error = function(e) NULL)
-  project_type <- cfg$project_type %||% "project"
-
-  if (project_type == "project_sensitive") {
-    dir_key <- if (public) "outputs_public_reports" else "outputs_private_reports"
-  } else {
-    dir_key <- "outputs_reports"
-  }
-
-  reports_dir <- config(dir_key)
-  if (is.null(reports_dir)) {
-    reports_dir <- if (public) "outputs/public/reports" else "outputs/reports"
-  }
+  reports_dir <- .output_dir("reports", public)
 
   # Ensure directory exists (lazy creation)
   .ensure_output_dir(reports_dir, "reports")
@@ -562,19 +531,7 @@ save_notebook <- function(file, name = NULL, format = "html", public = FALSE,
   }
 
   # Get the appropriate notebooks output directory
-  cfg <- tryCatch(settings_read(), error = function(e) NULL)
-  project_type <- cfg$project_type %||% "project"
-
-  if (project_type == "project_sensitive") {
-    dir_key <- if (public) "outputs_public_notebooks" else "outputs_private_notebooks"
-  } else {
-    dir_key <- "outputs_notebooks"
-  }
-
-  notebooks_dir <- config(dir_key)
-  if (is.null(notebooks_dir)) {
-    notebooks_dir <- if (public) "outputs/public/notebooks" else "outputs/notebooks"
-  }
+  notebooks_dir <- .output_dir("notebooks", public)
 
   # Ensure directory exists (lazy creation)
   .ensure_output_dir(notebooks_dir, "notebooks")

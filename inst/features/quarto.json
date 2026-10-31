@@ -1,0 +1,18 @@
+{
+  "id": "quarto",
+  "name": "Quarto",
+  "description": "Quarto notebooks and documents. The render folders come from the project structure.",
+  "category": "outputs",
+  "language": [
+    "r",
+    "python"
+  ],
+  "requires": [],
+  "conflicts": [],
+  "layer": {
+    "tools": {
+      "quarto": true
+    }
+  },
+  "language_layers": {}
+}

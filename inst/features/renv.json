@@ -1,0 +1,20 @@
+{
+  "id": "renv",
+  "name": "renv",
+  "description": "Turns on renv so the project records the package versions it uses.",
+  "category": "reproducibility",
+  "language": [
+    "r"
+  ],
+  "requires": [],
+  "conflicts": [],
+  "layer": {
+    "packages": {
+      "use_renv": true
+    },
+    "tools": {
+      "renv": true
+    }
+  },
+  "language_layers": {}
+}

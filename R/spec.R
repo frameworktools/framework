@@ -57,7 +57,9 @@ spec_resolve <- function(layers = list(), name, author = NULL, check = TRUE) {
     if (!is.null(entry$layer$type)) type <- entry$layer$type
     if (!is.null(entry$layer$language)) language <- entry$layer$language
   }
-  checkmate::assert_choice(type, .spec_types())
+  if (!grepl("^[a-z][a-z0-9_]*$", type)) {
+    stop(sprintf("Project type must be a lowercase id such as 'project', got '%s'", type), call. = FALSE)
+  }
   checkmate::assert_choice(language, .spec_languages())
   if (!identical(language, "r")) {
     stop(.spec_language_message(language), call. = FALSE)
@@ -219,6 +221,23 @@ spec_check <- function(spec) {
 # Internals -------------------------------------------------------------------
 
 .spec_types <- function() c("project", "project_sensitive", "course", "presentation", "bare")
+
+# What a spec's settings mean, with today's behavior for specs that predate
+# core_files, settings_layout, and tools
+.spec_default_settings_layout <- function(type) {
+  if (type %in% c("project", "project_sensitive")) "split" else "flat"
+}
+.spec_core_files <- function(spec) {
+  if (is.null(spec$core_files)) !identical(spec$type, "bare") else isTRUE(spec$core_files)
+}
+.spec_settings_layout <- function(spec) {
+  spec$settings_layout %||% .spec_default_settings_layout(spec$type)
+}
+# A tool is on when the spec says so. renv also counts packages.use_renv,
+# its older name
+.spec_tool_on <- function(spec, id) {
+  isTRUE(spec$tools[[id]]) || (identical(id, "renv") && isTRUE(spec$packages$use_renv))
+}
 
 # Project languages. R builds R projects, the Python package builds Python
 # projects, and fw builds Stata projects (scaffolding only).
@@ -432,6 +451,12 @@ spec_check <- function(spec) {
 # inst/settings/global-settings-default.yml (never the user's own settings,
 # which arrive as their own layer).
 .spec_package_defaults <- function(type) {
+  # Framework's own structures have defaults; any other label is a blueprint
+  # whose structure layer brings its folders, so it starts like bare but
+  # with core files
+  known <- type %in% .spec_types()
+  label <- type
+  if (!known) type <- "bare"
   path <- system.file("settings", "global-settings-default.yml", package = "framework")
   config <- tryCatch(yaml::read_yaml(path), error = function(e) {
     stop(sprintf("Failed to read package defaults '%s': %s", path, conditionMessage(e)), call. = FALSE)
@@ -452,7 +477,12 @@ spec_check <- function(spec) {
     for (s in .ai_skills_for_type(type)) skills[[s]] <- list(package = TRUE)
   }
 
+  core_files <- !identical(label, "bare")
   list(
+    core_files = core_files,
+    settings_layout = .spec_default_settings_layout(label),
+    # Framework's structures other than bare include Quarto
+    tools = list(quarto = known && core_files, renv = isTRUE(defaults$packages$use_renv)),
     author = list(name = "", email = "", affiliation = ""),
     directories = if (identical(type, "bare")) list() else type_config$directories %||% list(),
     extra_directories = list(),

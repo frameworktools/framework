@@ -1,0 +1,34 @@
+{
+  "id": "targets",
+  "name": "targets pipeline",
+  "description": "Adds the targets and tarchetypes packages and a starter _targets.R.",
+  "category": "reproducibility",
+  "language": [
+    "r"
+  ],
+  "requires": [],
+  "conflicts": [],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "targets": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "tarchetypes": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    },
+    "files": {
+      "_targets.R": {
+        "content": "library(targets)\n\ntar_option_set(packages = character())\n\nlist(\n  # tar_target(raw, data_read(\"inputs.raw.example\"))\n)\n"
+      }
+    },
+    "tools": {
+      "targets": true
+    }
+  },
+  "language_layers": {}
+}

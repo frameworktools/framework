@@ -1,0 +1,35 @@
+{
+  "id": "quarto_manuscript",
+  "name": "Quarto manuscript",
+  "description": "Adds a manuscript folder with a Quarto manuscript to start from.",
+  "category": "outputs",
+  "language": [
+    "r",
+    "python"
+  ],
+  "requires": [
+    "quarto"
+  ],
+  "conflicts": [],
+  "layer": {
+    "extra_directories": {
+      "manuscript": {
+        "label": "Manuscript",
+        "path": "manuscript"
+      }
+    },
+    "files": {
+      "manuscript/manuscript.qmd": {
+        "template": true,
+        "content": "---\ntitle: \"Untitled manuscript\"\nauthor: \"{{author}}\"\nformat:\n  html: default\n  docx: default\nbibliography: references.bib\n---\n\n## Introduction\n\n## Methods\n\n## Results\n\n## Discussion\n"
+      },
+      "manuscript/references.bib": {
+        "content": ""
+      }
+    },
+    "tools": {
+      "quarto_manuscript": true
+    }
+  },
+  "language_layers": {}
+}

@@ -232,3 +232,40 @@ test_that("registering a new project tells the cloud it is an R project", {
   expect_identical(sent$method, "POST")
   expect_identical(sent$body$language, "r")
 })
+
+test_that("tools, settings_layout, and core_files decide what is created, not the type", {
+  skip_on_cran()
+  env <- environment()
+  create <- function(layers) {
+    dir <- withr::local_tempdir(.local_envir = env)
+    dir.create(file.path(dir, ".framework"))
+    suppressMessages(project_create_from_layers(write_layers(dir, layers), path = dir, interactive = FALSE))
+    dir
+  }
+
+  # Framework's project structure: split settings and Quarto on, recorded in settings.yml
+  dir <- create(list(list(kind = "base", key = "project", layer = list(type = "project"))))
+  expect_true(file.exists(file.path(dir, "settings", "packages.yml")))
+  expect_true(file.exists(file.path(dir, "_quarto.yml")))
+  settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
+  expect_true(settings$tools$quarto)
+  expect_false(settings$tools$renv)
+
+  # The same structure with Quarto off and a flat settings file
+  dir <- create(list(
+    list(kind = "base", key = "project", layer = list(type = "project", settings_layout = "flat")),
+    list(kind = "project", layer = list(tools = list(quarto = FALSE)))
+  ))
+  expect_false(file.exists(file.path(dir, "_quarto.yml")))
+  expect_false(dir.exists(file.path(dir, "settings")))
+  expect_false(yaml::read_yaml(file.path(dir, "settings.yml"))$default$tools$quarto)
+
+  # A blueprint's own label, with its own folders and no core files
+  dir <- create(list(list(kind = "base", key = "ada/lab", layer = list(
+    type = "lab_pipeline", core_files = FALSE, directories = list(raw = "raw")
+  ))))
+  expect_true(dir.exists(file.path(dir, "raw")))
+  expect_false(file.exists(file.path(dir, "scaffold.R")))
+  expect_false(file.exists(file.path(dir, ".env")))
+  expect_identical(yaml::read_yaml(file.path(dir, "settings.yml"))$default$project_type, "lab_pipeline")
+})

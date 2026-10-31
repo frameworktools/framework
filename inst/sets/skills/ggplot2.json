@@ -1,0 +1,26 @@
+{
+  "id": "ggplot2",
+  "name": "ggplot2",
+  "description": "Exploratory and publication figures with ggplot2.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "skills": {
+      "ggplot2-exploring": {
+        "package": true
+      },
+      "ggplot2-publishing": {
+        "package": true
+      }
+    },
+    "packages": {
+      "default_packages": {
+        "ggplot2": {
+          "source": "cran",
+          "auto_attach": true
+        }
+      }
+    }
+  }
+}

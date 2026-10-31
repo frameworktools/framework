@@ -21,7 +21,9 @@
   render_dirs = NULL,
   quarto = NULL,
   security = NULL,
-  data_hooks = NULL
+  data_hooks = NULL,
+  tools = NULL,
+  settings_layout = NULL
 )
 }
 \description{

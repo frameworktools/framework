@@ -1,5 +1,22 @@
 # framework (development version)
 
+* Projects created from layers (framework.pub and
+  `project_create_from_layers()`) follow the spec's settings instead of its
+  type name. `settings_layout` picks split or single settings files,
+  `core_files: false` skips the starter files and `.env`, and
+  `tools.quarto` decides whether Quarto configuration is written.
+  `tools.renv` turns on renv, with `packages.use_renv` as its older name.
+  Any lowercase type label works, and new projects record their tools in
+  `settings.yml`
+* `save_table()`, `save_figure()`, `save_model()`, `save_report()`, and
+  `save_notebook()` split private and public output folders when sensitive
+  data is on or the project lists `outputs_private_*` folders, whatever its
+  type
+* Framework's tools (`quarto`, `quarto_manuscript`, `quarto_slides`,
+  `targets`, `renv`, `jupyter`, and `uv`) are defined in `inst/features/`,
+  and its skill sets (`framework`, `ggplot2`) and package set
+  (`tidyverse-analysis`) in `inst/sets/`, for framework.pub, framework-py,
+  and fw to copy
 * The project spec and layer schemas (`inst/schema/`) accept any lowercase
   id as `type`, which is now a label for the blueprint a project came from.
   Two optional fields are new: `tools`, a map of tool id to true or false

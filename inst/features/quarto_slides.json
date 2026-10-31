@@ -1,0 +1,29 @@
+{
+  "id": "quarto_slides",
+  "name": "Quarto slides",
+  "description": "Adds a slides folder that renders with Quarto RevealJS.",
+  "category": "outputs",
+  "language": [
+    "r",
+    "python"
+  ],
+  "requires": [
+    "quarto"
+  ],
+  "conflicts": [],
+  "layer": {
+    "extra_directories": {
+      "slides": {
+        "label": "Slides",
+        "path": "slides"
+      }
+    },
+    "render_dirs": {
+      "slides": "outputs/slides"
+    },
+    "tools": {
+      "quarto_slides": true
+    }
+  },
+  "language_layers": {}
+}

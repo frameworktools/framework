@@ -353,11 +353,14 @@ project_create <- function(
   render_dirs = NULL,
   quarto = NULL,
   security = NULL,
-  data_hooks = NULL
+  data_hooks = NULL,
+  tools = NULL,
+  settings_layout = NULL
 ) {
-  # For project and project_sensitive types, use split settings files
-  # For presentation and course, use single settings.yml file
-  use_split_files <- type %in% c("project", "project_sensitive")
+  # Split settings files for project and project_sensitive by default, a
+  # single settings.yml for the rest; a spec's settings_layout decides
+  use_split_files <- identical(settings_layout %||% .spec_default_settings_layout(type), "split")
+  if (!is.null(packages) && !is.null(tools$renv)) packages$use_renv <- isTRUE(tools$renv)
 
   if (use_split_files) {
     # Ensure settings directory exists
@@ -369,6 +372,7 @@ project_create <- function(
       default = list(
         project_name = name,
         project_type = type,
+        tools = if (length(tools) > 0) tools else NULL,
 
         # Directory configuration (inline for discoverability)
         directories = directories,
@@ -436,6 +440,7 @@ project_create <- function(
       default = list(
         project_name = name,
         project_type = type,
+        tools = if (length(tools) > 0) tools else NULL,
 
         # Author information
         author = .author_normalize(author),
