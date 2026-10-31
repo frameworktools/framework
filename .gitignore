@@ -82,3 +82,6 @@ _rendered/
 .history
 .aws
 .config
+# testthat failure snapshots
+tests/testthat/_problems/
+tests/testthat/testthat-problems.rds
