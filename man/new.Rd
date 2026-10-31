@@ -20,8 +20,8 @@ new(
 \item{location}{Directory path where project will be created. If NULL (default),
 prompts interactively.}
 
-\item{type}{Project type. One of "project" (default), "project_sensitive",
-"course", or "presentation".}
+\item{type}{Project type: one of Framework's structures, "project"
+(default), "project_sensitive", "course", "presentation", or "bare".}
 
 \item{browse}{Whether to open the project folder after creation (default: TRUE in
 interactive sessions)}
@@ -35,7 +35,7 @@ definition is fetched from the cloud (as with \code{setup("fw_...")}) and
 Defaults to \code{FW_CLOUD_URL}, then the server you last logged in to with
 \code{\link[=cloud_login]{cloud_login()}}, then \url{https://framework.pub}.}
 
-\item{...}{Additional arguments passed to `project_}
+\item{...}{Ignored, with a warning.}
 }
 \value{
 Invisibly returns the result from \code{project_create()}

@@ -4,7 +4,7 @@
 \alias{.generate_project_type_section}
 \title{Generate project-type specific section}
 \usage{
-.generate_project_type_section(project_type)
+.generate_project_type_section(project_type, sensitive = FALSE)
 }
 \description{
 Generate project-type specific section

@@ -1,5 +1,17 @@
 # framework (development version)
 
+* `new()` and `new_project()` build projects the same way framework.pub
+  does: the user's settings, the structure, then tools and sets, resolved
+  into one spec. New `tools`, `package_sets`, and `skill_sets` arguments
+  turn on tools (a tool's requirements are added, with a message) and add
+  Framework's sets, for example
+  `new_project("study", "~/study", tools = "targets", package_sets = "tidyverse-analysis")`.
+  Any lowercase id works as `type`. Extra arguments are ignored with a
+  warning
+* Every new project's AGENTS.md is the full guide generated from its
+  settings, including projects from framework.pub, which used to get a
+  short stub. The skills table lists the skills actually installed, and
+  sensitive projects name the folders agents must not read
 * Projects created from layers (framework.pub and
   `project_create_from_layers()`) follow the spec's settings instead of its
   type name. `settings_layout` picks split or single settings files,

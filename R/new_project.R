@@ -7,11 +7,22 @@
 #' @param name Project name. If NULL (default), prompts interactively.
 #' @param location Directory path where project will be created. If NULL (default),
 #'   prompts interactively.
-#' @param type Project type. One of "project" (default), "project_sensitive",
-#'   "course", or "presentation".
+#' @param type Project type: one of Framework's structures, "project"
+#'   (default), "project_sensitive", "course", "presentation", or "bare".
+#' @param tools Tools to turn on, such as `"quarto"`, `"quarto_slides"`,
+#'   `"targets"`, `"renv"`, or `"jupyter"`: a character vector, or a named
+#'   logical that can also turn a structure's tool off, as in
+#'   `c(quarto = FALSE, targets = TRUE)`. Tools a tool needs are added. NULL
+#'   (default) keeps the structure's tools: Quarto for every structure except
+#'   bare.
+#' @param package_sets Character vector of package sets to add, such as
+#'   `"tidyverse-analysis"`.
+#' @param skill_sets Character vector of AI skill sets to install, such as
+#'   `"framework"` and `"ggplot2"`. NULL (default) installs both. A
+#'   sensitive project also gets the sensitive-data skill.
 #' @param browse Whether to open the project folder after creation (default: TRUE in
 #'   interactive sessions)
-#' @param ... Additional arguments passed to `project_
+#' @param ... Ignored, with a warning.
 #'
 #' @return Invisibly returns the result from `project_create()` (list with success,
 #'   path, and project_id)
@@ -49,7 +60,8 @@
 #' }
 #'
 #' @export
-new_project <- function(name = NULL, location = NULL, type = "project", browse = interactive(), ...) {
+new_project <- function(name = NULL, location = NULL, type = "project", browse = interactive(),
+                        tools = NULL, package_sets = NULL, skill_sets = NULL, ...) {
   # Check global config exists
   config_dir <- fw_config_dir()
   settings_path <- file.path(config_dir, "settings.yml")
@@ -94,10 +106,19 @@ new_project <- function(name = NULL, location = NULL, type = "project", browse =
 
   location <- path.expand(location)
 
-  # Validate type
-  valid_types <- c("project", "project_sensitive", "course", "presentation", "bare")
-  if (!type %in% valid_types) {
-    stop("Invalid project type. Must be one of: ", paste(valid_types, collapse = ", "))
+  # Framework's five structures, or any blueprint label (lowercase id)
+  checkmate::assert_string(type, pattern = "^[a-z][a-z0-9_]*$")
+  checkmate::assert(
+    checkmate::check_character(tools, null.ok = TRUE),
+    checkmate::check_logical(tools, names = "unique", any.missing = FALSE),
+    checkmate::check_list(tools, types = "logical", names = "unique"),
+    .var.name = "tools"
+  )
+  checkmate::assert_character(package_sets, null.ok = TRUE)
+  checkmate::assert_character(skill_sets, null.ok = TRUE)
+  if (length(list(...)) > 0) {
+    warning("Ignoring extra arguments to new_project(): ", paste(names(list(...)), collapse = ", "),
+            call. = FALSE)
   }
 
   # Build arguments from global config
@@ -106,45 +127,21 @@ new_project <- function(name = NULL, location = NULL, type = "project", browse =
   # Cloud blueprint (opinionated offering) overrides structure and AI masters
   # when a token is present; offline this is a no-op
   blueprint <- .fw_cloud_blueprint_quietly(type)
-  render_dirs <- NULL
-  quarto <- NULL
-  if (!is.null(blueprint)) {
-    .fw_blueprint_stash(blueprint)
-    on.exit(.fw_blueprint_clear(), add = TRUE)
 
-    structure <- blueprint$structure %||% list()
-    if (length(structure$directories %||% list()) > 0) {
-      args$directories <- structure$directories
-    }
-    if (length(structure$render_dirs %||% list()) > 0) {
-      render_dirs <- structure$render_dirs
-    }
-    if (!is.null(structure$quarto$render_dir)) {
-      quarto <- list(render_dir = structure$quarto$render_dir)
-    }
-  }
+  layers <- .new_project_layers(args, type, blueprint, tools, package_sets, skill_sets)
+  spec <- spec_resolve(layers, name = name, author = args$author)
+  spec$source <- list(origin = "r", framework_version = as.character(utils::packageVersion("framework")))
 
   message("Creating ", type, " project: ", name)
   message("Location: ", location)
 
-  # Create the project
-  result <- project_create(
-    name = name,
-    location = location,
-    type = type,
-    author = args$author,
-    packages = args$packages,
-    directories = args$directories,
-    extra_directories = list(),
-    ai = args$ai,
-    git = args$git,
-    scaffold = args$scaffold,
-    connections = args$connections,
-    env = args$env,
-    render_dirs = render_dirs,
-    quarto = quarto,
-    ...
-  )
+  result <- .project_create_from_spec(spec, location)
+
+  # The user's own .env, comments and values included. It stays on this
+  # machine, so it never goes through the spec, which can't carry secrets
+  if (isTRUE(result$success) && .spec_core_files(spec) && !is.null(args$env)) {
+    .create_env_file(result$path, args$env)
+  }
 
   # Register on Framework Cloud and store the project key (non-bare only:
   # bare projects have no .env to hold the secret)
@@ -306,6 +303,95 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
     }
   }
   new_project(name = name, location = location, type = type, browse = browse, ...)
+}
+
+# The layers new_project() resolves: the user's settings, the structure,
+# an older cloud blueprint when one is found, then tools and sets. Package
+# defaults come first inside spec_resolve().
+#' @keywords internal
+.new_project_layers <- function(args, type, blueprint = NULL, tools = NULL,
+                                package_sets = NULL, skill_sets = NULL) {
+  defaults <- .spec_package_defaults(type)
+  # The user's lists replace the package's: anything the user removed from
+  # their packages or directories is removed here too
+  replace <- function(user, default) {
+    out <- user
+    for (key in setdiff(names(default), names(user))) out[key] <- list(NULL)
+    out
+  }
+
+  packages <- list()
+  for (pkg in args$packages$default_packages %||% list()) {
+    if (is.character(pkg)) pkg <- list(name = pkg)
+    if (is.null(pkg$name)) next
+    packages[[pkg$name]] <- list(source = pkg$source %||% "cran", auto_attach = isTRUE(pkg$auto_attach))
+  }
+  assistants <- list()
+  for (a in unlist(args$ai$assistants)) assistants[[a]] <- TRUE
+
+  user <- list(
+    packages = list(use_renv = isTRUE(args$packages$use_renv),
+                    default_packages = replace(packages, defaults$packages$default_packages)),
+    ai = list(enabled = isTRUE(args$ai$enabled), assistants = replace(assistants, defaults$ai$assistants)),
+    git = list(use_git = isTRUE(args$git$use_git), hooks = args$git$hooks %||% list()),
+    scaffold = Filter(Negate(is.null), args$scaffold)
+  )
+  if (length(args$packages$default_packages) == 0) user$packages$default_packages <- NULL
+  if (length(args$directories) > 0 && !identical(type, "bare")) {
+    user$directories <- replace(args$directories, defaults$directories)
+  }
+  if (!is.null(args$connections)) {
+    user$connections <- .spec_connections_from_settings(args$connections)
+  }
+  if (isTRUE(args$packages$use_renv)) user$tools <- list(renv = TRUE)
+
+  layers <- list(
+    list(kind = "settings", key = "user", layer = user),
+    list(kind = "base", key = type, layer = list(type = type))
+  )
+
+  if (!is.null(blueprint)) {
+    structure <- blueprint$structure %||% list()
+    bp <- list()
+    if (length(structure$directories) > 0) bp$directories <- replace(structure$directories, defaults$directories)
+    if (length(structure$render_dirs) > 0) bp$render_dirs <- structure$render_dirs
+    if (!is.null(structure$quarto$render_dir)) bp$quarto <- list(render_dir = structure$quarto$render_dir)
+    if (length(blueprint$skills) > 0) {
+      bp$skills <- lapply(blueprint$skills, function(content) list(content = content))
+    }
+    layers <- c(layers, list(list(kind = "blueprint", key = type, layer = bp)))
+  }
+
+  # tools is a vector of ids to turn on, or a named logical that can also
+  # turn a structure's tool off, as in framework-py
+  off <- character()
+  if (!is.character(tools) && !is.null(tools)) {
+    flags <- unlist(tools)
+    off <- names(flags)[!flags]
+    tools <- names(flags)[flags]
+  }
+  # Skill sets replace the default skills when given
+  sets_layers <- .fw_definition_layers(tools = tools %||% character(),
+                                       package_sets = package_sets %||% character(),
+                                       skill_sets = skill_sets %||% character())
+  if (!is.null(skill_sets)) {
+    drop <- setdiff(names(defaults$skills), "framework-sensitive-data")
+    layers <- c(layers, list(list(kind = "settings", key = "skill sets",
+                                  layer = list(skills = stats::setNames(rep(list(NULL), length(drop)), drop)))))
+  }
+  layers <- c(layers, sets_layers)
+  if (length(off) > 0) {
+    unknown <- setdiff(off, names(.fw_features()))
+    if (length(unknown) > 0) stop("Unknown tool(s): ", paste(unknown, collapse = ", "), call. = FALSE)
+    on <- .fw_resolve_tools(tools %||% character())
+    needed <- intersect(off, unlist(lapply(.fw_features()[on], function(f) unlist(f$requires))))
+    if (length(needed) > 0) {
+      stop("Can't turn off ", paste(needed, collapse = ", "), ": another tool you chose needs it.", call. = FALSE)
+    }
+    layers <- c(layers, list(list(kind = "facet", key = "framework/tools-off",
+                                  layer = list(tools = stats::setNames(as.list(rep(FALSE, length(off))), off)))))
+  }
+  layers
 }
 
 # Map a (possibly cloud-overlaid) global config to project_create() arguments.

@@ -1,6 +1,6 @@
 {
   "id": "tidyverse-analysis",
-  "name": "tidyverse analysis",
+  "name": "Tidyverse analysis",
   "description": "The tidyverse packages most analyses use, loaded by scaffold().",
   "language": [
     "r"

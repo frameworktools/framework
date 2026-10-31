@@ -12,6 +12,8 @@ new()                            # Create new Framework project (interactive)
 new("my-project", "~/projects/my-project", type = "project")  # Standard project
 new_course("stats-101", "~/projects/stats-101")               # Course
 new_presentation("talk", "~/projects/talk")                   # Presentation
+new_project("study", "~/projects/study", tools = c("targets", "renv"),
+            package_sets = "tidyverse-analysis")              # With tools and package sets
 new(key = "1|fw_...")              # Project defined on Framework Cloud
 bootstrap()                      # Prepare a cloned project (.env, folders, packages, hooks)
 scaffold()                       # Load project environment (use in notebooks)

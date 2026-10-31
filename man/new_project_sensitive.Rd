@@ -20,7 +20,7 @@ prompts interactively.}
 \item{browse}{Whether to open the project folder after creation (default: TRUE in
 interactive sessions)}
 
-\item{...}{Additional arguments passed to `project_}
+\item{...}{Ignored, with a warning.}
 }
 \value{
 Invisibly returns the result from \code{project_create()}

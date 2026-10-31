@@ -9,6 +9,9 @@ new_project(
   location = NULL,
   type = "project",
   browse = interactive(),
+  tools = NULL,
+  package_sets = NULL,
+  skill_sets = NULL,
   ...
 )
 }
@@ -18,13 +21,27 @@ new_project(
 \item{location}{Directory path where project will be created. If NULL (default),
 prompts interactively.}
 
-\item{type}{Project type. One of "project" (default), "project_sensitive",
-"course", or "presentation".}
+\item{type}{Project type: one of Framework's structures, "project"
+(default), "project_sensitive", "course", "presentation", or "bare".}
 
 \item{browse}{Whether to open the project folder after creation (default: TRUE in
 interactive sessions)}
 
-\item{...}{Additional arguments passed to `project_}
+\item{tools}{Tools to turn on, such as \code{"quarto"}, \code{"quarto_slides"},
+\code{"targets"}, \code{"renv"}, or \code{"jupyter"}: a character vector, or a named
+logical that can also turn a structure's tool off, as in
+\code{c(quarto = FALSE, targets = TRUE)}. Tools a tool needs are added. NULL
+(default) keeps the structure's tools: Quarto for every structure except
+bare.}
+
+\item{package_sets}{Character vector of package sets to add, such as
+\code{"tidyverse-analysis"}.}
+
+\item{skill_sets}{Character vector of AI skill sets to install, such as
+\code{"framework"} and \code{"ggplot2"}. NULL (default) installs both. A
+sensitive project also gets the sensitive-data skill.}
+
+\item{...}{Ignored, with a warning.}
 }
 \value{
 Invisibly returns the result from \code{project_create()} (list with success,

@@ -147,6 +147,9 @@ ai_skills_update <- function(project_path = ".") {
 }
 
 
+# x unless it is NA (a missing name in a named vector)
+`%|NA|%` <- function(x, y) if (length(x) == 0 || is.na(x)) y else unname(x)
+
 #' Generate the skills index section for AGENTS.md
 #'
 #' Lists installed skills with their paths so agents that don't discover
@@ -155,8 +158,9 @@ ai_skills_update <- function(project_path = ".") {
 #' @param project_type Project type
 #' @return Character string with the skills section content
 #' @keywords internal
-.generate_skills_section <- function(project_type = "project") {
-  skills <- .ai_skills_for_type(project_type)
+.generate_skills_section <- function(project_type = "project", skills = NULL,
+                                     skills_dir = ".claude/skills") {
+  skills <- skills %||% .ai_skills_for_type(project_type)
 
   descriptions <- c(
     "framework-workflow" = "scaffold() initialization, critical rules, creating notebooks/scripts",
@@ -169,8 +173,8 @@ ai_skills_update <- function(project_path = ".") {
   )
 
   rows <- vapply(skills, function(skill) {
-    sprintf("| `%s` | %s | `.claude/skills/%s/SKILL.md` |",
-            skill, descriptions[[skill]] %||% "", skill)
+    sprintf("| `%s` | %s | `%s/%s/SKILL.md` |",
+            skill, descriptions[skill] %|NA|% "", skills_dir, skill)
   }, character(1))
 
   paste(c(

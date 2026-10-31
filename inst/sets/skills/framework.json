@@ -1,6 +1,6 @@
 {
   "id": "framework",
-  "name": "Framework",
+  "name": "Framework basics",
   "description": "How to work in a Framework project: notebooks and scripts, reading and saving data, packages, and outputs.",
   "language": [
     "r",

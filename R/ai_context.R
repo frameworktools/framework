@@ -9,6 +9,10 @@
 #' @param project_name Name of the project (for header)
 #' @param project_type Project type: "project", "project_sensitive", "course", "presentation"
 #' @param config Project configuration (if NULL, reads from settings.yml)
+#' @param skills Character vector of the skills installed in the project, for
+#'   the skills table. NULL lists the default skills for `project_type`.
+#' @param skills_dir Folder the skills are installed in, for the paths in the
+#'   skills table.
 #'
 #' @return Character string with the complete AI context content
 #' @export
@@ -26,7 +30,9 @@
 ai_generate_context <- function(project_path = ".",
                         project_name = NULL,
                         project_type = NULL,
-                        config = NULL) {
+                        config = NULL,
+                        skills = NULL,
+                        skills_dir = ".claude/skills") {
   # Read config if not provided
   if (is.null(config)) {
     config <- tryCatch(
@@ -55,7 +61,7 @@ if (is.null(project_name)) {
   # 2. Skills index (static per type) - detailed instructions live in skills
   sections$skills <- paste0(
     "## Skills\n\n",
-    .generate_skills_section(project_type)
+    .generate_skills_section(project_type, skills = skills, skills_dir = skills_dir)
   )
 
   # 3. Framework Environment (regeneratable) - add heading with marker
@@ -77,7 +83,9 @@ if (is.null(project_name)) {
   )
 
   # 6. Project-type specific content (static per type)
-  sections$type_specific <- .generate_project_type_section(project_type)
+  sections$type_specific <- .generate_project_type_section(
+    project_type, sensitive = isTRUE(config$security$sensitive)
+  )
 
   # 7. Project Notes (user-editable, never touched)
   sections$notes <- .generate_notes_section()
@@ -535,7 +543,9 @@ make_script("data-processing")        # Creates scripts/data-processing.R
 
 #' Generate project-type specific section
 #' @keywords internal
-.generate_project_type_section <- function(project_type) {
+.generate_project_type_section <- function(project_type, sensitive = FALSE) {
+  # Sensitive data is a setting, whatever structure the project uses
+  if (isTRUE(sensitive)) project_type <- "project_sensitive"
   switch(project_type,
     "project_sensitive" = '## Privacy Requirements
 

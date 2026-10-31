@@ -29,7 +29,9 @@ test_that("every tool and set definition is well formed", {
 })
 
 test_that("tools bring what they require and respect the language", {
-  expect_identical(framework:::.fw_resolve_tools("quarto_slides"), c("quarto", "quarto_slides"))
+  expect_message(tools <- framework:::.fw_resolve_tools("quarto_slides"), "Also turning on quarto")
+  expect_identical(tools, c("quarto", "quarto_slides"))
+  expect_silent(framework:::.fw_resolve_tools(c("quarto", "quarto_slides")))
   expect_error(framework:::.fw_resolve_tools("uv"), "isn't available for r")
   expect_error(framework:::.fw_resolve_tools("pants"), "Unknown tool")
 

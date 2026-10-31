@@ -8,7 +8,9 @@ ai_generate_context(
   project_path = ".",
   project_name = NULL,
   project_type = NULL,
-  config = NULL
+  config = NULL,
+  skills = NULL,
+  skills_dir = ".claude/skills"
 )
 }
 \arguments{
@@ -19,6 +21,12 @@ ai_generate_context(
 \item{project_type}{Project type: "project", "project_sensitive", "course", "presentation"}
 
 \item{config}{Project configuration (if NULL, reads from settings.yml)}
+
+\item{skills}{Character vector of the skills installed in the project, for
+the skills table. NULL lists the default skills for \code{project_type}.}
+
+\item{skills_dir}{Folder the skills are installed in, for the paths in the
+skills table.}
 }
 \value{
 Character string with the complete AI context content

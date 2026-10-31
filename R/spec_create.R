@@ -266,7 +266,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   targets <- .spec_assistant_targets(spec)
 
   if (identical(spec$ai$agents_md, "stub") && !"AGENTS.md" %in% names(spec$files)) {
-    .spec_write_text(project_dir, "AGENTS.md", .spec_agents_md_stub(spec))
+    .spec_write_text(project_dir, "AGENTS.md", .spec_agents_md(project_dir, spec, targets$skills_dirs[1]))
     message("  Created: AGENTS.md")
   }
   for (stub in targets$stubs) {
@@ -302,6 +302,34 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   }
 }
 
+# The full guide, generated from the settings just written; the short stub
+# if that fails
+.spec_agents_md <- function(project_dir, spec, skills_dir) {
+  config <- tryCatch(settings_read(file.path(project_dir, "settings.yml")), error = function(e) NULL)
+  content <- if (!is.null(config)) {
+    tryCatch(
+      ai_generate_context(project_dir, project_name = spec$name, project_type = spec$type,
+                          config = config, skills = names(spec$skills), skills_dir = skills_dir),
+      error = function(e) NULL
+    )
+  }
+  if (is.null(content)) {
+    return(.spec_agents_md_stub(spec))
+  }
+  # Name the folders agents must stay out of, right after the header
+  if (isTRUE(spec$security$sensitive)) {
+    content <- sub("\n## Skills", paste0("\n", .spec_restricted_notice(spec), "\n\n## Skills"), content, fixed = FALSE)
+  }
+  content
+}
+
+.spec_restricted_notice <- function(spec) {
+  sprintf(
+    "This project holds restricted data. Do not read or print files in %s. Work from the data dictionary and simulated data instead.",
+    paste0("`", .spec_restricted_paths(spec), "`", collapse = ", ")
+  )
+}
+
 .spec_agents_md_stub <- function(spec) {
   lines <- c(
     sprintf("# %s", spec$name),
@@ -311,12 +339,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     "Start every notebook and script with `framework::scaffold()`. It loads the project's settings, packages, and functions."
   )
   if (isTRUE(spec$security$sensitive)) {
-    lines <- c(lines, "",
-      sprintf(
-        "This project holds restricted data. Do not read or print files in %s. Work from the data dictionary and simulated data instead.",
-        paste0("`", .spec_restricted_paths(spec), "`", collapse = ", ")
-      )
-    )
+    lines <- c(lines, "", .spec_restricted_notice(spec))
   }
   c(lines, "", "## Project Notes", "")
 }

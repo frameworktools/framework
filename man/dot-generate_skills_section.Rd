@@ -4,7 +4,11 @@
 \alias{.generate_skills_section}
 \title{Generate the skills index section for AGENTS.md}
 \usage{
-.generate_skills_section(project_type = "project")
+.generate_skills_section(
+  project_type = "project",
+  skills = NULL,
+  skills_dir = ".claude/skills"
+)
 }
 \arguments{
 \item{project_type}{Project type}

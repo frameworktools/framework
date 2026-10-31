@@ -1,6 +1,6 @@
 {
   "id": "ggplot2",
-  "name": "ggplot2",
+  "name": "Figures with ggplot2",
   "description": "Exploratory and publication figures with ggplot2.",
   "language": [
     "r"

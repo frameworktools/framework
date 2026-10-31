@@ -37,6 +37,11 @@
     wanted <<- c(wanted, id)
   }
   for (id in tools) add(id)
+  added <- setdiff(wanted, tools)
+  if (length(added) > 0) {
+    message("Also turning on ", paste(added, collapse = ", "), ", which ",
+            paste(intersect(tools, wanted), collapse = ", "), " needs.")
+  }
   for (id in wanted) {
     if (!language %in% unlist(features[[id]]$language)) {
       stop("The ", features[[id]]$name, " tool isn't available for ", language, " projects.", call. = FALSE)

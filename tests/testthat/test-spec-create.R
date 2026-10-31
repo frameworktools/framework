@@ -89,7 +89,9 @@ test_that("skills and stubs follow the selected assistants", {
 
   agents <- readLines(file.path(dir, "AGENTS.md"))
   expect_true("# My Study" %in% agents)
-  expect_true(any(grepl("framework::scaffold()", agents, fixed = TRUE)))
+  expect_true(any(grepl("scaffold()", agents, fixed = TRUE)))
+  expect_true(any(grepl("| `framework-sensitive-data` |", agents, fixed = TRUE)))
+  expect_true(any(grepl("## Privacy Requirements", agents, fixed = TRUE)))
   expect_true(any(grepl("`inputs/private/`", agents, fixed = TRUE)))
   expect_true("## Project Notes" %in% agents)
 })
