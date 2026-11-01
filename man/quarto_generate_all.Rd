@@ -30,6 +30,10 @@ quarto_generate_all(
 List with success status and paths of generated files
 }
 \description{
-Main entry point for generating all \verb{_quarto.yml} files in a project.
-Generates root config and directory-specific configs based on project type.
+Main entry point for a project's Quarto configuration. Writes one root
+\verb{_quarto.yml} with the shared settings and an output folder that keeps
+each render folder's path (notebooks/ renders to outputs/notebooks/). A
+folder that needs its own format, such as a course's slides/, gets a
+\verb{_metadata.yml}, which inherits from the root. A render target outside the
+shared output folder keeps its own \verb{_quarto.yml}.
 }

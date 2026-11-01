@@ -1,0 +1,89 @@
+{
+  "description": "Bare structure: folders and settings.do only, no do-files, .env, or AI files.",
+  "language": "stata",
+  "layers": [
+    {
+      "kind": "base",
+      "key": "bare",
+      "layer": {
+        "core_files": false,
+        "type": "bare"
+      }
+    },
+    {
+      "kind": "facet",
+      "key": "framework/workflow-scripts",
+      "layer": {
+        "scaffold": {
+          "notebook_format": "script",
+          "workflow": "scripts"
+        },
+        "tools": {
+          "jupyter": false,
+          "quarto": false
+        }
+      }
+    },
+    {
+      "kind": "project",
+      "key": "choices",
+      "layer": {
+        "git": {
+          "use_git": false
+        },
+        "language": "stata"
+      }
+    }
+  ],
+  "spec": {
+    "ai": {
+      "agents_md": "stub",
+      "assistants": {
+        "claude": true
+      },
+      "enabled": true
+    },
+    "author": {
+      "affiliation": "",
+      "email": "ada@example.org",
+      "name": "Ada Analyst"
+    },
+    "core_files": false,
+    "data_hooks": {},
+    "directories": {},
+    "env": {},
+    "extra_directories": {},
+    "files": {},
+    "git": {
+      "gitignore_content": "# Framework Stata project\n# Data files stay out of git. Do-files, settings.do, and documentation are\n# committed; data and logs are not.\n\n# Stata data and session files\n*.dta\n*.log\n*.smcl\n*.stswp\n\n# Private data, anywhere in the project\n**/private/**\n**/*_private/**\n\n# Secrets and credentials\n.env\n.env.*\n!.env.example\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n\n# Logs, cache, and scratch work\n**/logs/**\n**/cache/**\n**/scratch/**\n**/tmp/**\nslurm-*.out\n\n# System files\n.DS_Store\nThumbs.db\n*~\n*.tmp\n*.bak\n",
+      "hooks": {},
+      "use_git": false
+    },
+    "language": "stata",
+    "name": "Fixture Study",
+    "scaffold": {
+      "notebook_format": "script",
+      "seed": "",
+      "seed_on_scaffold": false,
+      "workflow": "scripts"
+    },
+    "security": {
+      "sensitive": false
+    },
+    "skills": {},
+    "spec_version": 1,
+    "tools": {
+      "jupyter": false,
+      "quarto": false
+    },
+    "type": "bare"
+  },
+  "expected": {
+    "paths": [
+      ".framework/",
+      ".framework/spec.json",
+      ".gitignore",
+      "settings.do"
+    ]
+  }
+}

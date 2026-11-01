@@ -16,7 +16,9 @@
 #' @param type Character. File type: "quarto", "rmarkdown", "script", or
 #'   "jupyter" (an .ipynb for the R kernel). Auto-detected from extension if
 #'   provided. If NULL (default):
-#'   1. Checks config `default_notebook_format` (or legacy `options$default_notebook_format`)
+#'   1. Checks the project's `scaffold.notebook_format` (or legacy
+#'      `default_notebook_format` and `options$default_notebook_format`),
+#'      ignoring "quarto" when the project turned the Quarto tool off
 #'   2. Falls back to "quarto", unless the project turned the Quarto tool
 #'      off: then "jupyter" when the Jupyter tool is on, "rmarkdown" when
 #'      rmarkdown is installed, and "script" otherwise
@@ -96,12 +98,24 @@ make_notebook <- function(name,
   if (is.null(type)) {
     cfg <- tryCatch(settings_read(), error = function(e) NULL)
 
-    default_format <- cfg$options$default_notebook_format %||% cfg$default_notebook_format
+    # New projects keep it under scaffold:; older ones under options: or at
+    # the top level
+    default_format <- .scaffold_notebook_format(cfg$scaffold) %||%
+      cfg$options$default_notebook_format %||%
+      cfg$default_notebook_format
+    # Projects record "quarto" by default, even with the Quarto tool off
+    if (identical(default_format, "quarto") && isFALSE(cfg$tools$quarto)) {
+      default_format <- NULL
+    }
 
     if (!is.null(default_format)) {
       type <- match.arg(default_format, c("quarto", "rmarkdown", "script", "jupyter"))
     } else {
       type <- .default_notebook_type(cfg)
+    }
+    # Scripts-only projects keep scripts where make_script() puts them
+    if (identical(type, "script") && is.null(dir)) {
+      dir <- .get_script_dir_from_config()
     }
   } else {
     # Validate explicit type
@@ -282,6 +296,18 @@ make_notebook <- function(name,
   content
 }
 
+
+# The notebook formats each workflow allows in R. The first is the default.
+#' @keywords internal
+.workflow_notebook_formats <- function() {
+  list(quarto = c("quarto", "rmarkdown"), jupyter = "jupyter", scripts = "script")
+}
+
+# A project's notebook format: its own setting, else its workflow's default
+#' @keywords internal
+.scaffold_notebook_format <- function(scaffold) {
+  scaffold$notebook_format %||% .workflow_notebook_formats()[[scaffold$workflow %||% ""]][1]
+}
 
 # The notebook kind for a project: Quarto unless the project turned the
 # Quarto tool off. Then Jupyter when that tool is on, R Markdown when

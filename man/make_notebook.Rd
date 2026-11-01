@@ -26,7 +26,9 @@ Examples: \code{1-init}, \code{1-init.qmd}, \code{analysis.Rmd}, \code{script.R}
 "jupyter" (an .ipynb for the R kernel). Auto-detected from extension if
 provided. If NULL (default):
 \enumerate{
-\item Checks config \code{default_notebook_format} (or legacy \code{options$default_notebook_format})
+\item Checks the project's \code{scaffold.notebook_format} (or legacy
+\code{default_notebook_format} and \code{options$default_notebook_format}),
+ignoring "quarto" when the project turned the Quarto tool off
 \item Falls back to "quarto", unless the project turned the Quarto tool
 off: then "jupyter" when the Jupyter tool is on, "rmarkdown" when
 rmarkdown is installed, and "script" otherwise

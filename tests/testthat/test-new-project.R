@@ -67,6 +67,41 @@ test_that("make_notebook() follows the tools when Quarto is off", {
   expect_true("IRkernel" %in% vapply(settings_read()$packages$default_packages, `[[`, "", "name"))
 })
 
+test_that("make_notebook() reads the project's scaffold.notebook_format", {
+  dir <- local_new()
+  withr::local_dir(dir)
+  scaffold_file <- file.path("settings", "scaffold.yml")
+  settings <- yaml::read_yaml(scaffold_file)
+  settings$scaffold$notebook_format <- "jupyter"
+  yaml::write_yaml(settings, scaffold_file)
+  path <- suppressMessages(make_notebook("First look"))
+  expect_match(path, "first-look\\.ipynb$")
+
+  expect_no_error(spec_resolve(list(list(scaffold = list(workflow = "jupyter", notebook_format = "jupyter"))), name = "Jupyter"))
+})
+
+test_that("scaffold.workflow must fit the notebook format", {
+  resolve <- function(scaffold) spec_resolve(list(list(scaffold = scaffold)), name = "W")
+  expect_no_error(resolve(list(workflow = "quarto", notebook_format = "rmarkdown")))
+  expect_no_error(resolve(list(workflow = "scripts", notebook_format = "script")))
+  expect_no_error(resolve(list(workflow = "jupyter")))
+  expect_error(resolve(list(workflow = "scripts", notebook_format = "quarto")), "does not fit the scripts workflow")
+  expect_error(resolve(list(workflow = "jupyter", notebook_format = "rmarkdown")), "does not fit the jupyter workflow")
+  expect_error(resolve(list(workflow = "marimo")), "must be quarto, jupyter, or scripts")
+})
+
+test_that("a Scripts-only project makes R scripts in its scripts folder", {
+  dir <- local_new()
+  withr::local_dir(dir)
+  scaffold_file <- file.path("settings", "scaffold.yml")
+  settings <- yaml::read_yaml(scaffold_file)
+  settings$scaffold$notebook_format <- NULL
+  settings$scaffold$workflow <- "scripts"
+  yaml::write_yaml(settings, scaffold_file)
+  path <- suppressMessages(make_notebook("Clean data"))
+  expect_identical(path, file.path("scripts", "clean-data.R"))
+})
+
 test_that("the Jupyter kernel step is only offered", {
   withr::local_options(rlang_interactive = FALSE)
   expect_message(res <- framework:::.offer_jupyter_kernel(), "installspec")

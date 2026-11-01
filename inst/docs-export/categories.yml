@@ -105,12 +105,15 @@ Project Management:
     - new_presentation
     - new_course
     - bootstrap
+    - adopt
   functions:
     - new
     - new_project
     - new_project_sensitive
     - new_presentation
     - new_course
+    - adopt
+    - structure_import
     - project_list
     - project_info
     - status

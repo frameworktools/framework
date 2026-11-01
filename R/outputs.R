@@ -482,10 +482,14 @@ save_report <- function(file, name = NULL, public = FALSE, overwrite = TRUE, mov
 
 #' Save a rendered notebook to the outputs directory
 #'
-#' Renders a Quarto or R Markdown notebook and saves the output to the configured
-#' notebooks output directory. The directory is created lazily on first use.
+#' Renders a Quarto, R Markdown, or Jupyter notebook and saves the output to
+#' the configured notebooks output directory. The directory is created lazily
+#' on first use.
 #'
-#' @param file Path to the .qmd or .Rmd file to render
+#' Quarto renders a Jupyter notebook (.ipynb) from the outputs saved in it,
+#' without running its cells, so run the notebook before saving it.
+#'
+#' @param file Path to the .qmd, .Rmd, or .ipynb file to render
 #' @param name Optional new name for the output file (without extension). If NULL,
 #'   uses the original notebook name.
 #' @param format Output format: "html" (default), "pdf", or "docx"
@@ -506,6 +510,9 @@ save_report <- function(file, name = NULL, public = FALSE, overwrite = TRUE, mov
 #' # Save with a custom name
 #' save_notebook("notebooks/analysis.qmd", name = "final_analysis")
 #'
+#' # A Jupyter notebook, rendered from its saved outputs
+#' save_notebook("notebooks/analysis.ipynb")
+#'
 #' # Render to PDF
 #' save_notebook("notebooks/analysis.qmd", format = "pdf")
 #'
@@ -517,7 +524,7 @@ save_report <- function(file, name = NULL, public = FALSE, overwrite = TRUE, mov
 #' @export
 save_notebook <- function(file, name = NULL, format = "html", public = FALSE,
                           overwrite = TRUE, embed_resources = TRUE, ...) {
-  checkmate::assert_file_exists(file, extension = c("qmd", "Qmd", "QMD", "rmd", "Rmd", "RMD"))
+  checkmate::assert_file_exists(file, extension = c("qmd", "Qmd", "QMD", "rmd", "Rmd", "RMD", "ipynb", "IPYNB"))
   checkmate::assert_string(name, min.chars = 1, null.ok = TRUE)
   checkmate::assert_choice(format, c("html", "pdf", "docx"))
   checkmate::assert_flag(public)
@@ -592,7 +599,9 @@ save_notebook <- function(file, name = NULL, format = "html", public = FALSE,
       pdf = "\\.pdf$",
       docx = "\\.docx$"
     )
-    output_files <- list.files(temp_dir, pattern = output_pattern, full.names = TRUE)
+    # Inside a Quarto project the output keeps the notebook's folder
+    # (notebooks/x.qmd renders to <output-dir>/notebooks/x.html)
+    output_files <- list.files(temp_dir, pattern = output_pattern, full.names = TRUE, recursive = TRUE)
 
     if (length(output_files) == 0) {
       cli::cli_abort("No {format} output found after rendering")

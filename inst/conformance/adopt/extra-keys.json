@@ -1,0 +1,32 @@
+{
+  "description": "Extra directory keys: lowercased, runs of other characters as '_', 'dir_' before a leading digit, and numbered on collision.",
+  "folders": [
+    "01 Admin",
+    "Grant Docs",
+    "Grant Docs/Budget 2024",
+    "grant_docs",
+    "IRB"
+  ],
+  "expected": {
+    "directories": {},
+    "extra_directories": {
+      "dir_01_admin": {
+        "label": "01 Admin",
+        "path": "01 Admin"
+      },
+      "grant_docs": {
+        "label": "Grant Docs",
+        "path": "Grant Docs"
+      },
+      "irb": {
+        "label": "IRB",
+        "path": "IRB"
+      },
+      "grant_docs_2": {
+        "label": "grant_docs",
+        "path": "grant_docs"
+      }
+    },
+    "warnings": []
+  }
+}

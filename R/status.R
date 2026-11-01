@@ -54,7 +54,8 @@ status <- function() {
       message(sprintf("  Author: %s", config$author$name))
     }
 
-    notebook_format <- config$default_notebook_format %||% config$options$default_notebook_format
+    notebook_format <- config$scaffold$notebook_format %||% config$default_notebook_format %||%
+      config$options$default_notebook_format
     if (!is.null(notebook_format)) {
       message(sprintf("  Notebook format: %s", notebook_format))
     }

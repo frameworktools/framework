@@ -7,11 +7,13 @@
 new_project(
   name = NULL,
   location = NULL,
-  type = "project",
+  type = NULL,
   browse = interactive(),
   tools = NULL,
   package_sets = NULL,
   skill_sets = NULL,
+  workflow = NULL,
+  offline = FALSE,
   ...
 )
 }
@@ -21,8 +23,10 @@ new_project(
 \item{location}{Directory path where project will be created. If NULL (default),
 prompts interactively.}
 
-\item{type}{Project type: one of Framework's structures, "project"
-(default), "project_sensitive", "course", "presentation", or "bare".}
+\item{type}{Project type: one of Framework's structures, "project",
+"project_sensitive", "course", "presentation", or "bare". NULL (default)
+uses your default blueprint on Framework Cloud when you are signed in,
+and "project" otherwise.}
 
 \item{browse}{Whether to open the project folder after creation (default: TRUE in
 interactive sessions)}
@@ -40,6 +44,19 @@ bare.}
 \item{skill_sets}{Character vector of AI skill sets to install, such as
 \code{"framework"} and \code{"ggplot2"}. NULL (default) installs both. A
 sensitive project also gets the sensitive-data skill.}
+
+\item{workflow}{How notebooks are written: \code{"quarto"}, \code{"jupyter"}
+(Quarto stays on for rendering), or \code{"scripts"} (plain R scripts, no
+notebook tools). NULL (default) keeps your default, or the structure's:
+Quarto for every structure except bare.}
+
+\item{offline}{When you are signed in to Framework Cloud, \code{new_project()}
+sends your choices to it and builds the project it resolves. If the
+cloud can't be reached, your saved cloud defaults are used when you
+made no choices beyond the name. Otherwise an interactive session asks
+before using Framework's built-in defaults, and a non-interactive one
+stops. \code{offline = TRUE} skips the cloud: saved defaults when there are
+any, else the built-ins. Not signed in, the built-ins are used.}
 
 \item{...}{Ignored, with a warning.}
 }

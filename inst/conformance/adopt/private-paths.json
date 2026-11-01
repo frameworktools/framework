@@ -1,0 +1,41 @@
+{
+  "description": "Any path containing 'private', in any case, is a warning.",
+  "folders": [
+    "data",
+    "data/Private",
+    "data/Private/raw",
+    "data/public",
+    "outputs",
+    "outputs/private",
+    "scripts"
+  ],
+  "expected": {
+    "directories": {
+      "scripts": "scripts"
+    },
+    "extra_directories": {
+      "data": {
+        "label": "data",
+        "path": "data"
+      },
+      "outputs": {
+        "label": "outputs",
+        "path": "outputs"
+      }
+    },
+    "warnings": [
+      {
+        "code": "private_path",
+        "path": "data/Private"
+      },
+      {
+        "code": "private_path",
+        "path": "data/Private/raw"
+      },
+      {
+        "code": "private_path",
+        "path": "outputs/private"
+      }
+    ]
+  }
+}

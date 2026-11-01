@@ -1,0 +1,24 @@
+{
+  "description": "Folders inside a matched folder are covered by it; an unmatched folder with its own subfolders is listed once.",
+  "folders": [
+    "inputs",
+    "inputs/raw",
+    "inputs/raw/2024",
+    "inputs/raw/2025",
+    "archive",
+    "archive/2019",
+    "archive/2020"
+  ],
+  "expected": {
+    "directories": {
+      "inputs_raw": "inputs/raw"
+    },
+    "extra_directories": {
+      "archive": {
+        "label": "archive",
+        "path": "archive"
+      }
+    },
+    "warnings": []
+  }
+}

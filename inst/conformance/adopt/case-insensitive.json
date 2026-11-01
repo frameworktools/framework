@@ -1,0 +1,20 @@
+{
+  "description": "Matching ignores case; the folder's own spelling is kept.",
+  "folders": [
+    "Data",
+    "Data/Raw",
+    "Figures",
+    "Scripts",
+    "Docs"
+  ],
+  "expected": {
+    "directories": {
+      "inputs_raw": "Data/Raw",
+      "scripts": "Scripts",
+      "outputs_figures": "Figures",
+      "docs": "Docs"
+    },
+    "extra_directories": {},
+    "warnings": []
+  }
+}

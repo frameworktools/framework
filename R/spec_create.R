@@ -131,9 +131,11 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   if (!is_bare) {
     .create_scaffold_file(project_dir, spec$scaffold)
   }
-  .create_rproj_file(project_dir, spec$name)
-  ide <- spec$scaffold$ide %||% ""
-  if (!is_bare && grepl("vscode|positron", ide, ignore.case = TRUE)) {
+  editors <- .ide_files(spec$scaffold$ide)
+  if (editors$rproj) {
+    .create_rproj_file(project_dir, spec$name)
+  }
+  if (!is_bare && editors$workspace) {
     .create_code_workspace(project_dir, spec$name)
   }
   .create_stub_files(project_dir, type, spec$name, spec$author)

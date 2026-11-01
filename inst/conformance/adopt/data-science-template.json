@@ -1,0 +1,39 @@
+{
+  "description": "A common data science template: data/ splits into Framework's inputs, and data/ itself isn't listed.",
+  "folders": [
+    "data",
+    "data/raw",
+    "data/interim",
+    "data/processed",
+    "data/external",
+    "docs",
+    "models",
+    "notebooks",
+    "references",
+    "reports",
+    "reports/figures",
+    "src",
+    "src/data",
+    "src/features"
+  ],
+  "expected": {
+    "directories": {
+      "inputs_raw": "data/raw",
+      "inputs_intermediate": "data/interim",
+      "inputs_final": "data/processed",
+      "inputs_reference": "data/external",
+      "functions": "src",
+      "notebooks": "notebooks",
+      "outputs_models": "models",
+      "outputs_reports": "reports",
+      "docs": "docs"
+    },
+    "extra_directories": {
+      "references": {
+        "label": "references",
+        "path": "references"
+      }
+    },
+    "warnings": []
+  }
+}

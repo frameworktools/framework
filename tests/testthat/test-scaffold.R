@@ -342,6 +342,20 @@ test_that(".set_random_seed reads the scaffold section new projects write", {
   expect_message(framework:::.set_random_seed(list()), "Random seed set to 555.", fixed = TRUE)
 })
 
+test_that(".set_ggplot_theme reads the scaffold section new projects write", {
+  skip_if_not_installed("ggplot2")
+  old <- ggplot2::theme_get()
+  withr::defer(ggplot2::theme_set(old))
+
+  config <- list(scaffold = list(set_theme_on_scaffold = TRUE, ggplot_theme = "theme_bw"))
+  expect_message(framework:::.set_ggplot_theme(config), "ggplot2 theme set to theme_bw.", fixed = TRUE)
+
+  # Turned off under scaffold: wins over an older options: setting
+  config$scaffold$set_theme_on_scaffold <- FALSE
+  config$options <- list(set_theme_on_scaffold = TRUE, ggplot_theme = "theme_bw")
+  expect_silent(framework:::.set_ggplot_theme(config))
+})
+
 test_that("a new project's scaffold() seeds from its settings", {
   cleanup <- setup_isolated_config()
   on.exit(cleanup(), add = TRUE)

@@ -275,6 +275,8 @@ git_log <- function(n = 10, oneline = TRUE) {
 #' \itemize{
 #'   \item **data_security**: Run security audit to catch data leaks
 #'   \item **check_sensitive_dirs**: Warn about unignored sensitive directories
+#'   \item **check_notebook_outputs**: Block staged Jupyter notebooks that
+#'     still hold cell outputs, which can contain data
 #' }
 #'
 #' Hook behavior is controlled by `git.hooks.*` settings in settings.yml. The
@@ -326,15 +328,9 @@ git_hooks_install <- function(config_file = NULL,
   }
 
   # Read hook configuration
-  data_security_enabled <- .get_hook_setting("git.hooks.data_security", config_file = config_file, default = FALSE)
-  check_sensitive_dirs_enabled <- .get_hook_setting(
-    "git.hooks.check_sensitive_dirs",
-    alias = "git.hooks.warn_unignored_sensitive",
-    config_file = config_file,
-    default = FALSE
-  )
+  enabled <- .hooks_enabled(config_file)
 
-  if (!data_security_enabled && !check_sensitive_dirs_enabled) {
+  if (!any(enabled)) {
     if (verbose) {
       message("\u2139 No hooks enabled in settings.yml/config.yml")
       message("  Enable one with: git_hooks_enable(\"data_security\")")
@@ -374,11 +370,8 @@ git_hooks_install <- function(config_file = NULL,
 
     if (verbose) {
       message("\u2713 Installed pre-commit hook")
-      if (data_security_enabled) {
-        message("  \u2022 Data security check enabled")
-      }
-      if (check_sensitive_dirs_enabled) {
-        message("  \u2022 Sensitive directories check enabled")
+      for (hook in names(enabled)[enabled]) {
+        message("  \u2022 ", .hook_table()[[hook]]$label, " enabled")
       }
     }
 
@@ -439,7 +432,8 @@ git_hooks_uninstall <- function(verbose = TRUE) {
 #'
 #' Enables a specific hook in settings and reinstalls the pre-commit hook.
 #'
-#' @param hook_name Name of hook: "data_security" or "check_sensitive_dirs"
+#' @param hook_name Name of hook: "data_security", "check_sensitive_dirs", or
+#'   "check_notebook_outputs"
 #' @param config_file Path to configuration file (default: auto-discover settings.yml or settings.yml)
 #' @param verbose Logical; if TRUE (default), show messages
 #'
@@ -456,7 +450,7 @@ git_hooks_uninstall <- function(verbose = TRUE) {
 #' @export
 git_hooks_enable <- function(hook_name, config_file = NULL, verbose = TRUE) {
   .hook_assert_not_ai_sync(hook_name)
-  valid_hooks <- c("data_security", "check_sensitive_dirs", "warn_unignored_sensitive")
+  valid_hooks <- c(names(.hook_table()), "warn_unignored_sensitive")
 
   if (!hook_name %in% valid_hooks) {
     stop("Invalid hook name. Must be one of: ", paste(valid_hooks, collapse = ", "))
@@ -486,7 +480,8 @@ git_hooks_enable <- function(hook_name, config_file = NULL, verbose = TRUE) {
 #'
 #' Disables a specific hook in settings and reinstalls the pre-commit hook.
 #'
-#' @param hook_name Name of hook: "data_security" or "check_sensitive_dirs"
+#' @param hook_name Name of hook: "data_security", "check_sensitive_dirs", or
+#'   "check_notebook_outputs"
 #' @param config_file Path to configuration file (default: auto-discover settings.yml or settings.yml)
 #' @param verbose Logical; if TRUE (default), show messages
 #'
@@ -500,7 +495,7 @@ git_hooks_disable <- function(hook_name, config_file = NULL, verbose = TRUE) {
     if (!is.null(config_file)) .update_hook_config("ai_sync", FALSE, config_file)
     return(invisible(TRUE))
   }
-  valid_hooks <- c("data_security", "check_sensitive_dirs", "warn_unignored_sensitive")
+  valid_hooks <- c(names(.hook_table()), "warn_unignored_sensitive")
 
   if (!hook_name %in% valid_hooks) {
     stop("Invalid hook name. Must be one of: ", paste(valid_hooks, collapse = ", "))
@@ -522,15 +517,7 @@ git_hooks_disable <- function(hook_name, config_file = NULL, verbose = TRUE) {
   }
 
   # Reinstall hooks (or uninstall if all disabled)
-  data_security_enabled <- .get_hook_setting("git.hooks.data_security", config_file = config_file, default = FALSE)
-  check_sensitive_dirs_enabled <- .get_hook_setting(
-    "git.hooks.check_sensitive_dirs",
-    alias = "git.hooks.warn_unignored_sensitive",
-    config_file = config_file,
-    default = FALSE
-  )
-
-  if (!data_security_enabled && !check_sensitive_dirs_enabled) {
+  if (!any(.hooks_enabled(config_file))) {
     git_hooks_uninstall(verbose = verbose)
   } else {
     git_hooks_install(config_file = config_file, verbose = verbose)
@@ -563,24 +550,15 @@ git_hooks_list <- function(config_file = NULL) {
     return(invisible(NULL))
   }
 
-  data_security <- .get_hook_setting("git.hooks.data_security", config_file = config_file, default = FALSE)
-  check_sensitive_dirs <- .get_hook_setting(
-    "git.hooks.check_sensitive_dirs",
-    alias = "git.hooks.warn_unignored_sensitive",
-    config_file = config_file,
-    default = FALSE
-  )
+  enabled <- .hooks_enabled(config_file)
 
   hook_path <- .hook_path()
   hook_installed <- !is.null(hook_path) && file.exists(hook_path)
 
   df <- data.frame(
-    hook = c("data_security", "check_sensitive_dirs"),
-    enabled = c(isTRUE(data_security), isTRUE(check_sensitive_dirs)),
-    description = c(
-      "Block commits that track private data or secrets",
-      "Warn about unignored sensitive directories"
-    ),
+    hook = names(enabled),
+    enabled = unname(enabled),
+    description = vapply(.hook_table(), `[[`, "", "description", USE.NAMES = FALSE),
     stringsAsFactors = FALSE
   )
 
@@ -640,6 +618,38 @@ git_hooks_list <- function(config_file = NULL) {
   value
 }
 
+
+# The pre-commit checks, keyed by their git.hooks setting
+#' @keywords internal
+.hook_table <- function() {
+  list(
+    data_security = list(
+      label = "Data security check",
+      description = "Block commits that track private data or secrets"
+    ),
+    check_sensitive_dirs = list(
+      label = "Sensitive directories check",
+      description = "Warn about unignored sensitive directories",
+      alias = "git.hooks.warn_unignored_sensitive"
+    ),
+    check_notebook_outputs = list(
+      label = "Notebook outputs check",
+      description = "Block Jupyter notebooks committed with cell outputs"
+    )
+  )
+}
+
+# Named logical: which checks the settings turn on
+#' @keywords internal
+.hooks_enabled <- function(config_file) {
+  vapply(names(.hook_table()), function(hook) {
+    isTRUE(tryCatch(
+      .get_hook_setting(paste0("git.hooks.", hook), alias = .hook_table()[[hook]]$alias,
+                        config_file = config_file, default = FALSE),
+      error = function(e) FALSE
+    ))
+  }, logical(1))
+}
 
 # Where git looks for the pre-commit hook (worktrees and core.hooksPath
 # included), or NULL outside a repository
@@ -708,6 +718,10 @@ git_hooks_list <- function(config_file = NULL) {
 
   if (setting("git.hooks.check_sensitive_dirs", "git.hooks.warn_unignored_sensitive") &&
       !.hook_check_sensitive_dirs()) {
+    return(1L)
+  }
+
+  if (setting("git.hooks.check_notebook_outputs") && !.hook_check_notebook_outputs()) {
     return(1L)
   }
 
@@ -800,6 +814,47 @@ git_hooks_list <- function(config_file = NULL) {
     message("Commit aborted. Add directories to .gitignore and try again.")
   }
   answer
+}
+
+
+# Staged .ipynb files whose staged copy has outputs or execution counts in
+# a code cell. Outputs can hold printed data.
+#' @keywords internal
+.hook_notebooks_with_outputs <- function(root = ".") {
+  staged <- suppressWarnings(system2(
+    "git", c("-C", shQuote(root), "-c", "core.quotepath=off",
+             "diff", "--cached", "--name-only", "--diff-filter=ACMR"),
+    stdout = TRUE, stderr = FALSE
+  ))
+  notebooks <- staged[grepl("\\.ipynb$", staged, ignore.case = TRUE)]
+  notebooks[vapply(notebooks, function(path) {
+    text <- suppressWarnings(system2(
+      "git", c("-C", shQuote(root), "show", shQuote(paste0(":", path))),
+      stdout = TRUE, stderr = FALSE
+    ))
+    nb <- tryCatch(jsonlite::fromJSON(paste(text, collapse = "\n"), simplifyVector = FALSE),
+                   error = function(e) NULL)
+    if (is.null(nb)) return(FALSE)
+    any(vapply(nb$cells %||% list(), function(cell) {
+      identical(cell$cell_type, "code") &&
+        (length(cell$outputs %||% list()) > 0 || !is.null(cell$execution_count))
+    }, logical(1)))
+  }, logical(1))]
+}
+
+#' @keywords internal
+.hook_check_notebook_outputs <- function(root = ".") {
+  notebooks <- .hook_notebooks_with_outputs(root)
+  if (length(notebooks) == 0) {
+    return(TRUE)
+  }
+  message("\u2717 These notebooks have saved outputs, which can contain data:")
+  for (nb in notebooks) message("  - ", nb)
+  message("")
+  message("Clear the outputs, then stage the notebooks again. In Jupyter, use")
+  message("Edit > Clear All Outputs, or run:")
+  for (nb in notebooks) message("  jupyter nbconvert --clear-output --inplace ", shQuote(nb))
+  FALSE
 }
 
 

@@ -35,3 +35,31 @@ test_that("R's layer merge matches every conformance fixture", {
     expect_identical(normalize_json(actual), normalize_json(expected), info = basename(path))
   }
 })
+
+test_that("R's project creation matches every create/ fixture", {
+  skip_on_cran()
+  dir <- system.file("conformance", "create", "r", package = "framework")
+  if (!nzchar(dir)) dir <- testthat::test_path("..", "..", "inst", "conformance", "create", "r")
+  files <- list.files(dir, pattern = "\\.json$", full.names = TRUE)
+  expect_gte(length(files), 10)
+
+  for (path in files) {
+    case <- jsonlite::read_json(path, simplifyVector = FALSE)
+    expected <- unlist(case$expected$paths)
+    expect_identical(framework:::.conformance_create(case$spec), expected, info = basename(path))
+  }
+})
+
+test_that("R's folder mapping matches every adopt/ fixture", {
+  dir <- system.file("conformance", "adopt", package = "framework")
+  if (!nzchar(dir)) dir <- testthat::test_path("..", "..", "inst", "conformance", "adopt")
+  files <- list.files(dir, pattern = "\\.json$", full.names = TRUE)
+  expect_gte(length(files), 8)
+
+  for (path in files) {
+    case <- jsonlite::read_json(path, simplifyVector = FALSE)
+    mapped <- framework:::.adopt_map(unlist(case$folders), case$language %||% "r")
+    actual <- jsonlite::fromJSON(jsonlite::toJSON(mapped, auto_unbox = TRUE, null = "null"), simplifyVector = FALSE)
+    expect_identical(normalize_json(actual), normalize_json(case$expected), info = basename(path))
+  }
+})

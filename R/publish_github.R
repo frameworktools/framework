@@ -115,6 +115,20 @@
     if (!is.null(attr(result, "status")) && attr(result, "status") != 0) {
       stop("Quarto render failed:\n", paste(result, collapse = "\n"), call. = FALSE)
     }
+    # Inside a Quarto project the output keeps the file's folder
+    # (notebooks/x.qmd renders to <stage>/notebooks/x.html): move it up
+    main <- paste0(tools::file_path_sans_ext(basename(source)), ".html")
+    found <- list.files(stage, pattern = paste0("^", gsub(".", "\\.", main, fixed = TRUE), "$"),
+                        recursive = TRUE, full.names = TRUE)
+    if (length(found) > 0 && !identical(normalizePath(dirname(found[1])), normalizePath(stage))) {
+      inner <- dirname(found[1])
+      rel <- substring(normalizePath(inner), nchar(normalizePath(stage)) + 2)
+      top <- file.path(stage, strsplit(rel, "/", fixed = TRUE)[[1]][1])
+      for (item in list.files(inner, full.names = TRUE, all.files = TRUE, no.. = TRUE)) {
+        file.rename(item, file.path(stage, basename(item)))
+      }
+      unlink(top, recursive = TRUE)
+    }
   } else if (ext == "rmd") {
     if (!requireNamespace("rmarkdown", quietly = TRUE)) {
       stop("Rendering .Rmd requires the rmarkdown package.", call. = FALSE)

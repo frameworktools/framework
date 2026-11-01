@@ -45,3 +45,24 @@ test_that("tools bring what they require and respect the language", {
   expect_true("ggplot2-publishing" %in% names(spec$skills))
   expect_identical(spec_check(spec), character())
 })
+
+test_that("workflows turn on their tools and set the notebook format", {
+  resolve <- function(workflow, type = "project") {
+    layers <- c(list(list(kind = "base", key = type, layer = list(type = type))),
+                suppressMessages(framework:::.fw_workflow_layers(workflow)))
+    spec_resolve(layers, name = "W")
+  }
+  spec <- resolve("jupyter")
+  expect_identical(spec$scaffold[c("workflow", "notebook_format")], list(workflow = "jupyter", notebook_format = "jupyter"))
+  expect_true(isTRUE(spec$tools$jupyter) && isTRUE(spec$tools$quarto))
+  expect_true("IRkernel" %in% names(spec$packages$default_packages))
+
+  spec <- resolve("scripts")
+  expect_identical(spec$scaffold$notebook_format, "script")
+  expect_false(isTRUE(spec$tools$quarto))
+
+  # Bare has no workflow until one is chosen
+  expect_null(spec_resolve(list(list(type = "bare")), name = "B")$scaffold$workflow)
+  expect_identical(resolve("quarto", "bare")$scaffold$workflow, "quarto")
+  expect_error(framework:::.fw_workflow_layers("marimo"), "Unknown workflow")
+})

@@ -28,16 +28,14 @@ test_that("project_create generates Quarto configs with render output dirs", {
 
   expect_true(result$success)
 
-  # Root config exists
-  expect_true(file.exists(file.path(project_dir, "_quarto.yml")))
-
-  # Source _quarto.yml files exist with relative output-dir
-  notebooks_yaml <- yaml::read_yaml(file.path(project_dir, "notebooks", "_quarto.yml"))
-  docs_yaml <- yaml::read_yaml(file.path(project_dir, "docs", "_quarto.yml"))
-
-  expect_equal(notebooks_yaml$project$`output-dir`, "../outputs/notebooks")
-  expect_equal(notebooks_yaml$format$html$theme, "default")
-  expect_equal(docs_yaml$project$`output-dir`, "../outputs/docs")
+  # One root project; notebooks/ and docs/ render under its output-dir
+  root <- yaml::read_yaml(file.path(project_dir, "_quarto.yml"))
+  expect_equal(root$project$`output-dir`, "outputs")
+  expect_equal(root$format$html$theme, "default")
+  expect_null(root$format$revealjs)
+  expect_false(file.exists(file.path(project_dir, "notebooks", "_quarto.yml")))
+  expect_false(file.exists(file.path(project_dir, "docs", "_quarto.yml")))
+  expect_false(file.exists(file.path(project_dir, "notebooks", "_metadata.yml")))
 })
 
 test_that("course project uses revealjs for slides render dir", {
@@ -70,7 +68,56 @@ test_that("course project uses revealjs for slides render dir", {
 
   expect_true(result$success)
 
-  slides_yaml <- yaml::read_yaml(file.path(project_dir, "slides", "_quarto.yml"))
-  expect_equal(slides_yaml$project$`output-dir`, "../rendered/slides")
-  expect_true(!is.null(slides_yaml$format$revealjs))
+  root <- yaml::read_yaml(file.path(project_dir, "_quarto.yml"))
+  expect_equal(root$project$`output-dir`, "rendered")
+  expect_false(file.exists(file.path(project_dir, "slides", "_quarto.yml")))
+  slides <- yaml::read_yaml(file.path(project_dir, "slides", "_metadata.yml"))
+  expect_null(slides$project)
+  expect_true(!is.null(slides$format$revealjs))
+  expect_false(file.exists(file.path(project_dir, "assignments", "_metadata.yml")))
+})
+
+test_that("a render target outside the shared output folder keeps its own Quarto project", {
+  tmp <- withr::local_tempdir()
+  result <- quarto_generate_all(
+    tmp, "project",
+    render_dirs = list(notebooks = "outputs/notebooks", docs = "outputs/docs", reports = "site"),
+    directories = list(notebooks = "notebooks", docs = "docs", reports = "reports")
+  )
+  expect_equal(yaml::read_yaml(file.path(tmp, "_quarto.yml"))$project$`output-dir`, "outputs")
+  reports <- yaml::read_yaml(file.path(tmp, "reports", "_quarto.yml"))
+  expect_equal(reports$project$`output-dir`, "../site")
+  expect_false(file.exists(file.path(tmp, "notebooks", "_quarto.yml")))
+})
+
+test_that("quarto_regenerate() replaces per-folder projects with one root", {
+  tmp <- withr::local_tempdir()
+  yaml::write_yaml(list(default = list(
+    project_type = "project",
+    directories = list(notebooks = "notebooks"),
+    render_dirs = list(notebooks = "outputs/notebooks")
+  )), file.path(tmp, "settings.yml"))
+  dir.create(file.path(tmp, "notebooks"))
+  writeLines("project:\n  output-dir: ../outputs/notebooks", file.path(tmp, "notebooks", "_quarto.yml"))
+
+  result <- quarto_regenerate(tmp)
+  expect_false(file.exists(file.path(tmp, "notebooks", "_quarto.yml")))
+  expect_true("notebooks/_quarto.yml" %in% result$backed_up)
+  expect_equal(yaml::read_yaml(file.path(tmp, "_quarto.yml"))$project$`output-dir`, "outputs")
+})
+
+test_that("save_notebook() finds the render inside the root project's folders", {
+  skip_on_cran()
+  skip_if(!nzchar(Sys.which("quarto")), "quarto not installed")
+  tmp <- withr::local_tempdir()
+  withr::local_dir(tmp)
+  yaml::write_yaml(list(default = list(project_type = "project", directories = list(
+    notebooks = "notebooks", outputs_notebooks = "outputs/notebooks"
+  ))), "settings.yml")
+  quarto_generate_all(tmp, "project", render_dirs = list(notebooks = "outputs/notebooks"),
+                      directories = list(notebooks = "notebooks"))
+  writeLines(c("---", "title: Look", "---", "", "Plain text."), file.path("notebooks", "look.qmd"))
+  path <- suppressMessages(save_notebook("notebooks/look.qmd"))
+  expect_true(file.exists(path))
+  expect_identical(path, file.path("outputs", "notebooks", "look.html"))
 })

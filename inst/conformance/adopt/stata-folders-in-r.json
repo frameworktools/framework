@@ -1,0 +1,30 @@
+{
+  "description": "The same folders in an R project: do/ is a Stata key, so it becomes an extra directory.",
+  "language": "r",
+  "folders": [
+    "do",
+    "logs",
+    "data",
+    "data/raw",
+    "data/clean",
+    "output",
+    "output/tables",
+    "output/figures"
+  ],
+  "expected": {
+    "directories": {
+      "inputs_raw": "data/raw",
+      "inputs_final": "data/clean",
+      "outputs_figures": "output/figures",
+      "outputs_tables": "output/tables",
+      "logs": "logs"
+    },
+    "extra_directories": {
+      "do": {
+        "label": "do",
+        "path": "do"
+      }
+    },
+    "warnings": []
+  }
+}

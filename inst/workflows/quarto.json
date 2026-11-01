@@ -1,0 +1,14 @@
+{
+  "id": "quarto",
+  "name": "Quarto",
+  "description": "Write notebooks as Quarto documents (.qmd), or R Markdown in R projects. Quarto renders them to HTML, PDF, and Word.",
+  "language": ["r", "python"],
+  "requires": ["quarto"],
+  "layer": {
+    "scaffold": {
+      "workflow": "quarto",
+      "notebook_format": "quarto"
+    }
+  },
+  "language_layers": {}
+}

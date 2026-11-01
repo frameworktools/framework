@@ -1,0 +1,28 @@
+{
+  "description": "An R analysis with R/ functions, data-raw/, and output/ subfolders; tool folders are skipped.",
+  "folders": [
+    ".Rproj.user",
+    ".Rproj.user/shared",
+    "R",
+    "analysis",
+    "data-raw",
+    "figures",
+    "output",
+    "output/tables",
+    "renv",
+    "renv/library",
+    "scratch"
+  ],
+  "expected": {
+    "directories": {
+      "inputs_raw": "data-raw",
+      "functions": "R",
+      "scripts": "analysis",
+      "outputs_figures": "figures",
+      "outputs_tables": "output/tables",
+      "scratch": "scratch"
+    },
+    "extra_directories": {},
+    "warnings": []
+  }
+}

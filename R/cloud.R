@@ -584,6 +584,8 @@ cloud_settings <- function() {
   if (length(new_lines) == 0) {
     return(invisible(FALSE))
   }
+  .fw_refuse_tracked_env(project_dir)
+  .fw_ensure_env_ignored(project_dir)
   header <- "# Framework Cloud project key and server (created by framework::new or setup)"
   if (length(lines) > 0) {
     lines <- c(lines, "")
@@ -591,6 +593,49 @@ cloud_settings <- function() {
   writeLines(c(lines, header, new_lines), env_path)
   message("  Added: ", paste(added, collapse = " and "), " to .env")
   invisible(TRUE)
+}
+
+# A .env git already tracks would carry the token into the next commit.
+#' @keywords internal
+.fw_refuse_tracked_env <- function(project_dir) {
+  if (!.git_available() || !file.exists(file.path(project_dir, ".env"))) {
+    return(invisible(FALSE))
+  }
+  status <- suppressWarnings(system2(
+    "git", c("-C", shQuote(project_dir), "ls-files", "--error-unmatch", ".env"),
+    stdout = FALSE, stderr = FALSE
+  ))
+  if (identical(as.integer(status), 0L)) {
+    stop(
+      "Git tracks this project's .env, so a project token written there would be committed. ",
+      "Stop tracking it first:\n  git rm --cached .env\n  git commit -m \"Stop tracking .env\"\n",
+      "Then run this again.",
+      call. = FALSE
+    )
+  }
+  invisible(FALSE)
+}
+
+# Make sure git ignores .env before a project token goes into it. In a git
+# repository git decides (git check-ignore); otherwise .gitignore's own
+# rules do. Either way a missing rule is appended to the project's
+# .gitignore. Shared with framework-py.
+#' @keywords internal
+.fw_ensure_env_ignored <- function(project_dir) {
+  git <- function(...) suppressWarnings(system2("git", c("-C", shQuote(project_dir), ...), stdout = FALSE, stderr = FALSE))
+  in_repo <- .git_available() && identical(as.integer(git("rev-parse", "--is-inside-work-tree")), 0L)
+  if (!in_repo) {
+    added <- suppressMessages(.ensure_secrets_ignored(project_dir))
+  } else {
+    added <- !identical(as.integer(git("check-ignore", "-q", ".env")), 0L)
+    if (added) {
+      path <- file.path(project_dir, ".gitignore")
+      lines <- if (file.exists(path)) readLines(path, warn = FALSE) else character(0)
+      writeLines(c(lines, "", "# Secrets (added by Framework)", ".env"), path)
+    }
+  }
+  if (isTRUE(added)) message("  Added .env to .gitignore so the project token stays out of git")
+  invisible(isTRUE(added))
 }
 
 # Register a locally created project on Framework Cloud and store its key.

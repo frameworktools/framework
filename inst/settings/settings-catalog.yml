@@ -103,6 +103,7 @@ defaults:
     hooks:
       data_security: false
       check_sensitive_dirs: false
+      check_notebook_outputs: false
 
   # Quarto Defaults - applied when generating _quarto.yml files
   quarto:

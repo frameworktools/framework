@@ -15,7 +15,7 @@ save_notebook(
 )
 }
 \arguments{
-\item{file}{Path to the .qmd or .Rmd file to render}
+\item{file}{Path to the .qmd, .Rmd, or .ipynb file to render}
 
 \item{name}{Optional new name for the output file (without extension). If NULL,
 uses the original notebook name.}
@@ -35,8 +35,13 @@ uses the original notebook name.}
 The path to the saved file (invisibly)
 }
 \description{
-Renders a Quarto or R Markdown notebook and saves the output to the configured
-notebooks output directory. The directory is created lazily on first use.
+Renders a Quarto, R Markdown, or Jupyter notebook and saves the output to
+the configured notebooks output directory. The directory is created lazily
+on first use.
+}
+\details{
+Quarto renders a Jupyter notebook (.ipynb) from the outputs saved in it,
+without running its cells, so run the notebook before saving it.
 }
 \examples{
 \donttest{
@@ -46,6 +51,9 @@ save_notebook("notebooks/analysis.qmd")
 
 # Save with a custom name
 save_notebook("notebooks/analysis.qmd", name = "final_analysis")
+
+# A Jupyter notebook, rendered from its saved outputs
+save_notebook("notebooks/analysis.ipynb")
 
 # Render to PDF
 save_notebook("notebooks/analysis.qmd", format = "pdf")

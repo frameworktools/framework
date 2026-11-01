@@ -12,7 +12,7 @@
 \description{
 Sets ggplot2 theme if configured. Checks for theme settings in this order:
 \enumerate{
-\item Project settings.yml (ggplot_theme and set_theme_on_scaffold)
+\item Project settings (scaffold:, then options:, then the top level)
 \item Skip if set_theme_on_scaffold is FALSE or theme is empty
 }
 }

@@ -29,6 +29,8 @@ hook is kept unless \code{force = TRUE}. The enabled hooks:
 \itemize{
 \item \strong{data_security}: Run security audit to catch data leaks
 \item \strong{check_sensitive_dirs}: Warn about unignored sensitive directories
+\item \strong{check_notebook_outputs}: Block staged Jupyter notebooks that
+still hold cell outputs, which can contain data
 }
 
 Hook behavior is controlled by \verb{git.hooks.*} settings in settings.yml. The

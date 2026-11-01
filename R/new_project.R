@@ -7,8 +7,10 @@
 #' @param name Project name. If NULL (default), prompts interactively.
 #' @param location Directory path where project will be created. If NULL (default),
 #'   prompts interactively.
-#' @param type Project type: one of Framework's structures, "project"
-#'   (default), "project_sensitive", "course", "presentation", or "bare".
+#' @param type Project type: one of Framework's structures, "project",
+#'   "project_sensitive", "course", "presentation", or "bare". NULL (default)
+#'   uses your default blueprint on Framework Cloud when you are signed in,
+#'   and "project" otherwise.
 #' @param tools Tools to turn on, such as `"quarto"`, `"quarto_slides"`,
 #'   `"targets"`, `"renv"`, or `"jupyter"`: a character vector, or a named
 #'   logical that can also turn a structure's tool off, as in
@@ -20,6 +22,17 @@
 #' @param skill_sets Character vector of AI skill sets to install, such as
 #'   `"framework"` and `"ggplot2"`. NULL (default) installs both. A
 #'   sensitive project also gets the sensitive-data skill.
+#' @param workflow How notebooks are written: `"quarto"`, `"jupyter"`
+#'   (Quarto stays on for rendering), or `"scripts"` (plain R scripts, no
+#'   notebook tools). NULL (default) keeps your default, or the structure's:
+#'   Quarto for every structure except bare.
+#' @param offline When you are signed in to Framework Cloud, `new_project()`
+#'   sends your choices to it and builds the project it resolves. If the
+#'   cloud can't be reached, your saved cloud defaults are used when you
+#'   made no choices beyond the name. Otherwise an interactive session asks
+#'   before using Framework's built-in defaults, and a non-interactive one
+#'   stops. `offline = TRUE` skips the cloud: saved defaults when there are
+#'   any, else the built-ins. Not signed in, the built-ins are used.
 #' @param browse Whether to open the project folder after creation (default: TRUE in
 #'   interactive sessions)
 #' @param ... Ignored, with a warning.
@@ -60,8 +73,9 @@
 #' }
 #'
 #' @export
-new_project <- function(name = NULL, location = NULL, type = "project", browse = interactive(),
-                        tools = NULL, package_sets = NULL, skill_sets = NULL, ...) {
+new_project <- function(name = NULL, location = NULL, type = NULL, browse = interactive(),
+                        tools = NULL, package_sets = NULL, skill_sets = NULL,
+                        workflow = NULL, offline = FALSE, ...) {
   # Check global config exists
   config_dir <- fw_config_dir()
   settings_path <- file.path(config_dir, "settings.yml")
@@ -71,10 +85,7 @@ new_project <- function(name = NULL, location = NULL, type = "project", browse =
     init_global_config()
   }
 
-  # Load global config, then overlay cloud settings when a token is present
-  # (no token or unreachable cloud -> local defaults, unchanged behavior)
   config <- get_default_global_config()
-  config <- .fw_overlay_cloud_settings(config, .fw_cloud_settings_quietly())
 
   # Prompt for name if not provided
   if (is.null(name)) {
@@ -107,7 +118,9 @@ new_project <- function(name = NULL, location = NULL, type = "project", browse =
   location <- path.expand(location)
 
   # Framework's five structures, or any blueprint label (lowercase id)
-  checkmate::assert_string(type, pattern = "^[a-z][a-z0-9_]*$")
+  checkmate::assert_string(type, pattern = "^[a-z][a-z0-9_]*$", null.ok = TRUE)
+  checkmate::assert_string(workflow, min.chars = 1, null.ok = TRUE)
+  checkmate::assert_flag(offline)
   checkmate::assert(
     checkmate::check_character(tools, null.ok = TRUE),
     checkmate::check_logical(tools, names = "unique", any.missing = FALSE),
@@ -121,15 +134,25 @@ new_project <- function(name = NULL, location = NULL, type = "project", browse =
             call. = FALSE)
   }
 
-  # Build arguments from global config
-  args <- .project_args_from_config(config, type)
+  # Signed in: Framework Cloud resolves the choices. Not signed in, or
+  # offline after saying so: Framework's built-ins and local settings.
+  choices <- .fw_new_choices(name, type, workflow, tools, package_sets, skill_sets)
+  envelope <- .fw_new_envelope(choices, offline = offline)
 
-  # Cloud blueprint (opinionated offering) overrides structure and AI masters
-  # when a token is present; offline this is a no-op
-  blueprint <- .fw_cloud_blueprint_quietly(type)
-
-  layers <- .new_project_layers(args, type, blueprint, tools, package_sets, skill_sets)
-  spec <- spec_resolve(layers, name = name, author = args$author)
+  args <- .project_args_from_config(config, type %||% "project")
+  if (!is.null(envelope)) {
+    layers <- envelope$layers %||% list()
+    language <- .fw_envelope_language(layers)
+    if (!identical(language, "r")) {
+      stop(.spec_language_message(language), call. = FALSE)
+    }
+    spec <- spec_resolve(layers, name = name, author = envelope$author %||% args$author)
+  } else {
+    type <- type %||% "project"
+    layers <- .new_project_layers(args, type, NULL, tools, package_sets, skill_sets, workflow)
+    spec <- spec_resolve(layers, name = name, author = args$author)
+  }
+  type <- spec$type
   spec$source <- list(origin = "r", framework_version = as.character(utils::packageVersion("framework")))
 
   message("Creating ", type, " project: ", name)
@@ -287,7 +310,8 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
     }
     return(.cloud_setup(token = key, location = location, browse = browse, url = url))
   }
-  if (is.null(type)) {
+  # Signed in, Framework Cloud supplies the default blueprint
+  if (is.null(type) && is.null(.fw_cloud_token())) {
     # Bare (no blueprint) is the default; the rest are opinionated offerings
     valid_types <- c("bare", "project", "project_sensitive", "course", "presentation")
     if (interactive()) {
@@ -310,7 +334,7 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
 # defaults come first inside spec_resolve().
 #' @keywords internal
 .new_project_layers <- function(args, type, blueprint = NULL, tools = NULL,
-                                package_sets = NULL, skill_sets = NULL) {
+                                package_sets = NULL, skill_sets = NULL, workflow = NULL) {
   defaults <- .spec_package_defaults(type)
   # The user's lists replace the package's: anything the user removed from
   # their packages or directories is removed here too
@@ -360,6 +384,12 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
       bp$skills <- lapply(blueprint$skills, function(content) list(content = content))
     }
     layers <- c(layers, list(list(kind = "blueprint", key = type, layer = bp)))
+  }
+
+  # The workflow sits above the structure; tools and sets chosen here win
+  if (!is.null(workflow)) {
+    checkmate::assert_string(workflow, min.chars = 1)
+    layers <- c(layers, .fw_workflow_layers(workflow))
   }
 
   # tools is a vector of ids to turn on, or a named logical that can also

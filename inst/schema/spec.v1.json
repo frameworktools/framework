@@ -234,8 +234,18 @@
           "enum": [
             "quarto",
             "rmarkdown",
-            "jupyter"
+            "jupyter",
+            "script"
           ]
+        },
+        "workflow": {
+          "type": "string",
+          "enum": [
+            "quarto",
+            "jupyter",
+            "scripts"
+          ],
+          "description": "How notebooks are written. quarto allows notebook_format quarto (or rmarkdown in R), jupyter allows jupyter, and scripts allows script."
         },
         "ide": {
           "type": "string",
@@ -425,6 +435,10 @@
           "required": [
             "id"
           ]
+        },
+        "adopted": {
+          "type": "boolean",
+          "description": "True when adopt() made an existing folder a project, mapping its folders in place"
         },
         "framework_version": {
           "type": "string",

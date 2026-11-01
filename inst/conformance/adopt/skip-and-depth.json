@@ -1,0 +1,31 @@
+{
+  "description": "Skipped and hidden folders, and folders deeper than three levels, are left out.",
+  "folders": [
+    ".git",
+    ".git/objects",
+    ".hidden",
+    ".hidden/notes",
+    "node_modules",
+    "node_modules/pkg",
+    "venv",
+    "__pycache__",
+    "a",
+    "a/b",
+    "a/b/c",
+    "a/b/c/d",
+    "notebooks",
+    "notebooks/.ipynb_checkpoints"
+  ],
+  "expected": {
+    "directories": {
+      "notebooks": "notebooks"
+    },
+    "extra_directories": {
+      "a": {
+        "label": "a",
+        "path": "a"
+      }
+    },
+    "warnings": []
+  }
+}

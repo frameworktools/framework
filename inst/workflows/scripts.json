@@ -1,0 +1,18 @@
+{
+  "id": "scripts",
+  "name": "Scripts only",
+  "description": "No notebooks. Analysis lives in scripts, and the blueprint supplies any starter scripts.",
+  "language": ["r", "python", "stata"],
+  "requires": [],
+  "layer": {
+    "tools": {
+      "quarto": false,
+      "jupyter": false
+    },
+    "scaffold": {
+      "workflow": "scripts",
+      "notebook_format": "script"
+    }
+  },
+  "language_layers": {}
+}

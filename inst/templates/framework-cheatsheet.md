@@ -14,8 +14,11 @@ new_course("stats-101", "~/projects/stats-101")               # Course
 new_presentation("talk", "~/projects/talk")                   # Presentation
 new_project("study", "~/projects/study", tools = c("targets", "renv"),
             package_sets = "tidyverse-analysis")              # With tools and package sets
+new_project("study", "~/projects/study", workflow = "jupyter")  # Jupyter notebooks (or "scripts")
 new(key = "1|fw_...")              # Project defined on Framework Cloud
 bootstrap()                      # Prepare a cloned project (.env, folders, packages, hooks)
+adopt("~/projects/old-study")    # Make an existing folder a Framework project, in place
+structure_import(name = "Lab layout")  # Save this folder's layout as a cloud structure
 scaffold()                       # Load project environment (use in notebooks)
 standardize_wd()                 # Normalize working directory for notebooks
 ```
@@ -290,6 +293,8 @@ capture_output(expr)             # Capture console output
 | `ai_skills_update()` | Refresh Framework skills in .claude/skills/ |
 | `ai_sync_context()` | Deprecated: sync legacy AI context files |
 | `bootstrap()` | Prepare a cloned project |
+| `adopt()` | Make an existing folder a Framework project |
+| `structure_import()` | Save a folder's layout as a cloud structure |
 | `cache()` | Store value in cache |
 | `cache_flush()` | Clear all cache |
 | `cache_forget()` | Delete cached item |

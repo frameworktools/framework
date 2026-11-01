@@ -1,0 +1,226 @@
+{
+  "description": "Bare structure with the Jupyter workflow.",
+  "language": "r",
+  "layers": [
+    {
+      "kind": "base",
+      "key": "bare",
+      "layer": {
+        "type": "bare"
+      }
+    },
+    {
+      "kind": "facet",
+      "key": "framework/tool-jupyter",
+      "layer": {
+        "tools": {
+          "jupyter": true
+        }
+      }
+    },
+    {
+      "kind": "facet",
+      "key": "framework/tool-jupyter-r",
+      "layer": {
+        "packages": {
+          "default_packages": {
+            "IRkernel": {
+              "source": "cran",
+              "auto_attach": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "kind": "facet",
+      "key": "framework/tool-quarto",
+      "layer": {
+        "tools": {
+          "quarto": true
+        }
+      }
+    },
+    {
+      "kind": "facet",
+      "key": "framework/workflow-jupyter",
+      "layer": {
+        "scaffold": {
+          "workflow": "jupyter",
+          "notebook_format": "jupyter"
+        }
+      }
+    },
+    {
+      "kind": "project",
+      "key": "choices",
+      "layer": {
+        "git": {
+          "use_git": false
+        },
+        "scaffold": {
+          "ide": "vscode"
+        }
+      }
+    }
+  ],
+  "spec": {
+    "spec_version": 1,
+    "name": "Fixture Study",
+    "type": "bare",
+    "language": "r",
+    "core_files": false,
+    "settings_layout": "flat",
+    "tools": {
+      "quarto": true,
+      "renv": false,
+      "jupyter": true
+    },
+    "author": {
+      "name": "Ada Analyst",
+      "email": "ada@example.org",
+      "affiliation": ""
+    },
+    "directories": {},
+    "extra_directories": {},
+    "render_dirs": {},
+    "packages": {
+      "use_renv": false,
+      "default_packages": {
+        "dplyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "ggplot2": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "tidyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "stringr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "readr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "purrr": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "tibble": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "forcats": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "lubridate": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "glue": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "here": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "lme4": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "IRkernel": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    },
+    "git": {
+      "use_git": false,
+      "hooks": {
+        "data_security": false
+      },
+      "gitignore_content": "# Framework Research Project\n# ================================================================================\n# Pattern-based gitignore - works regardless of directory structure customization.\n# This is the standard template for non-sensitive projects.\n# ================================================================================\n\n# ============================================================================\n# PRIVATE DATA - NEVER COMMIT\n# ============================================================================\n\n# Private directories (anywhere in project tree)\n**/private/**\n**/*_private/**\n\n# ============================================================================\n# SECRETS AND CREDENTIALS - NEVER COMMIT\n# ============================================================================\n\n.env\n.env.local\n.env.*.local\n.Renviron\n.httr-oauth\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n\n# ============================================================================\n# UTILITY & CACHE - SAFE TO IGNORE\n# ============================================================================\n\n# Temporary processing directories\n**/cache/**\n**/scratch/**\n**/tmp/**\n**/temp/**\n\n# Logs (run logs, cluster job output)\n**/logs/**\nslurm-*.out\n\n# ============================================================================\n# R ENVIRONMENT\n# ============================================================================\n\n# R session files\n.Rproj.user/\n.Rhistory\n.RData\n.Ruserdata\n.Rapp.history\n.Rprofile\n\n# renv (package management)\n# NOTE: Consider committing renv.lock for reproducibility\nrenv/library/\nrenv/local/\nrenv/cellar/\nrenv/lock/\nrenv/python/\nrenv/sandbox/\nrenv/staging/\n\n# ============================================================================\n# FRAMEWORK INTERNALS\n# ============================================================================\n\nframework.db\nframework.db-wal\nframework.db-shm\n.initiated\n.framework_renv_enabled\n.framework_scaffolded\n\n# ============================================================================\n# QUARTO / RMARKDOWN ARTIFACTS\n# ============================================================================\n\n.quarto/\n_freeze/\n*_cache/\n*_files/\n\n# ============================================================================\n# PYTHON (if using reticulate)\n# ============================================================================\n\n__pycache__/\n.ipynb_checkpoints/\n*.pyc\n.pytest_cache/\nvenv/\n.venv/\n\n# ============================================================================\n# IDE & SYSTEM FILES\n# ============================================================================\n\n# IDE - personal settings only (commit workspace settings if desired)\n.idea/\n.vscode/.history/\n.positron/.history/\n.history/\n\n# macOS\n.DS_Store\n.AppleDouble\n.LSOverride\n\n# Windows\nThumbs.db\nehthumbs.db\n\n# Linux\n*~\n\n# ============================================================================\n# TEMPORARY FILES\n# ============================================================================\n\n*.tmp\n*.log\n*.bak\n*.swp\n*~"
+    },
+    "ai": {
+      "enabled": true,
+      "assistants": {
+        "claude": true
+      },
+      "agents_md": "stub"
+    },
+    "scaffold": {
+      "seed_on_scaffold": false,
+      "seed": "123",
+      "set_theme_on_scaffold": false,
+      "ggplot_theme": "theme_minimal",
+      "source_all_functions": true,
+      "ide": "vscode",
+      "workflow": "jupyter",
+      "notebook_format": "jupyter"
+    },
+    "quarto": {
+      "html": {
+        "format": "html",
+        "embed_resources": true,
+        "theme": "default",
+        "toc": true,
+        "toc_depth": 3,
+        "code_fold": false,
+        "code_tools": false,
+        "highlight_style": "github"
+      },
+      "revealjs": {
+        "format": "revealjs",
+        "theme": "default",
+        "incremental": false,
+        "slide_number": true,
+        "transition": "slide",
+        "background_transition": "fade",
+        "controls": true,
+        "progress": true,
+        "center": true,
+        "highlight_style": "github"
+      }
+    },
+    "connections": {
+      "default_database": "framework",
+      "databases": {
+        "framework": {
+          "driver": "sqlite",
+          "database": "framework.db"
+        }
+      },
+      "storage_buckets": {}
+    },
+    "security": {
+      "sensitive": false
+    },
+    "env": {
+      "POSTGRES_HOST": "",
+      "POSTGRES_PORT": "5432",
+      "POSTGRES_DB": "",
+      "POSTGRES_SCHEMA": "public",
+      "POSTGRES_USER": "",
+      "POSTGRES_PASSWORD": "",
+      "S3_BUCKET": "",
+      "S3_ACCESS_KEY": "",
+      "S3_SECRET_KEY": "",
+      "S3_REGION": "",
+      "S3_ENDPOINT": "",
+      "S3_SESSION_TOKEN": ""
+    },
+    "data_hooks": {},
+    "files": {},
+    "skills": {}
+  },
+  "expected": {
+    "paths": [".framework/", ".framework/spec.json", ".gitignore", "settings.yml"]
+  }
+}

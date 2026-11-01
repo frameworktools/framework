@@ -1,0 +1,136 @@
+# adopt() maps an existing folder's layout and writes only settings.yml and
+# .framework/spec.json; structure_import() saves the layout on the cloud
+
+local_folder <- function(folders, env = parent.frame()) {
+  dir <- withr::local_tempdir(.local_envir = env)
+  for (f in folders) dir.create(file.path(dir, f), recursive = TRUE)
+  writeLines("x <- 1", file.path(dir, "analysis", "run.R"))
+  dir
+}
+
+test_that("adopt() writes settings.yml and the spec record, and nothing else", {
+  dir <- local_folder(c("R", "analysis", "data/raw", "figures", "renv/library", "archive/2020"))
+  before <- sort(list.files(dir, recursive = TRUE, all.files = TRUE, include.dirs = TRUE))
+
+  suppressMessages(adopt(dir, yes = TRUE))
+  after <- sort(list.files(dir, recursive = TRUE, all.files = TRUE, include.dirs = TRUE))
+  expect_setequal(setdiff(after, before), c("settings.yml", ".framework", ".framework/spec.json"))
+
+  settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
+  expect_identical(settings$directories$functions, "R")
+  expect_identical(settings$directories$inputs_raw, "data/raw")
+  expect_identical(settings$extra_directories[[1]]$path, "archive")
+  expect_length(settings$packages$default_packages, 0)
+
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$type, "bare")
+  expect_false(spec$security$sensitive)
+  expect_identical(spec$source$origin, "r")
+  expect_true(spec$source$adopted)
+  withr::with_dir(dir, expect_identical(config("functions"), "R"))
+
+  skip_if_not_installed("jsonvalidate")
+  schema <- system.file("schema", "spec.v1.json", package = "framework")
+  if (!nzchar(schema)) schema <- testthat::test_path("..", "..", "inst", "schema", "spec.v1.json")
+  json <- paste(readLines(file.path(dir, ".framework", "spec.json")), collapse = "\n")
+  expect_true(jsonvalidate::json_schema$new(schema)$validate(json))
+
+})
+
+test_that("adopt() refuses an existing project and needs a review or yes = TRUE", {
+  dir <- local_folder(c("analysis"))
+  withr::local_options(rlang_interactive = FALSE)
+  expect_error(adopt(dir), "yes = TRUE")
+  expect_false(file.exists(file.path(dir, "settings.yml")))
+
+  writeLines("default: {}", file.path(dir, "settings.yml"))
+  expect_error(adopt(dir, yes = TRUE), "already a Framework project")
+  expect_identical(readLines(file.path(dir, "settings.yml")), "default: {}")
+})
+
+test_that("private folders warn, and yes = TRUE never marks the project sensitive", {
+  dir <- local_folder(c("analysis", "data/private"))
+  expect_warning(suppressMessages(adopt(dir, yes = TRUE)), "looks private")
+  expect_false(jsonlite::read_json(file.path(dir, ".framework", "spec.json"))$security$sensitive)
+})
+
+test_that("the scanner skips tool and hidden folders and stops at three levels", {
+  dir <- local_folder(c("analysis", ".git/objects", ".venv/lib", "node_modules/x", "a/b/c/d", ".hidden"))
+  expect_identical(framework:::.adopt_scan(dir), c("a", "a/b", "a/b/c", "analysis"))
+})
+
+test_that("structure_import() sends the confirmed mapping to the cloud", {
+  dir <- local_folder(c("analysis", "data/raw", "archive"))
+  sent <- NULL
+  local_mocked_bindings(
+    .fw_require_token = function(url = NULL) "fw_test",
+    .fw_api = function(path, token, method = "GET", body = NULL, url = NULL) {
+      sent <<- list(path = path, method = method, body = body)
+      list(key = "ada/lab-layout", name = body$name, url = "https://cloud.test/structures/ada/lab-layout")
+    }
+  )
+  res <- suppressMessages(structure_import(dir, name = "Lab layout", yes = TRUE))
+  expect_identical(res$key, "ada/lab-layout")
+  expect_identical(sent$path, "/api/v2/structures")
+  expect_identical(sent$method, "POST")
+  expect_identical(sent$body$name, "Lab layout")
+  expect_identical(sent$body$directories, list(inputs_raw = "data/raw", scripts = "analysis"))
+  expect_identical(sent$body$extra_directories, list(archive = list(label = "archive", path = "archive")))
+  expect_false(file.exists(file.path(dir, "settings.yml")))
+})
+
+test_that("writing a project token makes git ignore .env first", {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  dir <- withr::local_tempdir()
+  system2("git", c("-C", shQuote(dir), "init", "-q"), stdout = FALSE, stderr = FALSE)
+  writeLines(c("*.log", "!.env"), file.path(dir, ".gitignore"))
+
+  expect_message(framework:::.fw_write_project_token(dir, "fw_secret", "https://cloud.test"),
+                 "stays out of git")
+  status <- system2("git", c("-C", shQuote(dir), "check-ignore", "-q", ".env"), stdout = FALSE, stderr = FALSE)
+  expect_identical(as.integer(status), 0L)
+
+  # Already ignored: .gitignore is left alone
+  before <- readLines(file.path(dir, ".gitignore"))
+  writeLines("OTHER=1", file.path(dir, ".env"))
+  suppressMessages(framework:::.fw_ensure_env_ignored(dir))
+  expect_identical(readLines(file.path(dir, ".gitignore")), before)
+
+  # Outside a repository, .gitignore's own rules decide
+  plain <- withr::local_tempdir()
+  suppressMessages(framework:::.fw_ensure_env_ignored(plain))
+  expect_identical(utils::tail(readLines(file.path(plain, ".gitignore")), 1), ".env")
+})
+
+test_that("a project token is never written into a .env git tracks", {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  dir <- withr::local_tempdir()
+  git <- function(...) system2("git", c("-C", shQuote(dir), ...), stdout = FALSE, stderr = FALSE)
+  git("init", "-q")
+  writeLines("A=1", file.path(dir, ".env"))
+  git("add", "-f", ".env")
+  expect_error(framework:::.fw_write_project_token(dir, "fw_secret", "https://cloud.test"), "git rm --cached .env")
+  expect_identical(readLines(file.path(dir, ".env")), "A=1")
+})
+
+test_that("adopt() offers to register and to save the layout when signed in", {
+  dir <- local_folder(c("analysis", "data/raw"))
+  asked <- character()
+  registered <- NULL
+  local_mocked_bindings(
+    .fw_cloud_token = function(url = NULL) "fw_test",
+    .fw_cloud_host = function(url = NULL) "cloud.test",
+    .fw_cloud_register_project = function(project_dir, name, type) registered <<- list(dir = project_dir, type = type),
+    .structure_upload = function(mapping, name) stop("not asked for"),
+    .adopt_ask = function(msg, default = FALSE) {
+      asked <<- c(asked, msg)
+      grepl("^Register", msg)
+    },
+    .adopt_readline = function(prompt) "a"
+  )
+  withr::local_options(rlang_interactive = TRUE)
+  suppressMessages(adopt(dir))
+  expect_identical(asked, c("Register this project on cloud.test?",
+                            "Save this folder layout as a structure on cloud.test?"))
+  expect_identical(registered$type, "bare")
+})

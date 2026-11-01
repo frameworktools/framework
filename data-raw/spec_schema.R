@@ -141,7 +141,11 @@ properties <- list(
       set_theme_on_scaffold = bool(),
       ggplot_theme = str(),
       source_all_functions = bool(),
-      notebook_format = str(enum = list("quarto", "rmarkdown", "jupyter")),
+      notebook_format = str(enum = list("quarto", "rmarkdown", "jupyter", "script")),
+      workflow = str(
+        enum = list("quarto", "jupyter", "scripts"),
+        description = "How notebooks are written. quarto allows notebook_format quarto (or rmarkdown in R), jupyter allows jupyter, and scripts allows script."
+      ),
       ide = str(enum = list("vscode", "positron", "rstudio", "both", "none"))
     ),
     required = c("seed_on_scaffold", "seed")
@@ -172,6 +176,7 @@ properties <- list(
       )),
       blueprint = obj(list(key = str(), version = list(type = "integer")), required = c("key")),
       study_plan = obj(list(id = str(), version = list(type = "integer")), required = c("id")),
+      adopted = bool(description = "True when adopt() made an existing folder a project, mapping its folders in place"),
       framework_version = str(description = "Version of the R or Python package that created the project"),
       fw_version = str(description = "Version of fw that created the project (Stata scaffolding)")
     ),

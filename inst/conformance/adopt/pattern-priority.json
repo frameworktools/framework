@@ -1,0 +1,26 @@
+{
+  "description": "Several folders match inputs_raw; the rule's earliest pattern wins and the rest are extra directories.",
+  "folders": [
+    "raw",
+    "data",
+    "data/raw",
+    "inputs",
+    "inputs/raw"
+  ],
+  "expected": {
+    "directories": {
+      "inputs_raw": "inputs/raw"
+    },
+    "extra_directories": {
+      "data": {
+        "label": "data",
+        "path": "data"
+      },
+      "raw": {
+        "label": "raw",
+        "path": "raw"
+      }
+    },
+    "warnings": []
+  }
+}

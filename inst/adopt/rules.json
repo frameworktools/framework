@@ -1,0 +1,161 @@
+{
+  "description": "How adopt() and structure_import() map an existing project's folders to Framework directory keys. Each rule's patterns are relative folder paths, matched exactly but ignoring case; a rule without languages applies to every language. Shared with framework-py and fw; see inst/conformance/README.md (adopt/).",
+  "max_depth": 3,
+  "skip": [
+    ".git",
+    ".svn",
+    ".hg",
+    ".Rproj.user",
+    "renv",
+    ".venv",
+    "venv",
+    "env",
+    "node_modules",
+    "__pycache__",
+    ".ipynb_checkpoints",
+    ".quarto",
+    "_freeze",
+    ".cache",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".framework"
+  ],
+  "rules": [
+    {
+      "key": "inputs_raw",
+      "patterns": [
+        "inputs/raw",
+        "data/raw",
+        "data-raw",
+        "data_raw",
+        "raw_data",
+        "raw",
+        "data/original"
+      ]
+    },
+    {
+      "key": "inputs_intermediate",
+      "patterns": [
+        "inputs/intermediate",
+        "data/intermediate",
+        "data/interim"
+      ]
+    },
+    {
+      "key": "inputs_final",
+      "patterns": [
+        "inputs/final",
+        "data/final",
+        "data/processed",
+        "data/clean"
+      ]
+    },
+    {
+      "key": "inputs_reference",
+      "patterns": [
+        "inputs/reference",
+        "data/reference",
+        "data/external",
+        "reference"
+      ]
+    },
+    {
+      "key": "functions",
+      "patterns": [
+        "functions",
+        "R",
+        "src",
+        "lib",
+        "utils"
+      ]
+    },
+    {
+      "key": "do",
+      "patterns": [
+        "do",
+        "dofiles",
+        "stata"
+      ],
+      "languages": [
+        "stata"
+      ]
+    },
+    {
+      "key": "scripts",
+      "patterns": [
+        "scripts",
+        "code",
+        "analysis"
+      ]
+    },
+    {
+      "key": "notebooks",
+      "patterns": [
+        "notebooks",
+        "nb"
+      ]
+    },
+    {
+      "key": "outputs_figures",
+      "patterns": [
+        "outputs/figures",
+        "output/figures",
+        "figures",
+        "figs",
+        "plots"
+      ]
+    },
+    {
+      "key": "outputs_tables",
+      "patterns": [
+        "outputs/tables",
+        "output/tables",
+        "tables"
+      ]
+    },
+    {
+      "key": "outputs_models",
+      "patterns": [
+        "outputs/models",
+        "output/models",
+        "models"
+      ]
+    },
+    {
+      "key": "outputs_reports",
+      "patterns": [
+        "outputs/reports",
+        "output/reports",
+        "reports"
+      ]
+    },
+    {
+      "key": "logs",
+      "patterns": [
+        "logs",
+        "log"
+      ]
+    },
+    {
+      "key": "docs",
+      "patterns": [
+        "docs",
+        "documentation"
+      ]
+    },
+    {
+      "key": "cache",
+      "patterns": [
+        "cache"
+      ]
+    },
+    {
+      "key": "scratch",
+      "patterns": [
+        "scratch",
+        "tmp",
+        "sandbox"
+      ]
+    }
+  ]
+}

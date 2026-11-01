@@ -26,7 +26,7 @@ used by both the CLI and GUI interfaces.
 \item \code{defaults} - Project defaults
 \itemize{
 \item \code{project_type} - Default project type ("project", "presentation", "course")
-\item \code{notebook_format} - Default notebook format ("quarto", "rmarkdown")
+\item \code{notebook_format} - Default notebook format ("quarto", "rmarkdown", "jupyter")
 \item \code{ide} - IDE preference ("vscode", "rstudio", "both", "none")
 \item \code{use_git} - Initialize git repositories by default
 \item \code{use_renv} - Enable renv by default

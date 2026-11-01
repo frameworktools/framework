@@ -689,10 +689,13 @@ scaffold <- function(config_file = NULL) {
 #' @keywords internal
 #' @description
 #' Sets ggplot2 theme if configured. Checks for theme settings in this order:
-#' 1. Project settings.yml (ggplot_theme and set_theme_on_scaffold)
+#' 1. Project settings (scaffold:, then options:, then the top level)
 #' 2. Skip if set_theme_on_scaffold is FALSE or theme is empty
 .set_ggplot_theme <- function(config) {
-  set_theme_on <- config$options$set_theme_on_scaffold %||%
+  # New projects write these under scaffold: (settings/scaffold.yml); older
+  # ones under options: or the top level
+  set_theme_on <- config$scaffold$set_theme_on_scaffold %||%
+                  config$options$set_theme_on_scaffold %||%
                   config$set_theme_on_scaffold %||%
                   FALSE
 
@@ -700,7 +703,8 @@ scaffold <- function(config_file = NULL) {
     return(invisible(NULL))
   }
 
-  theme_name <- config$options$ggplot_theme %||%
+  theme_name <- config$scaffold$ggplot_theme %||%
+                config$options$ggplot_theme %||%
                 config$ggplot_theme %||%
                 ""
 

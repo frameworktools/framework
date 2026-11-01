@@ -29,3 +29,23 @@ test_that("sensitive data on splits even without the folders listed", {
   expect_identical(framework:::.output_dir("models"), "outputs/private/models")
   expect_identical(framework:::.output_dir("models", public = TRUE), "outputs/public/models")
 })
+
+test_that("save_notebook() renders a Jupyter notebook from its saved outputs", {
+  skip_on_cran()
+  skip_if(!nzchar(Sys.which("quarto")), "quarto not installed")
+  local_settings(list(project_type = "project", directories = list(outputs_notebooks = "outputs/notebooks")))
+  empty <- structure(list(), names = character())
+  nb <- list(
+    cells = list(list(cell_type = "code", execution_count = 1, metadata = empty,
+                      outputs = list(list(output_type = "stream", name = "stdout", text = list("[1] 42\n"))),
+                      source = list("21 * 2"))),
+    metadata = list(kernelspec = list(name = "ir", display_name = "R", language = "R")),
+    nbformat = 4, nbformat_minor = 5
+  )
+  dir.create("notebooks")
+  jsonlite::write_json(nb, "notebooks/answer.ipynb", auto_unbox = TRUE, null = "null")
+
+  path <- suppressMessages(save_notebook("notebooks/answer.ipynb"))
+  expect_identical(path, file.path("outputs", "notebooks", "answer.html"))
+  expect_true(any(grepl("[1] 42", readLines(path, warn = FALSE), fixed = TRUE)))
+})

@@ -1,0 +1,237 @@
+{
+  "description": "Privacy Sensitive structure, Scripts workflow, with agent guards.",
+  "language": "python",
+  "layers": [
+    {
+      "kind": "base",
+      "key": "project_sensitive",
+      "layer": {
+        "type": "project_sensitive",
+        "language": "python"
+      }
+    },
+    {
+      "kind": "facet",
+      "key": "framework/workflow-scripts",
+      "layer": {
+        "tools": {
+          "quarto": false,
+          "jupyter": false
+        },
+        "scaffold": {
+          "workflow": "scripts",
+          "notebook_format": "script"
+        }
+      }
+    },
+    {
+      "kind": "project",
+      "key": "choices",
+      "layer": {
+        "git": {
+          "use_git": false
+        },
+        "scaffold": {
+          "ide": "vscode"
+        }
+      }
+    }
+  ],
+  "spec": {
+    "spec_version": 1,
+    "name": "Fixture Study",
+    "type": "project_sensitive",
+    "language": "python",
+    "core_files": true,
+    "settings_layout": "split",
+    "tools": {
+      "quarto": false,
+      "uv": true,
+      "jupyter": false
+    },
+    "author": {
+      "name": "Ada Analyst",
+      "email": "ada@example.org",
+      "affiliation": ""
+    },
+    "directories": {
+      "functions": "functions",
+      "notebooks": "notebooks",
+      "scripts": "scripts",
+      "inputs_private_raw": "inputs/private/raw",
+      "inputs_public_raw": "inputs/public/raw",
+      "inputs_private_intermediate": "inputs/private/intermediate",
+      "inputs_public_intermediate": "inputs/public/intermediate",
+      "inputs_private_final": "inputs/private/final",
+      "inputs_public_final": "inputs/public/final",
+      "outputs_private_notebooks": "outputs/private/notebooks",
+      "outputs_public_notebooks": "outputs/public/notebooks",
+      "outputs_private_tables": "outputs/private/tables",
+      "outputs_public_tables": "outputs/public/tables",
+      "outputs_private_figures": "outputs/private/figures",
+      "outputs_public_figures": "outputs/public/figures",
+      "outputs_private_models": "outputs/private/models",
+      "outputs_public_models": "outputs/public/models",
+      "outputs_private_reports": "outputs/private/reports",
+      "outputs_public_reports": "outputs/public/reports",
+      "cache": "outputs/private/cache",
+      "scratch": "scratch",
+      "logs": "logs"
+    },
+    "extra_directories": {},
+    "render_dirs": {
+      "notebooks": "outputs/private/notebooks",
+      "docs": "outputs/private/docs"
+    },
+    "packages": {
+      "use_renv": false,
+      "default_packages": {}
+    },
+    "git": {
+      "use_git": false,
+      "hooks": {
+        "data_security": false
+      },
+      "gitignore_content": "# Framework (Privacy-First Mode)\n# ================================================================================\n# This project uses Framework's privacy-first structure.\n# All */private/ directories are gitignored by default.\n# Only */public/ directories can be committed after explicit review.\n#\n# WORKFLOW:\n#   1. Sensitive/raw data goes in */private/ directories (NEVER committed)\n#   2. De-identified/aggregated data goes in */public/ directories (safe to commit)\n#   3. Analysis scripts are committed, but outputs are carefully controlled\n#\n# CRITICAL: Private directories are NEVER committed to version control.\n# ================================================================================\n\n# ============================================================================\n# SENSITIVE DATA - NEVER COMMIT\n# ============================================================================\n\n# Private directories - explicit paths for this project type\n/inputs/private/\n/reference/private/\n/outputs/private/\n\n# Generic private directory patterns (defense-in-depth)\n**/private/**\n**/*_private/**\n**/sensitive/**\n\n# Allow structure documentation (README and .gitkeep files in private dirs)\n!/inputs/**/README.md\n!/inputs/**/.gitkeep\n!/reference/**/README.md\n!/reference/**/.gitkeep\n!/outputs/**/README.md\n!/outputs/**/.gitkeep\n\n# ============================================================================\n# SECRETS AND CREDENTIALS - NEVER COMMIT\n# ============================================================================\n\n.env\n.env.local\n.env.*.local\n.Renviron\n.httr-oauth\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n*.p12\n*.pfx\n\n# ============================================================================\n# UTILITY & CACHE - SAFE TO IGNORE\n# ============================================================================\n\n# Temporary processing directories\n**/cache/**\n**/scratch/**\n**/tmp/**\n**/temp/**\n\n# Logs (run logs, cluster job output)\n**/logs/**\nslurm-*.out\n\n# ============================================================================\n# FRAMEWORK INTERNALS\n# ============================================================================\n\nframework.db\nframework.db-wal\nframework.db-shm\n.initiated\n.framework_scaffolded\n\n# ============================================================================\n# QUARTO ARTIFACTS\n# ============================================================================\n\n.quarto/\n_freeze/\n*_cache/\n*_files/\n\n# ============================================================================\n# PYTHON ENVIRONMENT\n# ============================================================================\n\n__pycache__/\n*.py[cod]\n.venv/\nvenv/\n.ipynb_checkpoints/\n.pytest_cache/\n.mypy_cache/\n.ruff_cache/\n*.egg-info/\nbuild/\ndist/\n\n# ============================================================================\n# IDE & SYSTEM FILES\n# ============================================================================\n\n# IDE - personal settings only (commit workspace settings if desired)\n.idea/\n.vscode/.history/\n.positron/.history/\n.history/\n\n# macOS\n.DS_Store\n.AppleDouble\n.LSOverride\n\n# Windows\nThumbs.db\nehthumbs.db\n\n# Linux\n*~\n\n# ============================================================================\n# CLOUD/AWS CONFIG\n# ============================================================================\n\n.aws/\n.config/\n\n# ============================================================================\n# TEMPORARY FILES\n# ============================================================================\n\n*.tmp\n*.log\n*.bak\n*.swp\n*~"
+    },
+    "ai": {
+      "enabled": true,
+      "assistants": {
+        "claude": true
+      },
+      "agents_md": "stub"
+    },
+    "scaffold": {
+      "seed_on_scaffold": false,
+      "seed": "123",
+      "source_all_functions": true,
+      "ide": "vscode",
+      "workflow": "scripts",
+      "notebook_format": "script"
+    },
+    "quarto": {
+      "html": {
+        "format": "html",
+        "embed_resources": true,
+        "theme": "default",
+        "toc": true,
+        "toc_depth": 3,
+        "code_fold": false,
+        "code_tools": false,
+        "highlight_style": "github"
+      },
+      "revealjs": {
+        "format": "revealjs",
+        "theme": "default",
+        "incremental": false,
+        "slide_number": true,
+        "transition": "slide",
+        "background_transition": "fade",
+        "controls": true,
+        "progress": true,
+        "center": true,
+        "highlight_style": "github"
+      },
+      "render_dir": "outputs/public/docs"
+    },
+    "connections": {
+      "default_database": "framework",
+      "databases": {
+        "framework": {
+          "driver": "sqlite",
+          "database": "framework.db"
+        }
+      },
+      "storage_buckets": {}
+    },
+    "security": {
+      "sensitive": true
+    },
+    "env": {
+      "POSTGRES_HOST": "",
+      "POSTGRES_PORT": "5432",
+      "POSTGRES_DB": "",
+      "POSTGRES_SCHEMA": "public",
+      "POSTGRES_USER": "",
+      "POSTGRES_PASSWORD": "",
+      "S3_BUCKET": "",
+      "S3_ACCESS_KEY": "",
+      "S3_SECRET_KEY": "",
+      "S3_REGION": "",
+      "S3_ENDPOINT": "",
+      "S3_SESSION_TOKEN": ""
+    },
+    "data_hooks": {},
+    "files": {},
+    "skills": {
+      "framework-workflow": {
+        "package": true
+      },
+      "framework-data": {
+        "package": true
+      },
+      "framework-packages": {
+        "package": true
+      },
+      "framework-outputs": {
+        "package": true
+      },
+      "framework-sensitive-data": {
+        "package": true
+      }
+    }
+  },
+  "expected": {
+    "paths": [
+      ".claude/",
+      ".claude/settings.json",
+      ".claude/skills/",
+      ".claude/skills/framework-data/",
+      ".claude/skills/framework-data/SKILL.md",
+      ".claude/skills/framework-outputs/",
+      ".claude/skills/framework-outputs/SKILL.md",
+      ".claude/skills/framework-packages/",
+      ".claude/skills/framework-packages/SKILL.md",
+      ".claude/skills/framework-sensitive-data/",
+      ".claude/skills/framework-sensitive-data/SKILL.md",
+      ".claude/skills/framework-workflow/",
+      ".claude/skills/framework-workflow/SKILL.md",
+      ".env",
+      ".framework/",
+      ".framework/spec.json",
+      ".gitignore",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "fixture-study.code-workspace",
+      "framework.db",
+      "functions/",
+      "inputs/",
+      "inputs/private/",
+      "inputs/private/final/",
+      "inputs/private/intermediate/",
+      "inputs/private/raw/",
+      "inputs/public/",
+      "inputs/public/final/",
+      "inputs/public/intermediate/",
+      "inputs/public/raw/",
+      "logs/",
+      "notebooks/",
+      "outputs/",
+      "outputs/private/",
+      "outputs/private/notebooks/",
+      "pyproject.toml",
+      "scaffold.py",
+      "scratch/",
+      "scripts/",
+      "settings.yml",
+      "settings/",
+      "settings/ai.yml",
+      "settings/author.yml",
+      "settings/connections.yml",
+      "settings/data.yml",
+      "settings/git.yml",
+      "settings/quarto.yml",
+      "settings/scaffold.yml"
+    ]
+  }
+}

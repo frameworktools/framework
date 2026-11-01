@@ -7,7 +7,8 @@
 git_hooks_enable(hook_name, config_file = NULL, verbose = TRUE)
 }
 \arguments{
-\item{hook_name}{Name of hook: "data_security" or "check_sensitive_dirs"}
+\item{hook_name}{Name of hook: "data_security", "check_sensitive_dirs", or
+"check_notebook_outputs"}
 
 \item{config_file}{Path to configuration file (default: auto-discover settings.yml or settings.yml)}
 

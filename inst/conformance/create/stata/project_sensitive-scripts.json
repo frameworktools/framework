@@ -1,0 +1,147 @@
+{
+  "description": "Privacy-sensitive structure: private and public folders and Claude Code deny rules.",
+  "language": "stata",
+  "layers": [
+    {
+      "kind": "base",
+      "key": "project_sensitive",
+      "layer": {
+        "type": "project_sensitive"
+      }
+    },
+    {
+      "kind": "facet",
+      "key": "framework/workflow-scripts",
+      "layer": {
+        "scaffold": {
+          "notebook_format": "script",
+          "workflow": "scripts"
+        },
+        "tools": {
+          "jupyter": false,
+          "quarto": false
+        }
+      }
+    },
+    {
+      "kind": "project",
+      "key": "choices",
+      "layer": {
+        "git": {
+          "use_git": false
+        },
+        "language": "stata"
+      }
+    }
+  ],
+  "spec": {
+    "ai": {
+      "agents_md": "stub",
+      "assistants": {
+        "claude": true
+      },
+      "enabled": true
+    },
+    "author": {
+      "affiliation": "",
+      "email": "ada@example.org",
+      "name": "Ada Analyst"
+    },
+    "data_hooks": {},
+    "directories": {
+      "do": "do",
+      "docs": "docs",
+      "inputs_private_final": "inputs/private/final",
+      "inputs_private_intermediate": "inputs/private/intermediate",
+      "inputs_private_raw": "inputs/private/raw",
+      "inputs_public_final": "inputs/public/final",
+      "logs": "logs",
+      "outputs_private_figures": "outputs/private/figures",
+      "outputs_private_tables": "outputs/private/tables",
+      "outputs_public_figures": "outputs/public/figures",
+      "outputs_public_tables": "outputs/public/tables",
+      "scratch": "scratch"
+    },
+    "env": {},
+    "extra_directories": {},
+    "files": {},
+    "git": {
+      "gitignore_content": "# Framework Stata project\n# Data files stay out of git. Do-files, settings.do, and documentation are\n# committed; data and logs are not.\n#\n# This project holds restricted data. Everything under a private/ folder stays\n# on the machine that may hold it. Only reviewed, de-identified files go in\n# public/ folders.\n\n# Stata data and session files\n*.dta\n*.log\n*.smcl\n*.stswp\n\n# Restricted data\n/inputs/private/\n/outputs/private/\n**/private/**\n**/*_private/**\n**/sensitive/**\n\n# Keep the folder structure and its documentation\n!/inputs/**/README.md\n!/inputs/**/.gitkeep\n!/outputs/**/README.md\n!/outputs/**/.gitkeep\n\n# Secrets and credentials\n.env\n.env.*\n!.env.example\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n*.p12\n*.pfx\n\n# Logs, cache, and scratch work\n**/logs/**\n**/cache/**\n**/scratch/**\n**/tmp/**\nslurm-*.out\n\n# System files\n.DS_Store\nThumbs.db\n*~\n*.tmp\n*.bak\n",
+      "hooks": {},
+      "use_git": false
+    },
+    "language": "stata",
+    "name": "Fixture Study",
+    "scaffold": {
+      "notebook_format": "script",
+      "seed": "",
+      "seed_on_scaffold": false,
+      "workflow": "scripts"
+    },
+    "security": {
+      "sensitive": true
+    },
+    "skills": {
+      "framework-sensitive-data": {
+        "package": true
+      },
+      "framework-stata": {
+        "package": true
+      }
+    },
+    "spec_version": 1,
+    "tools": {
+      "jupyter": false,
+      "quarto": false
+    },
+    "type": "project_sensitive"
+  },
+  "expected": {
+    "paths": [
+      ".claude/",
+      ".claude/settings.json",
+      ".claude/skills/",
+      ".claude/skills/framework-sensitive-data/",
+      ".claude/skills/framework-sensitive-data/SKILL.md",
+      ".claude/skills/framework-stata/",
+      ".claude/skills/framework-stata/SKILL.md",
+      ".framework/",
+      ".framework/spec.json",
+      ".gitignore",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "do/",
+      "do/.gitkeep",
+      "docs/",
+      "docs/.gitkeep",
+      "inputs/",
+      "inputs/private/",
+      "inputs/private/final/",
+      "inputs/private/final/.gitkeep",
+      "inputs/private/intermediate/",
+      "inputs/private/intermediate/.gitkeep",
+      "inputs/private/raw/",
+      "inputs/private/raw/.gitkeep",
+      "inputs/public/",
+      "inputs/public/final/",
+      "inputs/public/final/.gitkeep",
+      "logs/",
+      "logs/.gitkeep",
+      "master.do",
+      "outputs/",
+      "outputs/private/",
+      "outputs/private/figures/",
+      "outputs/private/figures/.gitkeep",
+      "outputs/private/tables/",
+      "outputs/private/tables/.gitkeep",
+      "outputs/public/",
+      "outputs/public/figures/",
+      "outputs/public/figures/.gitkeep",
+      "outputs/public/tables/",
+      "outputs/public/tables/.gitkeep",
+      "scratch/",
+      "scratch/.gitkeep",
+      "settings.do"
+    ]
+  }
+}

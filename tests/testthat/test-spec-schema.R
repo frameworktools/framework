@@ -157,7 +157,7 @@ test_that("the schemas accept Python package names, hooks, and notebook formats"
   spec <- spec_resolve(list(list(type = "project")), name = "P")
   spec$packages$default_packages$numpy <- list(source = "pypi", auto_attach = FALSE)
   spec$data_hooks$x <- "hooks/fetch.py::fetch"
-  spec$scaffold$notebook_format <- "jupyter"
+  spec$scaffold$notebook_format <- "marimo"
   problems <- spec_check(spec)
   expect_match(problems, "source must be cran", all = FALSE)
   expect_match(problems, "file.R::function", all = FALSE)

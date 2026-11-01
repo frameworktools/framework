@@ -121,3 +121,42 @@ test_that("the hook explains when no runtime has framework installed", {
   expect_match(calls[1], "Rscript ran: -e ok <- requireNamespace")
   expect_match(calls[2], "python3 ran: -c import framework")
 })
+
+test_that("check_notebook_outputs blocks staged notebooks with outputs", {
+  local_git_project(hooks = list(check_notebook_outputs = TRUE))
+  notebook <- function(path, outputs = list(), count = NULL) {
+    cell <- list(cell_type = "code", execution_count = count, metadata = structure(list(), names = character()),
+                 outputs = outputs, source = list("head(df)"))
+    jsonlite::write_json(list(cells = list(cell), metadata = structure(list(), names = character()),
+                              nbformat = 4, nbformat_minor = 5),
+                         path, auto_unbox = TRUE, null = "null")
+  }
+  dir.create("notebooks")
+  notebook("notebooks/clean.ipynb")
+  notebook("notebooks/ran.ipynb", count = 1)
+  notebook("notebooks/printed data.ipynb",
+           outputs = list(list(output_type = "stream", name = "stdout", text = list("id 1"))))
+  notebook("notebooks/unstaged.ipynb", count = 3)
+  system2("git", c("add", "notebooks/clean.ipynb", "notebooks/ran.ipynb", shQuote("notebooks/printed data.ipynb")),
+          stdout = FALSE, stderr = FALSE)
+
+  expect_setequal(.hook_notebooks_with_outputs(), c("notebooks/ran.ipynb", "notebooks/printed data.ipynb"))
+  expect_message(status <- .hook_run("pre-commit"), "saved outputs")
+  expect_identical(status, 1L)
+
+  # The staged copy counts, not the working file
+  notebook("notebooks/ran.ipynb")
+  notebook("notebooks/printed data.ipynb")
+  expect_length(.hook_notebooks_with_outputs(), 2)
+  system2("git", c("add", "notebooks"), stdout = FALSE, stderr = FALSE)
+  system2("git", c("rm", "-q", "--cached", "notebooks/unstaged.ipynb"), stdout = FALSE, stderr = FALSE)
+  expect_identical(.hook_run("pre-commit"), 0L)
+})
+
+test_that("git_hooks_enable knows check_notebook_outputs", {
+  local_git_project(hooks = list())
+  expect_true(suppressMessages(git_hooks_enable("check_notebook_outputs")))
+  expect_true(yaml::read_yaml("settings.yml")$default$git$hooks$check_notebook_outputs)
+  df <- suppressMessages(git_hooks_list())
+  expect_true(df$enabled[df$hook == "check_notebook_outputs"])
+})

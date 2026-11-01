@@ -20,8 +20,10 @@ new(
 \item{location}{Directory path where project will be created. If NULL (default),
 prompts interactively.}
 
-\item{type}{Project type: one of Framework's structures, "project"
-(default), "project_sensitive", "course", "presentation", or "bare".}
+\item{type}{Project type: one of Framework's structures, "project",
+"project_sensitive", "course", "presentation", or "bare". NULL (default)
+uses your default blueprint on Framework Cloud when you are signed in,
+and "project" otherwise.}
 
 \item{browse}{Whether to open the project folder after creation (default: TRUE in
 interactive sessions)}

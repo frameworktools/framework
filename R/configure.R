@@ -620,13 +620,13 @@ configure_directories <- function(directory = NULL, path = NULL, interactive = T
   # Validate notebook_format
   if (!is.null(defaults$notebook_format)) {
     checkmate::assert_choice(defaults$notebook_format,
-                              choices = c("quarto", "rmarkdown"))
+                              choices = c("quarto", "rmarkdown", "jupyter"))
   }
 
   # Validate ide
   if (!is.null(defaults$ide)) {
     checkmate::assert_choice(defaults$ide,
-                              choices = c("vscode", "rstudio", "both", "none"))
+                              choices = c("vscode", "positron", "rstudio", "both", "none"))
   }
 
   # Validate booleans
@@ -889,7 +889,7 @@ configure_directories <- function(directory = NULL, path = NULL, interactive = T
 #' - `author` - Author information (name, email, affiliation)
 #' - `defaults` - Project defaults
 #'   - `project_type` - Default project type ("project", "presentation", "course")
-#'   - `notebook_format` - Default notebook format ("quarto", "rmarkdown")
+#'   - `notebook_format` - Default notebook format ("quarto", "rmarkdown", "jupyter")
 #'   - `ide` - IDE preference ("vscode", "rstudio", "both", "none")
 #'   - `use_git` - Initialize git repositories by default
 #'   - `use_renv` - Enable renv by default

@@ -271,3 +271,42 @@ test_that("tools, settings_layout, and core_files decide what is created, not th
   expect_false(file.exists(file.path(dir, ".env")))
   expect_identical(yaml::read_yaml(file.path(dir, "settings.yml"))$default$project_type, "lab_pipeline")
 })
+
+test_that("scaffold.ide decides which editor files are written", {
+  skip_on_cran()
+  env <- environment()
+  editor_files <- function(ide) {
+    dir <- withr::local_tempdir(.local_envir = env)
+    dir.create(file.path(dir, ".framework"))
+    layers <- list(list(kind = "base", key = "project", layer = list(type = "project")))
+    if (!is.null(ide)) {
+      layers <- c(layers, list(list(kind = "project", layer = list(scaffold = list(ide = ide)))))
+    }
+    suppressMessages(project_create_from_layers(write_layers(dir, layers), path = dir, interactive = FALSE))
+    sort(method = "radix", sub(".*\\.", "", list.files(dir, pattern = "\\.(Rproj|code-workspace)$")))
+  }
+
+  expect_identical(editor_files("rstudio"), "Rproj")
+  expect_identical(editor_files("vscode"), "code-workspace")
+  expect_identical(editor_files("positron"), "code-workspace")
+  expect_identical(editor_files("both"), c("Rproj", "code-workspace"))
+  expect_identical(editor_files("none"), character())
+})
+
+test_that("a missing scaffold.ide keeps the .Rproj", {
+  expect_identical(.ide_files(NULL), list(rproj = TRUE, workspace = FALSE))
+  expect_identical(.ide_files("none", positron = TRUE), list(rproj = FALSE, workspace = TRUE))
+})
+
+test_that("scaffold.source_all_functions reaches the project's settings", {
+  skip_on_cran()
+  dir <- withr::local_tempdir()
+  dir.create(file.path(dir, ".framework"))
+  layers <- list(
+    list(kind = "base", key = "project", layer = list(type = "project")),
+    list(kind = "project", layer = list(scaffold = list(source_all_functions = FALSE)))
+  )
+  suppressMessages(project_create_from_layers(write_layers(dir, layers), path = dir, interactive = FALSE))
+  scaffold <- yaml::read_yaml(file.path(dir, "settings", "scaffold.yml"))$scaffold
+  expect_false(scaffold$source_all_functions)
+})

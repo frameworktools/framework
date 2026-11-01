@@ -1,5 +1,6 @@
-# Framework's tools (inst/features/<id>.json) and its bundled skill and
-# package sets (inst/sets/). Each holds a layer in the spec layer format, so
+# Framework's tools (inst/features/<id>.json), workflows
+# (inst/workflows/<id>.json), and its bundled skill and package sets
+# (inst/sets/). Each holds a layer in the spec layer format, so
 # offline new() and framework.pub build the same projects. These files are
 # canonical here; framework-cloud, framework-py, and fw copy them.
 
@@ -13,6 +14,29 @@
 
 #' @keywords internal
 .fw_features <- function() .fw_read_definitions("features")
+
+#' @keywords internal
+.fw_workflows <- function() .fw_read_definitions("workflows")
+
+# A workflow's layers: the tools it requires (with their per-language
+# packages), then its own layer, which sets the workflow and notebook format
+#' @keywords internal
+.fw_workflow_layers <- function(workflow, language = "r") {
+  workflows <- .fw_workflows()
+  wf <- workflows[[workflow]]
+  if (is.null(wf)) {
+    stop("Unknown workflow: ", workflow, ". Available: ", paste(names(workflows), collapse = ", "), call. = FALSE)
+  }
+  if (!language %in% unlist(wf$language)) {
+    stop("The ", wf$name, " workflow isn't available for ", language, " projects.", call. = FALSE)
+  }
+  own <- list(list(kind = "facet", key = paste0("framework/workflow-", wf$id), layer = wf$layer))
+  extra <- wf$language_layers[[language]]
+  if (length(extra) > 0) {
+    own <- c(own, list(list(kind = "facet", key = paste0("framework/workflow-", wf$id, "-", language), layer = extra)))
+  }
+  c(.fw_definition_layers(tools = as.character(unlist(wf$requires)), language = language), own)
+}
 
 #' @keywords internal
 .fw_skill_sets <- function() .fw_read_definitions("sets", "skills")

@@ -1,0 +1,14 @@
+{
+  "id": "jupyter",
+  "name": "Jupyter",
+  "description": "Write notebooks in Jupyter (.ipynb) with the kernel for the project's language. Quarto stays available to render and publish them.",
+  "language": ["r", "python"],
+  "requires": ["jupyter", "quarto"],
+  "layer": {
+    "scaffold": {
+      "workflow": "jupyter",
+      "notebook_format": "jupyter"
+    }
+  },
+  "language_layers": {}
+}

@@ -36,7 +36,7 @@ defaults:
   packages:
     use_renv: false                      # Use renv for package management
     default_packages:
-      # Core tidyverse (auto-attached for immediate use)
+      # Core tidyverse (auto-attached unless marked otherwise)
       - name: "dplyr"
         auto_attach: true
       - name: "ggplot2"
@@ -47,12 +47,20 @@ defaults:
         auto_attach: true
       - name: "readr"
         auto_attach: true
+      - name: "purrr"
+        auto_attach: false
+      - name: "tibble"
+        auto_attach: true
+      - name: "forcats"
+        auto_attach: true
       # Utility packages (installed but not auto-attached)
       - name: "lubridate"
         auto_attach: false
       - name: "glue"
         auto_attach: false
       - name: "here"
+        auto_attach: false
+      - name: "lme4"
         auto_attach: false
 
   # Quarto Defaults (applied when generating _quarto.yml files)

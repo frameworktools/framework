@@ -165,13 +165,12 @@ project_create <- function(
     .create_scaffold_file(project_dir, scaffold)
   }
 
-  # Create .Rproj file (always)
-  .create_rproj_file(project_dir, name)
-
-  # Create .code-workspace file for VSCode/Positron users
-  ide <- scaffold$ide %||% ""
-  positron <- scaffold$positron %||% FALSE
-  if (!is_bare && (grepl("vscode|positron", ide, ignore.case = TRUE) || isTRUE(positron))) {
+  # Editor files follow scaffold.ide
+  editors <- .ide_files(scaffold$ide, positron = scaffold$positron)
+  if (editors$rproj) {
+    .create_rproj_file(project_dir, name)
+  }
+  if (!is_bare && editors$workspace) {
     .create_code_workspace(project_dir, name)
   }
 
@@ -423,8 +422,10 @@ project_create <- function(
       seed = scaffold$seed %||% "",
       set_theme_on_scaffold = scaffold$set_theme_on_scaffold %||% TRUE,
       ggplot_theme = scaffold$ggplot_theme %||% "theme_minimal",
-      notebook_format = scaffold$notebook_format %||% "quarto",
-      positron = scaffold$positron %||% FALSE
+      notebook_format = .scaffold_notebook_format(scaffold) %||% "quarto",
+      workflow = scaffold$workflow,
+      positron = scaffold$positron %||% FALSE,
+      source_all_functions = scaffold$source_all_functions %||% TRUE
     )), file.path(settings_dir, "scaffold.yml"))
 
     # Write quarto settings to split file
@@ -478,8 +479,10 @@ project_create <- function(
           seed = scaffold$seed %||% "",
           set_theme_on_scaffold = scaffold$set_theme_on_scaffold %||% TRUE,
           ggplot_theme = scaffold$ggplot_theme %||% "theme_minimal",
-          notebook_format = scaffold$notebook_format %||% "quarto",
-          positron = scaffold$positron %||% FALSE
+          notebook_format = .scaffold_notebook_format(scaffold) %||% "quarto",
+          workflow = scaffold$workflow,
+          positron = scaffold$positron %||% FALSE,
+          source_all_functions = scaffold$source_all_functions %||% TRUE
         ),
 
         # Data catalog (inline for course/presentation)
@@ -734,6 +737,18 @@ duplicate its content in this file.
   # Remove leading/trailing hyphens
   result <- gsub("^-|-$", "", result)
   result
+}
+
+# Which editor files scaffold.ide asks for. "rstudio" and "both" get an
+# .Rproj; "vscode", "positron", and "both" get a .code-workspace. A missing
+# value keeps the old behavior: an .Rproj and no workspace file.
+#' @keywords internal
+.ide_files <- function(ide, positron = FALSE) {
+  ide <- tolower(ide %||% "rstudio")
+  list(
+    rproj = ide %in% c("rstudio", "both"),
+    workspace = ide %in% c("vscode", "positron", "both") || isTRUE(positron)
+  )
 }
 
 #' Create .Rproj file

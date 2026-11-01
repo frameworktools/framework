@@ -173,8 +173,18 @@ spec_check <- function(spec) {
   }
 
   notebook_format <- spec$scaffold$notebook_format
-  if (!is.null(notebook_format) && !notebook_format %in% c("quarto", "rmarkdown")) {
-    add("scaffold.notebook_format must be quarto or rmarkdown for R projects, got '%s'", notebook_format)
+  workflow <- spec$scaffold$workflow
+  if (!is.null(notebook_format) && !notebook_format %in% c("quarto", "rmarkdown", "jupyter", "script")) {
+    add("scaffold.notebook_format must be quarto, rmarkdown, jupyter, or script for R projects, got '%s'", notebook_format)
+  }
+  if (!is.null(workflow)) {
+    formats <- .workflow_notebook_formats()[[workflow]]
+    if (is.null(formats)) {
+      add("scaffold.workflow must be quarto, jupyter, or scripts, got '%s'", workflow)
+    } else if (!is.null(notebook_format) && !notebook_format %in% formats) {
+      add("scaffold.notebook_format '%s' does not fit the %s workflow (allowed: %s)",
+          notebook_format, workflow, paste(formats, collapse = ", "))
+    }
   }
 
   unknown_assistants <- setdiff(names(spec$ai$assistants), names(.ai_assistant_table()))
@@ -264,6 +274,23 @@ spec_check <- function(spec) {
       list(path = conflicts$path[i], layers = conflicts$layers[i])
     })
   )
+}
+
+# The files and folders creating `spec` writes, for the create/ conformance
+# fixtures: paths relative to the project, folders ending in "/", .git/
+# left out, sorted by byte value
+#' @keywords internal
+.conformance_create <- function(spec) {
+  location <- file.path(tempfile("fw_conformance_"), "project")
+  on.exit(unlink(dirname(location), recursive = TRUE), add = TRUE)
+  old <- options(rlang_interactive = FALSE)
+  on.exit(options(old), add = TRUE)
+  suppressMessages(project_create(spec, location))
+  paths <- list.files(location, recursive = TRUE, all.files = TRUE, include.dirs = TRUE, no.. = TRUE)
+  paths <- paths[!grepl("^\\.git(/|$)", paths)]
+  is_dir <- dir.exists(file.path(location, paths))
+  paths[is_dir] <- paste0(paths[is_dir], "/")
+  sort(paths, method = "radix")
 }
 
 # Apply normalized layers in order: the merge rules shared by every engine.
@@ -478,11 +505,17 @@ spec_check <- function(spec) {
   }
 
   core_files <- !identical(label, "bare")
+  quarto_on <- known && core_files
+  # The workflow decides the notebook format, so the built-ins name the
+  # workflow and leave the format to it
+  scaffold <- utils::modifyList(defaults$scaffold %||% list(), type_config$scaffold %||% list())
+  scaffold$notebook_format <- NULL
+  if (quarto_on) scaffold$workflow <- "quarto"
   list(
     core_files = core_files,
     settings_layout = .spec_default_settings_layout(label),
     # Framework's structures other than bare include Quarto
-    tools = list(quarto = known && core_files, renv = isTRUE(defaults$packages$use_renv)),
+    tools = list(quarto = quarto_on, renv = isTRUE(defaults$packages$use_renv)),
     author = list(name = "", email = "", affiliation = ""),
     directories = if (identical(type, "bare")) list() else type_config$directories %||% list(),
     extra_directories = list(),
@@ -490,7 +523,7 @@ spec_check <- function(spec) {
     packages = list(use_renv = isTRUE(defaults$packages$use_renv), default_packages = packages),
     git = list(use_git = defaults$git$initialize %||% TRUE, hooks = defaults$git$hooks %||% list()),
     ai = list(enabled = isTRUE(defaults$ai$enabled), assistants = assistants, agents_md = "stub"),
-    scaffold = utils::modifyList(defaults$scaffold %||% list(), type_config$scaffold %||% list()),
+    scaffold = scaffold,
     quarto = .spec_quarto_defaults(defaults$quarto, type),
     connections = .spec_connections_from_settings(defaults$connections),
     security = list(sensitive = identical(type, "project_sensitive")),

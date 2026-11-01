@@ -60,16 +60,7 @@ make_script <- function(name, dir = NULL, stub = "default", overwrite = FALSE) {
 
   # Get script directory from config if not specified
   if (is.null(dir)) {
-    config <- tryCatch(settings_read(), error = function(e) NULL)
-    if (!is.null(config$directories$scripts)) {
-      dir <- config$directories$scripts
-    } else if (!is.null(config$options$script_dir)) {
-      dir <- config$options$script_dir
-    } else if (dir.exists("scripts")) {
-      dir <- "scripts"
-    } else {
-      dir <- "."
-    }
+    dir <- .get_script_dir_from_config()
   }
 
   # Call make_notebook with type = "script"
@@ -80,4 +71,14 @@ make_script <- function(name, dir = NULL, stub = "default", overwrite = FALSE) {
     stub = stub,
     overwrite = overwrite
   )
+}
+
+
+# Where scripts go: directories$scripts, the legacy options$script_dir, an
+# existing scripts/ folder, or the project root
+#' @keywords internal
+.get_script_dir_from_config <- function() {
+  config <- tryCatch(settings_read(), error = function(e) NULL)
+  config$directories$scripts %||% config$options$script_dir %||%
+    if (dir.exists("scripts")) "scripts" else "."
 }
