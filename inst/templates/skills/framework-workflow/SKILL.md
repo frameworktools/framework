@@ -3,6 +3,7 @@ name: framework-workflow
 description: Use when writing or editing any R notebook or script in this Framework project - covers scaffold() initialization, critical environment rules, and creating notebooks/scripts with make_notebook() and make_script().
 metadata:
   title: Notebooks and scripts
+  summary: Start every notebook and script with scaffold(), and create new ones through Framework.
 ---
 
 # Framework Workflow

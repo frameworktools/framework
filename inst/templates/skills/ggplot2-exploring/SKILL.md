@@ -3,6 +3,7 @@ name: ggplot2-exploring
 description: Use when plotting data in R to understand it - checking distributions, comparing groups, looking for relationships, trends, or problems in a dataset. Covers choosing the chart that answers the question and quick, accurate ggplot2 figures. For figures meant for a paper, report, or slides, use ggplot2-publishing instead.
 metadata:
   title: Exploring data with ggplot2
+  summary: Quick, accurate ggplot2 figures for understanding data.
 ---
 
 # Exploring data with ggplot2

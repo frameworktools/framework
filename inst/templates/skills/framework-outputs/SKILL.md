@@ -3,6 +3,7 @@ name: framework-outputs
 description: Use when saving analysis outputs, caching expensive computations, running database queries, or publishing files in this Framework project - covers save_table(), save_figure(), save_model(), cache_remember(), db_query(), and publish().
 metadata:
   title: Saving outputs and publishing
+  summary: Save tables, figures, and models, cache slow steps, query databases, and publish.
 ---
 
 # Framework Outputs, Caching, Queries, and Publishing

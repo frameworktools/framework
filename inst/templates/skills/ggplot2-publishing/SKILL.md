@@ -3,6 +3,7 @@ name: ggplot2-publishing
 description: Use when making or polishing an R ggplot2 figure for an audience - a paper, report, poster, slides, or a figure the user calls final. Covers titles that state the finding, direct labels, color used to highlight, honest scales, a reusable theme, accessibility, and saving at the right size. For quick figures to understand data, use ggplot2-exploring.
 metadata:
   title: Publication figures with ggplot2
+  summary: Polished ggplot2 figures for papers, reports, and slides.
 ---
 
 # Publication figures with ggplot2

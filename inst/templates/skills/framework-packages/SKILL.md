@@ -3,6 +3,7 @@ name: framework-packages
 description: Use when adding, installing, or managing R packages in this Framework project - package_add() is required instead of install.packages(), and auto-attached packages must not be re-loaded with library().
 metadata:
   title: Managing packages
+  summary: Add packages through Framework so the project records them.
 ---
 
 # Framework Package Management
