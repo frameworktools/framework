@@ -6,3 +6,6 @@ inst/schema/*.md -text
 inst/templates/init.sql -text
 inst/conformance/** -text
 tests/integration/** -text
+
+# Canonical skill hashes include exact file bytes.
+inst/templates/skills/** text eol=lf

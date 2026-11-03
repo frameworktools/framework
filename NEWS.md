@@ -1,3 +1,8 @@
+# framework 1.9.0.9002
+
+* Skill sync retains executable-mode metadata on Windows. Canonical skill
+  checkouts preserve LF line endings for stable source hashes.
+
 # framework 1.9.0.9001
 
 * `skills_sync()` synchronizes full skill directories with Cloud. Private forks

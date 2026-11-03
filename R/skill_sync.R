@@ -49,6 +49,10 @@
 
 .skill_scan <- function(path) {
   files <- list()
+  metadata_path <- file.path(path, ".framework-skill.json")
+  executable_paths <- if (.Platform$OS.type == "windows" && file.exists(metadata_path)) {
+    jsonlite::fromJSON(metadata_path, simplifyVector = FALSE)$executable_paths
+  } else character()
   walk <- function(folder, prefix = "") {
     for (p in list.files(folder, all.files = TRUE, full.names = TRUE, no.. = TRUE)) {
       name <- basename(p)
@@ -59,7 +63,7 @@
         info <- file.info(p)
         if (!identical(as.character(fs::file_info(p)$type), "file") || is.na(info$size) || info$size > 4 * 1024^2) stop("Invalid or oversized skill file", call. = FALSE)
         raw <- readBin(p, "raw", n = info$size)
-        executable <- bitwAnd(as.integer(info$mode), 73L) != 0L
+        executable <- if (.Platform$OS.type == "windows") relative %in% unlist(executable_paths) else bitwAnd(as.integer(info$mode), 73L) != 0L
         files[[length(files) + 1L]] <<- list(path = relative, content = jsonlite::base64_enc(raw), executable = executable)
       }
     }
@@ -81,7 +85,7 @@
   temp <- tempfile(tmpdir = dirname(path)); on.exit(unlink(temp))
   if (!length(state$skills)) state$skills <- structure(list(), names = character())
   writeLines(jsonlite::toJSON(state, auto_unbox = TRUE, pretty = TRUE, null = "null", force = TRUE), temp, useBytes = TRUE)
-  if (!file.rename(temp, path)) stop("Could not save skill lock file", call. = FALSE)
+  fs::file_move(temp, path)
 }
 .skill_uuid <- function() {
   x <- as.character(openssl::rand_bytes(16)); x <- paste0(x, collapse = "")
@@ -120,6 +124,12 @@
       dest <- .skill_path(stage, f$path); dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
       writeBin(jsonlite::base64_dec(f$content), dest)
       Sys.chmod(dest, if (isTRUE(f$executable)) "0755" else "0644")
+    }
+    if (.Platform$OS.type == "windows") {
+      mode_path <- file.path(stage, ".framework-skill.json")
+      executable_paths <- lapply(Filter(function(f) isTRUE(f$executable), files), `[[`, "path")
+      if (length(executable_paths)) writeLines(jsonlite::toJSON(list(executable_paths = executable_paths), auto_unbox = TRUE), mode_path)
+      else if (file.exists(mode_path)) unlink(mode_path)
     }
     if (!identical(.skill_hash(.skill_scan(stage)), .skill_hash(files))) stop("Staged skill verification failed", call. = FALSE)
   }
