@@ -79,12 +79,12 @@ test_that("ai_skills_update refreshes skills using project settings", {
   installed <- suppressMessages(ai_skills_update(test_dir))
   expect_true(length(installed) >= 4)
 
-  # Tamper with a skill, then update should restore package content
+  # Local edits survive package updates
   skill_file <- file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md")
   writeLines("stale content", skill_file)
   suppressMessages(ai_skills_update(test_dir))
   content <- readLines(skill_file, warn = FALSE)
-  expect_true(any(grepl("data_read", content)))
+  expect_identical(content, "stale content")
 })
 
 

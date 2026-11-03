@@ -132,7 +132,7 @@ test_that("publish_notebook() routes to Framework Cloud when the project has a t
 
   called <- NULL
   testthat::local_mocked_bindings(
-    .fw_cloud_publish = function(source, dest = NULL, title = NULL, self_contained = TRUE, slug = NULL) {
+    .fw_cloud_publish = function(source, dest = NULL, title = NULL, self_contained = TRUE, slug = NULL, ...) {
       called <<- list(source = source, dest = dest, self_contained = self_contained, slug = slug)
       invisible("https://example/hi")
     }
@@ -230,4 +230,121 @@ test_that("R keeps its own config folder and config_sync() only pulls", {
 
   withr::local_envvar(FW_CONFIG_HOME = file.path(base, "explicit"))
   expect_identical(fw_config_dir(), file.path(base, "explicit"))
+})
+
+
+test_that("explicit destinations override configured buckets", {
+  testthat::local_mocked_bindings(.fw_has_storage_buckets = function() TRUE)
+  expect_identical(framework:::.fw_publish_target(to = "cloud"), "cloud")
+  expect_identical(framework:::.fw_publish_target(to = "bucket"), "s3")
+  expect_error(framework:::.fw_publish_target("bucket", to = "cloud"), "connection")
+})
+
+test_that("object exports preserve tables and restrict model output", {
+  stage <- withr::local_tempdir()
+  path <- framework:::.fw_artifact_file(data.frame(estimate = 1.5), stage)
+  expect_equal(utils::read.csv(path), data.frame(estimate = 1.5))
+  fit <- stats::lm(mpg ~ wt, data = mtcars)
+  path <- framework:::.fw_artifact_file(fit, stage)
+  html <- paste(readLines(path), collapse = "\n")
+  expect_match(html, "Coefficients")
+  expect_match(html, "Observations: 32")
+  expect_false(grepl("Mazda RX4", html, fixed = TRUE))
+  expect_error(framework:::.fw_artifact_file(list(), stage), "accepts")
+})
+
+
+test_that("cloud file artifacts preserve filenames and protection metadata", {
+  skip_if_not_installed("httr2")
+  local_cloud_env()
+  yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
+  writeLines(c("FW_PROJECT_TOKEN=fw_project", "FW_CLOUD_URL=http://localhost:8080"), ".env")
+  writeBin(charToRaw("original bytes"), "figure.png")
+  sent <- NULL
+  testthat::local_mocked_bindings(
+    req_body_multipart = function(req, ...) {
+      sent <<- rlang::list2(...)
+      req
+    },
+    req_perform = function(req, ...) req,
+    resp_body_json = function(resp, ...) list(url = "https://x/d/figure", version = 1L),
+    .package = "httr2"
+  )
+  suppressMessages(publish("figure.png", to = "cloud", title = "Figure",
+                           description = "Adjusted estimates", password = "review-password"))
+  expect_identical(basename(sent$file$path), "figure.png")
+  expect_identical(sent$slug, "figure")
+  expect_identical(sent$title, "Figure")
+  expect_identical(sent$description, "Adjusted estimates")
+  expect_identical(sent$password, "review-password")
+  expect_null(sent$bundle)
+  suppressMessages(publish(data.frame(estimate = 1.2), to = "cloud"))
+  expect_identical(basename(sent$file$path), "table.json")
+  expect_identical(sent$slug, "table")
+  expect_identical(sent$kind, "table")
+})
+
+test_that("cloud object artifacts name test documents and accept character matrices", {
+  skip_if_not_installed("httr2")
+  local_cloud_env()
+  yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
+  writeLines(c("FW_PROJECT_TOKEN=fw_project", "FW_CLOUD_URL=http://localhost:8080"), ".env")
+  sent <- NULL
+  testthat::local_mocked_bindings(
+    req_body_multipart = function(req, ...) {
+      sent <<- rlang::list2(...)
+      req
+    },
+    req_perform = function(req, ...) req,
+    resp_body_json = function(resp, ...) list(url = "https://x/d/test", version = 1L),
+    .package = "httr2"
+  )
+  suppressMessages(publish(stats::t.test(extra ~ group, data = sleep), to = "cloud"))
+  expect_identical(basename(sent$file$path), "test.json")
+  expect_identical(sent$kind, "test")
+  suppressMessages(publish(matrix(c("a", "b", "c", "d"), 2), to = "cloud"))
+  expect_identical(basename(sent$file$path), "table.json")
+  expect_identical(sent$kind, "table")
+})
+
+
+test_that("collection preflight and attachment preserve a successful publication", {
+  skip_if_not_installed("httr2")
+  local_cloud_env()
+  yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
+  writeLines(c("FW_PROJECT_TOKEN=fw_project", "FW_CLOUD_URL=http://localhost:8080"), ".env")
+  writeBin(charToRaw("png"), "figure.png")
+  uploads <- 0L
+  attached <- NULL
+  mode <- "success"
+  testthat::local_mocked_bindings(.fw_api = function(path, token, method = "GET", body = NULL, ...) {
+    if (identical(method, "GET")) {
+      if (mode == "missing") return(list(collections = list()))
+      return(list(collections = list(list(id = 7L, slug = "findings", title = "Findings", visibility = "unlisted"))))
+    }
+    expect_identical(path, "/api/v2/collections/7/items")
+    attached <<- body
+    if (mode == "fail") stop("Attachment denied")
+    list(id = 1L)
+  })
+  testthat::local_mocked_bindings(
+    req_perform = function(req, ...) { uploads <<- uploads + 1L; req },
+    resp_body_json = function(resp, ...) { force(resp); list(id = 14L, url = "https://x/d/figure", version = 1L) },
+    .package = "httr2"
+  )
+  suppressMessages(url <- publish("figure.png", to = "cloud", collection = "findings", share_unlisted = TRUE))
+  expect_identical(url, "https://x/d/figure")
+  expect_identical(attached, list(document_id = 14L, share_unlisted = TRUE))
+  expect_identical(uploads, 1L)
+  mode <- "fail"
+  expect_warning(suppressMessages(url <- publish("figure.png", to = "cloud", collection = 7L,
+                                                share_unlisted = TRUE)), "Artifact published at https://x/d/figure")
+  expect_identical(url, "https://x/d/figure")
+  expect_identical(uploads, 2L)
+  mode <- "missing"
+  expect_error(publish("figure.png", to = "cloud", collection = "missing"), "missing or ambiguous")
+  expect_identical(uploads, 2L)
+  mode <- "success"
+  expect_error(publish("figure.png", to = "cloud", slug = FALSE, collection = 7L), "share_unlisted")
+  expect_identical(uploads, 2L)
 })

@@ -68,6 +68,10 @@ NULL
     installed <- character(0)
     for (skill in names(cloud_skills)) {
       target_dir <- file.path(project_dir, ".claude", "skills", skill)
+      if (dir.exists(target_dir)) {
+        if (verbose) message("  Preserved local skill: ", skill)
+        next
+      }
       dir.create(target_dir, recursive = TRUE, showWarnings = FALSE)
       writeLines(cloud_skills[[skill]], file.path(target_dir, "SKILL.md"))
       installed <- c(installed, skill)
@@ -94,8 +98,11 @@ NULL
     }
 
     target_dir <- file.path(project_dir, ".claude", "skills", skill)
-    dir.create(target_dir, recursive = TRUE, showWarnings = FALSE)
-    file.copy(source_file, file.path(target_dir, "SKILL.md"), overwrite = TRUE)
+    if (!.skill_package_install(dirname(source_file), project_dir,
+        file.path(".claude", "skills", skill), skill)) {
+      if (verbose) message("  Preserved local skill: ", skill)
+      next
+    }
     installed <- c(installed, skill)
 
     if (verbose) {
@@ -114,8 +121,8 @@ NULL
 #' version into `.claude/skills/`. Run this after upgrading the framework
 #' package to pick up improved skill instructions.
 #'
-#' Only skills Framework ships are touched; any custom skills you add
-#' alongside them are left alone.
+#' Locally edited skills and account-owned forks are preserved. Unchanged
+#' package skills receive the new package version. Custom skills are left alone.
 #'
 #' @param project_path Path to the project directory (default: current directory)
 #' @return Invisible character vector of updated skill names

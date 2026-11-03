@@ -609,6 +609,65 @@
               "propertyNames": {
                 "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
               }
+            },
+            "bundle": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "executable": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "content",
+                  "executable"
+                ]
+              },
+              "maxItems": 256
+            },
+            "sync": {
+              "type": "object",
+              "properties": {
+                "skill_id": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "hash": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "variant": {
+                  "type": "string",
+                  "enum": [
+                    "r",
+                    "python",
+                    "stata"
+                  ]
+                },
+                "server": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "skill_id",
+                "version",
+                "hash",
+                "variant",
+                "server"
+              ]
             }
           },
           "additionalProperties": false,

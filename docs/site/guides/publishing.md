@@ -9,6 +9,70 @@ description: 'Publishing notebooks, data, and files to S3 storage'
 
 Framework provides functions for publishing notebooks, data, and files to S3-compatible storage (AWS S3, MinIO, DigitalOcean Spaces, etc.). Share rendered reports, datasets, and analysis outputs with colleagues or the public.
 
+## Publishing artifacts to Framework Cloud
+
+Publish a plot, table, report, rendered Quarto book, or other file to your project.
+Each publication has a share page and version history. Publishing to the same
+`slug` adds a version. `to = "cloud"` selects Cloud even when a bucket is configured.
+
+```r
+publish("outputs/effect.png", to = "cloud", slug = "treatment-effect")
+publish("_book", to = "cloud", slug = "study-book")
+publish(results_table, to = "cloud", slug = "estimates")
+publish(fitted_model, to = "cloud", slug = "adjusted-model", password = "reviewer-password")
+```
+
+### Objects you can publish
+
+Besides files and rendered folders, `publish()` takes these R objects and
+converts them to files:
+
+- **Tables.** Data frames, tibbles, data.tables, matrices, and contingency
+  tables from `table()` or `xtabs()` publish with every row. Cloud shows a
+  profile of each column above the rows: missing values, distinct values, and
+  summary statistics with a small histogram for numbers or the most common
+  values for text. Variable labels from `attr(x, "label")` (as haven sets
+  them) are kept. Row names other than 1 to n become a first column named
+  `row`. One-way tables become `value` and `count` columns; two-way tables
+  are wide, with the row variable first.
+- **ANOVA tables.** `anova()` results and `summary(aov(...))` publish as
+  tables with their row names.
+- **Hypothesis tests.** `t.test()`, `chisq.test()`, `wilcox.test()`,
+  `cor.test()`, `prop.test()`, `fisher.test()`, `shapiro.test()`, and other
+  `htest` results publish the method, statistic, parameters, p-value,
+  estimates, and confidence interval. The data name is left out, since it
+  can contain expressions with data.
+- **Models.** `lm`, `glm`, `aov`, `MASS::glm.nb`, `MASS::polr`,
+  `nnet::multinom`, lme4 `lmer` and `glmer`, `survival::coxph`,
+  `survival::survreg`, fixest, and `mgcv::gam` models publish their
+  coefficients with standard errors, test statistics, p-values, and 95% Wald
+  intervals, plus fit statistics, the formula, and the family and link. Cloud
+  draws a coefficient plot and can show odds, rate, hazard, or time ratios
+  when the model has that reading. Mixed models add their random effects and
+  `gam` models their smooth terms. Models never include the observations,
+  residuals, fitted values, or the model object. broom isn't needed.
+- **Plots.** ggplot and patchwork plots, base graphics saved with
+  `recordPlot()`, and lattice plots publish as SVG (7 by 5 inches on a white
+  background) when svglite is installed, otherwise as a 300 dpi PNG. A plot
+  whose SVG would be larger than 5 MB, such as a scatter plot of many points,
+  publishes as PNG.
+- **Interactive plots.** plotly and other htmlwidgets publish as a
+  self-contained HTML file. This needs pandoc; when it isn't on the PATH,
+  the copy that ships with Quarto is used.
+- **Formatted tables.** `gt`, `gtsummary`, and `flextable` objects publish as
+  HTML when their packages are installed.
+
+Storage buckets receive CSV for tables, HTML summaries for `lm` and `glm`,
+and JSON for other models and tests. `integer64` columns export as text so
+identifiers stay exact.
+
+`title`, `description`, `kind`, `password`, and `visibility` set Cloud metadata.
+A password requires at least eight characters. Visibility can be `"public"` or
+`"unlisted"`; anyone with an unlisted link can open it unless it is password protected.
+
+Use `to = "bucket"` for an explicit storage upload or `to = "github"` for GitHub
+Pages. With no `to`, existing bucket-first destination selection is preserved.
+
 ## Configuring S3
 
 Define S3 connections in `settings.yml` (either format works):
@@ -226,3 +290,21 @@ https://bucket.s3.amazonaws.com/reports/q4.html
 [Project Types →](guide:project-types)
 
 </div>
+
+
+## Adding an artifact to a collection
+
+Select an existing collection in the current project by its ID or slug. The
+client resolves the collection before uploading and does not create collections.
+The collection follows the artifact's latest version.
+
+```r
+publish("outputs/effect.png", to = "cloud", slug = "effect", collection = "main-findings", share_unlisted = TRUE)
+```
+
+Public collections require public artifacts. Sharing an unlisted artifact with
+readers of an unlisted collection requires explicit consent through
+`share_unlisted`.
+If attachment fails after the artifact uploads, publishing returns its URL and
+warns that collection attachment failed. Attach the artifact from the project
+Outputs page; publishing again creates another version.

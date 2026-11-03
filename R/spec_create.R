@@ -287,10 +287,9 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
       target <- file.path(skills_dir, skill)
       if (isTRUE(entry$package)) {
         source_dir <- system.file("templates", "skills", skill, package = "framework")
-        for (f in list.files(source_dir, recursive = TRUE)) {
-          .spec_write_text(project_dir, file.path(target, f),
-                           readLines(file.path(source_dir, f), warn = FALSE))
-        }
+        .skill_package_install(source_dir, project_dir, target, skill)
+      } else if (!is.null(entry$sync) && !is.null(entry$bundle)) {
+        .skill_cloud_install(project_dir, target, entry)
       } else {
         .spec_write_text(project_dir, file.path(target, "SKILL.md"), entry$content)
         for (f in names(entry$files)) {

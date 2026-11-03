@@ -1,4 +1,11 @@
-# framework (development version)
+# framework 1.9.0.9001
+
+* `skills_sync()` synchronizes full skill directories with Cloud. Private forks
+  retain exact canonical ancestry. Conflicts stop sync and explicit resolution
+  retains local backups. Package updates preserve locally edited skills.
+* Published tables, models, and plots include structured representations for
+  Cloud readers. Artifacts can be attached to collections and reports.
+
 
 * With the Quarto tool off, `make_notebook()` makes Jupyter notebooks (an
   `.ipynb` for the R kernel) when the Jupyter tool is on, R Markdown when

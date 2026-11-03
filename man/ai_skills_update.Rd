@@ -19,8 +19,8 @@ version into \verb{.claude/skills/}. Run this after upgrading the framework
 package to pick up improved skill instructions.
 }
 \details{
-Only skills Framework ships are touched; any custom skills you add
-alongside them are left alone.
+Locally edited skills and account-owned forks are preserved. Unchanged
+package skills receive the new package version. Custom skills are left alone.
 }
 \examples{
 \donttest{

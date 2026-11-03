@@ -105,6 +105,8 @@
       ".agents/skills/framework-stata/",
       ".agents/skills/framework-stata/SKILL.md",
       ".framework/",
+      ".framework/.gitignore",
+      ".framework/skills.lock.json",
       ".framework/spec.json",
       ".github/",
       ".github/copilot-instructions.md",

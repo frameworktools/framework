@@ -1,3 +1,71 @@
+# The message for objects publish() can't export.
+#' @keywords internal
+.fw_artifact_accepts <- paste(
+  "publish() accepts a file or rendered folder; a data frame, tibble, data.table, matrix,",
+  "table, or xtabs; an ANOVA table; a hypothesis test (htest); an lm, glm, aov, glm.nb,",
+  "polr, multinom, lme4, coxph, survreg, fixest, or mgcv gam model; a ggplot, patchwork,",
+  "recorded base plot, lattice plot, or htmlwidget such as plotly; or a gt, gtsummary,",
+  "or flextable table."
+)
+
+# Export supported objects locally. Models publish a summary, without observations
+# or serialized model internals. Cloud receives typed JSON documents (table.json,
+# model.json, test.json); buckets receive CSV tables and HTML lm/glm summaries,
+# and JSON for other models and tests. Figures are the same for both.
+#' @keywords internal
+.fw_artifact_file <- function(object, directory, cloud = FALSE) {
+  if (.fw_artifact_is_figure(object)) {
+    return(.fw_artifact_figure(object, directory, .fw_artifact_accepts))
+  }
+  if (inherits(object, "gt_tbl") || inherits(object, "gtsummary") || inherits(object, "flextable")) {
+    path <- file.path(directory, "table.html")
+    if (inherits(object, "gtsummary")) {
+      if (!requireNamespace("gtsummary", quietly = TRUE) || !requireNamespace("gt", quietly = TRUE)) {
+        stop("Publishing a gtsummary table requires gtsummary and gt.", call. = FALSE)
+      }
+      object <- gtsummary::as_gt(object)
+    }
+    if (inherits(object, "gt_tbl")) {
+      if (!requireNamespace("gt", quietly = TRUE)) stop("Publishing a gt table requires gt.", call. = FALSE)
+      gt::gtsave(object, path, inline_css = TRUE)
+    } else {
+      if (!requireNamespace("flextable", quietly = TRUE)) stop("Publishing a flextable requires flextable.", call. = FALSE)
+      flextable::save_as_html(object, path = path)
+    }
+    return(path)
+  }
+  if (!cloud) {
+    frame <- .fw_artifact_frame(object)
+    if (!is.null(frame)) {
+      path <- file.path(directory, "table.csv")
+      utils::write.csv(frame, path, row.names = FALSE)
+      return(path)
+    }
+    if (class(object)[1] %in% c("lm", "glm")) {
+      path <- file.path(directory, "model.html")
+      # Coefficients and aggregate fit statistics only. summary() can include
+      # residuals and formulas, so never print the entire summary or model.
+      model <- summary(object)
+      lines <- c("Coefficients", capture.output(print(model$coefficients)),
+                 "", paste("Observations:", stats::nobs(object)))
+      if (!is.null(model$r.squared)) lines <- c(lines, paste("R squared:", model$r.squared))
+      if (!is.null(model$aic)) lines <- c(lines, paste("AIC:", model$aic))
+      escaped <- gsub("&", "&amp;", paste(lines, collapse = "\n"), fixed = TRUE)
+      escaped <- gsub("<", "&lt;", escaped, fixed = TRUE)
+      escaped <- gsub(">", "&gt;", escaped, fixed = TRUE)
+      writeLines(paste0('<!doctype html><html><head><meta charset="utf-8">',
+                       '<title>Model results</title></head><body><pre>',
+                       escaped, '</pre></body></html>'), path)
+      return(path)
+    }
+  }
+  document <- .fw_artifact_structured(object)
+  if (is.null(document)) stop(.fw_artifact_accepts, call. = FALSE)
+  path <- file.path(directory, paste0(document$kind, ".json"))
+  jsonlite::write_json(document, path, auto_unbox = TRUE, null = "null", na = "null", digits = NA)
+  path
+}
+
 #' @title Publishing Functions
 #' @description Functions for publishing notebooks, data, and files to S3
 #'   storage or Framework Cloud.
@@ -86,7 +154,12 @@ NULL
 # any configured storage bucket wins; otherwise a project set up from
 # Framework Cloud publishes there.
 #' @keywords internal
-.fw_publish_target <- function(connection = NULL) {
+.fw_publish_target <- function(connection = NULL, to = NULL) {
+  if (identical(to, "cloud")) {
+    if (!is.null(connection)) stop('connection cannot be used with to = "cloud".', call. = FALSE)
+    return("cloud")
+  }
+  if (identical(to, "bucket")) return("s3")
   if (!is.null(connection) || .fw_has_storage_buckets()) {
     return("s3")
   }
@@ -129,7 +202,37 @@ NULL
 #' start private, shared by a private link; `slug` turns on a readable URL
 #' (`/@handle/project/slug`).
 #'
-#' @param source Character. Local file or directory path to upload.
+#' @param source A local file or rendered directory path, or an R object.
+#'   `publish()` converts these objects to files:
+#'   * Data frames, tibbles, data.tables, matrices, and `table` or `xtabs`
+#'     contingency tables become a table with every row, a profile of each
+#'     column, and variable labels from `attr(x, "label")`. Row names that
+#'     aren't 1 to n become a first column named `row`.
+#'   * `anova()` results and `summary(aov)` become an ANOVA table.
+#'   * Hypothesis tests (`htest` objects from `t.test()`, `chisq.test()`,
+#'     `wilcox.test()`, `cor.test()`, `prop.test()`, `fisher.test()`,
+#'     `shapiro.test()`, and similar) become a test summary with the method,
+#'     statistic, parameters, p-value, estimates, and confidence interval.
+#'     The data name is left out.
+#'   * `lm`, `glm`, `aov`, `MASS::glm.nb`, `MASS::polr`, `nnet::multinom`,
+#'     lme4 (`lmer`, `glmer`), `survival::coxph`, `survival::survreg`,
+#'     fixest, and `mgcv::gam` models become coefficients with standard
+#'     errors and 95% Wald intervals, fit statistics, and a description of
+#'     the model. Mixed models add random effects and gam models add smooth
+#'     terms. Models never carry observations, residuals, fitted values, or
+#'     the model object itself.
+#'   * ggplot and patchwork plots, base graphics saved with `recordPlot()`,
+#'     and lattice plots become an SVG figure (7 by 5 inches, white
+#'     background) when svglite is installed, otherwise a 300 dpi PNG. An SVG
+#'     larger than 5 MB is replaced by a PNG.
+#'   * plotly and other htmlwidgets become a self-contained HTML file, which
+#'     needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
+#'   * gt, gtsummary, and flextable tables become HTML when their packages
+#'     are installed.
+#'
+#'   Framework Cloud receives tables, tests, and models as structured JSON.
+#'   Storage buckets receive CSV tables, HTML summaries for `lm` and `glm`,
+#'   and JSON for other models and tests.
 #' @param dest Character or NULL. Destination path in S3 bucket. If NULL,
 #'   derives from source filename. On Framework Cloud, use `slug` instead;
 #'   `dest` still names the document there when `slug` isn't a string, for
@@ -144,7 +247,8 @@ NULL
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
-#' @param to Character or NULL. `"github"` publishes to the project's GitHub
+#' @param to Character or NULL. `"cloud"` selects Framework Cloud even when a
+#'   bucket is configured. `"bucket"` selects storage. `"github"` publishes to the project's GitHub
 #'   Pages site instead of a storage bucket or Framework Cloud: the document
 #'   is copied to `published/<slug>/index.html` (with its `<name>_files/`
 #'   folder), only that folder is committed, and the commit is pushed. The
@@ -163,6 +267,13 @@ NULL
 #'   name and leaves the document's setting as it is (new documents start
 #'   private). Ignored, with a warning, for S3. With `to = "github"`, a
 #'   string names the folder under `published/`.
+#' @param title Artifact title on Framework Cloud.
+#' @param description Artifact description on Framework Cloud.
+#' @param kind Optional artifact kind override on Framework Cloud.
+#' @param password Password required to view the artifact on Framework Cloud.
+#' @param visibility Artifact visibility: `"public"` or `"unlisted"`.
+#' @param collection Existing project collection ID or slug. Follows the latest artifact version.
+#' @param share_unlisted Explicit consent to share an unlisted artifact with collection readers.
 #' @return Character. The public URL(s) of uploaded file(s).
 #'
 #' @export
@@ -192,10 +303,23 @@ NULL
 #' }
 publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
                     self_contained = TRUE, slug = NULL, include_private = FALSE,
-                    to = NULL) {
+                    to = NULL, title = NULL, description = NULL, kind = NULL,
+                    password = NULL, visibility = NULL, collection = NULL, share_unlisted = FALSE) {
+  if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
+  if (!is.character(source) || !is.null(dim(source))) {
+    stage <- tempfile("fw_artifact_")
+    dir.create(stage)
+    on.exit(unlink(stage, recursive = TRUE), add = TRUE)
+    is_cloud <- !identical(to, "github") && identical(.fw_publish_target(connection, to), "cloud")
+    source <- .fw_artifact_file(source, stage, cloud = is_cloud)
+    if (is_cloud && is.null(kind) && basename(source) %in% c("table.json", "model.json", "test.json", "table.html")) {
+      kind <- switch(basename(source), model.json = "model", test.json = "test", "table")
+    }
+  }
   checkmate::assert_string(source, min.chars = 1)
   checkmate::assert_string(dest, min.chars = 1, null.ok = TRUE)
   checkmate::assert_string(connection, min.chars = 1, null.ok = TRUE)
+  checkmate::assert_flag(share_unlisted)
   checkmate::assert_flag(overwrite)
   checkmate::assert_flag(self_contained)
   .fw_assert_slug(slug)
@@ -204,15 +328,25 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
   if (!file.exists(source) && !dir.exists(source)) {
     stop(sprintf("Source not found: %s", source), call. = FALSE)
   }
-  checkmate::assert_choice(to, "github", null.ok = TRUE)
+  checkmate::assert_choice(to, c("cloud", "bucket", "github"), null.ok = TRUE)
   .fw_confirm_private(source, include_private)
 
+  metadata <- list(title, description, kind, password, visibility, collection)
   if (identical(to, "github")) {
+    if (any(!vapply(metadata, is.null, logical(1)))) {
+      stop("Artifact metadata requires publishing to Framework Cloud.", call. = FALSE)
+    }
     .fw_pages_reject(dest = dest, connection = connection, slug = slug)
     return(.fw_github_publish(source, slug = slug, self_contained = self_contained))
   }
-  if (identical(.fw_publish_target(connection), "cloud")) {
-    return(.fw_cloud_publish(source, dest = dest, self_contained = self_contained, slug = slug))
+  if (identical(.fw_publish_target(connection, to), "cloud")) {
+    return(.fw_cloud_publish(source, dest = dest, self_contained = self_contained, slug = slug,
+                             title = title, description = description, kind = kind,
+                             password = password, visibility = visibility,
+                             collection = collection, share_unlisted = share_unlisted))
+  }
+  if (any(!vapply(metadata, is.null, logical(1)))) {
+    stop("Artifact metadata requires publishing to Framework Cloud.", call. = FALSE)
   }
   .fw_warn_slug_ignored(slug)
 
@@ -267,8 +401,11 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
 #' @param slug Framework Cloud only: name the document and turn on its
 #'   readable URL. See [publish()]. With `to = "github"`, names the folder
 #'   under `published/`.
-#' @param to Character or NULL. `"github"` publishes the rendered HTML to the
+#' @param to Character or NULL. `"cloud"` selects Framework Cloud and `"bucket"`
+#'   selects storage. `"github"` publishes the rendered HTML to the
 #'   project's GitHub Pages site. See [publish()].
+#' @param collection Existing project collection ID or slug. Follows the latest artifact version.
+#' @param share_unlisted Explicit consent to share an unlisted artifact with collection readers.
 #' @param ... Additional arguments passed to quarto render.
 #' @return Character. Public URL of the published notebook.
 #'
@@ -296,7 +433,14 @@ publish_notebook <- function(file,
                              slug = NULL,
                              include_private = FALSE,
                              to = NULL,
+                             collection = NULL,
+                             share_unlisted = FALSE,
                              ...) {
+  checkmate::assert_flag(share_unlisted)
+  if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
+  if (!is.null(collection) && identical(to, "github")) {
+    stop("Collections require publishing to Framework Cloud.", call. = FALSE)
+  }
   checkmate::assert_file_exists(file, extension = c("qmd", "Qmd", "QMD"))
   checkmate::assert_string(dest, min.chars = 1, null.ok = TRUE)
   checkmate::assert_string(connection, min.chars = 1, null.ok = TRUE)
@@ -304,7 +448,7 @@ publish_notebook <- function(file,
   checkmate::assert_string(format, min.chars = 1)
   .fw_assert_slug(slug)
   checkmate::assert_flag(include_private)
-  checkmate::assert_choice(to, "github", null.ok = TRUE)
+  checkmate::assert_choice(to, c("cloud", "bucket", "github"), null.ok = TRUE)
   .fw_confirm_private(file, include_private)
 
   if (identical(to, "github")) {
@@ -321,12 +465,14 @@ publish_notebook <- function(file,
     stop("Quarto not found. Install from https://quarto.org/docs/get-started/", call. = FALSE)
   }
 
-  if (identical(.fw_publish_target(connection), "cloud")) {
+  if (identical(.fw_publish_target(connection, to), "cloud")) {
     if (!identical(format, "html")) {
       stop("Framework Cloud publishes HTML only (got format = \"", format, "\").", call. = FALSE)
     }
-    return(.fw_cloud_publish(file, dest = dest, self_contained = self_contained, slug = slug))
+    return(.fw_cloud_publish(file, dest = dest, self_contained = self_contained, slug = slug,
+                             collection = collection, share_unlisted = share_unlisted))
   }
+  if (!is.null(collection)) stop("Collections require publishing to Framework Cloud.", call. = FALSE)
   .fw_warn_slug_ignored(slug)
 
   # Resolve S3 connection early to fail fast

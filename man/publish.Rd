@@ -12,11 +12,50 @@ publish(
   self_contained = TRUE,
   slug = NULL,
   include_private = FALSE,
-  to = NULL
+  to = NULL,
+  title = NULL,
+  description = NULL,
+  kind = NULL,
+  password = NULL,
+  visibility = NULL,
+  collection = NULL,
+  share_unlisted = FALSE
 )
 }
 \arguments{
-\item{source}{Character. Local file or directory path to upload.}
+\item{source}{A local file or rendered directory path, or an R object.
+\code{publish()} converts these objects to files:
+\itemize{
+\item Data frames, tibbles, data.tables, matrices, and \code{table} or \code{xtabs}
+contingency tables become a table with every row, a profile of each
+column, and variable labels from \code{attr(x, "label")}. Row names that
+aren't 1 to n become a first column named \code{row}.
+\item \code{anova()} results and \code{summary(aov)} become an ANOVA table.
+\item Hypothesis tests (\code{htest} objects from \code{t.test()}, \code{chisq.test()},
+\code{wilcox.test()}, \code{cor.test()}, \code{prop.test()}, \code{fisher.test()},
+\code{shapiro.test()}, and similar) become a test summary with the method,
+statistic, parameters, p-value, estimates, and confidence interval.
+The data name is left out.
+\item \code{lm}, \code{glm}, \code{aov}, \code{MASS::glm.nb}, \code{MASS::polr}, \code{nnet::multinom},
+lme4 (\code{lmer}, \code{glmer}), \code{survival::coxph}, \code{survival::survreg},
+fixest, and \code{mgcv::gam} models become coefficients with standard
+errors and 95\% Wald intervals, fit statistics, and a description of
+the model. Mixed models add random effects and gam models add smooth
+terms. Models never carry observations, residuals, fitted values, or
+the model object itself.
+\item ggplot and patchwork plots, base graphics saved with \code{recordPlot()},
+and lattice plots become an SVG figure (7 by 5 inches, white
+background) when svglite is installed, otherwise a 300 dpi PNG. An SVG
+larger than 5 MB is replaced by a PNG.
+\item plotly and other htmlwidgets become a self-contained HTML file, which
+needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
+\item gt, gtsummary, and flextable tables become HTML when their packages
+are installed.
+}
+
+Framework Cloud receives tables, tests, and models as structured JSON.
+Storage buckets receive CSV tables, HTML summaries for \code{lm} and \code{glm},
+and JSON for other models and tests.}
 
 \item{dest}{Character or NULL. Destination path in S3 bucket. If NULL,
 derives from source filename. On Framework Cloud, use \code{slug} instead;
@@ -45,7 +84,8 @@ absolute path of any file to upload contains "private" in any case
 warns and, in an interactive session, asks before publishing (default No).
 In a non-interactive session it stops unless \code{include_private = TRUE}.}
 
-\item{to}{Character or NULL. \code{"github"} publishes to the project's GitHub
+\item{to}{Character or NULL. \code{"cloud"} selects Framework Cloud even when a
+bucket is configured. \code{"bucket"} selects storage. \code{"github"} publishes to the project's GitHub
 Pages site instead of a storage bucket or Framework Cloud: the document
 is copied to \verb{published/<slug>/index.html} (with its \verb{<name>_files/}
 folder), only that folder is committed, and the commit is pushed. The
@@ -57,6 +97,20 @@ default is the file name lowercased, with other characters as \code{-}
 ("Final Report (v2).html" becomes \code{final-report-v2}). A folder needs an
 \code{index.html} at its top. \code{dest}, \code{connection}, and a \code{TRUE}/\code{FALSE}
 \code{slug} are errors here.}
+
+\item{title}{Artifact title on Framework Cloud.}
+
+\item{description}{Artifact description on Framework Cloud.}
+
+\item{kind}{Optional artifact kind override on Framework Cloud.}
+
+\item{password}{Password required to view the artifact on Framework Cloud.}
+
+\item{visibility}{Artifact visibility: \code{"public"} or \code{"unlisted"}.}
+
+\item{collection}{Existing project collection ID or slug. Follows the latest artifact version.}
+
+\item{share_unlisted}{Explicit consent to share an unlisted artifact with collection readers.}
 }
 \value{
 Character. The public URL(s) of uploaded file(s).

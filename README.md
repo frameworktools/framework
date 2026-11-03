@@ -61,6 +61,19 @@ project/
 └── .env                    # Secrets (gitignored)
 ```
 
+## Skill sync
+
+Sync a local skill and its companion files with your Framework Cloud account:
+
+```r
+framework::skills_sync(".claude/skills/my-skill", dry_run = TRUE)
+framework::skills_sync(".claude/skills/my-skill")
+```
+
+Local edits create account versions. Edited Framework skills become private
+forks with an exact source version. Concurrent edits stop for reconciliation.
+[Skill sync guide](https://framework.pub/docs/skill-sync).
+
 ## Why Framework?
 
 Framework reduces boilerplate and enforces best practices:

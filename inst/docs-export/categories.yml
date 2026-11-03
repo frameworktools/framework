@@ -208,6 +208,7 @@ Cloud:
     - cloud_status
     - cloud_settings
     - cloud_sync
+    - skills_sync
     - ledger_push
     - ledger_list
     - data_verify

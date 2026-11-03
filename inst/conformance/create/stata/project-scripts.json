@@ -97,6 +97,8 @@
       ".claude/skills/framework-stata/",
       ".claude/skills/framework-stata/SKILL.md",
       ".framework/",
+      ".framework/.gitignore",
+      ".framework/skills.lock.json",
       ".framework/spec.json",
       ".gitignore",
       "AGENTS.md",

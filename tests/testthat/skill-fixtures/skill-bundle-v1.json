@@ -1,0 +1,20 @@
+{
+  "bundle": [
+    {
+      "path": "SKILL.md",
+      "content": "LS0tCm5hbWU6IHNoYXJlZApkZXNjcmlwdGlvbjogU2hhcmVkIHRhc2tzCi0tLQpVVEYtODogw6kK",
+      "executable": false
+    },
+    {
+      "path": "scripts/run.bin",
+      "content": "AP8BDQo=",
+      "executable": true
+    },
+    {
+      "path": "references/empty.txt",
+      "content": "",
+      "executable": false
+    }
+  ],
+  "hash": "49dac9526190996148260a22f20754c44f71bcf2769723c9394f3d7f12b33d2b"
+}

@@ -1,7 +1,7 @@
 Package: framework
 Type: Package
 Title: Structured Data Science Project Scaffolding
-Version: 1.9.0.9000
+Version: 1.9.0.9001
 Authors@R:
     person("Erik", "Westlund", , "erik@framework.pub", role = c("aut", "cre", "cph"))
 Maintainer: Erik Westlund <erik@framework.pub>
@@ -26,6 +26,10 @@ Imports:
     lubridate,
     jsonlite
 Suggests:
+    bit64,
+    gt,
+    gtsummary,
+    flextable,
     testthat (>= 3.0.0),
     arrow,
     aws.s3,
@@ -64,7 +68,21 @@ Suggests:
     tm,
     usethis,
     withr,
-    writexl
+    writexl,
+    data.table,
+    fixest,
+    lattice,
+    lme4,
+    MASS,
+    mgcv,
+    nnet,
+    patchwork,
+    plotly,
+    ragg,
+    survival,
+    svglite,
+    tibble,
+    vegawidget
 Config/testthat/edition: 3
 Depends: R (>= 4.1.0)
 Config/roxygen2/version: 8.1.0

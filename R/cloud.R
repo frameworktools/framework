@@ -728,8 +728,29 @@ cloud_settings <- function() {
 # derived name, FALSE turns it off, and NULL leaves the setting alone.
 #' @keywords internal
 .fw_cloud_publish <- function(source, dest = NULL, title = NULL, self_contained = TRUE,
-                              slug = NULL) {
+                              slug = NULL, description = NULL, kind = NULL,
+                              password = NULL, visibility = NULL, collection = NULL,
+                              share_unlisted = FALSE) {
   token <- .fw_project_token()
+  selected <- NULL
+  if (!is.null(collection)) {
+    if (length(collection) != 1L || is.na(collection) ||
+        !(is.character(collection) || is.numeric(collection))) {
+      stop("collection must be a collection ID or slug.", call. = FALSE)
+    }
+    rows <- .fw_api("/api/v2/collections", token, url = .fw_project_cloud_url())$collections
+    matches <- Filter(function(x) identical(as.character(x$id), as.character(collection)) ||
+                        identical(x$slug, as.character(collection)), rows)
+    if (length(matches) != 1L) stop("Collection is missing or ambiguous in this project.", call. = FALSE)
+    selected <- matches[[1]]
+    public <- if (!is.null(slug)) !isFALSE(slug) else if (!is.null(visibility)) visibility == "public" else NULL
+    if (identical(selected$visibility, "public") && isFALSE(public)) {
+      stop('Public collections require public artifacts. Set visibility = "public".', call. = FALSE)
+    }
+    if (identical(selected$visibility, "unlisted") && isFALSE(public) && !share_unlisted) {
+      stop("Set share_unlisted = TRUE to share an unlisted artifact with collection readers.", call. = FALSE)
+    }
+  }
   ext <- tolower(tools::file_ext(source))
   html_path <- NULL
   bundle_dir <- NULL
@@ -788,11 +809,7 @@ cloud_settings <- function() {
       html_path <- source
     }
   } else {
-    stop(
-      "Framework Cloud publishing takes rendered HTML, a render directory, ",
-      "or a .qmd/.Rmd to render. Got: .", ext,
-      call. = FALSE
-    )
+    html_path <- source
   }
 
   readable <- if (is.null(slug)) NULL else !isFALSE(slug)
@@ -820,7 +837,7 @@ cloud_settings <- function() {
     )
   } else {
     body <- list(
-      file = curl::form_file(html_path, type = "text/html"),
+      file = curl::form_file(html_path),
       slug = slug
     )
   }
@@ -830,6 +847,10 @@ cloud_settings <- function() {
   }
   if (!is.null(title)) {
     body$title <- title
+  }
+  for (field in c("description", "kind", "password", "visibility")) {
+    value <- get(field)
+    if (!is.null(value)) body[[field]] <- value
   }
   req <- httr2::req_body_multipart(req, !!!body)
   if (nzchar(Sys.getenv("FW_CLOUD_INSECURE", ""))) {
@@ -849,6 +870,18 @@ cloud_settings <- function() {
   }
   if (!is.null(res$notice) && nzchar(res$notice)) {
     message(res$notice)
+  }
+  if (!is.null(selected)) {
+    tryCatch({
+      if (is.null(res$id)) stop("The server did not return an artifact ID.")
+      .fw_api(paste0("/api/v2/collections/", selected$id, "/items"), token,
+              method = "POST", url = .fw_project_cloud_url(),
+              body = list(document_id = res$id, share_unlisted = share_unlisted))
+      message("Added to collection: ", selected$title)
+    }, error = function(e) {
+      warning("Artifact published at ", res$url, ", but collection attachment failed: ",
+              conditionMessage(e), ". Attach it from the project Outputs page; publishing again creates another version.", call. = FALSE)
+    })
   }
   invisible(res$url)
 }

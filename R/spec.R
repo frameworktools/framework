@@ -200,7 +200,7 @@ spec_check <- function(spec) {
       }
     } else if (is.character(entry$content)) {
       declared <- .spec_skill_name(entry$content)
-      if (!identical(declared, skill)) {
+      if (!identical(declared, skill) && is.null(entry$sync)) {
         add("skills.%s: SKILL.md frontmatter name is '%s'", skill, declared %||% "missing")
       }
       for (path in names(entry$files)) check_path(path, paste0("skills.", skill, ".files"))

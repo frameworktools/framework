@@ -65,7 +65,11 @@ definitions <- list(
     obj(
       list(
         content = str(minLength = 1, description = "Full SKILL.md text, including frontmatter"),
-        files = map_of(str(), key_pattern = REL_PATH)
+        files = map_of(str(), key_pattern = REL_PATH),
+        bundle = arr(obj(list(path = str(), content = str(), executable = bool()), required = c("path", "content", "executable")), maxItems = 256),
+        sync = obj(list(skill_id = str(), version = list(type = "integer", minimum = 1),
+                        hash = str(pattern = "^[a-f0-9]{64}$"), variant = str(enum = list("r", "python", "stata")), server = str()),
+                   required = c("skill_id", "version", "hash", "variant", "server"))
       ),
       required = c("content")
     )

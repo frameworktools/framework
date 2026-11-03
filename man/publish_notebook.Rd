@@ -13,6 +13,8 @@ publish_notebook(
   slug = NULL,
   include_private = FALSE,
   to = NULL,
+  collection = NULL,
+  share_unlisted = FALSE,
   ...
 )
 }
@@ -40,8 +42,13 @@ absolute path of any file to upload contains "private" in any case
 warns and, in an interactive session, asks before publishing (default No).
 In a non-interactive session it stops unless \code{include_private = TRUE}.}
 
-\item{to}{Character or NULL. \code{"github"} publishes the rendered HTML to the
+\item{to}{Character or NULL. \code{"cloud"} selects Framework Cloud and \code{"bucket"}
+selects storage. \code{"github"} publishes the rendered HTML to the
 project's GitHub Pages site. See \code{\link[=publish]{publish()}}.}
+
+\item{collection}{Existing project collection ID or slug. Follows the latest artifact version.}
+
+\item{share_unlisted}{Explicit consent to share an unlisted artifact with collection readers.}
 
 \item{...}{Additional arguments passed to quarto render.}
 }
