@@ -928,7 +928,7 @@ cloud_settings <- function() {
       } else {
         # Register the same choices used to resolve the local project, rather
         # than a name-only v1 record that cannot recreate its configuration.
-        .fw_api("/api/v2/projects", token = token, method = "POST", body = choices, url = url)
+        .fw_api("/api/v1/projects", token = token, method = "POST", body = choices, url = url)
       }
     },
     error = function(e) {
@@ -1021,7 +1021,7 @@ cloud_settings <- function() {
         !(is.character(collection) || is.numeric(collection))) {
       stop("collection must be a collection ID or slug.", call. = FALSE)
     }
-    rows <- .fw_api("/api/v2/collections", token, url = .fw_project_cloud_url())$collections
+    rows <- .fw_api("/api/v1/collections", token, url = .fw_project_cloud_url())$collections
     matches <- Filter(function(x) identical(as.character(x$id), as.character(collection)) ||
                         identical(x$slug, as.character(collection)), rows)
     if (length(matches) != 1L) stop("Collection is missing or ambiguous in this project.", call. = FALSE)
@@ -1168,7 +1168,7 @@ cloud_settings <- function() {
   if (!is.null(selected)) {
     tryCatch({
       if (is.null(res$id)) stop("The server did not return an artifact ID.")
-      .fw_api(paste0("/api/v2/collections/", selected$id, "/items"), token,
+      .fw_api(paste0("/api/v1/collections/", selected$id, "/items"), token,
               method = "POST", url = .fw_project_cloud_url(),
               body = list(document_id = res$id, share_unlisted = share_unlisted))
       message("Added to collection: ", selected$title)
@@ -1693,31 +1693,6 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
   }
 }
 
-# Fetch the cloud blueprint for a project type; NULL when no token, offline,
-# or the type is unknown to the cloud. Never errors.
-#' @keywords internal
-.fw_cloud_blueprint_quietly <- function(type) {
-  token <- .fw_cloud_token()
-  if (is.null(token)) {
-    return(NULL)
-  }
-
-  tryCatch(
-    {
-      res <- .fw_api(paste0("/api/v1/blueprints?key=", utils::URLencode(type)), token = token)
-      bp <- res$blueprints[[1]] %||% NULL
-      if (!is.null(bp)) {
-        message("[ok] Using cloud blueprint: ", bp$name %||% type)
-      }
-      bp
-    },
-    error = function(e) {
-      message("Cloud blueprint unavailable (", conditionMessage(e), "). Using local templates.")
-      NULL
-    }
-  )
-}
-
 # The AGENTS.md master overrides generated content ONLY when an admin has
 # actually customized it -- an unedited master is identical to the packaged
 # template, and creation output must stay byte-stable for those users.
@@ -1760,7 +1735,7 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
     "Fetching this project's definition from ", url,
     " (what is shared: ", url, "/privacy)"
   )
-  envelope <- .fw_api("/api/v2/projects/pull", token = token, url = url)
+  envelope <- .fw_api("/api/v1/projects/pull", token = token, url = url)
   if (!is.list(envelope) || !identical(as.integer(envelope$spec_version %||% NA), 1L)) {
     stop("The server returned a project definition this version of framework cannot read.", call. = FALSE)
   }

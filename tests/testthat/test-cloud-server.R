@@ -348,7 +348,7 @@ test_that("collection preflight and attachment preserve a successful publication
       if (mode == "missing") return(list(collections = list()))
       return(list(collections = list(list(id = 7L, slug = "findings", title = "Findings", visibility = "unlisted"))))
     }
-    expect_identical(path, "/api/v2/collections/7/items")
+    expect_identical(path, "/api/v1/collections/7/items")
     attached <<- body
     if (mode == "fail") stop("Attachment denied")
     list(id = 1L)

@@ -153,7 +153,7 @@ test_that("new_project registers its resolved choices and saves an ignored proje
     }
   )
   location <- create(type = "project", tools = c(targets = TRUE), skill_sets = "framework")
-  expect_identical(sent$path, "/api/v2/projects")
+  expect_identical(sent$path, "/api/v1/projects")
   expect_identical(sent$method, "POST")
   expect_identical(sent$body, list(
     language = "r", name = "Study", blueprint = "framework/project",

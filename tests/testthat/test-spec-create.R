@@ -191,7 +191,7 @@ test_that("setup(token) and new(key) create the project from pull v2", {
   result <- suppressMessages(setup("1|fw_pull", location = location, browse = FALSE,
                                    url = "https://cloud.example.edu"))
   expect_true(result$success)
-  expect_identical(calls[[1]]$path, "/api/v2/projects/pull")
+  expect_identical(calls[[1]]$path, "/api/v1/projects/pull")
   expect_identical(calls[[1]]$token, "1|fw_pull")
   expect_identical(calls[[1]]$url, "https://cloud.example.edu")
 

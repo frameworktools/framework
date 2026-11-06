@@ -100,7 +100,7 @@ test_that("external tracking sends metadata only and preserves success on failur
   )
   receipt <- list(driver = "folder", url = NULL, version_url = NULL, version = 1L, location = "/secret/mount/path")
   framework:::.fw_track_external(bundle, receipt)
-  expect_identical(calls[[1]]$path, "/api/v2/projects/my-project/artifacts/external")
+  expect_identical(calls[[1]]$path, "/api/v1/projects/my-project/artifacts/external")
   expect_false(grepl("/secret|/var|/tmp|location|representation", jsonlite::toJSON(calls[[1]]$body)))
   expect_identical(calls[[1]]$body$driver, "folder")
   expect_match(calls[[1]]$body$sha256, "^[a-f0-9]{64}$")

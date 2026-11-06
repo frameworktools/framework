@@ -71,7 +71,7 @@ test_that("structure_import() sends the confirmed mapping to the cloud", {
   )
   res <- suppressMessages(structure_import(dir, name = "Lab layout", yes = TRUE))
   expect_identical(res$key, "ada/lab-layout")
-  expect_identical(sent$path, "/api/v2/structures")
+  expect_identical(sent$path, "/api/v1/structures")
   expect_identical(sent$method, "POST")
   expect_identical(sent$body$name, "Lab layout")
   expect_identical(sent$body$directories, list(inputs_raw = "data/raw", scripts = "analysis"))

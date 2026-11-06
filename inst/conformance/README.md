@@ -99,9 +99,9 @@ and Python, which `fw new` calls).
   Only the default envelope is cached, resolved from `{"language": ...}`
   alone. A project with explicit pieces needs a connection.
 - The cloud sends a `Framework-Defaults-Revision` header on
-  `POST /api/v2/resolve` and `GET /api/v2/defaults`. It is opaque: compare
+  `POST /api/v1/resolve` and `GET /api/v1/defaults`. It is opaque: compare
   it for equality only.
-- `POST /api/v2/resolve` with only `{"language": ...}` resolves from the
+- `POST /api/v1/resolve` with only `{"language": ...}` resolves from the
   person's defaults. When their default blueprint doesn't support the
   language, the cloud falls back to `framework/project` with a notice.
 - Offline means network errors, timeouts, and 5xx responses. 401 and 403

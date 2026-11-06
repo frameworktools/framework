@@ -1,5 +1,5 @@
 # new() through Framework Cloud's resolver. When signed in, new_project()
-# sends its choices to POST /api/v2/resolve and builds from the returned
+# sends its choices to POST /api/v1/resolve and builds from the returned
 # layers envelope. The person's default envelope is cached per server and
 # language, so creation works offline without silently switching to a
 # different configuration. The contract is shared with framework-py and fw;
@@ -39,7 +39,7 @@
   invisible(path)
 }
 
-# POST /api/v2/resolve. Returns list(status = "ok", envelope, revision,
+# POST /api/v1/resolve. Returns list(status = "ok", envelope, revision,
 # notices), or list(status = "offline", reason) for network errors,
 # timeouts, and 5xx responses. Authentication errors (401, 403), conflicts
 # with a blueprint (422), and other errors stop.
@@ -48,7 +48,7 @@
   if (!requireNamespace("httr2", quietly = TRUE)) {
     return(list(status = "offline", reason = "the httr2 package is not installed"))
   }
-  req <- httr2::request(paste0(url, "/api/v2/resolve"))
+  req <- httr2::request(paste0(url, "/api/v1/resolve"))
   req <- httr2::req_auth_bearer_token(req, token)
   req <- httr2::req_headers(req, Accept = "application/json")
   req <- httr2::req_user_agent(req, paste0("framework-r/", as.character(utils::packageVersion("framework"))))

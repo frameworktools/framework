@@ -176,8 +176,8 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   if (length(unique(hashes)) > 1) stop("Assistant skill copies diverged. Reconcile aliases before syncing.", call. = FALSE)
   local_hash <- if (nzchar(hashes[1])) hashes[1] else NULL; files <- bundles[[1]]
   identity <- entry$skill_id %||% skill_id; remote <- NULL
-  if (!is.null(identity)) remote <- .fw_api(paste0("/api/v2/skills/sync/", utils::URLencode(identity, reserved = TRUE), "?variant=", variant), token, url = server)
-  else if (!is.null(entry$origin)) remote <- .fw_api(paste0("/api/v2/skills/sync/", utils::URLencode(entry$origin$skill_id, reserved = TRUE), "?variant=", variant, "&hash=", entry$origin$hash), token, url = server)
+  if (!is.null(identity)) remote <- .fw_api(paste0("/api/v1/skills/sync/", utils::URLencode(identity, reserved = TRUE), "?variant=", variant), token, url = server)
+  else if (!is.null(entry$origin)) remote <- .fw_api(paste0("/api/v1/skills/sync/", utils::URLencode(entry$origin$skill_id, reserved = TRUE), "?variant=", variant, "&hash=", entry$origin$hash), token, url = server)
   if (!is.null(remote) && !identical(.skill_hash(remote$bundle), remote$hash)) stop("Cloud skill verification failed", call. = FALSE)
   base <- if (!is.null(entry$skill_id)) entry$hash else entry$origin$hash
   action <- if (is.null(remote)) { if (is.null(files)) "missing" else "push" }
@@ -199,7 +199,7 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
     pending <- entry$pending
     if (is.null(pending) || !identical(pending$hash, local_hash) || !identical(pending$basis, basis)) pending <- list(request_id = .skill_uuid(), hash = local_hash, basis = basis)
     entry$pending <- pending; state$skills[[key]] <- entry; .skill_save(root, state)
-    remote <- .fw_api("/api/v2/skills/sync", token, method = "POST", url = server, body = list(
+    remote <- .fw_api("/api/v1/skills/sync", token, method = "POST", url = server, body = list(
       request_id = pending$request_id, skill_id = remote$skill_id,
       expected_version = expected, variant = variant,
       bundle = files, client = list(app = "framework-r")

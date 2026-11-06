@@ -116,13 +116,13 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   .structure_upload(mapping, name %||% basename(normalizePath(path)))
 }
 
-# POST /api/v2/structures with the confirmed mapping
+# POST /api/v1/structures with the confirmed mapping
 #' @keywords internal
 .structure_upload <- function(mapping, name) {
   token <- .fw_require_token()
   body <- list(name = name, directories = mapping$directories)
   if (length(mapping$extra_directories) > 0) body$extra_directories <- mapping$extra_directories
-  res <- .fw_api("/api/v2/structures", token = token, method = "POST", body = body)
+  res <- .fw_api("/api/v1/structures", token = token, method = "POST", body = body)
   message("[ok] Saved structure ", res$key %||% name, if (!is.null(res$url)) paste0(": ", res$url))
   invisible(res)
 }

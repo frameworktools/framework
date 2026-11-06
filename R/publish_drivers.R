@@ -276,7 +276,7 @@
                  size_bytes = sum(vapply(manifest$files, function(x) x$bytes, numeric(1))),
                  sha256 = receipt$sha256 %||% digest::digest(file = file.path(bundle$path, "artifact.json"), algo = "sha256"),
                  visibility = visibility %||% "public", published_at = manifest$created_at, source = manifest$source)
-    .fw_api(paste0("/api/v2/projects/", utils::URLencode(project, reserved = TRUE), "/artifacts/external"), token, method = "POST", body = body, url = url)
+    .fw_api(paste0("/api/v1/projects/", utils::URLencode(project, reserved = TRUE), "/artifacts/external"), token, method = "POST", body = body, url = url)
   }, error = function(e) warning("Published successfully; Cloud metadata tracking failed: ", conditionMessage(e), call. = FALSE))
   invisible(NULL)
 }
