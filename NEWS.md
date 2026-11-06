@@ -1,3 +1,10 @@
+# framework 1.9.0.9003
+
+* Framework Cloud calls go to `/api/v1` only. The server no longer serves
+  `/api/v2`.
+* R writes only its own `cloud.yml`, and the newest sign-in sets the server.
+* Cloud interop fixes from the 2026-11-05 audit.
+
 # framework 1.9.0.9002
 
 * `new()` makes a Standard Project (`type = "project"`) by default when
