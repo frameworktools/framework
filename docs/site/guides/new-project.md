@@ -1,15 +1,15 @@
 ---
 id: new-project
-title: Making a New Project
+title: New projects
 section: getting_started
 position: 5
-description: 'Create a new Framework project'
+description: 'Project creation from the GUI or the R console'
 ---
-## Create a Project
+## Project creation
 
 After running `setup()`, create a new project from the GUI or command line.
 
-### Using the GUI
+### GUI
 
 Click **+ New Project** in the GUI sidebar, or run:
 
@@ -19,7 +19,7 @@ framework::gui()
 
 ![New Project GUI](images/new-project-gui.png)
 
-### Using the Command Line
+### Command line
 
 ```r
 framework::new_project()
@@ -33,21 +33,33 @@ You can also specify the name and location directly:
 new_project("my-analysis", "~/code/my-analysis")
 ```
 
-## Project Types
+## Framework Cloud
+
+After `cloud_login()`, `new_project()` uses your Cloud defaults and registers the
+project with the same blueprint, tools, package sets, and skill sets used to
+create it locally. It saves a project token in the ignored `.env` file so the
+project can publish results and share its data ledger. Bare projects are
+registered without creating a token file. Datasets stay on your machine.
+
+Use `offline = TRUE` to create locally without contacting Cloud. If registration
+fails after the local project is created, Framework reports the failure and
+keeps the local project.
+
+## Project types
 
 Framework supports four project types, each with its own function:
 
-### Standard Project
+### Standard project
 
-The default. Full-featured structure for data analysis:
+The default type, with a full structure for data analysis:
 
 ```r
 new_project("my-analysis")
 ```
 
-### Sensitive Data Project
+### Sensitive data project
 
-Enhanced privacy controls with separate private/public flows:
+Separate private and public directories with stricter privacy controls:
 
 ```r
 new_project_sensitive("medical-study")
@@ -55,7 +67,7 @@ new_project_sensitive("medical-study")
 
 ### Presentation
 
-Minimal structure for RevealJS slides:
+A minimal structure for RevealJS slides:
 
 ```r
 new_presentation("quarterly-review")
@@ -63,19 +75,19 @@ new_presentation("quarterly-review")
 
 ### Course
 
-Structured for teaching materials with slides, assignments, and modules:
+A structure for teaching materials with slides, assignments, and modules:
 
 ```r
 new_course("stats-101")
 ```
 
-## What Gets Created
+## Created files
 
 When you create a project, Framework:
 
 1. Creates the directory structure based on your defaults
 2. Generates a `settings.yml` with your configuration
-3. Sets up `.gitignore` with sensible defaults
+3. Sets up `.gitignore` with default patterns
 4. Creates IDE workspace files (VS Code/Positron)
 5. Adds AI assistant configuration (CLAUDE.md) if enabled
 6. Initializes git if configured
@@ -88,6 +100,6 @@ When you create a project, Framework:
 
 [← settings.yml](guide:settings-yml)
 
-[Core Concepts: scaffold() →](guide:scaffold)
+[scaffold() →](guide:scaffold)
 
 </div>

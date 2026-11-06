@@ -28,7 +28,7 @@ Uses database-specific methods via S3 dispatch.
 \examples{
 \donttest{
 if (FALSE) {
-conn <- connection_get("my_db")
+conn <- db_connect("my_db")
 tables <- .list_tables(conn)
 DBI::dbDisconnect(conn)
 }

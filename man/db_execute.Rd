@@ -9,7 +9,7 @@ db_execute(query, connection_name, ...)
 \arguments{
 \item{query}{SQL statement to execute}
 
-\item{connection_name}{Name of the connection in config.yml}
+\item{connection_name}{Name of the connection in settings.yml}
 
 \item{...}{Additional arguments passed to DBI::dbExecute}
 }

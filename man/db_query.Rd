@@ -9,7 +9,7 @@ db_query(query, connection_name, ...)
 \arguments{
 \item{query}{SQL query to execute}
 
-\item{connection_name}{Name of the connection in config.yml}
+\item{connection_name}{Name of the connection in settings.yml}
 
 \item{...}{Additional arguments passed to DBI::dbGetQuery}
 }

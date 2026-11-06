@@ -14,6 +14,8 @@ new_project(
   skill_sets = NULL,
   workflow = NULL,
   offline = FALSE,
+  key = NULL,
+  url = NULL,
   ...
 )
 }
@@ -55,8 +57,14 @@ sends your choices to it and builds the project it resolves. If the
 cloud can't be reached, your saved cloud defaults are used when you
 made no choices beyond the name. Otherwise an interactive session asks
 before using Framework's built-in defaults, and a non-interactive one
-stops. \code{offline = TRUE} skips the cloud: saved defaults when there are
+stops. Successful projects are registered with their choices on Cloud
+and linked through a project token in the ignored \code{.env} file.
+\code{offline = TRUE} skips the cloud: saved defaults when there are
 any, else the built-ins. Not signed in, the built-ins are used.}
+
+\item{key}{Optional Framework Cloud project token.}
+
+\item{url}{Optional Framework Cloud server URL for \code{key}.}
 
 \item{...}{Ignored, with a warning.}
 }

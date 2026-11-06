@@ -10,9 +10,12 @@ ai_regenerate_context(project_path = ".", sections = NULL, ai_file = NULL)
 \item{project_path}{Path to the project directory}
 
 \item{sections}{Which sections to regenerate. NULL = all regeneratable sections.
-Options: "environment", "packages", "data", "functions"}
+Options: "environment", "packages", "data", "functions". A section is
+regenerated only when the file has its marked heading; files made by
+Framework 2.0 have no "functions" section.}
 
-\item{ai_file}{Name of the AI context file (default: from settings or "CLAUDE.md")}
+\item{ai_file}{Name of the AI context file (default: \code{ai.canonical_file}
+from settings, then "AGENTS.md", then "CLAUDE.md" for older projects)}
 }
 \value{
 Invisible TRUE on success
@@ -23,7 +26,7 @@ existing AI context file, preserving user customizations in unmarked sections.
 }
 \examples{
 \donttest{
-if (file.exists("CLAUDE.md")) {
+if (file.exists("AGENTS.md")) {
   # Regenerate all dynamic sections
   ai_regenerate_context()
 

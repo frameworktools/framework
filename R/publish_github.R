@@ -159,11 +159,11 @@
 }
 
 #' @keywords internal
-.fw_github_publish <- function(source, slug = NULL, self_contained = TRUE) {
+.fw_github_publish <- function(source, slug = NULL, self_contained = TRUE, bundle = NULL, visibility = NULL) {
   if (is.null(slug)) {
     slug <- .fw_pages_slug(source)
   }
-  if (!is.character(slug) || !grepl("^[a-z0-9][a-z0-9._-]*$", slug)) {
+  if (!is.character(slug) || !grepl("^[a-z0-9]+(-[a-z0-9]+)*$", slug)) {
     stop(
       "`slug` must start with a lowercase letter or digit and use only lowercase ",
       "letters, digits, '.', '_', and '-' (GitHub Pages URLs are case-sensitive).",
@@ -183,30 +183,46 @@
          call. = FALSE)
   }
 
-  message("GitHub Pages sites are public, even when the repository is private.")
+  if (identical(visibility, "private")) {
+    message("Publishing to a GitHub-confirmed private Pages site.")
+  } else {
+    message("GitHub Pages sites are public, even when the repository is private.")
+  }
+  if (!is.null(bundle)) {
+    existing <- list.files(file.path(top, "published"), recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE)
+    size <- sum(file.info(existing)$size, na.rm = TRUE) + 2 * sum(vapply(bundle$manifest$files, function(x) x$bytes, numeric(1)))
+    if (size > 1e9) stop("Publishing would exceed the 1 GB GitHub Pages site limit.", call. = FALSE)
+    if (size > 8e8) warning("The GitHub Pages site is approaching its 1 GB limit.", call. = FALSE)
+  }
   if (rlang::is_interactive() && !isTRUE(utils::askYesNo("Publish it?", default = FALSE))) {
     stop("Cancelled: nothing was published.", call. = FALSE)
   }
 
-  stage <- .fw_github_stage(source, self_contained = self_contained)
-  on.exit(unlink(stage, recursive = TRUE), add = TRUE)
+  stage <- if (is.null(bundle)) .fw_github_stage(source, self_contained = self_contained) else source
+  if (is.null(bundle)) on.exit(unlink(stage, recursive = TRUE), add = TRUE)
 
   # published/ sits at the top of the repository, where the workflow deploys
   # from. Replace published/<slug>/ completely.
   rel <- file.path("published", slug)
   target <- file.path(top, rel)
-  unlink(target, recursive = TRUE)
-  dir.create(target, recursive = TRUE)
-  file.copy(list.files(stage, full.names = TRUE, all.files = TRUE, no.. = TRUE),
-            target, recursive = TRUE)
+  receipt <- NULL
+  if (!is.null(bundle)) {
+    receipt <- .fw_folder_deliver(bundle, list(path = file.path(top, "published")))
+    paths <- c(rel, "published/index.html", "published/index.json")
+  } else {
+    unlink(target, recursive = TRUE)
+    dir.create(target, recursive = TRUE)
+    file.copy(list.files(stage, full.names = TRUE, all.files = TRUE, no.. = TRUE), target, recursive = TRUE)
+    paths <- rel
+  }
 
   # Commit only this folder; anything else the user staged stays staged
-  .fw_git(top, "add", "-A", "--", shQuote(rel))
-  unchanged <- .fw_git(top, "diff", "--cached", "--quiet", "--", shQuote(rel))
+  .fw_git(top, "add", "-A", "--", shQuote(paths))
+  unchanged <- .fw_git(top, "diff", "--cached", "--quiet", "--", shQuote(paths))
   if (.fw_git_ok(unchanged)) {
     message("No change in ", rel, "; nothing committed or pushed.")
   } else {
-    commit <- .fw_git(top, "commit", "-m", shQuote(paste("Publish", slug)), "--", shQuote(rel))
+    commit <- .fw_git(top, "commit", "-m", shQuote(paste("Publish", slug)), "--", shQuote(paths))
     if (!.fw_git_ok(commit)) {
       stop("git commit failed:\n", paste(commit, collapse = "\n"), call. = FALSE)
     }
@@ -250,5 +266,12 @@
   if (!grepl("/$", base)) base <- paste0(base, "/")
   url <- paste0(base, slug, "/")
   message("Published to ", url)
+  if (!is.null(receipt)) {
+    receipt$driver <- "github"
+    receipt$url <- url
+    receipt$version_url <- paste0(url, "v/", receipt$version, "/")
+    receipt$commit <- .fw_git(top, "rev-parse", "HEAD")[1]
+    attr(url, "receipt") <- receipt
+  }
   invisible(url)
 }

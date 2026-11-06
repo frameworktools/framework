@@ -8,9 +8,9 @@ repository: https://github.com/frameworktools/framework
 install: install.packages("framework")
 sections:
   - id: getting_started
-    title: Getting Started
+    title: Getting started
   - id: project_types
-    title: Project Types
+    title: Project types
   - id: features
     title: Features
   - id: reference

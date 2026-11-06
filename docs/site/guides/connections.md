@@ -3,13 +3,13 @@ id: connections
 title: Connections
 section: features
 position: 13
-description: 'Connecting to databases and object storage providers'
+description: 'Database and object storage connections'
 ---
 ## Overview
 
-Framework provides a unified interface for connecting to databases and object storage. Define connections once in `settings.yml` and Framework handles the rest. For running queries and working with database helpers, see the [Database Integration guide](guide:database).
+Framework connects to databases and object storage through connections defined once in `settings.yml`. For queries and database helpers, see the [Database integration guide](guide:database).
 
-## Configuring Connections
+## Database connections
 
 Define database connections in `settings.yml`:
 
@@ -43,7 +43,7 @@ DB_USER=analyst
 DB_PASSWORD=secret
 ```
 
-## Object Storage Connections
+## Object storage connections
 
 Define object storage endpoints and buckets in `settings.yml`, then use helpers like `s3_ls()`, `s3_download()`, and `s3_upload()` to browse or sync data:
 
@@ -59,7 +59,7 @@ object_storage:
 
 Both the GUI and the R helpers respect these connection profiles, so you can browse buckets in `framework::gui()` or automate transfers in code.
 
-## Listing Connections
+## Connection list
 
 View all configured connections (databases and object storage) with `connections_list()`, or limit to only database entries using `db_list()`:
 
@@ -69,9 +69,9 @@ connections_list()
 db_list()  # Databases only
 ```
 
-## Best Practices
+## Best practices
 
-### Use env() for Credentials
+### Credentials in env()
 
 Never hardcode credentials:
 
@@ -83,7 +83,7 @@ password: env("DB_PASSWORD")
 password: "my_secret_password"
 ```
 
-### Name Connections Clearly
+### Connection names
 
 ```yaml
 connections:

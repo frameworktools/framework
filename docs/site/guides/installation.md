@@ -3,16 +3,16 @@ id: installation
 title: Installation
 section: getting_started
 position: 1
-description: 'How to install Framework'
+description: 'Requirements, installation, and updates'
 ---
 ## Requirements
 
 - **R** version 4.1 or higher.
-- Any editor, including the console. 
+- Any editor, including the console.
 
-Framework works well with [Positron](https://positron.posit.co/) (we built Framework with it!), [VS Code](https://code.visualstudio.com/), and [RStudio](https://posit.co/products/open-source/rstudio/)
+Framework works with [Positron](https://positron.posit.co/), [VS Code](https://code.visualstudio.com/), and [RStudio](https://posit.co/products/open-source/rstudio/).
 
-## Install from GitHub
+## GitHub installation
 
 Framework is currently only available via GitHub. Install using the `remotes` package:
 
@@ -21,7 +21,7 @@ install.packages("remotes")
 remotes::install_github("frameworktools/framework")
 ```
 
-## Verify Installation
+## Installation check
 
 After installation, verify Framework is working:
 
@@ -32,7 +32,7 @@ packageVersion("framework")
 
 You should see the version number displayed.
 
-## Updating Framework
+## Updates
 
 To update to the latest version:
 

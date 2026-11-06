@@ -24,7 +24,10 @@ quarto_generate_all(
 
 \item{directories}{Named list. Source directories keyed the same as render_dirs}
 
-\item{root_output_dir}{Optional output directory to set on the root _quarto.yml}
+\item{root_output_dir}{Ignored. Kept so older calls still work. The root
+output folder is the one most \code{render_dirs} share, as in the Python
+package. Setting it from \code{quarto.render_dir} would nest renders, such as
+\code{outputs/notebooks/notebooks/x.html}.}
 }
 \value{
 List with success status and paths of generated files

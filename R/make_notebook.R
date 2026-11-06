@@ -78,8 +78,10 @@
 #' make_notebook("explore", dir = "work")
 #'
 #' # Convenient aliases (recommended for explicit types)
-#' make_qmd("analysis")       # Always creates .qmd
-#' make_rmd("report")         # Always creates .Rmd
+#' make_qmd("analysis")       # Creates .qmd
+#' make_rmd("report")         # Creates .Rmd
+#' # An extension in the name wins over the alias, as in the Python package:
+#' # make_qmd("report.Rmd") creates an .Rmd
 #' make_revealjs("slides")    # Creates reveal.js presentation
 #' make_presentation("deck")  # Alias for make_revealjs()
 #' }
@@ -441,6 +443,18 @@ make_notebook <- function(name,
     return(user_stub)
   }
 
+  # Then your templates (write_framework_template()), as in the Python package
+  # An untouched copy of an older packaged default (read_framework_template()
+  # used to copy those) is not your version, so it is skipped.
+  personal_stub <- .framework_templates_dir(stub_filename)
+  if (file.exists(personal_stub)) {
+    legacy <- system.file("templates", stub_filename, package = "framework")
+    untouched <- nzchar(legacy) && identical(
+      readLines(personal_stub, warn = FALSE), readLines(legacy, warn = FALSE)
+    )
+    if (!untouched) return(personal_stub)
+  }
+
   # Fall back to framework stubs
   framework_stub <- system.file("stubs", stub_filename, package = "framework")
 
@@ -504,7 +518,9 @@ make_notebook <- function(name,
 #'
 #' @param type Character. Filter by type: "quarto", "rmarkdown", "script", or NULL (all).
 #'
-#' @return Data frame with columns: name, type, source (user/framework)
+#' @return Data frame with columns: name, type, source (`user` for the
+#'   project's `stubs/`, `personal` for your templates, or `framework`), in the
+#'   order `make_notebook()` searches. The first source hides later ones.
 #'
 #' @examples
 #' \donttest{
@@ -546,6 +562,29 @@ stubs_list <- function(type = NULL) {
     }
   }
 
+  # Your templates (write_framework_template()), searched next by
+  # .find_stub_template(). An untouched copy of an older packaged default is
+  # skipped there, so it is not listed here either.
+  personal_dir <- .framework_templates_dir()
+  if (dir.exists(personal_dir)) {
+    personal_files <- list.files(personal_dir, pattern = "^(notebook|script)-.*\\.(qmd|Rmd|R)$")
+    personal_files <- Filter(function(file) {
+      legacy <- system.file("templates", file, package = "framework")
+      !(nzchar(legacy) && identical(
+        readLines(file.path(personal_dir, file), warn = FALSE), readLines(legacy, warn = FALSE)
+      ))
+    }, personal_files)
+    if (length(personal_files) > 0) {
+      result <- rbind(result, data.frame(
+        name = sub("^(notebook|script)-", "", sub("\\.(qmd|Rmd|R)$", "", personal_files)),
+        type = ifelse(grepl("\\.qmd$", personal_files), "quarto",
+                      ifelse(grepl("\\.Rmd$", personal_files), "rmarkdown", "script")),
+        source = "personal",
+        stringsAsFactors = FALSE
+      ))
+    }
+  }
+
   # Framework stubs
   framework_stubs_dir <- system.file("stubs", package = "framework")
   if (framework_stubs_dir != "" && dir.exists(framework_stubs_dir)) {
@@ -570,7 +609,7 @@ stubs_list <- function(type = NULL) {
     result <- result[result$type == type, ]
   }
 
-  # Remove duplicates (user overrides framework)
+  # Remove duplicates (user, then personal, overrides framework)
   result <- result[!duplicated(paste(result$name, result$type)), ]
 
   # Sort by name
@@ -628,7 +667,8 @@ stubs_list <- function(type = NULL) {
 #' Convenient alias for `make_notebook(type = "quarto")`. Creates a .qmd file
 #' from stub templates.
 #'
-#' @param name Character. The file name (with or without .qmd extension)
+#' @param name Character. The file name (with or without .qmd extension).
+#'   Another extension wins: `"x.Rmd"` creates a .Rmd file.
 #' @param dir Character. Directory to create the file in. Uses your project's
 #'   configured `directories$notebooks` setting. Default: "notebooks/".
 #' @param subdir Optional subdirectory under `dir` (e.g., "slides/week-01").
@@ -663,7 +703,8 @@ make_qmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subd
 #' Convenient alias for `make_notebook(type = "rmarkdown")`. Creates a .Rmd file
 #' from stub templates.
 #'
-#' @param name Character. The file name (with or without .Rmd extension)
+#' @param name Character. The file name (with or without .Rmd extension).
+#'   Another extension wins: `"x.qmd"` creates a .qmd file.
 #' @param dir Character. Directory to create the file in. Uses your project's
 #'   configured `directories$notebooks` setting. Default: "notebooks/".
 #' @param stub Character. Name of the stub template to use. Default "default".

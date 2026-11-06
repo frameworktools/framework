@@ -44,13 +44,15 @@ checking for unignored data files, git history leaks, and orphaned data files
 outside configured directories.
 }
 \details{
-The security audit performs the following checks:
+The security audit performs the following checks. Each is a row of
+\code{summary} (named by its \code{check}), and its details are in \code{findings} under
+the key in brackets:
 \itemize{
-\item \strong{gitignore_coverage}: Verifies all private data files are in .gitignore
-\item \strong{git_history}: Scans git history for accidentally committed data files
-\item \strong{orphaned_files}: Finds data files outside configured directories
-\item \strong{private_data_exposure}: Checks if private data is tracked by git
-\item \strong{secrets_exposure}: Checks if \code{.env} files (which hold passwords and
+\item \strong{gitignore_coverage} (\code{gitignore_issues}): Verifies all private data files are in .gitignore
+\item \strong{git_history} (\code{git_history_issues}): Scans git history for accidentally committed data files
+\item \strong{orphaned_files} (\code{orphaned_files}): Finds data files outside configured directories
+\item \strong{private_data_exposure} (\code{private_data_exposure}): Checks if private data is tracked by git
+\item \strong{secrets_exposure} (\code{secrets_exposure}): Checks if \code{.env} files (which hold passwords and
 tokens) are tracked by git
 }
 

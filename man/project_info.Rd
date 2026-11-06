@@ -7,7 +7,8 @@
 project_info(verbose = FALSE)
 }
 \arguments{
-\item{verbose}{If TRUE, shows additional details about each directory}
+\item{verbose}{Has no effect. Every section is always shown, including the
+project name and type that \code{verbose} adds in the Python package.}
 }
 \value{
 A data frame with directory information (invisibly)
@@ -22,8 +23,6 @@ if (FALSE) {
 # Show project structure
 project_info()
 
-# Get detailed info
-project_info(verbose = TRUE)
 }
 }
 

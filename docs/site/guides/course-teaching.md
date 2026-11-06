@@ -3,13 +3,13 @@ id: course-teaching
 title: Course/Teaching
 section: project_types
 position: 13
-description: 'Simplified structure for teaching materials'
+description: 'Project structure for teaching materials'
 ---
 ## Overview
 
 The **Course/Teaching** type is designed for educators creating academic courses. It provides organized directories for slides, assignments, and course materials.
 
-## Directory Structure
+## Directory structure
 
 ```text
 my-course/
@@ -24,7 +24,7 @@ my-course/
 
 Optional directories available in the GUI: `functions/`, `modules/`, `scripts/`
 
-## Creating Course Content
+## Course content
 
 ### Slides
 
@@ -42,7 +42,7 @@ Create assignment notebooks:
 make_notebook("assignment-01", subdir = "assignments")
 ```
 
-### Course Documents
+### Course documents
 
 Create syllabi and schedules:
 
@@ -74,9 +74,9 @@ default:
       auto_attach: false
 ```
 
-## Organizing Content
+## Content organization
 
-### By Week
+### By week
 
 ```text
 slides/
@@ -86,7 +86,7 @@ slides/
 └── week-04-visualization/
 ```
 
-### By Module
+### By module
 
 ```text
 slides/
@@ -95,9 +95,9 @@ slides/
 └── visualization/
 ```
 
-## Teaching Workflow
+## Teaching workflow
 
-### 1. Prepare Lectures
+### 1. Lectures
 
 Create slides in `slides/`:
 
@@ -105,7 +105,7 @@ Create slides in `slides/`:
 make_notebook("data-wrangling", subdir = "slides/week-03")
 ```
 
-### 2. Create Assignments
+### 2. Assignments
 
 Build assignments with instructions:
 
@@ -115,7 +115,7 @@ assignments/assignment-01/
 └── solution.qmd      # Answer key
 ```
 
-### 3. Render Materials
+### 3. Rendering
 
 Slides render to `rendered/slides/`, assignments to `rendered/assignments/`.
 
@@ -123,9 +123,9 @@ Slides render to `rendered/slides/`, assignments to `rendered/assignments/`.
 quarto render slides/week-01/lecture.qmd
 ```
 
-## Best Practices
+## Best practices
 
-### Consistent Naming
+### Consistent naming
 
 Use consistent prefixes:
 ```text
@@ -133,7 +133,7 @@ week-01-*, week-02-*, ...
 assignment-01, assignment-02, ...
 ```
 
-### Reusable Functions
+### Reusable functions
 
 Enable and use `functions/` for common code:
 
@@ -148,7 +148,7 @@ calculate_grade <- function(scores, weights) {
 
 <div style="display: flex; justify-content: space-between">
 
-[← Privacy Sensitive Project](guide:privacy-sensitive-project)
+[← Privacy-sensitive project](guide:privacy-sensitive-project)
 
 [Presentation →](guide:presentation)
 

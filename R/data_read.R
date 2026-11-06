@@ -98,7 +98,8 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
       tryCatch(
         .set_data(
           name = path,
-          path = spec$path,
+          # Keep the stored path relative to the project root
+          path = .fw_project_relative_path(spec$path),
           type = spec$type,
           delimiter = if (!is.null(spec$delimiter)) spec$delimiter else NA,
           locked = if (!is.null(spec$locked)) spec$locked else FALSE,
@@ -131,7 +132,8 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
       tryCatch(
         .set_data(
           name = path,
-          path = spec$path,
+          # Keep the stored path relative to the project root
+          path = .fw_project_relative_path(spec$path),
           type = spec$type,
           delimiter = if (!is.null(spec$delimiter)) spec$delimiter else NA,
           locked = if (!is.null(spec$locked)) spec$locked else FALSE,
@@ -305,9 +307,6 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
 #' if (FALSE) {
 #' # List all data entries
 #' data_list()
-#'
-#' # Use the alias
-#' list_data()
 #' }
 #' }
 data_list <- function() {
@@ -351,6 +350,15 @@ data_list <- function() {
           locked = if (!is.null(item$locked)) item$locked else FALSE,
           description = if (!is.null(item$description)) item$description else NA_character_
         )
+      } else if (.fw_pathless_entry(item)) {
+        # broken: {type: csv} is an entry missing its path, not a group
+        entries[[full_name]] <- list(
+          name = full_name,
+          path = NA_character_,
+          type = if (is.character(item$type)) item$type else NA_character_,
+          locked = isTRUE(item$locked),
+          description = if (!is.null(item$description)) item$description else NA_character_
+        )
       } else if (is.list(item) && is.null(item$path)) {
         # This is a nested structure, recurse
         nested <- extract_entries(item, full_name)
@@ -373,11 +381,12 @@ data_list <- function() {
 
   for (entry in entries_list) {
     # Name with type badge
-    type_badge <- sprintf("[%s]", toupper(entry$type))
-    message(sprintf("- %s %s", entry$name, type_badge))
+    # Shorthand entries (name: path) record no type
+    type_badge <- if (is.na(entry$type)) "" else sprintf(" [%s]", toupper(entry$type))
+    message(sprintf("- %s%s", entry$name, type_badge))
 
     # Path
-    message(sprintf("  Path: %s", entry$path))
+    message(sprintf("  Path: %s", if (is.na(entry$path)) "(none)" else entry$path))
 
     # Flags (locked)
     if (entry$locked) {
@@ -392,7 +401,7 @@ data_list <- function() {
     message("")  # Blank line between entries
   }
 
-  invisible(do.call(rbind, lapply(entries_list, function(e) {
+  result <- do.call(rbind, lapply(entries_list, function(e) {
     data.frame(
       name = e$name,
       path = e$path,
@@ -401,7 +410,9 @@ data_list <- function() {
       description = as.character(e$description),
       stringsAsFactors = FALSE
     )
-  })))
+  }))
+  rownames(result) <- NULL
+  invisible(result)
 }
 
 # Backward compatibility alias (not exported - use data_list instead)
@@ -540,7 +551,7 @@ data_info <- function(path) {
 
     # For TSV files
     if (grepl("\\.tsv$", path, ignore.case = TRUE)) {
-      return(list(type = "csv", delimiter = "tab"))
+      return(list(type = "tsv", delimiter = "tab"))
     }
 
     # For CSV files
@@ -646,7 +657,12 @@ data_info <- function(path) {
       full_path <- normalizePath(file.path(getwd(), path), mustWork = FALSE)
       create_spec(full_path)
     } else {
-      get_dot_notation_spec(strsplit(path, "\\.")[[1]], config)
+      spec <- get_dot_notation_spec(strsplit(path, "\\.")[[1]], config)
+      # A bare file name such as "iris.csv" that is not a catalog entry
+      if (is.null(spec) && file.exists(path) && !dir.exists(path)) {
+        spec <- create_spec(normalizePath(path, winslash = "/", mustWork = TRUE))
+      }
+      spec
     }
   }
 
@@ -775,8 +791,9 @@ data_spec_get <- function(path) {
       item <- obj[[name]]
       full_name <- if (nzchar(prefix)) paste(prefix, name, sep = ".") else name
 
-      if ((is.character(item) && length(item) == 1) || (is.list(item) && !is.null(item$path))) {
-        # A data entry (or the name: path shorthand)
+      if ((is.character(item) && length(item) == 1) || (is.list(item) && !is.null(item$path)) ||
+          .fw_pathless_entry(item)) {
+        # A data entry (or the name: path shorthand, or an entry missing its path)
         paths <- c(paths, full_name)
       } else if (is.list(item) && is.null(item$path)) {
         # This is a nested structure, recurse
@@ -796,4 +813,26 @@ data_spec_get <- function(path) {
   }
 
   all_paths
+}
+
+
+# Whether a catalog item is an entry's fields without a path, rather than a
+# group: every key is an entry field, and no value looks like a file path, so
+# a group with an entry named `type: data/type.csv` still reads as a group.
+# framework-py's catalog._pathless_entry() follows the same rule.
+#' @keywords internal
+.fw_pathless_entry <- function(item) {
+  fields <- c("path", "type", "delimiter", "locked", "private", "description")
+  if (!is.list(item) || length(item) == 0 || is.null(names(item)) ||
+      !all(names(item) %in% fields)) {
+    return(FALSE)
+  }
+  for (key in setdiff(names(item), "description")) {
+    value <- item[[key]]
+    if (is.list(value)) return(FALSE)
+    if (is.character(value) && any(grepl("[/\\\\]", value) | nzchar(tools::file_ext(value)))) {
+      return(FALSE)
+    }
+  }
+  TRUE
 }

@@ -15,5 +15,5 @@ write_framework_template(name, contents)
 Invisibly returns the file path of the written template.
 }
 \description{
-Overwrite a Framework template with new contents
+See \code{\link[=read_framework_template]{read_framework_template()}} for which templates are used.
 }

@@ -11,7 +11,8 @@ cache_get(name, file = NULL, expire_after = NULL)
 
 \item{file}{Optional file path to store the cache (default: \verb{cache/\{name\}.rds})}
 
-\item{expire_after}{Optional expiration time in hours (default: from config)}
+\item{expire_after}{Not used. Expiry is set when the value is stored, with
+\code{\link[=cache]{cache()}} or \code{\link[=cache_remember]{cache_remember()}}. Kept so older code still runs.}
 }
 \value{
 The cached value, or NULL if not found, expired, or hash mismatch

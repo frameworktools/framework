@@ -1,11 +1,12 @@
 # Framework docs sites: the common format (v1)
 
-The R package, framework-py, and fw each publish a docs site from the same
+The R package, framework-py, fw, and the Stata package each publish a docs site from the same
 input. framework-cloud renders them in one style at:
 
 - `r.framework.pub` (product `r`)
 - `py.framework.pub` (product `py`)
 - `cli.framework.pub` (product `cli`)
+- `stata.framework.pub` (product `stata`)
 
 Each repository keeps its docs in `docs/site/`. A release attaches
 `docs-site.tar.gz` to its GitHub release, and framework-cloud imports it.
@@ -25,7 +26,7 @@ docs/site/
 ### site.yml
 
 ```yaml
-product: py                      # r, py, or cli
+product: py                      # r, py, cli, or stata
 title: Framework for Python
 tagline: Structured data science projects in Python
 repository: https://github.com/frameworktools/framework-py
@@ -44,7 +45,7 @@ Every section is a dropdown in the top bar and a group in the sidebar. A
 guides section lists its guides by `position`. Each item shows its title
 with its `description` under it. The reference section lists the
 categories from `reference.json`, each with its description. The product
-switcher (R, Python, CLI) is the cloud's and needs nothing here.
+switcher (R, Python, CLI, Stata) is the cloud's and needs nothing here.
 
 ### Guides
 
@@ -76,7 +77,7 @@ Link targets use these forms in guides, in Markdown fields in
 | A guide in the same product | `guide:data-management` |
 | A reference entry in the same product | `ref:data_read` |
 | A heading on that page | `guide:data-management#saving-data` |
-| Another product | `r:guide:setup`, `py:ref:data_read`, `cli:ref:project-bootstrap` |
+| Another product | `r:guide:setup`, `py:ref:data_read`, `cli:ref:project-bootstrap`, `stata:ref:fw_use` |
 | Anything else | a full `https://` URL |
 
 `ref:` takes the entry's `id`. framework-cloud rewrites these into URLs and

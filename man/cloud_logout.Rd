@@ -14,7 +14,11 @@ cloud_logout(url = NULL)
 Invisibly, TRUE.
 }
 \description{
-Removes this machine's stored token for a server from the system keyring
-and any token files. Tokens can also be revoked on the server under API
-tokens.
+Revokes this machine's stored token for a server on that server, then
+removes it from the system keyring and any token files. When
+\code{FW_TOKEN_FILE} is set, only that file is used, because it is the only
+place \code{\link[=cloud_login]{cloud_login()}} wrote. A token in \code{FW_CLOUD_TOKEN} is neither
+revoked nor removed. When the server can't be reached, the local copy is
+still removed and the token can be revoked on the server's tokens page.
+The default server saved by \code{\link[=cloud_login]{cloud_login()}} is kept.
 }

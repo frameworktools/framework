@@ -73,6 +73,9 @@
 inst/\.RData$
 inst/templates/\.editorconfig$
 inst/templates/\.lintr\.default$
+# Release metadata written by framework-cloud's skill sync script; not used
+# by the installed package
+^inst/templates/skills/[^/]+/\.framework-skill\.json$
 ^docker$
 ^\.gitattributes$
 ^tests/integration$

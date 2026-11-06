@@ -78,7 +78,9 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
       ))
     }
 
-    dir_path <- all_dirs[[paste(parts[seq_len(n_dir)], collapse = "_")]]
+    # Configured directories are relative to the project root, so this
+    # works the same from notebooks/ as from the root
+    dir_path <- .fw_project_path(all_dirs[[paste(parts[seq_len(n_dir)], collapse = "_")]])
     file_base <- paste(parts[-seq_len(n_dir)], collapse = "_")
 
     # Default type to rds if not specified
@@ -114,13 +116,14 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   # Save data
   switch(type,
     csv = {
-      readr::write_csv(data, file_path)
+      delim <- c(comma = ",", tab = "\t", semicolon = ";", space = " ")[[delimiter]]
+      readr::write_delim(data, file_path, delim = delim)
     },
     rds = saveRDS(data, file_path),
     stop(sprintf("Unsupported file type: %s", type))
   )
 
-  message(sprintf("Data saved to: %s", file_path))
+  message(sprintf("Data saved to: %s", .fw_project_relative_path(file_path)))
 
   # Create normalized name for database tracking
   # Use the original path input as the identifier
@@ -137,7 +140,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   tryCatch(
     .set_data(
       name = data_name,
-      path = file_path,
+      path = .fw_project_relative_path(file_path),
       type = type,
       delimiter = if (type == "csv") delimiter else NA,
       locked = locked,
@@ -257,12 +260,18 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
     # e.g., "inputs/raw/survey.csv" -> "inputs.raw.survey"
     # e.g., "inputs/intermediate/cleaned.rds" -> "inputs.intermediate.cleaned"
     rel_path <- file_path
+    prefix <- NULL
 
     # Try to make path relative to common directories
     for (dir_key in c("inputs_raw", "inputs_intermediate", "inputs_final", "inputs_reference")) {
       dir_path <- tryCatch(config(sprintf("directories.%s", dir_key)), error = function(e) NULL)
-      if (!is.null(dir_path) && startsWith(file_path, normalizePath(dir_path, mustWork = FALSE))) {
-        rel_path <- sub(paste0("^", normalizePath(dir_path, mustWork = FALSE), "/?"), "", file_path)
+      if (is.character(dir_path) && length(dir_path) == 1) {
+        dir_path <- normalizePath(.fw_project_path(dir_path), mustWork = FALSE)
+      } else {
+        dir_path <- NULL
+      }
+      if (!is.null(dir_path) && startsWith(file_path, paste0(dir_path, "/"))) {
+        rel_path <- substring(file_path, nchar(dir_path) + 2)
         # Convert directory key to dot notation (inputs_raw -> inputs.raw)
         prefix <- gsub("_", ".", dir_key)
         break
@@ -271,7 +280,7 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
 
     # Remove extension and convert path separators to dots
     name_base <- sub("\\.[^.]+$", "", basename(rel_path))
-    if (exists("prefix")) {
+    if (!is.null(prefix)) {
       name <- paste(prefix, name_base, sep = ".")
     } else {
       # Use filename without directory structure

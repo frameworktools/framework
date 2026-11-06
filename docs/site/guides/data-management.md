@@ -1,15 +1,15 @@
 ---
 id: data-management
-title: Data Management
+title: Data management
 section: features
 position: 4
-description: 'Managing data files with the declarative data catalog'
+description: 'Data files and the declarative data catalog'
 ---
 ## Overview
 
 Framework provides a declarative approach to data management. Instead of hardcoding file paths throughout your code, you define a data catalog in `settings.yml` and reference data using dot notation like `inputs.raw.sales`. Framework resolves paths, selects the correct reader, and tracks file integrity automatically.
 
-## The Data Catalog
+## Data catalog
 
 Define your data sources in `settings.yml` using dot notation keys:
 
@@ -28,9 +28,9 @@ data:
     type: rds
 ```
 
-## Editing the Catalog
+## Catalog editing
 
-The GUI makes catalog maintenance fast. In `framework::gui()` under **Data**, Framework scans your input directories and shows files that aren’t yet in the catalog. Click to add them and Framework will:
+In `framework::gui()` under **Data**, Framework scans your input directories and shows files that aren’t yet in the catalog. Click to add them and Framework will:
 
 - Prefill dot notation keys from the path (e.g., `inputs/public/raw/mtcars.csv` → `inputs.public.raw.mtcars`)
 - Guess the file type
@@ -40,11 +40,11 @@ The GUI makes catalog maintenance fast. In `framework::gui()` under **Data**, Fr
 
 You can also view existing entries, copy their paths (relative or full), or copy the `data_read()` command directly.
 
-Once an entry is saved, it appears with dedicated copy buttons for the relative path, absolute path, and a ready-to-run `data_read()` helper so you can drop the same reference into scripts, notebooks, or tests without hunting for file names.
+Each saved entry has copy buttons for the relative path, the absolute path, and a ready-to-run `data_read()` call for use in scripts, notebooks, or tests.
 
 ![Copy helpers for catalog entries](images/data-catalog-copy-tools.png)
 
-## Supported Formats
+## Supported formats
 
 Framework supports these data formats:
 
@@ -65,7 +65,7 @@ For Stata, SPSS, and SAS files, Framework strips variable labels and formats by 
 
 Parquet support requires the `arrow` package.
 
-## Reading Data
+## Reading data
 
 Use `data_read()` to load data by its catalog name:
 
@@ -80,7 +80,7 @@ customers <- data_read("inputs.raw.customers")
 # - Tracks data lineage
 ```
 
-## Saving Data
+## Saving data
 
 Save data to the catalog with `data_save()`:
 
@@ -92,17 +92,17 @@ merged <- sales |>
 data_save(merged, "inputs.final.merged")  # Automatically registers in the catalog
 ```
 
-## Data Integrity
+## Data integrity
 
 Framework automatically tracks data integrity using file hashes. When you read or save data, Framework computes a SHA-256 hash of the file and stores it in the project database.
 
-**How it works:**
+**Hash checks:**
 
 1. On first read, Framework records the file's hash
 2. On subsequent reads, it compares the current hash against the stored hash
 3. If the hashes differ, Framework warns you that the file has changed
 
-**Locked data:** Mark critical files as `locked: true` in your catalog. If a locked file changes, Framework will error instead of warning—preventing accidental use of corrupted or modified source data.
+**Locked data:** Mark critical files as `locked: true` in your catalog. If a locked file changes, Framework errors instead of warning. This prevents accidental use of corrupted or modified source data.
 
 ```yaml
 data:
@@ -112,7 +112,7 @@ data:
     locked: true  # Error if file changes unexpectedly
 ```
 
-## Data Info
+## Data info
 
 Get information about a data entry:
 
@@ -121,9 +121,9 @@ data_info("inputs.raw.sales")
 # Returns path, type, and metadata
 ```
 
-## Organization Best Practices
+## Recommended organization
 
-### Directory Structure
+### Directory structure
 
 ```text
 inputs/
@@ -133,7 +133,7 @@ inputs/
 └── reference/    # Lookup tables, constants
 ```
 
-### Naming Convention
+### Naming convention
 
 Use dot notation for logical grouping:
 

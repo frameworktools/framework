@@ -18,9 +18,6 @@ data key, path, type, and description (if available).
 if (FALSE) {
 # List all data entries
 data_list()
-
-# Use the alias
-list_data()
 }
 }
 }

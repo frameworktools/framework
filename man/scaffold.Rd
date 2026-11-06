@@ -12,7 +12,8 @@ discovers settings.yml or config.yml in the project.}
 }
 \value{
 Invisibly returns NULL. The main effects are side effects:
-loading packages, sourcing functions, and creating the \code{config} object.
+loading packages and sourcing functions. No \code{config} object is created;
+read settings with \code{\link[=settings]{settings()}} or \code{\link[=settings_read]{settings_read()}}.
 }
 \description{
 The primary entry point for working with Framework projects. Call this at the
@@ -29,6 +30,12 @@ configured packages, functions, and settings.
 \item \strong{Installs packages} - Any missing packages from the \code{packages} list
 \item \strong{Loads packages} - Attaches all configured packages
 \item \strong{Sources functions} - Loads all \code{.R} files from \verb{functions/} directory
+\item \strong{Sources scaffold.R} - Runs the project's \code{scaffold.R}, if there is one
+\item \strong{Makes the first git commit} - In a git repository with no commits
+yet, stages every file \code{.gitignore} allows and commits it as
+"Project initialized." This covers projects whose creation skipped that
+commit, for example when git had no user name or email. Repositories
+with commits are left alone.
 }
 
 After \code{scaffold()} completes, you have access to:

@@ -1,15 +1,15 @@
 ---
 id: standard-project
-title: Standard Project
+title: Standard project
 section: project_types
 position: 11
-description: 'Full-featured project with organized data, work, and output directories'
+description: 'Default project type with organized data, work, and output directories'
 ---
 ## Overview
 
-The **Standard Project** is Framework's default and most versatile project structure. It's designed for data analysis, research, and reporting workflows.
+The **Standard Project** is Framework's default project structure. It is designed for data analysis, research, and reporting.
 
-## Directory Structure
+## Directory structure
 
 An example project might look like:
 
@@ -39,7 +39,7 @@ Additional directories are created on first use:
 
 ## Workflow
 
-### 1. Set Up Environment
+### 1. Environment setup
 
 Start each session by running scaffold:
 
@@ -53,7 +53,7 @@ This loads:
 - Custom functions from `functions/`
 - Project configuration
 
-### 2. Create Notebooks
+### 2. Notebooks
 
 Create analysis notebooks:
 
@@ -62,7 +62,7 @@ make_notebook("exploration")
 make_notebook("modeling", subdir = "analysis")
 ```
 
-### 3. Manage Data
+### 3. Data
 
 Define data in `settings.yml`:
 
@@ -79,7 +79,7 @@ Load and process:
 sales <- data_read("inputs.raw.sales")
 ```
 
-### 4. Cache Results
+### 4. Caching
 
 Cache expensive computations:
 
@@ -89,9 +89,9 @@ model_results <- cache_remember("sales_model", {
 })
 ```
 
-## Best Practices
+## Best practices
 
-### Organize Notebooks
+### Notebook order
 
 Number notebooks to indicate order:
 ```text
@@ -103,7 +103,7 @@ notebooks/
 └── 05-reporting.qmd
 ```
 
-### Use Subdirectories
+### Subdirectories
 
 For complex projects:
 ```r
@@ -111,7 +111,7 @@ make_notebook("eda", subdir = "exploration")
 make_notebook("regression", subdir = "modeling")
 ```
 
-### Separate Raw from Processed
+### Raw and processed data
 
 Never modify raw data:
 ```text
@@ -125,8 +125,8 @@ inputs/
 
 <div style="display: flex; justify-content: space-between">
 
-[← Project Types Overview](guide:project-types)
+[← Project types](guide:project-types)
 
-[Privacy Sensitive Project →](guide:privacy-sensitive-project)
+[Privacy-sensitive project →](guide:privacy-sensitive-project)
 
 </div>

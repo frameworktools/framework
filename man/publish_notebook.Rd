@@ -32,8 +32,8 @@ Ignored if \code{static_hosting: false} (always renders self-contained).}
 
 \item{format}{Character. Output format. Default "html".}
 
-\item{slug}{Framework Cloud only: name the document and turn on its
-readable URL. See \code{\link[=publish]{publish()}}. With \code{to = "github"}, names the folder
+\item{slug}{Framework Cloud only: name the document. It does not make
+the document public. See \code{\link[=publish]{publish()}}. With \code{to = "github"}, names the folder
 under \verb{published/}.}
 
 \item{include_private}{Logical. Skip the private-path check. When the

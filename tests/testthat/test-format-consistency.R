@@ -80,14 +80,14 @@ test_that("results timestamps are epoch seconds, and older text rows still read"
 
   con <- DBI::dbConnect(RSQLite::SQLite(), "framework.db")
   on.exit(DBI::dbDisconnect(con), add = TRUE)
-  stored <- DBI::dbGetQuery(con, "SELECT typeof(created_at) AS t FROM results WHERE name = 'new_table.csv'")
+  stored <- DBI::dbGetQuery(con, "SELECT typeof(created_at) AS t FROM results WHERE name = 'outputs/tables/new_table.csv'")
   expect_identical(stored$t, "real")
 
   listed <- result_list()
-  expect_identical(listed$name, c("new_table.csv", "old"))
+  expect_identical(listed$name, c("outputs/tables/new_table.csv", "old"))
   expect_identical(listed$created_at[listed$name == "old"], "2024-01-02 03:04:05")
   expect_false(anyNA(listed$updated_at))
-  expect_identical(result_list(type = "table")$name, c("new_table.csv", "old"))
+  expect_identical(result_list(type = "table")$name, c("outputs/tables/new_table.csv", "old"))
 })
 
 test_that("new() writes a .gitignore and never commits .env", {

@@ -1,13 +1,13 @@
 ---
 id: project-types
-title: Project Types Overview
+title: Project types
 section: project_types
 position: 10
-description: 'Understanding the different project types in Framework'
+description: 'The four Framework project types'
 ---
 ## Overview
 
-Framework supports four project types, each optimized for different workflows:
+Framework supports four project types:
 
 | Type | Best For |
 |------|----------|
@@ -16,11 +16,11 @@ Framework supports four project types, each optimized for different workflows:
 | **Course/Teaching** | Academic courses with lectures and assignments |
 | **Presentation** | Slides and presentations |
 
-## Choosing a Project Type
+## Type comparison
 
-### Standard Project (Default)
+### Standard project (default)
 
-Full-featured with organized data, work, and output directories.
+This type has organized data, work, and output directories.
 
 Use for most data analysis work:
 - Research projects
@@ -44,9 +44,9 @@ my-analysis/
 
 Optional directories available in the GUI: `docs/`, `scratch/`
 
-### Privacy Sensitive Project
+### Privacy-sensitive project
 
-Enhanced privacy controls with separate private/public flows.
+This type separates private and public data and adds stricter privacy controls.
 
 Use for research involving sensitive or protected data:
 - Research with sensitive data, such as protected health information
@@ -77,7 +77,7 @@ Optional directories available in the GUI: `docs/`, `scratch/`
 
 ### Course/Teaching
 
-Simplified structure for teaching materials, such as lecture slides, student assignments, and course materials
+This type has a simplified structure for teaching materials, such as lecture slides, student assignments, and course materials.
 
 **Default structure:**
 ```text
@@ -94,7 +94,7 @@ Optional directories available in the GUI: `functions/`, `modules/`, `scripts/`
 
 ### Presentation
 
-Minimal structure for slides and presentations.
+This type has a minimal structure for slides and presentations.
 
 **Default structure:**
 ```text
@@ -105,11 +105,11 @@ my-presentation/
 
 Optional directories available in the GUI: `data/`, `functions/`, `outputs/`, `scripts/`
 
-## Creating Projects
+## Project creation
 
-### Using the GUI
+### GUI
 
-The easiest way to create projects is through the GUI:
+Create projects in the GUI:
 
 ```r
 framework::setup()
@@ -117,7 +117,7 @@ framework::setup()
 
 Navigate to **New Project** and follow the wizard.
 
-### Programmatic Creation
+### Programmatic creation
 
 ```r
 # Create a standard project
@@ -133,13 +133,13 @@ new_course("data-science-101", "~/teaching/ds101")
 new_presentation("q4-report", "~/presentations/q4")
 ```
 
-## Shared Features
+## Shared features
 
 All project types include:
 
 - **Configuration** (`settings.yml`) - Project settings
-- **Git integration** - Version control ready with appropriate `.gitignore`
-- **Quarto support** - Modern document rendering
+- **Git integration** - Version control with a type-specific `.gitignore`
+- **Quarto support** - Document rendering
 - **AI assistant context** - Optional CLAUDE.md/AGENTS.md generation
 
 ---
@@ -148,6 +148,6 @@ All project types include:
 
 [← Publishing](guide:publishing)
 
-[Standard Project →](guide:standard-project)
+[Standard project →](guide:standard-project)
 
 </div>

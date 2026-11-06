@@ -343,6 +343,7 @@
 
   package_list <- .get_package_list_from_config(config)
   if (length(package_list) == 0) {
+    renv::snapshot(type = "all", prompt = FALSE)
     return(invisible(TRUE))
   }
 
@@ -383,8 +384,11 @@
     )
   }
 
-  # Snapshot to renv.lock
-  renv::snapshot(prompt = FALSE)
+  # Snapshot to renv.lock. type = "all" records every package in the
+  # project's renv folder. The default ("implicit") keeps only packages the
+  # code calls with library(), so configured packages and framework were
+  # left out of the lockfile.
+  renv::snapshot(type = "all", prompt = FALSE)
 
   invisible(TRUE)
 }
@@ -563,7 +567,8 @@ renv_update <- function(packages = NULL) {
 #' @param auto_attach Logical. Whether [scaffold()] loads the package. Default
 #'   FALSE.
 #' @param install Logical. Install the package now if it isn't installed (or
-#'   the installed version doesn't match a pin). Default TRUE.
+#'   the installed version doesn't match a pin). Default TRUE. If the install
+#'   fails, the settings are left as they were and `package_add()` stops.
 #'
 #' @return Invisibly, the package entry that was recorded.
 #' @export
@@ -590,18 +595,28 @@ package_add <- function(package, auto_attach = FALSE, install = TRUE) {
   }
 
   spec <- .normalize_package_spec(package)
+  # R package names: letters, digits, and dots, starting with a letter and
+  # not ending in a dot (as the Python package checks its names)
+  if (!is.character(spec$name) || !grepl("^[A-Za-z][A-Za-z0-9.]*[A-Za-z0-9]$", spec$name)) {
+    stop("Not a valid package name: ", package, call. = FALSE)
+  }
   entry <- list(name = spec$name, source = spec$source)
   if (!is.null(spec$version)) entry$version <- spec$version
   if (!is.null(spec$repo)) entry$repo <- spec$repo
   if (!is.null(spec$ref)) entry$ref <- spec$ref
   entry$auto_attach <- auto_attach
 
-  .packages_edit(settings_file, function(packages) {
+  find_entry <- function(packages) {
     names_listed <- vapply(packages, function(p) {
       tryCatch(.normalize_package_spec(p)$name %||% "", error = function(e) "")
     }, character(1))
-    hit <- which(names_listed == entry$name)
+    which(names_listed == entry$name)
+  }
+  previous <- NULL
+  .packages_edit(settings_file, function(packages) {
+    hit <- find_entry(packages)
     if (length(hit) > 0) {
+      previous <<- packages[[hit[1]]]
       packages[[hit[1]]] <- entry
       message("Updated ", entry$name, " in the project's packages")
     } else {
@@ -612,7 +627,26 @@ package_add <- function(package, auto_attach = FALSE, install = TRUE) {
   })
 
   if (install) {
-    .install_package(entry)
+    installed <- tryCatch({
+      .install_package(entry)
+      requireNamespace(entry$name, quietly = TRUE)
+    }, error = function(e) {
+      warning("Failed to install ", entry$name, ": ", conditionMessage(e), call. = FALSE)
+      FALSE
+    })
+    if (!installed) {
+      # Leave settings as they were, so a typo or failed install is not recorded
+      .packages_edit(settings_file, function(packages) {
+        hit <- find_entry(packages)
+        if (length(hit) == 0) return(packages)
+        if (is.null(previous)) packages[-hit[1]] else {
+          packages[[hit[1]]] <- previous
+          packages
+        }
+      })
+      stop(entry$name, " could not be installed, so it was not added. ",
+           "Use install = FALSE to record it anyway.", call. = FALSE)
+    }
   }
 
   invisible(entry)

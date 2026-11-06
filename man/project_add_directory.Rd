@@ -10,7 +10,7 @@ project_add_directory(project_path, key, label, path)
 \item{project_path}{Character string. Absolute path to the project root directory.}
 
 \item{key}{Character string. Internal key for the directory (e.g., "analysis_archive").
-Must be unique within the project's directory configuration.}
+An \code{extra_directories} entry with the same key is replaced.}
 
 \item{label}{Character string. Human-readable label for the directory (e.g., "Analysis Archive").}
 
@@ -32,15 +32,17 @@ filesystem. This function is used by the GUI to allow users to add custom
 directories to their project structure without modifying existing directories.
 }
 \details{
-This function performs the following steps:
+This function performs the following steps, as the Python package does:
 \enumerate{
 \item Validates all input arguments
-\item Reads the project's config.yml file
-\item Checks for duplicate keys in existing directories
-\item Adds the new directory to the directories section
-\item Writes the updated config.yml back to disk
+\item Finds the project's settings.yml (or config.yml)
 \item Creates the directory on the filesystem (with recursive creation)
+\item Records it under \code{extra_directories} in that file, as
+\code{key}, \code{label}, and \code{path}. An entry with the same key is replaced,
+so a second call with the same key updates it.
 }
+
+Core directories under \code{directories} are not checked or changed.
 
 The function follows a non-destructive, additive-only approach. It will not:
 \itemize{
@@ -56,7 +58,7 @@ The function includes several safety checks:
 \itemize{
 \item Rejects absolute paths (must be relative)
 \item Rejects paths containing ".." (no directory traversal)
-\item Checks for duplicate keys before adding
+\item Replaces, never duplicates, an entry with the same key
 \item Wraps filesystem operations in error handling
 }
 }

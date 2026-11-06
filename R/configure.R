@@ -589,6 +589,9 @@ configure_directories <- function(directory = NULL, path = NULL, interactive = T
   }
   if (!is.null(author$email) && nzchar(author$email)) {
     checkmate::assert_string(author$email, min.chars = 1)
+    if (!grepl("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", author$email)) {
+      stop("author$email does not look like an email address: ", author$email, call. = FALSE)
+    }
   }
   if (!is.null(author[["affiliation"]]) && nzchar(author[["affiliation"]])) {
     checkmate::assert_string(author[["affiliation"]], min.chars = 1)
@@ -614,7 +617,7 @@ configure_directories <- function(directory = NULL, path = NULL, interactive = T
   # Validate project_type
   if (!is.null(defaults$project_type)) {
     checkmate::assert_choice(defaults$project_type,
-                              choices = c("project", "project_sensitive", "presentation", "course"))
+                              choices = c("project", "project_sensitive", "presentation", "course", "bare"))
   }
 
   # Validate notebook_format
@@ -874,7 +877,9 @@ configure_directories <- function(directory = NULL, path = NULL, interactive = T
 
 #' Configure Global Framework Settings
 #'
-#' Unified function for reading and writing global Framework settings to ~/.frameworkrc.json.
+#' Unified function for reading and writing global Framework settings. They
+#' are stored in `settings.yml` and the project registry in `projects.yml`,
+#' both in [fw_config_dir()].
 #' This function provides a single source of truth for global configuration,
 #' used by both the CLI and GUI interfaces.
 #'
@@ -888,7 +893,8 @@ configure_directories <- function(directory = NULL, path = NULL, interactive = T
 #'
 #' - `author` - Author information (name, email, affiliation)
 #' - `defaults` - Project defaults
-#'   - `project_type` - Default project type ("project", "presentation", "course")
+#'   - `project_type` - Default project type ("project", "project_sensitive",
+#'     "presentation", "course", "bare")
 #'   - `notebook_format` - Default notebook format ("quarto", "rmarkdown", "jupyter")
 #'   - `ide` - IDE preference ("vscode", "rstudio", "both", "none")
 #'   - `use_git` - Initialize git repositories by default
@@ -1041,18 +1047,12 @@ configure_global <- function(settings = NULL, validate = TRUE) {
   # Convert paths to tilde notation before saving (for portability)
   updated_for_save <- updated
 
-  # Debug: log what we're about to save
-  message("[configure_global] global.projects_root in updated: ", updated$global$projects_root %||% "NULL")
-  message("[configure_global] projects_root in updated: ", updated$projects_root %||% "NULL")
-
   if (!is.null(updated_for_save$projects_root)) {
     updated_for_save$projects_root <- .path_to_tilde(updated_for_save$projects_root)
   }
   if (!is.null(updated_for_save$global$projects_root)) {
     updated_for_save$global$projects_root <- .path_to_tilde(updated_for_save$global$projects_root)
   }
-
-  message("[configure_global] Final global.projects_root to save: ", updated_for_save$global$projects_root %||% "NULL")
 
   # Write updated config
   write_frameworkrc(updated_for_save)

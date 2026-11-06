@@ -138,10 +138,11 @@ scratch_capture <- function(x, name = NULL, to = NULL, location = NULL, n = Inf)
       saveRDS(x, file_path)
     } else if (to == "csv") {
       file_path <- file.path(location, paste0(name, ".csv"))
-      write.table(x, file_path, sep = ",", row.names = FALSE, quote = FALSE)
+      # Quote fields that need it, so "Springfield, IL" stays one field.
+      readr::write_csv(x, file_path, na = "NA")
     } else if (to == "tsv") {
       file_path <- file.path(location, paste0(name, ".tsv"))
-      write.table(x, file_path, sep = "\t", row.names = FALSE, quote = FALSE)
+      readr::write_tsv(x, file_path, na = "NA", quote = "needed")
     } else {
       stop("Data frames can only be saved as 'rds', 'csv', or 'tsv'")
     }
@@ -160,13 +161,18 @@ scratch_capture <- function(x, name = NULL, to = NULL, location = NULL, n = Inf)
     # Handle lists and other objects
     if (to == "text") {
       file_path <- file.path(location, paste0(name, ".txt"))
-      if (is.list(x)) {
-        # Write list size header and YAML representation
+      # Plain lists read best as YAML. Classed lists such as lm fits and
+      # their summaries print with their own methods, as does anything YAML
+      # can't represent.
+      yaml_text <- if (is.list(x) && !is.object(x)) {
+        tryCatch(yaml::as.yaml(x, indent = 2), error = function(e) NULL)
+      }
+      if (!is.null(yaml_text)) {
         writeLines(
           c(
             sprintf("List of %d items:", length(x)),
             "",
-            yaml::as.yaml(x, indent = 2)
+            yaml_text
           ),
           file_path
         )
@@ -185,7 +191,10 @@ scratch_capture <- function(x, name = NULL, to = NULL, location = NULL, n = Inf)
   invisible(x)
 }
 
-#' Clean up the scratch directory by deleting all files
+#' Clean up the scratch directory
+#'
+#' Deletes the files at the top of the scratch directory, dotfiles included.
+#' Subfolders and their contents stay.
 #' @return Invisibly returns NULL. Called for side effect of removing scratch files.
 #' @export
 scratch_clean <- function() {
@@ -195,7 +204,8 @@ scratch_clean <- function() {
     "outputs/private/scratch"
 
   if (dir.exists(scratch_dir)) {
-    files <- list.files(scratch_dir, full.names = TRUE)
+    files <- list.files(scratch_dir, full.names = TRUE, all.files = TRUE, no.. = TRUE)
+    files <- files[!dir.exists(files)]
     file.remove(files)
     message("Scratch directory cleaned: ", scratch_dir)
   } else {

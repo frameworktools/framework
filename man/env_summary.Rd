@@ -7,7 +7,8 @@
 env_summary(envir)
 }
 \arguments{
-\item{envir}{The environment to summarize}
+\item{envir}{The environment to summarize. Use \code{globalenv()} for your
+workspace.}
 }
 \value{
 Invisibly returns a list with environment information

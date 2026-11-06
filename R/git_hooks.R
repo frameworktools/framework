@@ -23,9 +23,13 @@ git_status <- function(short = FALSE) {
   args <- "status"
   if (short) args <- c(args, "--short")
 
-  result <- system2("git", args, stdout = TRUE, stderr = TRUE)
-  message(paste(result, collapse = "\n"))
-  invisible(result)
+  result <- .git_run(args)
+  if (!identical(result$status, 0L)) {
+    message(paste(result$output, collapse = "\n"))
+    stop("git status failed", call. = FALSE)
+  }
+  message(paste(result$output, collapse = "\n"))
+  invisible(result$output)
 }
 
 
@@ -35,7 +39,8 @@ git_status <- function(short = FALSE) {
 #'
 #' @param files Character vector of file paths to stage, or "." for all (default)
 #'
-#' @return Invisibly returns TRUE on success
+#' @return Invisibly returns TRUE on success. Stops with git's message when
+#'   nothing could be staged (a missing or ignored file, for example).
 #'
 #' @examples
 #' \donttest{
@@ -50,7 +55,14 @@ git_status <- function(short = FALSE) {
 git_add <- function(files = ".") {
   .require_git_repo()
 
-  result <- system2("git", c("add", files), stdout = TRUE, stderr = TRUE)
+  checkmate::assert_character(files, min.len = 1, any.missing = FALSE, min.chars = 1)
+
+  # "--" keeps a file name that starts with "-" from being read as an option
+  result <- .git_run(c("add", "--", files))
+  if (!identical(result$status, 0L)) {
+    message(paste(result$output, collapse = "\n"))
+    stop("Staging failed", call. = FALSE)
+  }
 
   if (length(files) == 1 && files == ".") {
     message("\u2713 Staged all changes")
@@ -83,9 +95,11 @@ git_add <- function(files = ".") {
 git_commit <- function(message, all = FALSE) {
   .require_git_repo()
 
-  if (missing(message) || is.null(message) || message == "") {
+  if (missing(message) || is.null(message) || length(message) == 0 ||
+      anyNA(message) || !is.character(message) || !any(nzchar(trimws(message)))) {
     stop("Commit message is required")
   }
+  # A vector is one line per element: c("Subject", "", "Body")
 
   # Write message to a temporary file to avoid shell/spacing issues
   msg_file <- tempfile("framework_commit_msg_")
@@ -95,15 +109,14 @@ git_commit <- function(message, all = FALSE) {
   args <- c("commit", "-F", msg_file)
   if (all) args <- c(args, "-a")
 
-  result <- system2("git", args, stdout = TRUE, stderr = TRUE)
-  status <- attr(result, "status")
+  result <- .git_run(args)
 
-  if (!is.null(status) && status != 0) {
-    message(paste(result, collapse = "\n"))
+  if (!identical(result$status, 0L)) {
+    message(paste(result$output, collapse = "\n"))
     stop("Commit failed")
   }
 
-  message("\u2713 Committed: ", message)
+  message("\u2713 Committed: ", message[1])
   invisible(TRUE)
 }
 
@@ -113,7 +126,9 @@ git_commit <- function(message, all = FALSE) {
 #' Push commits to the remote repository.
 #'
 #' @param remote Remote name (default: "origin")
-#' @param branch Branch name (default: current branch)
+#' @param branch Branch name (default: current branch). When the branch has
+#'   no upstream yet, it is pushed with `--set-upstream`, so later pulls and
+#'   pushes need no arguments.
 #'
 #' @return Invisibly returns TRUE on success
 #'
@@ -129,15 +144,27 @@ git_commit <- function(message, all = FALSE) {
 git_push <- function(remote = "origin", branch = NULL) {
   .require_git_repo()
 
-  args <- c("push", remote)
-  if (!is.null(branch)) args <- c(args, branch)
+  checkmate::assert_string(remote, min.chars = 1)
+  checkmate::assert_string(branch, min.chars = 1, null.ok = TRUE)
+
+  args <- c("push")
+  if (is.null(branch)) {
+    current <- .git_run(c("symbolic-ref", "--quiet", "--short", "HEAD"))
+    if (!identical(current$status, 0L) || length(current$output) == 0) {
+      stop("Push failed: not on a branch. Name one with git_push(branch = ...).", call. = FALSE)
+    }
+    branch <- current$output[1]
+  }
+  # Set the upstream the first time, as `git push -u` does
+  upstream <- .git_run(c("rev-parse", "--abbrev-ref", "--symbolic-full-name", paste0(branch, "@{upstream}")))
+  if (!identical(upstream$status, 0L)) args <- c(args, "--set-upstream")
+  args <- c(args, remote, branch)
 
   message("Pushing to ", remote, "...")
-  result <- system2("git", args, stdout = TRUE, stderr = TRUE)
-  status <- attr(result, "status")
+  result <- .git_run(args)
 
-  if (!is.null(status) && status != 0) {
-    message(paste(result, collapse = "\n"))
+  if (!identical(result$status, 0L)) {
+    message(paste(result$output, collapse = "\n"))
     stop("Push failed")
   }
 
@@ -171,15 +198,14 @@ git_pull <- function(remote = "origin", branch = NULL) {
   if (!is.null(branch)) args <- c(args, branch)
 
   message("Pulling from ", remote, "...")
-  result <- system2("git", args, stdout = TRUE, stderr = TRUE)
-  status <- attr(result, "status")
+  result <- .git_run(args)
 
-  if (!is.null(status) && status != 0) {
-    message(paste(result, collapse = "\n"))
+  if (!identical(result$status, 0L)) {
+    message(paste(result$output, collapse = "\n"))
     stop("Pull failed")
   }
 
-  message(paste(result, collapse = "\n"))
+  message(paste(result$output, collapse = "\n"))
   invisible(TRUE)
 }
 
@@ -206,11 +232,19 @@ git_pull <- function(remote = "origin", branch = NULL) {
 git_diff <- function(staged = FALSE, file = NULL) {
   .require_git_repo()
 
+  checkmate::assert_flag(staged)
+  checkmate::assert_character(file, min.len = 1, any.missing = FALSE, null.ok = TRUE)
+
   args <- "diff"
   if (staged) args <- c(args, "--staged")
-  if (!is.null(file)) args <- c(args, file)
+  if (!is.null(file)) args <- c(args, "--", file)
 
-  result <- system2("git", args, stdout = TRUE, stderr = TRUE)
+  run <- .git_run(args)
+  if (!identical(run$status, 0L)) {
+    message(paste(run$output, collapse = "\n"))
+    stop("git diff failed", call. = FALSE)
+  }
+  result <- run$output
 
   if (length(result) == 0) {
     message("No changes")
@@ -244,10 +278,23 @@ git_diff <- function(staged = FALSE, file = NULL) {
 git_log <- function(n = 10, oneline = TRUE) {
   .require_git_repo()
 
-  args <- c("log", paste0("-", n))
+  checkmate::assert_count(n, positive = TRUE)
+  checkmate::assert_flag(oneline)
+
+  args <- c("log", paste0("-n", n))
   if (oneline) args <- c(args, "--oneline")
 
-  result <- system2("git", args, stdout = TRUE, stderr = TRUE)
+  run <- .git_run(args)
+  if (!identical(run$status, 0L)) {
+    # A repository with no commits has no log yet
+    if (!identical(.git_run(c("rev-parse", "--verify", "--quiet", "HEAD"))$status, 0L)) {
+      message("No commits yet")
+      return(invisible(character()))
+    }
+    message(paste(run$output, collapse = "\n"))
+    stop("git log failed", call. = FALSE)
+  }
+  result <- run$output
   message(paste(result, collapse = "\n"))
   invisible(result)
 }
@@ -519,6 +566,7 @@ git_hooks_disable <- function(hook_name, config_file = NULL, verbose = TRUE) {
   # Reinstall hooks (or uninstall if all disabled)
   if (!any(.hooks_enabled(config_file))) {
     git_hooks_uninstall(verbose = verbose)
+    invisible(TRUE)
   } else {
     git_hooks_install(config_file = config_file, verbose = verbose)
   }
@@ -586,8 +634,21 @@ git_hooks_list <- function(config_file = NULL) {
 #' Check if current directory is a git repository
 #' @keywords internal
 .is_git_repo <- function() {
-  # .git is a file in worktrees and submodules
-  file.exists(".git")
+  # .git is a file in worktrees and submodules. Below the top level, ask git.
+  if (file.exists(".git")) {
+    return(TRUE)
+  }
+  .git_available() && identical(.git_run(c("rev-parse", "--is-inside-work-tree"))$status, 0L)
+}
+
+# Run git with each argument quoted for the shell, so paths with spaces
+# stay one argument. Returns the combined output and the exit status.
+#' @keywords internal
+.git_run <- function(args) {
+  output <- suppressWarnings(system2("git", shQuote(args), stdout = TRUE, stderr = TRUE))
+  status <- attr(output, "status")
+  attributes(output) <- NULL
+  list(output = output, status = if (is.null(status)) 0L else as.integer(status))
 }
 
 #' Check if git is available on the system
@@ -858,29 +919,55 @@ git_hooks_list <- function(config_file = NULL) {
 }
 
 
-#' Update hook configuration in settings.yml/settings.yml
+#' Update hook configuration in settings.yml, or in its split git file
+#'
+#' Projects made by new_project() store `git: settings/git.yml`. The hook
+#' setting is then written to that file, as framework-py does. The legacy
+#' alias `warn_unignored_sensitive` is stored as `check_sensitive_dirs`.
 #' @keywords internal
 .update_hook_config <- function(hook_name, enabled, config_file) {
   if (!file.exists(config_file)) {
     stop("Config file not found: ", config_file)
   }
 
+  aliases <- c(warn_unignored_sensitive = "check_sensitive_dirs")
+  if (hook_name %in% names(aliases)) {
+    hook_name <- aliases[[hook_name]]
+  }
+  set_hook <- function(git) {
+    if (!is.list(git)) git <- list()
+    hooks <- if (is.list(git$hooks)) git$hooks else list()
+    hooks[[hook_name]] <- enabled
+    # An old alias key would otherwise keep a disabled check turned on
+    for (alias in names(aliases)[aliases == hook_name]) hooks[[alias]] <- NULL
+    git$hooks <- hooks
+    git
+  }
+
   # Read config
   config_content <- yaml::read_yaml(config_file, eval.expr = FALSE)
+  if (is.null(config_content)) config_content <- list()
 
   has_envs <- !is.null(config_content$default) && is.list(config_content$default)
   env_config <- if (has_envs) config_content$default else config_content
 
-  # Ensure structure exists
-  if (is.null(env_config$git)) {
-    env_config$git <- list()
-  }
-  if (is.null(env_config$git$hooks)) {
-    env_config$git$hooks <- list()
+  reference <- env_config$git
+  if (is.character(reference) && length(reference) == 1 && grepl("\\.ya?ml$", reference)) {
+    split_file <- if (grepl("^(/|[A-Za-z]:)", reference)) reference else file.path(dirname(config_file), reference)
+    split <- if (file.exists(split_file)) yaml::read_yaml(split_file, eval.expr = FALSE) else NULL
+    if (!is.list(split)) split <- list()
+    # A split file holds its section under `git:`, or the bare keys
+    if (!is.null(split$git) || length(split) == 0) {
+      split$git <- set_hook(split$git)
+    } else {
+      split <- set_hook(split)
+    }
+    dir.create(dirname(split_file), recursive = TRUE, showWarnings = FALSE)
+    yaml::write_yaml(split, split_file)
+    return(invisible(TRUE))
   }
 
-  # Update hook setting
-  env_config$git$hooks[[hook_name]] <- enabled
+  env_config$git <- set_hook(env_config$git)
 
   if (has_envs) {
     config_content$default <- env_config

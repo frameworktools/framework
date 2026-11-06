@@ -3,17 +3,20 @@ id: publishing
 title: Publishing
 section: features
 position: 15
-description: 'Publishing notebooks, data, and files to S3 storage'
+description: 'Publishing notebooks, data, and files to Framework Cloud and S3 storage'
 ---
 ## Overview
 
 Framework provides functions for publishing notebooks, data, and files to S3-compatible storage (AWS S3, MinIO, DigitalOcean Spaces, etc.). Share rendered reports, datasets, and analysis outputs with colleagues or the public.
 
-## Publishing artifacts to Framework Cloud
+## Framework Cloud artifacts
 
 Publish a plot, table, report, rendered Quarto book, or other file to your project.
 Each publication has a share page and version history. Publishing to the same
 `slug` adds a version. `to = "cloud"` selects Cloud even when a bucket is configured.
+A new artifact is unlisted. The slug only names it. Add `visibility = "public"`
+for a readable URL. A later publish keeps the artifact's visibility unless you
+set one.
 
 ```r
 publish("outputs/effect.png", to = "cloud", slug = "treatment-effect")
@@ -22,7 +25,7 @@ publish(results_table, to = "cloud", slug = "estimates")
 publish(fitted_model, to = "cloud", slug = "adjusted-model", password = "reviewer-password")
 ```
 
-### Objects you can publish
+### Publishable R objects
 
 Besides files and rendered folders, `publish()` takes these R objects and
 converts them to files:
@@ -73,7 +76,7 @@ A password requires at least eight characters. Visibility can be `"public"` or
 Use `to = "bucket"` for an explicit storage upload or `to = "github"` for GitHub
 Pages. With no `to`, existing bucket-first destination selection is preserved.
 
-## Configuring S3
+## S3 configuration
 
 Define S3 connections in `settings.yml` (either format works):
 
@@ -103,7 +106,7 @@ S3_ACCESS_KEY=AKIA...
 S3_SECRET_KEY=...
 ```
 
-### Configuration Options
+### Configuration options
 
 | Option | Description |
 |--------|-------------|
@@ -118,7 +121,7 @@ S3_SECRET_KEY=...
 
 Set a default bucket with `default_storage_bucket` (or `default: true` on a bucket). If no default is set, Framework falls back to the first bucket defined.
 
-## Publishing Notebooks
+## Notebook publishing
 
 Render and upload Quarto notebooks in one step:
 
@@ -134,7 +137,7 @@ publish_notebook("notebooks/analysis.qmd", dest = "reports/q4-2024")
 publish_notebook("notebooks/analysis.qmd", connection = "backup")
 ```
 
-### Static Hosting Mode
+### Static hosting mode
 
 When `static_hosting: true`, notebooks are uploaded as `index.html` files for clean URLs:
 
@@ -152,7 +155,7 @@ publish_notebook("analysis.qmd", dest = "reports/q4")
 # Access at:  https://bucket.s3.amazonaws.com/reports/q4.html
 ```
 
-### Self-Contained vs Multi-File
+### Self-contained and multi-file output
 
 By default, notebooks are rendered as self-contained HTML with all resources embedded:
 
@@ -164,7 +167,7 @@ publish_notebook("analysis.qmd", self_contained = TRUE)
 publish_notebook("analysis.qmd", self_contained = FALSE)
 ```
 
-## Publishing Data
+## Data publishing
 
 Upload data frames or existing files:
 
@@ -184,7 +187,7 @@ publish_data(my_results, "datasets/results.csv", compress = TRUE)
 publish_data("outputs/model.rds", "models/v2/model.rds")
 ```
 
-## Publishing Directories
+## Directory publishing
 
 Upload entire directories:
 
@@ -199,7 +202,7 @@ publish_dir("outputs/dashboard/", dest = "dashboards/v2/")
 publish_dir("outputs/", pattern = "\\.html$")
 ```
 
-## Generic Publish
+## Generic publishing
 
 For any file or directory:
 
@@ -214,7 +217,7 @@ publish("outputs/report.html", dest = "reports/final.html")
 publish("outputs/charts/", dest = "visualizations/")
 ```
 
-## Workflow Example
+## Example workflow
 
 A typical publishing workflow:
 
@@ -241,9 +244,9 @@ publish_data(results, "data/q4-results.csv")
 # https://my-bucket.s3.amazonaws.com/reports/q4-analysis/
 ```
 
-## Best Practices
+## Best practices
 
-### Use Prefixes for Organization
+### Prefixes
 
 ```yaml
 connections:
@@ -260,7 +263,7 @@ team-name/project-name/reports/...
 team-name/project-name/data/...
 ```
 
-### Version Important Outputs
+### Versioned destinations
 
 Include dates or versions in destinations:
 
@@ -269,7 +272,7 @@ publish_notebook("analysis.qmd", dest = "reports/analysis-2024-01-15")
 publish_data(results, "data/results-v2.csv")
 ```
 
-### Use Static Hosting for Reports
+### Static hosting for reports
 
 Enable `static_hosting: true` for cleaner URLs when sharing reports:
 
@@ -281,18 +284,7 @@ https://bucket.s3.amazonaws.com/reports/q4/
 https://bucket.s3.amazonaws.com/reports/q4.html
 ```
 
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Environment](guide:environment)
-
-[Project Types →](guide:project-types)
-
-</div>
-
-
-## Adding an artifact to a collection
+## Collection attachment
 
 Select an existing collection in the current project by its ID or slug. The
 client resolves the collection before uploading and does not create collections.
@@ -308,3 +300,13 @@ readers of an unlisted collection requires explicit consent through
 If attachment fails after the artifact uploads, publishing returns its URL and
 warns that collection attachment failed. Attach the artifact from the project
 Outputs page; publishing again creates another version.
+
+---
+
+<div style="display: flex; justify-content: space-between">
+
+[← Environment](guide:environment)
+
+[Project types →](guide:project-types)
+
+</div>

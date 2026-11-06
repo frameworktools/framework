@@ -98,6 +98,11 @@ load_settings_catalog <- function(include_user = TRUE, validate = TRUE) {
     if (!"project_types" %in% names(catalog)) {
       stop("Settings catalog v2 missing 'project_types' entry", call. = FALSE)
     }
+    for (key in c("defaults", "author", "project_types")) {
+      if (!is.list(catalog[[key]]) || length(catalog[[key]]) == 0) {
+        stop(sprintf("Settings catalog v2 entry '%s' is empty", key), call. = FALSE)
+      }
+    }
   } else {
     # v1 validation: requires sections
     if (!"sections" %in% names(catalog)) {
@@ -105,6 +110,9 @@ load_settings_catalog <- function(include_user = TRUE, validate = TRUE) {
     }
     if (!"project_types" %in% names(catalog)) {
       stop("Settings catalog missing 'project_types' entry", call. = FALSE)
+    }
+    if (!is.list(catalog$project_types) || length(catalog$project_types) == 0) {
+      stop("Settings catalog entry 'project_types' is empty", call. = FALSE)
     }
   }
 

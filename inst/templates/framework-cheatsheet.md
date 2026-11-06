@@ -8,14 +8,14 @@ Quick reference for the most commonly used Framework functions.
 
 ### Project Setup
 ```r
-new()                            # Create new Framework project (interactive)
-new("my-project", "~/projects/my-project", type = "project")  # Standard project
+new_project()                            # Create new Framework project (interactive)
+new_project("my-project", "~/projects/my-project", type = "project")  # Standard project
 new_course("stats-101", "~/projects/stats-101")               # Course
 new_presentation("talk", "~/projects/talk")                   # Presentation
 new_project("study", "~/projects/study", tools = c("targets", "renv"),
             package_sets = "tidyverse-analysis")              # With tools and package sets
 new_project("study", "~/projects/study", workflow = "jupyter")  # Jupyter notebooks (or "scripts")
-new(key = "1|fw_...")              # Project defined on Framework Cloud
+new_project(key = "1|fw_...")              # Project defined on Framework Cloud
 bootstrap()                      # Prepare a cloned project (.env, folders, packages, hooks)
 adopt("~/projects/old-study")    # Make an existing folder a Framework project, in place
 structure_import(name = "Lab layout")  # Save this folder's layout as a cloud structure
@@ -332,7 +332,7 @@ capture_output(expr)             # Capture console output
 | `make_revealjs()` | Create reveal.js presentation |
 | `make_rmd()` | Create RMarkdown notebook |
 | `make_script()` | Create script from stub |
-| `new()` | Create new project (interactive) |
+| `new_project()` | Create new project (interactive) |
 | `new_course()` | Create course project |
 | `new_presentation()` | Create presentation project |
 | `new_project()` | Create standard project |
@@ -501,3 +501,17 @@ presentation/
 9. **Noun-Prefix Pattern**: Functions are grouped by noun (`query_*`, `result_*`, `scratch_*`, `stubs_*`)
 
 10. **Project Types**: Choose `project`, `course`, or `presentation` based on your needs
+
+### Named publishing destinations
+
+Configure `publish.default` and `publish.destinations` in `settings.yml`.
+
+```r
+publish(mtcars, to = "lab-share", slug = "fuel-economy")  # Named folder destination
+publish(lm(mpg ~ wt, mtcars), to = "github")               # Model reader on Pages
+publish("outputs/report.html", to = "cloud")            # Framework Cloud
+```
+
+Folder and Pages destinations include offline readers, a site index, and version
+archives. Passwords and unlisted links require Cloud. External delivery tracking
+sends metadata only. `new_project()` replaces `new()` in new scripts.

@@ -14,7 +14,9 @@ Examples: "process-data", "process-data.R"}
 configured \code{directories$scripts} setting. Default: "scripts/".}
 
 \item{stub}{Character. Name of the stub template to use. Defaults to
-"default". User can create custom stubs in \verb{stubs/script-\{stub\}.R}.}
+"default", the only script stub Framework ships. Create custom stubs in
+\verb{stubs/script-\{stub\}.R}, or save your default with
+\code{write_framework_template("script", ...)}.}
 
 \item{overwrite}{Logical. Whether to overwrite existing file. Default FALSE.}
 }
@@ -50,7 +52,7 @@ if (FALSE) {
 make_script("process-data")
 make_script("process-data.R")
 
-# Use custom stub
+# Use a custom stub: save it as stubs/script-etl.R first
 make_script("etl-pipeline", stub = "etl")
 
 # Create in specific directory

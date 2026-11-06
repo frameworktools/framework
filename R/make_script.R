@@ -8,7 +8,9 @@
 #' @param dir Character. Directory to create the script in. Uses your project's
 #'   configured `directories$scripts` setting. Default: "scripts/".
 #' @param stub Character. Name of the stub template to use. Defaults to
-#'   "default". User can create custom stubs in `stubs/script-{stub}.R`.
+#'   "default", the only script stub Framework ships. Create custom stubs in
+#'   `stubs/script-{stub}.R`, or save your default with
+#'   `write_framework_template("script", ...)`.
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #'
 #' @return Invisible path to created script
@@ -36,7 +38,7 @@
 #' make_script("process-data")
 #' make_script("process-data.R")
 #'
-#' # Use custom stub
+#' # Use a custom stub: save it as stubs/script-etl.R first
 #' make_script("etl-pipeline", stub = "etl")
 #'
 #' # Create in specific directory

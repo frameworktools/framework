@@ -23,7 +23,8 @@ docs_export(
 
 \item{package_version}{Package version for metadata. Default: NULL (auto-detect)}
 
-\item{include_internal}{Include internal/non-exported functions. Default: FALSE}
+\item{include_internal}{Include functions that are not exported or are
+tagged \verb{@keywords internal} (such as \code{.has_column()}). Default: FALSE}
 
 \item{verbose}{Print progress messages. Default: TRUE}
 

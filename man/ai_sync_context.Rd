@@ -9,7 +9,9 @@ ai_sync_context(config_file = NULL, force = FALSE, verbose = TRUE)
 \arguments{
 \item{config_file}{Path to configuration file (default: auto-detect settings.yml/settings.yml)}
 
-\item{force}{Logical; if TRUE, overwrite even if target is newer (default: FALSE)}
+\item{force}{Logical; if TRUE, overwrite even if target is newer (default:
+FALSE). A file that only points to the canonical file, such as a
+CLAUDE.md holding \verb{@AGENTS.md}, is never overwritten.}
 
 \item{verbose}{Logical; if TRUE (default), show sync messages}
 }

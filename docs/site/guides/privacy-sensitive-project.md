@@ -1,15 +1,15 @@
 ---
 id: privacy-sensitive-project
-title: Privacy Sensitive Project
+title: Privacy-sensitive project
 section: project_types
 position: 12
-description: 'Enhanced privacy controls with separate private/public flows'
+description: 'Separate private and public data with stricter privacy controls'
 ---
 ## Overview
 
-The **Privacy Sensitive Project** is designed for research involving sensitive or protected data. It provides enhanced privacy controls with separate private and public directories, and stricter `.gitignore` rules that prevent private data from being committed.
+The **Privacy Sensitive Project** is designed for research involving sensitive or protected data. It separates private and public directories and uses stricter `.gitignore` rules that prevent private data from being committed.
 
-## Directory Structure
+## Directory structure
 
 ```text
 my-study/
@@ -39,9 +39,9 @@ Additional directories are created on first use:
 - `outputs/private/tables` - Private tables
 - `outputs/public/` - Shareable results
 
-## Privacy Controls
+## Privacy controls
 
-### What Gets Gitignored
+### Gitignored paths
 
 The privacy sensitive `.gitignore` template excludes:
 - `inputs/private/` - All private input data
@@ -49,7 +49,7 @@ The privacy sensitive `.gitignore` template excludes:
 - `.env` - Environment variables with credentials
 - `framework.db` - May contain data hashes
 
-### Public vs Private Outputs
+### Public and private outputs
 
 Use the `public` parameter when saving outputs:
 
@@ -63,14 +63,14 @@ save_table(summary_stats, "summary", public = TRUE)
 
 ## Workflow
 
-### 1. Set Up Environment
+### 1. Environment setup
 
 ```r
 library(framework)
 scaffold()
 ```
 
-### 2. Organize Data by Sensitivity
+### 2. Data organization by sensitivity
 
 Place sensitive data in private directories:
 
@@ -88,7 +88,7 @@ data:
     type: csv
 ```
 
-### 3. Work with Private Data
+### 3. Private data
 
 ```r
 # Load private data
@@ -103,7 +103,7 @@ demographics <- patients |>
 data_save(demographics, "inputs.public.final.demographics")
 ```
 
-### 4. Generate Public Outputs
+### 4. Public outputs
 
 ```r
 # Private analysis output
@@ -146,9 +146,9 @@ default:
       locked: true
 ```
 
-## Best Practices
+## Best practices
 
-### Lock Sensitive Source Data
+### Locked source data
 
 Use `locked: true` to ensure source data hasn't changed:
 
@@ -160,7 +160,7 @@ data:
     locked: true  # Error if file changes
 ```
 
-### De-identify Before Publishing
+### De-identification before publishing
 
 Always aggregate or de-identify data before moving to public directories:
 
@@ -176,7 +176,7 @@ public_summary <- raw_patient_data |>
 save_table(public_summary, "summary", public = TRUE)
 ```
 
-### Review Before Committing
+### Pre-commit review
 
 Check `git status` before committing to ensure no private data is staged:
 
@@ -188,7 +188,7 @@ git_status()
 
 <div style="display: flex; justify-content: space-between">
 
-[← Standard Project](guide:standard-project)
+[← Standard project](guide:standard-project)
 
 [Course/Teaching →](guide:course-teaching)
 

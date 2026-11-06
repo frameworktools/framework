@@ -354,7 +354,8 @@ project_create <- function(
   security = NULL,
   data_hooks = NULL,
   tools = NULL,
-  settings_layout = NULL
+  settings_layout = NULL,
+  publish = NULL
 ) {
   # Split settings files for project and project_sensitive by default, a
   # single settings.yml for the rest; a spec's settings_layout decides
@@ -393,11 +394,16 @@ project_create <- function(
     )
 
     # Write main settings.yml
+    if (!is.null(publish)) main_config$default$publish <- publish
     yaml::write_yaml(main_config, file.path(project_dir, "settings.yml"))
     message("  Created: settings.yml")
 
     # Write split files
-    yaml::write_yaml(list(author = .author_normalize(author)), file.path(settings_dir, "author.yml"))
+    # Framework Cloud sends email = "" unless the person set a public email.
+    # Leave the key out then, rather than write `email: ''`.
+    author_out <- .author_normalize(author)
+    if (!nzchar(author_out$email)) author_out$email <- NULL
+    yaml::write_yaml(list(author = author_out), file.path(settings_dir, "author.yml"))
 
     yaml::write_yaml(list(packages = list(
       use_renv = packages$use_renv %||% FALSE,
@@ -497,6 +503,7 @@ project_create <- function(
     )
 
     config_path <- file.path(project_dir, "settings.yml")
+    if (!is.null(publish)) config$default$publish <- publish
     yaml::write_yaml(config, config_path)
     message("  Created: settings.yml")
   }

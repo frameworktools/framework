@@ -286,6 +286,11 @@ get_default_global_config <- function() {
   )
 
   defaults$connections <- defaults$connections %||% .default_connections_configuration()
+  global_settings_path <- file.path(fw_config_dir(), "settings.yml")
+  publishing <- if (file.exists(global_settings_path)) {
+    tryCatch(yaml::read_yaml(global_settings_path)$publish, error = function(e) NULL)
+  } else NULL
+
 
   git_defaults <- catalog$git %||% list()
   privacy_defaults <- catalog$privacy %||% list()
@@ -298,6 +303,7 @@ get_default_global_config <- function() {
       affiliation = .catalog_field_default(catalog, "author.affiliation", "Your Institution")
     ),
     defaults = defaults,
+    publish = publishing %||% catalog$publish,
     git = {
       result <- list()
       if (!is.null(git_defaults$user_name) && is.character(git_defaults$user_name) && nzchar(git_defaults$user_name)) {
@@ -463,10 +469,18 @@ read_frameworkrc <- function(use_defaults = TRUE) {
 
 #' Write global Framework configuration
 #'
-#' @param config List containing configuration to write
+#' Writes the global settings file. When `config` has a `projects` element,
+#' the project registry (`projects.yml`) is written too; otherwise it stays
+#' as it is.
+#'
+#' @param config A named list, such as one from [read_frameworkrc()]. `NULL`
+#'   or an empty list is an error, so a slip can't wipe the global settings.
 #' @return Invisibly returns NULL
 #' @export
 write_frameworkrc <- function(config) {
+  if (!is.list(config) || length(config) == 0 || is.null(names(config)) || any(!nzchar(names(config)))) {
+    stop("config must be a named, non-empty list of settings, such as one from read_frameworkrc().", call. = FALSE)
+  }
   config_dir <- fw_config_dir()
   settings_path <- file.path(config_dir, "settings.yml")
   projects_path <- file.path(config_dir, "projects.yml")
@@ -477,6 +491,7 @@ write_frameworkrc <- function(config) {
   }
 
   # Split out projects into separate file
+  write_projects <- "projects" %in% names(config)
   projects <- config$projects
   config$projects <- NULL
 
@@ -507,28 +522,54 @@ write_frameworkrc <- function(config) {
   # Write main settings
   yaml::write_yaml(config, settings_path)
 
-  # Write projects separately
-  yaml::write_yaml(list(projects = projects %||% list()), projects_path)
+  # Write projects separately, only when given
+  if (write_projects || !file.exists(projects_path)) {
+    yaml::write_yaml(list(projects = projects %||% list()), projects_path)
+  }
 
   invisible(NULL)
 }
 
 #' Add project to global configuration
+#'
+#' Adds a project folder to the registry (`projects.yml` in [fw_config_dir()]).
+#' The registry stores only the ID, the path, and the date. The project's name
+#' and type are read from its settings.yml when needed.
+#'
 #' @param project_dir Path to project directory
-#' @param project_name Optional project name
-#' @param project_type Optional project type
-#' @return Invisibly returns the project ID
+#' @param project_name Not stored. Kept so older code still runs.
+#' @param project_type Not stored. Kept so older code still runs.
+#' @return Invisibly returns the project ID. For a folder already in the
+#'   registry, that project's existing ID.
 #' @export
 add_project_to_config <- function(project_dir, project_name = NULL, project_type = NULL) {
+  checkmate::assert_string(project_dir, min.chars = 1)
+  checkmate::assert_string(project_name, null.ok = TRUE)
+  checkmate::assert_string(project_type, null.ok = TRUE)
+
+  if (!dir.exists(project_dir)) {
+    warning("Project folder does not exist: ", project_dir, call. = FALSE)
+  }
+
   config <- read_frameworkrc()
 
+  # Normalize the same way for folders that exist and folders that do not
+  # yet, so one folder is never listed twice (/tmp and /private/tmp)
+  normalize <- function(path) {
+    path <- path.expand(path)
+    if (file.exists(path)) return(normalizePath(path, mustWork = FALSE))
+    parent <- dirname(path)
+    if (file.exists(parent)) file.path(normalizePath(parent, mustWork = FALSE), basename(path)) else path
+  }
+  normalized_path <- normalize(project_dir)
+
   # Check if project already exists
-  normalized_path <- normalizePath(project_dir, mustWork = FALSE)
   if (!is.null(config$projects) && length(config$projects) > 0) {
-    existing_paths <- sapply(config$projects, function(p) p$path)
-    if (normalized_path %in% existing_paths) {
+    existing_paths <- vapply(config$projects, function(p) normalize(as.character(p$path %||% "")), "")
+    hit <- which(existing_paths == normalized_path)
+    if (length(hit) > 0) {
       message("Project already in registry")
-      return(invisible(NULL))
+      return(invisible(as.integer(config$projects[[hit[1]]]$id)))
     }
   }
 

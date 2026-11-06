@@ -33,33 +33,38 @@ NULL
 #' Internal function called by save_table(), save_figure(), etc. to track
 #' saved outputs in the results table.
 #'
-#' @param name Result name/identifier (typically the filename)
+#' The result is named by its path from the project root, such as
+#' `outputs/tables/summary.csv`, as in framework-py, so files with the same
+#' name in different folders stay apart. A row from an older save, named by
+#' the file name alone, is renamed to the path when the file is saved again.
+#'
+#' @param name Ignored; kept so older callers still work. The name is the
+#'   project-relative path.
 #' @param path Full file path to the saved result
 #' @param type Result type: "table", "figure", "model", "report", "notebook"
 #' @param public Whether saved to public outputs directory
 #' @param comment Optional description
 #' @return NULL invisibly
 #' @keywords internal
-.save_result <- function(name, path, type, public = FALSE, comment = NULL) {
+.save_result <- function(name = NULL, path, type, public = FALSE, comment = NULL) {
   # Try to get hash of file (may not exist yet in some edge cases)
   hash <- tryCatch({
     if (file.exists(path)) .calculate_file_hash(path) else NA_character_
   }, error = function(e) NA_character_)
 
 
-  con <- tryCatch(
-    .get_db_connection(),
-    error = function(e) {
-      # Silently skip if no database connection available
-      return(NULL)
-    }
-  )
+  # Outside a project there is nothing to log to. Inside one, add the results
+  # table if scaffold() has not run yet, so early saves are tracked too.
+  con <- tryCatch(.fw_results_connection(create = TRUE), error = function(e) NULL)
 
   if (is.null(con)) {
     return(invisible(NULL))
   }
 
   on.exit(DBI::dbDisconnect(con), add = TRUE)
+
+  name <- .fw_result_name(path)
+  legacy <- basename(path)
 
   # Epoch seconds (REAL), like the data, cache, and meta tables
   now <- lubridate::now()
@@ -68,13 +73,13 @@ NULL
   comment <- comment %||% NA_character_
   hash <- paste0(as.character(hash))
 
-  # Check if entry already exists
- existing <- tryCatch(
-    DBI::dbGetQuery(con, "SELECT id FROM results WHERE name = ?", list(name)),
-    error = function(e) data.frame()
-  )
-
   tryCatch({
+    # A row from before results were keyed by path takes the new name
+    found <- DBI::dbGetQuery(con, "SELECT id FROM results WHERE name = ?", list(name))
+    if (nrow(found) == 0 && !identical(legacy, name)) {
+      DBI::dbExecute(con, "UPDATE results SET name = ? WHERE name = ?", list(name, legacy))
+    }
+    existing <- DBI::dbGetQuery(con, "SELECT id FROM results WHERE name = ?", list(name))
     if (nrow(existing) > 0) {
       DBI::dbExecute(
         con,
@@ -96,6 +101,38 @@ NULL
   invisible(NULL)
 }
 
+# The results key for a saved file: its path from the project root (with
+# forward slashes), or the full path for a file outside the project.
+#' @keywords internal
+.fw_result_name <- function(path, root = NULL) {
+  root <- root %||% tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  # Resolve the folder (it exists by now), so /var and /private/var agree
+  full <- file.path(normalizePath(dirname(path), winslash = "/", mustWork = FALSE), basename(path))
+  if (is.null(root)) return(full)
+  base <- sub("/+$", "", normalizePath(root, winslash = "/", mustWork = FALSE))
+  if (startsWith(full, paste0(base, "/"))) substring(full, nchar(base) + 2L) else full
+}
+
+# Connection to the project's framework.db with a results table, or NULL
+# outside a project. With create = FALSE, a missing framework.db stays missing.
+.fw_results_connection <- function(create = TRUE) {
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  if (is.null(root)) return(NULL)
+  db_path <- file.path(root, "framework.db")
+  if (!create && !file.exists(db_path)) return(NULL)
+  con <- .get_db_connection(root)
+  if (!DBI::dbExistsTable(con, "results")) {
+    if (!create) {
+      DBI::dbDisconnect(con)
+      return(NULL)
+    }
+    DBI::dbDisconnect(con)
+    suppressMessages(.ensure_framework_db(root))
+    con <- .get_db_connection(root)
+  }
+  con
+}
+
 # Parse framework.db timestamps read as text: epoch seconds (the current
 # format) or local "%Y-%m-%d %H:%M:%S" strings (results rows before 2.0).
 #' @keywords internal
@@ -111,24 +148,35 @@ NULL
 
 #' Get the cache directory, respecting FW_CACHE_DIR environment variable
 #'
+#' Every cache function uses this, so reads, writes, and deletes agree.
+#' A relative folder is relative to the project root.
+#'
 #' @return The cache directory path
 #' @keywords internal
 .get_cache_dir <- function() {
   # Check for environment variable override first
-
   env_cache <- Sys.getenv("FW_CACHE_DIR", "")
   if (nzchar(env_cache)) {
-    return(env_cache)
+    return(.fw_project_path(env_cache))
   }
 
   # Fall back to config
-
-  cache_dir <- config("cache")
+  cache_dir <- tryCatch(config("cache"), error = function(e) NULL)
   if (is.null(cache_dir)) {
+    cache_dir <- tryCatch(config("options.data.cache_dir"), error = function(e) NULL)
+  }
+  if (!is.character(cache_dir) || length(cache_dir) != 1 || !nzchar(cache_dir)) {
     # Default fallback
     cache_dir <- "outputs/cache"
   }
-  cache_dir
+  .fw_project_path(cache_dir)
+}
+
+# The file behind a cache entry: `file` when given (relative to the project
+# root), otherwise <cache dir>/<name>.rds
+#' @keywords internal
+.cache_file_path <- function(name, file = NULL) {
+  if (is.null(file)) file.path(.get_cache_dir(), paste0(name, ".rds")) else .fw_project_path(file)
 }
 
 # -----------------------------------------------------------------------------
@@ -182,6 +230,17 @@ NULL
 #'
 #' @export
 save_table <- function(data, name, format = "csv", public = FALSE, overwrite = TRUE, ...) {
+  # R matches a writer argument such as `na =` to `name` by partial
+  # matching, which shifts the real name into `format`. Say so plainly.
+  given <- names(as.list(sys.call()))[-1L] %||% character()
+  partial <- given[nzchar(given) & !given %in% c("name", "data", "format", "public", "overwrite") &
+                     startsWith("name", given)]
+  if (length(partial) > 0 && !"name" %in% given) {
+    cli::cli_abort(c(
+      "{.arg {partial[1]}} was matched to {.arg name}.",
+      "i" = "Spell out {.arg name}, as in {.code save_table(df, name = \"x\", {partial[1]} = ...)}."
+    ))
+  }
   checkmate::assert_data_frame(data)
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_choice(format, c("csv", "rds", "xlsx", "parquet"))
@@ -232,7 +291,6 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 
     # Log to results database
     .save_result(
-      name = basename(file_path),
       path = file_path,
       type = "table",
       public = public
@@ -253,7 +311,15 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 #' Saves a ggplot2 plot or base R graphics to the configured figures directory.
 #' The directory is created lazily on first use.
 #'
-#' @param plot A ggplot2 object, or NULL to save the current plot
+#' With `plot = NULL`, Framework saves the plot on the active graphics device,
+#' base graphics or ggplot2. Some devices keep no record of what they drew,
+#' such as the `Rplots.pdf` device in `Rscript`. There, a ggplot drawn last
+#' is saved with [ggplot2::last_plot()], and a base plot drawn last is an
+#' error. Call `dev.control("enable")` before plotting, or pass
+#' `recordPlot()`.
+#'
+#' @param plot A ggplot2 object, a recorded plot from [grDevices::recordPlot()],
+#'   or NULL to save the current plot
 #' @param name The name for the output file (without extension)
 #' @param format Output format: "png" (default), "pdf", "svg", or "jpg"
 #' @param width Width in inches (default: 8)
@@ -277,6 +343,10 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 #'
 #' # Save to public directory
 #' save_figure(p, "summary_plot", public = TRUE)
+#'
+#' # Save a base R plot
+#' plot(mtcars$mpg, mtcars$hp)
+#' save_figure(name = "mpg_vs_hp_base")
 #' }
 #' }
 #'
@@ -290,6 +360,10 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
   checkmate::assert_number(dpi, lower = 1)
   checkmate::assert_flag(public)
   checkmate::assert_flag(overwrite)
+  if (!is.null(plot) && !inherits(plot, c("ggplot", "gg", "recordedplot"))) {
+    cli::cli_abort("plot must be a ggplot2 object, a recordPlot() result, or NULL (to save the current plot)")
+  }
+  if (is.null(plot)) plot <- .fw_current_plot()
 
   # Get the appropriate figures directory
   figures_dir <- .output_dir("figures", public)
@@ -308,19 +382,15 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
 
   # Save the figure
   tryCatch({
-    if (inherits(plot, "ggplot") || inherits(plot, "gg")) {
-      ggplot2::ggsave(file_path, plot = plot, width = width, height = height, dpi = dpi, ...)
-    } else if (is.null(plot)) {
-      # Save current plot
-      ggplot2::ggsave(file_path, width = width, height = height, dpi = dpi, ...)
+    if (inherits(plot, "recordedplot")) {
+      .fw_save_recorded_plot(plot, file_path, format, width, height, dpi, ...)
     } else {
-      cli::cli_abort("plot must be a ggplot2 object or NULL (to save current plot)")
+      ggplot2::ggsave(file_path, plot = plot, width = width, height = height, dpi = dpi, ...)
     }
     cli::cli_alert_success("Saved figure to {.path {file_path}}")
 
     # Log to results database
     .save_result(
-      name = basename(file_path),
       path = file_path,
       type = "figure",
       public = public
@@ -329,6 +399,46 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
     cli::cli_abort("Failed to save figure: {e$message}")
   })
 
+  invisible(file_path)
+}
+
+# The plot save_figure(plot = NULL) should save: the active device's display
+# list when it has one, else the last ggplot if ggplot2 drew last.
+.fw_current_plot <- function() {
+  if (grDevices::dev.cur() > 1L) {
+    recorded <- tryCatch(suppressWarnings(grDevices::recordPlot()), error = function(e) NULL)
+    if (!is.null(recorded) && length(recorded[[1]]) > 0L) return(recorded)
+  }
+  last_system <- .framework_env$last_plot_system
+  if (identical(last_system, "base")) {
+    cli::cli_abort(c(
+      "The current base R plot can't be saved: this graphics device keeps no record of it.",
+      "i" = "Run {.code dev.control(\"enable\")} before plotting, or pass {.code recordPlot()} as {.arg plot}."
+    ))
+  }
+  last <- if (requireNamespace("ggplot2", quietly = TRUE)) ggplot2::last_plot() else NULL
+  if (is.null(last)) {
+    cli::cli_abort("No plot to save. Draw a plot first or pass one as {.arg plot}.")
+  }
+  last
+}
+
+.fw_save_recorded_plot <- function(plot, file_path, format, width, height, dpi, ...) {
+  previous <- grDevices::dev.cur()
+  switch(format,
+    png = grDevices::png(file_path, width = width, height = height, units = "in", res = dpi, ...),
+    jpg = ,
+    jpeg = grDevices::jpeg(file_path, width = width, height = height, units = "in", res = dpi, ...),
+    tiff = grDevices::tiff(file_path, width = width, height = height, units = "in", res = dpi, ...),
+    pdf = grDevices::pdf(file_path, width = width, height = height, ...),
+    svg = grDevices::svg(file_path, width = width, height = height, ...)
+  )
+  device <- grDevices::dev.cur()
+  on.exit({
+    grDevices::dev.off(device)
+    if (previous > 1L && previous %in% grDevices::dev.list()) grDevices::dev.set(previous)
+  }, add = TRUE)
+  grDevices::replayPlot(plot)
   invisible(file_path)
 }
 
@@ -385,7 +495,6 @@ save_model <- function(model, name, public = FALSE, overwrite = TRUE, ...) {
 
     # Log to results database
     .save_result(
-      name = basename(file_path),
       path = file_path,
       type = "model",
       public = public
@@ -464,7 +573,6 @@ save_report <- function(file, name = NULL, public = FALSE, overwrite = TRUE, mov
 
     # Log to results database
     .save_result(
-      name = basename(dest_file),
       path = dest_file,
       type = "report",
       public = public
@@ -587,10 +695,8 @@ save_notebook <- function(file, name = NULL, format = "html", public = FALSE,
     # Check for errors
     status <- attr(result, "status")
     if (!is.null(status) && status != 0) {
-      cli::cli_abort(c(
-        "Quarto render failed",
-        paste(result, collapse = "\n")
-      ))
+      # Plain stop(): Quarto's output can hold braces cli would read as glue
+      stop(paste(c("Quarto render failed:", utils::tail(cli::ansi_strip(result), 40)), collapse = "\n"), call. = FALSE)
     }
 
     # Find the output file
@@ -614,13 +720,14 @@ save_notebook <- function(file, name = NULL, format = "html", public = FALSE,
 
     # Log to results database
     .save_result(
-      name = basename(dest_file),
       path = dest_file,
       type = "notebook",
       public = public
     )
   }, error = function(e) {
-    cli::cli_abort("Failed to render notebook: {e$message}")
+    # conditionMessage() keeps Quarto's error text; e$message dropped it
+    # stop(), not cli: cli would fold Quarto's lines into one
+    stop("Failed to render notebook: ", conditionMessage(e), call. = FALSE)
   })
 
   invisible(dest_file)
@@ -660,10 +767,8 @@ result_list <- function(type = NULL, public = NULL) {
   checkmate::assert_choice(type, c("table", "figure", "model", "report", "notebook"), null.ok = TRUE)
   checkmate::assert_flag(public, null.ok = TRUE)
 
-  con <- tryCatch(
-    .get_db_connection(),
-    error = function(e) NULL
-  )
+  # Read only: never create framework.db in the working folder.
+  con <- tryCatch(.fw_results_connection(create = FALSE), error = function(e) NULL)
 
   if (is.null(con)) {
     return(data.frame(
@@ -740,7 +845,8 @@ result_list <- function(type = NULL, public = NULL) {
 #' Shows configured directories and their status (created or pending lazy creation).
 #' Useful for understanding the project structure and discovering available paths.
 #'
-#' @param verbose If TRUE, shows additional details about each directory
+#' @param verbose Has no effect. Every section is always shown, including the
+#'   project name and type that `verbose` adds in the Python package.
 #'
 #' @return A data frame with directory information (invisibly)
 #'
@@ -750,8 +856,6 @@ result_list <- function(type = NULL, public = NULL) {
 #' # Show project structure
 #' project_info()
 #'
-#' # Get detailed info
-#' project_info(verbose = TRUE)
 #' }
 #' }
 #'
@@ -821,15 +925,23 @@ project_info <- function(verbose = FALSE) {
   cache_exists <- dir.exists(cache_dir)
   cache_status <- if (cache_exists) cli::col_green("\u2713 exists") else cli::col_yellow("\u2022 lazy")
   cache_note <- if (nzchar(Sys.getenv("FW_CACHE_DIR", ""))) " (from FW_CACHE_DIR)" else ""
-  cli::cli_text("  {.field cache}: {.path {cache_dir}} {cache_status}{cache_note}")
+  cache_shown <- .fw_project_relative_path(cache_dir)
+  cli::cli_text("  {.field cache}: {.path {cache_shown}} {cache_status}{cache_note}")
 
   cli::cli_text("")
   cli::cli_h2("Output Functions")
-  cli::cli_text("  {.fn save_table} \u2192 {.path {config('outputs_tables') %||% 'outputs/tables'}}")
-  cli::cli_text("  {.fn save_figure} \u2192 {.path {config('outputs_figures') %||% 'outputs/figures'}}")
-  cli::cli_text("  {.fn save_model} \u2192 {.path {config('outputs_models') %||% 'outputs/models'}}")
-  cli::cli_text("  {.fn save_notebook} \u2192 {.path {config('outputs_notebooks') %||% 'outputs/notebooks'}}")
-  cli::cli_text("  {.fn save_report} \u2192 {.path {config('outputs_reports') %||% 'outputs/reports'}}")
+  # The folders the save_*() functions write to. In a sensitive project they
+  # split into private (the default) and public (public = TRUE).
+  for (kind in c("tables", "figures", "models", "notebooks", "reports")) {
+    fn <- paste0("save_", sub("s$", "", kind))
+    private_dir <- .output_dir(kind, public = FALSE)
+    public_dir <- .output_dir(kind, public = TRUE)
+    if (identical(private_dir, public_dir)) {
+      cli::cli_text("  {.fn {fn}} \u2192 {.path {private_dir}}")
+    } else {
+      cli::cli_text("  {.fn {fn}} \u2192 {.path {private_dir}}, or {.path {public_dir}} with {.code public = TRUE}")
+    }
+  }
 
   invisible(dir_info)
 }

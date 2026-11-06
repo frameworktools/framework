@@ -15,11 +15,22 @@ Invisibly returns TRUE on success
 \description{
 Initializes renv integration for the current Framework project. This:
 \itemize{
-\item Creates \code{.framework_renv_enabled} marker file
 \item Initializes renv if not already initialized
-\item Syncs packages from settings.yml to renv.lock
+\item Copies framework into the project's renv folder from the R
+installation in use. It installs framework from GitHub only when no
+installed copy is found.
+\item Installs the packages listed in settings.yml (with \code{sync = TRUE})
+\item Writes renv.lock with every package in the project's renv folder,
+framework and the configured packages included
 \item Updates .gitignore to exclude renv cache
+\item Creates the \code{.framework_renv_enabled} marker file
 }
+}
+\details{
+If a step fails, Framework undoes the steps before it: the marker file,
+the files renv created, and the \code{.gitignore} and \code{.renvignore} changes.
+The project is then as it was before the call. A package from settings.yml
+that fails to install gives a warning and is left out of renv.lock.
 }
 \examples{
 \donttest{

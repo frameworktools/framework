@@ -117,8 +117,11 @@ spec_check <- function(spec) {
     "security", "env", "data_hooks", "files", "skills"
   )
   for (key in setdiff(required, names(spec))) add("missing section '%s'", key)
-  unknown <- setdiff(names(spec), c(required, "quarto", "source", "tools", "core_files", "settings_layout"))
+  unknown <- setdiff(names(spec), c(required, "quarto", "source", "tools", "core_files", "settings_layout", "publish"))
   for (key in unknown) add("unknown section '%s'", key)
+
+  tryCatch(.fw_publish_assert_secrets(spec$publish$destinations),
+           error = function(e) add("%s", conditionMessage(e)))
 
   if (!identical(as.integer(spec$spec_version), 1L)) {
     add("spec_version must be 1, got %s", format(spec$spec_version))
@@ -145,7 +148,8 @@ spec_check <- function(spec) {
   }
 
   for (path in .spec_map_paths) {
-    value <- spec[[path]]
+    # A missing parent section is reported above; [[ on a path errors then.
+    value <- tryCatch(spec[[path]], error = function(e) NULL)
     if (length(value) > 0 && (!is.list(value) || is.null(names(value)) || any(!nzchar(names(value))))) {
       add("%s must be an object keyed by name, not a list", paste(path, collapse = "."))
     }
@@ -418,7 +422,7 @@ spec_check <- function(spec) {
 
   order <- c(
     "spec_version", "name", "type", "language", "core_files", "settings_layout", "tools", "author", "directories", "extra_directories",
-    "render_dirs", "packages", "git", "ai", "scaffold", "quarto", "connections",
+    "render_dirs", "packages", "git", "ai", "scaffold", "quarto", "connections", "publish",
     "security", "env", "data_hooks", "files", "skills", "source"
   )
   spec[c(intersect(order, names(spec)), setdiff(names(spec), order))]

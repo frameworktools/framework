@@ -482,3 +482,22 @@ test_that("publishing warns about private paths and stops in scripts", {
   answer <- TRUE
   expect_warning(expect_true(confirm("/srv/private/x.html")), "private")
 })
+
+
+test_that("AWS raw ACL errors retry safely and use the default AWS endpoint", {
+  skip_if_not_installed("aws.s3")
+  file <- withr::local_tempfile(fileext = ".html")
+  writeLines("<p>Synthetic output</p>", file)
+  calls <- list()
+  testthat::local_mocked_bindings(put_object = function(file, object, bucket, headers, base_url, parse_response, ...) {
+    calls[[length(calls) + 1L]] <<- headers
+    expect_identical(base_url, "s3.amazonaws.com")
+    expect_false(parse_response)
+    response <- if (length(calls) == 1L) list(status_code=400L, content=charToRaw("<Error><Code>AccessControlListNotSupported</Code></Error>")) else list(status_code=200L, content=raw())
+    structure(FALSE, response=response)
+  }, .package="aws.s3")
+  config <- list(bucket="b",region="us-east-1",access_key="k",secret_key="s")
+  expect_silent(framework:::.s3_upload_file(file, "report.html", config))
+  expect_length(calls, 2L)
+  expect_null(calls[[2L]]$`x-amz-acl`)
+})

@@ -1,21 +1,21 @@
 ---
 id: viewing-work
-title: Viewing Work
+title: Viewing work
 section: features
 position: 8
-description: 'Browse your work interactively with view() and the GUI'
+description: 'Interactive views with view() and the GUI'
 ---
 ## Overview
 
 Framework provides tools for interactively exploring your data, viewing saved results, and browsing your project structure.
 
-## Interactive Viewing
+## Interactive viewer
 
 Use `view()` to open objects in an interactive HTML viewer in your browser.
 
-### Data Frames
+### Data frames
 
-For data frames, you get a searchable, sortable, filterable table:
+Data frames open as a searchable, sortable, filterable table:
 
 ```r
 view(mtcars)
@@ -30,7 +30,7 @@ Features:
 - Export to Copy, CSV, or Excel
 - Pagination for large datasets
 
-### Complex Objects
+### Complex objects
 
 For lists and other complex objects, `view()` displays a structured view with YAML and R tabs:
 
@@ -56,7 +56,7 @@ view(large_df, max_rows = 1000)
 
 Aliases `view_create()` and `view_detail()` also work.
 
-## Listing Results
+## Result list
 
 Query saved results with `result_list()`:
 
@@ -79,7 +79,7 @@ result_list(type = "table", public = TRUE)
 
 Returns a data frame with all tracked results and their metadata.
 
-## Project Info
+## Project info
 
 View your project structure and output mappings:
 
@@ -93,9 +93,9 @@ This displays:
 - Output directory mappings
 - Data catalog summary
 
-## GUI Integration
+## GUI views
 
-The Framework GUI provides visual access to your work. Run `setup()` and navigate to the **Project** section to see:
+The Framework GUI shows project files and results. Run `setup()` and open the **Project** section:
 
 - **Inputs**: Browse files in your input directories
 - **Outputs**: Browse saved output files
@@ -107,8 +107,8 @@ The Framework GUI provides visual access to your work. Run `setup()` and navigat
 
 <div style="display: flex; justify-content: space-between">
 
-[← Quarto Integration](guide:quarto)
+[← Quarto integration](guide:quarto)
 
-[Saving Work →](guide:saving-work)
+[Saving work →](guide:saving-work)
 
 </div>

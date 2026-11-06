@@ -110,8 +110,10 @@ make_notebook("report", stub = "minimal")
 make_notebook("explore", dir = "work")
 
 # Convenient aliases (recommended for explicit types)
-make_qmd("analysis")       # Always creates .qmd
-make_rmd("report")         # Always creates .Rmd
+make_qmd("analysis")       # Creates .qmd
+make_rmd("report")         # Creates .Rmd
+# An extension in the name wins over the alias, as in the Python package:
+# make_qmd("report.Rmd") creates an .Rmd
 make_revealjs("slides")    # Creates reveal.js presentation
 make_presentation("deck")  # Alias for make_revealjs()
 }

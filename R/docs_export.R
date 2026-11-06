@@ -8,7 +8,8 @@
 #' @param man_dir Directory containing .Rd files. Default: "man"
 #' @param package_name Package name for metadata. Default: "framework"
 #' @param package_version Package version for metadata. Default: NULL (auto-detect)
-#' @param include_internal Include internal/non-exported functions. Default: FALSE
+#' @param include_internal Include functions that are not exported or are
+#'   tagged `@keywords internal` (such as `.has_column()`). Default: FALSE
 #' @param verbose Print progress messages. Default: TRUE
 #' @param reference_path If set, also write the reference for the docs site
 #'   (`docs/site/reference.json`) to this path, in the format of
@@ -65,10 +66,17 @@ docs_export <- function(output_path = "docs.db",
     stop("No .Rd files found in ", man_dir)
   }
 
+  # NAMESPACE and DESCRIPTION belong to the package that holds man_dir
+  pkg_root <- dirname(normalizePath(man_dir, mustWork = FALSE))
+  pkg_file <- function(name) {
+    path <- file.path(pkg_root, name)
+    if (file.exists(path)) path else name
+  }
+
   # Get exported functions from NAMESPACE if filtering internal
  exported_names <- NULL
-  if (!include_internal && file.exists("NAMESPACE")) {
-    ns_lines <- readLines("NAMESPACE", warn = FALSE)
+  if (!include_internal && file.exists(pkg_file("NAMESPACE"))) {
+    ns_lines <- readLines(pkg_file("NAMESPACE"), warn = FALSE)
     export_lines <- grep("^export\\(", ns_lines, value = TRUE)
     exported_names <- gsub("^export\\((.+)\\)$", "\\1", export_lines)
     if (verbose) message("Found ", length(exported_names), " exported functions in NAMESPACE")
@@ -78,8 +86,8 @@ docs_export <- function(output_path = "docs.db",
 
   # Auto-detect version from DESCRIPTION if not provided
  if (is.null(package_version)) {
-    if (file.exists("DESCRIPTION")) {
-      desc <- read.dcf("DESCRIPTION")
+    if (file.exists(pkg_file("DESCRIPTION"))) {
+      desc <- read.dcf(pkg_file("DESCRIPTION"))
       package_version <- desc[1, "Version"]
     } else {
       package_version <- "unknown"
@@ -130,7 +138,8 @@ docs_export <- function(output_path = "docs.db",
     }
 
     tryCatch({
-      result <- .export_rd_file(con, rd_file, exported_names, category_ids, common_functions)
+      result <- .export_rd_file(con, rd_file, exported_names, category_ids, common_functions,
+                                include_internal = include_internal)
       if (!result) skipped <- skipped + 1
     }, error = function(e) {
       warning("Error processing ", basename(rd_file), ": ", e$message)
@@ -158,7 +167,8 @@ docs_export <- function(output_path = "docs.db",
 #' Parse and export a single .Rd file to the database
 #' @noRd
 #' @return TRUE if exported, FALSE if skipped
-.export_rd_file <- function(con, rd_file, exported_names = NULL, category_ids = NULL, common_functions = NULL) {
+.export_rd_file <- function(con, rd_file, exported_names = NULL, category_ids = NULL, common_functions = NULL,
+                            include_internal = FALSE) {
   rd <- tools::parse_Rd(rd_file)
 
   # Get function name first to check if exported
@@ -217,7 +227,7 @@ docs_export <- function(output_path = "docs.db",
   keywords_str <- if (length(keywords) > 0) paste(keywords, collapse = ",") else NULL
 
   # Skip functions marked as internal (unless include_internal is TRUE)
-  if ("internal" %in% keywords) {
+  if ("internal" %in% keywords && !isTRUE(include_internal)) {
     return(FALSE)
   }
 

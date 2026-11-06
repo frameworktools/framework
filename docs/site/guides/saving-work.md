@@ -1,15 +1,15 @@
 ---
 id: saving-work
-title: Saving Work
+title: Saving work
 section: features
 position: 9
-description: 'Save outputs with automatic tracking to framework.db'
+description: 'Saved outputs and their tracking in framework.db'
 ---
 ## Overview
 
-Framework provides a unified system for saving your work. When you save tables, figures, models, reports, or notebooks, they're automatically logged to `framework.db` with metadata for easy retrieval later.
+Framework saves tables, figures, models, reports, and notebooks. Each saved output is logged to `framework.db` with its metadata.
 
-## Saving Outputs
+## Output types
 
 ### Tables
 
@@ -57,7 +57,7 @@ save_model(model, "regression_v1")
 save_model(model, "regression_v1", format = "rds")
 ```
 
-### Reports & Notebooks
+### Reports and notebooks
 
 Save rendered documents:
 
@@ -72,7 +72,7 @@ save_report("outputs/analysis.html", "quarterly_report", move = TRUE)
 save_notebook("notebooks/analysis.qmd", "final_analysis")
 ```
 
-## Automatic Tracking
+## Automatic tracking
 
 Every `save_*` function automatically logs to the `results` table in `framework.db`:
 
@@ -85,9 +85,7 @@ Every `save_*` function automatically logs to the `results` table in `framework.
 | `created_at` | When first saved |
 | `updated_at` | When last modified |
 
-No extra steps needed—tracking happens automatically.
-
-## Public vs Private Outputs
+## Public and private outputs
 
 For Privacy Sensitive projects, the `public` parameter controls output location:
 
@@ -99,11 +97,11 @@ save_table(detailed_results, "patient_outcomes")
 save_table(aggregated_stats, "summary", public = TRUE)
 ```
 
-Private outputs are gitignored; public outputs can be shared and committed.
+Private outputs are gitignored. Public outputs can be shared and committed.
 
 For Standard projects, the `public` parameter still works but outputs go to a single `outputs/` directory structure.
 
-## Output Directories
+## Output directories
 
 Framework organizes outputs by type:
 
@@ -134,8 +132,8 @@ outputs/
 
 <div style="display: flex; justify-content: space-between">
 
-[← Viewing Work](guide:viewing-work)
+[← Viewing work](guide:viewing-work)
 
-[Git Integration →](guide:git)
+[Git integration →](guide:git)
 
 </div>

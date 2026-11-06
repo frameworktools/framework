@@ -17,7 +17,8 @@ save_figure(
 )
 }
 \arguments{
-\item{plot}{A ggplot2 object, or NULL to save the current plot}
+\item{plot}{A ggplot2 object, a recorded plot from \code{\link[grDevices:recordPlot]{grDevices::recordPlot()}},
+or NULL to save the current plot}
 
 \item{name}{The name for the output file (without extension)}
 
@@ -42,6 +43,14 @@ The path to the saved file (invisibly)
 Saves a ggplot2 plot or base R graphics to the configured figures directory.
 The directory is created lazily on first use.
 }
+\details{
+With \code{plot = NULL}, Framework saves the plot on the active graphics device,
+base graphics or ggplot2. Some devices keep no record of what they drew,
+such as the \code{Rplots.pdf} device in \code{Rscript}. There, a ggplot drawn last
+is saved with \code{\link[ggplot2:last_plot]{ggplot2::last_plot()}}, and a base plot drawn last is an
+error. Call \code{dev.control("enable")} before plotting, or pass
+\code{recordPlot()}.
+}
 \examples{
 \donttest{
 if (FALSE) {
@@ -54,6 +63,10 @@ save_figure(p, "mpg_vs_hp", format = "pdf", width = 10, height = 8)
 
 # Save to public directory
 save_figure(p, "summary_plot", public = TRUE)
+
+# Save a base R plot
+plot(mtcars$mpg, mtcars$hp)
+save_figure(name = "mpg_vs_hp_base")
 }
 }
 

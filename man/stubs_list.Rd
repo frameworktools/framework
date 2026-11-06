@@ -10,7 +10,9 @@ stubs_list(type = NULL)
 \item{type}{Character. Filter by type: "quarto", "rmarkdown", "script", or NULL (all).}
 }
 \value{
-Data frame with columns: name, type, source (user/framework)
+Data frame with columns: name, type, source (\code{user} for the
+project's \verb{stubs/}, \code{personal} for your templates, or \code{framework}), in the
+order \code{make_notebook()} searches. The first source hides later ones.
 }
 \description{
 Shows all available stub templates that can be used with \code{make_notebook()}.

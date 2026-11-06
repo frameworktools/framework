@@ -4,10 +4,11 @@
 \alias{.save_result}
 \title{Log a saved result to the framework database}
 \usage{
-.save_result(name, path, type, public = FALSE, comment = NULL)
+.save_result(name = NULL, path, type, public = FALSE, comment = NULL)
 }
 \arguments{
-\item{name}{Result name/identifier (typically the filename)}
+\item{name}{Ignored; kept so older callers still work. The name is the
+project-relative path.}
 
 \item{path}{Full file path to the saved result}
 
@@ -23,5 +24,11 @@ NULL invisibly
 \description{
 Internal function called by save_table(), save_figure(), etc. to track
 saved outputs in the results table.
+}
+\details{
+The result is named by its path from the project root, such as
+\code{outputs/tables/summary.csv}, as in framework-py, so files with the same
+name in different folders stay apart. A row from an older save, named by
+the file name alone, is renamed to the path when the file is saved again.
 }
 \keyword{internal}

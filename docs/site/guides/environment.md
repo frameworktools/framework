@@ -3,15 +3,15 @@ id: environment
 title: Environment
 section: features
 position: 14
-description: 'Managing environment variables, secrets, and R session state'
+description: 'Environment variables, secrets, and R session state'
 ---
 ## Overview
 
-Framework provides tools for managing environment variables (secrets, credentials) and R session state. Keep sensitive data out of your code and version control while maintaining reproducibility.
+Framework manages environment variables (secrets, credentials) and R session state. Sensitive values stay out of your code and version control.
 
-## Environment Variables
+## Environment variables
 
-### The .env File
+### .env file
 
 Store sensitive values in a `.env` file at your project root:
 
@@ -30,7 +30,7 @@ S3_SECRET_KEY=...
 
 Framework's `.gitignore` templates automatically exclude `.env` files to prevent accidental exposure.
 
-### Using env() in Configuration
+### env() in configuration
 
 Reference environment variables in `settings.yml` using `env()`:
 
@@ -54,7 +54,7 @@ connections:
 
 This keeps credentials out of version control while allowing configuration to be shared.
 
-### Default .env Template
+### Default .env template
 
 When you create a new project, Framework generates a `.env` template with common variables:
 
@@ -79,9 +79,9 @@ S3_SECRET_KEY=
 S3_SESSION_TOKEN=
 ```
 
-## R Session Management
+## R session management
 
-### Clear Environment
+### Clearing the session
 
 Reset your R session while optionally keeping specific objects:
 
@@ -99,7 +99,7 @@ env_clear(keep = c("config", "raw_data"))
 - Loaded packages (except base packages)
 - Runs garbage collection
 
-### Environment Summary
+### Environment summary
 
 Get an overview of your current R session:
 
@@ -138,9 +138,9 @@ Objects in Global Environment: 12
 Memory in use: 234.5 MB
 ```
 
-## Best Practices
+## Best practices
 
-### Never Hardcode Secrets
+### Secrets in configuration
 
 ```yaml
 # Bad - secrets in config
@@ -150,7 +150,7 @@ password: "my_secret_password"
 password: env("DB_PASSWORD")
 ```
 
-### Check .gitignore
+### Gitignored files
 
 Framework warns if `.env` isn't gitignored:
 
@@ -161,7 +161,7 @@ Warning: .env is NOT in .gitignore!
 
 All Framework project templates include `.env` in `.gitignore` by default.
 
-### Use Descriptive Variable Names
+### Variable names
 
 ```bash
 # Good - clear purpose
@@ -174,7 +174,7 @@ PASSWORD=...
 KEY=...
 ```
 
-### Document Required Variables
+### Variable documentation
 
 Add comments to your `.env` template:
 
@@ -192,7 +192,7 @@ S3_ACCESS_KEY=
 
 <div style="display: flex; justify-content: space-between">
 
-[← Database Connections](guide:connections)
+[← Connections](guide:connections)
 
 [Publishing →](guide:publishing)
 

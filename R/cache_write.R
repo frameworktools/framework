@@ -9,25 +9,19 @@
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_string(file, min.chars = 1, null.ok = TRUE)
 
-  # Get cache directory - uses FW_CACHE_DIR env var if set, otherwise config
-  cache_dir <- .get_cache_dir()
-
   config_obj <- settings_read()
   default_expire <- .normalize_expire_after(config_obj$options$data$cache_default_expire)
 
-  # Determine cache file path
-  cache_file <- if (is.null(file)) {
-    file.path(cache_dir, paste0(name, ".rds"))
-  } else {
-    file
-  }
+  # Determine cache file path (FW_CACHE_DIR, then the configured folder)
+  cache_file <- .cache_file_path(name, file)
 
   # Create cache directory if it doesn't exist (lazy creation)
   cache_dir <- dirname(cache_file)
   if (!dir.exists(cache_dir)) {
     tryCatch({
       dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
-      cli::cli_alert_info("Creating cache directory: {.path {cache_dir}}")
+      shown_dir <- .fw_project_relative_path(cache_dir)
+      cli::cli_alert_info("Creating cache directory: {.path {shown_dir}}")
     }, error = function(e) {
       cli::cli_abort("Failed to create cache directory {.path {cache_dir}}: {e$message}")
     })
@@ -76,6 +70,12 @@
   }
 
   on.exit(DBI::dbDisconnect(con))
+
+  # A framework.db made before scaffold() has no cache table yet, so the
+  # value would never be found again
+  if (!DBI::dbExistsTable(con, "cache") && !is.null(.find_project_root(getwd()))) {
+    suppressMessages(.ensure_framework_db())
+  }
 
   if (DBI::dbExistsTable(con, "cache")) {
     # Databases created before file_path existed get the column added

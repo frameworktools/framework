@@ -1,0 +1,34 @@
+{
+  "id": "python-data-analysis",
+  "name": "Python data analysis",
+  "description": "pandas and NumPy for data, matplotlib and seaborn for figures, and statsmodels for models.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "pandas": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "numpy": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "matplotlib": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "seaborn": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "statsmodels": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

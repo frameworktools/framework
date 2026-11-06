@@ -81,7 +81,7 @@ bootstrap <- function(path = ".", interactive = base::interactive(), packages = 
   }
 
   db_existed <- file.exists(file.path(root, "framework.db"))
-  .ensure_framework_db(root)
+  suppressMessages(.ensure_framework_db(root))
   done <- c(done, if (db_existed) "Updated framework.db" else "Created framework.db")
 
   if (packages) {

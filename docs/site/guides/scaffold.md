@@ -3,7 +3,7 @@ id: scaffold
 title: scaffold()
 section: features
 position: 1
-description: 'Initialize your project environment'
+description: 'Project environment setup'
 ---
 ## Overview
 
@@ -20,9 +20,7 @@ Or if you prefer explicit namespacing:
 framework::scaffold()
 ```
 
-That's it. You're ready to work.
-
-## What scaffold() Does
+## scaffold() steps
 
 When you call `scaffold()`, it:
 
@@ -35,7 +33,7 @@ When you call `scaffold()`, it:
 7. **Loads packages**: attaches packages with `auto_attach: true`
 8. **Sources functions**: loads all `.R` files from `functions/`
 
-## After Scaffolding
+## Session state after scaffold()
 
 Once `scaffold()` runs:
 
@@ -57,7 +55,7 @@ settings("author.name")
 settings("directories.notebooks")
 ```
 
-## Project Discovery
+## Project discovery
 
 `scaffold()` automatically finds your project by looking for:
 
@@ -65,7 +63,7 @@ settings("directories.notebooks")
 - `.Rproj` or `.code-workspace` file with settings nearby
 - Common Framework directories (`notebooks/`, `scripts/`, etc.)
 
-This means you can call `scaffold()` from any subdirectory:
+You can call `scaffold()` from any subdirectory:
 
 ```text
 my-project/
@@ -117,7 +115,7 @@ packages:
     auto_attach: false   # installed but not loaded
 ```
 
-### Functions Directory
+### Functions directory
 
 All `.R` files in your `functions/` directory are sourced:
 
@@ -154,7 +152,7 @@ options(scipen = 999)
 
 <div style="display: flex; justify-content: space-between">
 
-[← Making a New Project](guide:new-project)
+[← New projects](guide:new-project)
 
 [framework.db →](guide:framework-db)
 

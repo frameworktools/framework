@@ -1,10 +1,12 @@
 #' Get a database connection
 #'
-#' Gets a database connection based on the connection name in config.yml.
+#' Gets a database connection based on the connection name in settings.yml
+#' (or settings/connections.yml). SQLite and DuckDB paths are relative to the
+#' project root.
 #' For most use cases, prefer `db_query()` or `db_execute()` which handle
 #' connection lifecycle automatically.
 #'
-#' @param name Character. Name of the connection in config.yml (e.g., "postgres")
+#' @param name Character. Name of the connection in settings (e.g., "postgres")
 #' @return A database connection object (DBIConnection)
 #'
 #' @examples
@@ -42,6 +44,12 @@ db_connect <- function(name) {
   # Validate driver
   if (is.null(conn_config$driver)) {
     stop(sprintf("No driver specified for connection '%s'", name))
+  }
+
+  # File databases are relative to the project root, not the working
+  # directory, so notebooks/ opens the project's database
+  if (conn_config$driver %in% c("sqlite", "duckdb")) {
+    conn_config$database <- .fw_project_path(conn_config$database)
   }
 
   # Return connection

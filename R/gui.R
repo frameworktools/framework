@@ -61,6 +61,14 @@ setup <- function(port = 8080, browse = TRUE, location = NULL, url = NULL) {
 #' 'sodium' (and the system libsodium library). Everything else in Framework
 #' works without it.
 #'
+#' The GUI's API can change settings and `.env` files, so the server
+#' accepts API calls only from the GUI page it served. It rejects requests
+#' from other websites (by their `Origin` header), and requests that change
+#' things must carry a session cookie that only the GUI page gets. When bound
+#' to a loopback address, it answers only to `localhost` and `127.0.0.1`.
+#' Set `FW_GUI_ALLOWED_ORIGINS` (comma-separated) to allow another origin,
+#' such as a development server.
+#'
 #' @param port Port number to use (default: 8080)
 #' @param host Host address to bind to. Default "127.0.0.1" for local access only.
 #'   Use "0.0.0.0" to allow connections from other machines (requires appropriate
@@ -130,7 +138,38 @@ gui <- function(port = 8080, host = "127.0.0.1", browse = TRUE, route = NULL) {
   }
 
   # Create plumber API
-  pr <- plumber::plumber$new(plumber_file)
+  pr <- plumber::pr(plumber_file)
+
+  # The API can change settings and .env files, so only the GUI page this
+  # server sent may call it. See .gui_check_request().
+  session_token <- .gui_new_token()
+  loopback <- .gui_is_loopback(host)
+  allowed_origins <- .gui_allowed_origins(dev = is_dev_mode)
+
+  pr$filter("guard", function(req, res) {
+    problem <- .gui_check_request(req, session_token, loopback, allowed_origins)
+    if (!is.null(problem)) {
+      res$status <- problem$status
+      res$setHeader("Content-Type", "application/json")
+      res$body <- jsonlite::toJSON(list(error = problem$message), auto_unbox = TRUE)
+      return(res)
+    }
+    origin <- req$HTTP_ORIGIN %||% ""
+    if (nzchar(origin) && origin %in% allowed_origins) {
+      # The Vite dev server (gui-dev) runs on another port
+      res$setHeader("Access-Control-Allow-Origin", origin)
+      res$setHeader("Vary", "Origin")
+      res$setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+      res$setHeader("Access-Control-Allow-Headers", "Content-Type")
+      res$setHeader("Access-Control-Allow-Credentials", "true")
+    }
+    if (identical(req$REQUEST_METHOD, "OPTIONS")) {
+      res$status <- 204
+      res$body <- ""
+      return(res)
+    }
+    plumber::forward()
+  })
 
   # Add static file serving filter for GUI assets
   pr$filter("static", function(req, res) {
@@ -140,6 +179,11 @@ gui <- function(port = 8080, host = "127.0.0.1", browse = TRUE, route = NULL) {
       path <- req$PATH_INFO
       if (path == "/" || path == "") {
         path <- "/index.html"
+      }
+      # Stay inside the GUI folder
+      if (grepl("(^|/)\\.\\.(/|$)", path) || grepl("\\\\", path)) {
+        res$status <- 404
+        return(res)
       }
 
       file_path <- file.path(gui_path, gsub("^/", "", path))
@@ -171,26 +215,16 @@ gui <- function(port = 8080, host = "127.0.0.1", browse = TRUE, route = NULL) {
 
         res$status <- 200
         res$setHeader("Content-Type", content_type)
+        if (identical(content_type, "text/html")) {
+          # The page's own requests carry this cookie; other sites' do not
+          res$setHeader("Set-Cookie", .gui_cookie(session_token))
+        }
         res$body <- body
         return(res)
       }
     }
 
     plumber::forward()
-  })
-
-  # Enable CORS
-  pr$filter("cors", function(req, res) {
-    res$setHeader("Access-Control-Allow-Origin", "*")
-    res$setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-    res$setHeader("Access-Control-Allow-Headers", "Content-Type")
-
-    if (req$REQUEST_METHOD == "OPTIONS") {
-      res$status <- 200
-      return(list())
-    } else {
-      plumber::forward()
-    }
   })
 
   # Print startup message
@@ -228,4 +262,78 @@ gui <- function(port = 8080, host = "127.0.0.1", browse = TRUE, route = NULL) {
 
   # Run the server (blocking until Ctrl+C)
   pr$run(port = port, host = host)
+}
+
+
+# GUI request guard -------------------------------------------------------
+#
+# The GUI API has no login and can change settings and .env files. It runs
+# on this machine, so it trusts only:
+#   - a Host header that names this machine, when bound to a loopback
+#     address (stops DNS rebinding);
+#   - no Origin header, or an Origin equal to the server's own (or the
+#     gui-dev Vite server in development);
+#   - for requests that change things (POST, PUT, DELETE), the session
+#     cookie set when this server sent the GUI page. The cookie is
+#     SameSite=Strict, so another site's requests never carry it.
+
+#' @keywords internal
+.gui_new_token <- function() {
+  paste(as.character(openssl::rand_bytes(24)), collapse = "")
+}
+
+#' @keywords internal
+.gui_cookie <- function(token) {
+  sprintf("fw_gui_session=%s; Path=/; HttpOnly; SameSite=Strict", token)
+}
+
+#' @keywords internal
+.gui_is_loopback <- function(host) {
+  host %in% c("127.0.0.1", "localhost", "::1", "[::1]")
+}
+
+# Origins besides the server's own that may call the API: the gui-dev Vite
+# server in development, plus FW_GUI_ALLOWED_ORIGINS (comma-separated).
+#' @keywords internal
+.gui_allowed_origins <- function(dev = FALSE) {
+  extra <- trimws(strsplit(Sys.getenv("FW_GUI_ALLOWED_ORIGINS", ""), ",", fixed = TRUE)[[1]])
+  dev_origins <- if (dev) c("http://localhost:5175", "http://127.0.0.1:5175", "http://framework.test:5175") else character()
+  unique(c(dev_origins, extra[nzchar(extra)]))
+}
+
+#' @keywords internal
+.gui_cookie_value <- function(cookie_header, name = "fw_gui_session") {
+  if (is.null(cookie_header) || !nzchar(cookie_header)) {
+    return(NULL)
+  }
+  parts <- trimws(strsplit(cookie_header, ";", fixed = TRUE)[[1]])
+  hit <- parts[startsWith(parts, paste0(name, "="))]
+  if (length(hit) == 0) NULL else substring(hit[1], nchar(name) + 2)
+}
+
+# NULL when the request may go on, otherwise list(status, message)
+#' @keywords internal
+.gui_check_request <- function(req, token, loopback = TRUE, allowed_origins = character()) {
+  host_header <- req$HTTP_HOST %||% ""
+  host_name <- tolower(sub(":[0-9]+$", "", host_header))
+  if (loopback && !.gui_is_loopback(host_name)) {
+    return(list(status = 403L, message = "The Framework GUI answers only to localhost."))
+  }
+
+  origin <- req$HTTP_ORIGIN %||% ""
+  same_origin <- nzchar(host_header) && identical(origin, paste0("http://", host_header))
+  dev_origin <- nzchar(origin) && origin %in% allowed_origins
+  if (nzchar(origin) && !same_origin && !dev_origin) {
+    return(list(status = 403L, message = "Requests from other websites are not allowed."))
+  }
+
+  method <- toupper(req$REQUEST_METHOD %||% "GET")
+  is_api <- grepl("^/api/", req$PATH_INFO %||% "")
+  if (is_api && !method %in% c("GET", "HEAD", "OPTIONS") && !dev_origin) {
+    cookie <- .gui_cookie_value(req$HTTP_COOKIE)
+    if (is.null(cookie) || !identical(cookie, token)) {
+      return(list(status = 403L, message = "Reload the Framework GUI page, then try again."))
+    }
+  }
+  NULL
 }

@@ -24,17 +24,13 @@ status <- function() {
   }
 
   message("")
-  message("\033[1;34m")
-  message("===================================================")
-  message("  FRAMEWORK PROJECT STATUS")
-  message("===================================================")
-  message("\033[0m")
+  message(cli::style_bold(cli::col_blue("===================================================")))
+  message(cli::style_bold(cli::col_blue("  FRAMEWORK PROJECT STATUS")))
+  message(cli::style_bold(cli::col_blue("===================================================")))
   message("")
 
   # Framework version
-  message("\033[1;33m")
-  message("Framework:")
-  message("\033[0m")
+  message(cli::style_bold(cli::col_yellow("Framework:")))
   fw_version <- as.character(packageVersion("framework"))
   message(sprintf("  Version: %s", fw_version))
   message("")
@@ -42,9 +38,7 @@ status <- function() {
   # Project info
   config <- tryCatch(settings_read(), error = function(e) NULL)
   if (!is.null(config)) {
-    message("\033[1;33m")
-    message("Project:")
-    message("\033[0m")
+    message(cli::style_bold(cli::col_yellow("Project:")))
 
     if (!is.null(config$project_type)) {
       message(sprintf("  Type: %s", config$project_type))
@@ -64,9 +58,7 @@ status <- function() {
   }
 
   # Git status
-  message("\033[1;33m")
-  message("Git:")
-  message("\033[0m")
+  message(cli::style_bold(cli::col_yellow("Git:")))
 
   # Check if git is installed
   git_installed <- nzchar(Sys.which("git"))
@@ -102,12 +94,12 @@ status <- function() {
       message(sprintf("  Commits: %d", commit_count))
 
       if (uncommitted > 0) {
-        message(sprintf("  \033[1;31mUncommitted changes: %d\033[0m", uncommitted))
+        message("  ", cli::style_bold(cli::col_red(sprintf("Uncommitted changes: %d", uncommitted))))
       } else {
-        message("  \033[0;32mWorking tree clean\033[0m")
+        message("  ", cli::col_green("Working tree clean"))
       }
     } else {
-      message("  \033[1;31mNo commits yet\033[0m")
+      message("  ", cli::style_bold(cli::col_red("No commits yet")))
     }
   } else if (!git_installed) {
     message("  Git not installed")
@@ -119,9 +111,7 @@ status <- function() {
 
   # AI assistants
   if (!is.null(config) && !is.null(config$ai)) {
-    message("\033[1;33m")
-    message("AI Assistants:")
-    message("\033[0m")
+    message(cli::style_bold(cli::col_yellow("AI Assistants:")))
 
     ai_files <- c()
     if (file.exists("CLAUDE.md")) ai_files <- c(ai_files, "CLAUDE.md")
@@ -146,15 +136,13 @@ status <- function() {
   # Git hooks
   hook_path <- if (git_available) .hook_path() else NULL
   if (!is.null(hook_path) && file.exists(hook_path)) {
-    message("\033[1;33m")
-    message("Git Hooks:")
-    message("\033[0m")
+    message(cli::style_bold(cli::col_yellow("Git Hooks:")))
 
     if (!is.null(config) && !is.null(config$git) && !is.null(config$git$hooks)) {
       hooks <- config$git$hooks
 
       if (!is.null(hooks$data_security)) {
-        status <- if (isTRUE(hooks$data_security)) "\033[0;32menabled\033[0m" else "disabled"
+        status <- if (isTRUE(hooks$data_security)) cli::col_green("enabled") else "disabled"
         message(sprintf("  Data security: %s", status))
       }
     }
@@ -163,12 +151,10 @@ status <- function() {
   }
 
   # renv status
-  message("\033[1;33m")
-  message("Package Management:")
-  message("\033[0m")
+  message(cli::style_bold(cli::col_yellow("Package Management:")))
 
   if (file.exists("renv.lock")) {
-    message("  \033[0;32mrenv: enabled\033[0m")
+    message("  ", cli::col_green("renv: enabled"))
   } else {
     message("  renv: disabled")
   }
@@ -177,15 +163,14 @@ status <- function() {
 
   # Directories
   if (!is.null(config) && !is.null(config$directories)) {
-    message("\033[1;33m")
-    message("Directories:")
-    message("\033[0m")
+    message(cli::style_bold(cli::col_yellow("Directories:")))
 
     dirs <- config$directories
     for (name in names(dirs)) {
       path <- dirs[[name]]
       exists <- dir.exists(path)
-      status <- if (exists) "\033[0;32mok\033[0m" else "\033[1;31mx\033[0m"
+      # Missing folders are made on first use, as project_info() says
+      status <- if (exists) cli::col_green("ok") else cli::col_yellow("lazy")
       message(sprintf("  %s %s -> %s", status, name, path))
     }
 
@@ -194,12 +179,11 @@ status <- function() {
 
   # Packages
   if (!is.null(config) && !is.null(config$packages)) {
-    message("\033[1;33m")
-    message("Dependencies:")
-    message("\033[0m")
+    message(cli::style_bold(cli::col_yellow("Dependencies:")))
 
     packages <- .get_package_requirements(config)
-    auto_attached <- sum(sapply(packages, function(p) p$load))
+    # vapply: sapply() on no packages gave list(), and sum() failed
+    auto_attached <- sum(vapply(packages, function(p) isTRUE(p$load), logical(1)))
     total <- length(packages)
 
     message(sprintf("  Total: %d package%s", total, if (total == 1) "" else "s"))
@@ -223,9 +207,7 @@ status <- function() {
     }
 
     if (length(db_conns) > 0) {
-      message("\033[1;33m")
-      message("Database Connections:")
-      message("\033[0m")
+      message(cli::style_bold(cli::col_yellow("Database Connections:")))
 
       for (conn_name in names(db_conns)) {
         conn <- db_conns[[conn_name]]
@@ -241,9 +223,7 @@ status <- function() {
     }
   }
 
-  message("\033[1;34m")
-  message("===================================================")
-  message("\033[0m")
+  message(cli::style_bold(cli::col_blue("===================================================")))
   message("")
 
   invisible(NULL)

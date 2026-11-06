@@ -17,6 +17,12 @@
 #' 5. **Installs packages** - Any missing packages from the `packages` list
 #' 6. **Loads packages** - Attaches all configured packages
 #' 7. **Sources functions** - Loads all `.R` files from `functions/` directory
+#' 8. **Sources scaffold.R** - Runs the project's `scaffold.R`, if there is one
+#' 9. **Makes the first git commit** - In a git repository with no commits
+#'    yet, stages every file `.gitignore` allows and commits it as
+#'    "Project initialized." This covers projects whose creation skipped that
+#'    commit, for example when git had no user name or email. Repositories
+#'    with commits are left alone.
 #'
 #' After `scaffold()` completes, you have access to:
 #' - All packages listed in settings.yml
@@ -40,7 +46,8 @@
 #' - `connections`: Database connection configurations
 #'
 #' @return Invisibly returns NULL. The main effects are side effects:
-#'   loading packages, sourcing functions, and creating the `config` object.
+#'   loading packages and sourcing functions. No `config` object is created;
+#'   read settings with [settings()] or [settings_read()].
 #'
 #' @examples
 #' \donttest{
@@ -192,7 +199,8 @@ scaffold <- function(config_file = NULL) {
       stop(sprintf("Dotenv file not found at '%s'", dotenv_path))
     }
 
-    dotenv::load_dot_env(dotenv_path)
+    # Shell values win and empty lines are skipped, as in settings_read()
+    .fw_load_dotenv(dotenv_path)
   } else {
     # Only load .env if it exists (optional for projects without secrets)
     # Look in project root if available
@@ -203,7 +211,7 @@ scaffold <- function(config_file = NULL) {
     }
 
     if (file.exists(env_path)) {
-      dotenv::load_dot_env(env_path)
+      .fw_load_dotenv(env_path)
     }
   }
 }

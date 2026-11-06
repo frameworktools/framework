@@ -4,7 +4,7 @@
 #' automatically closed when the code block finishes, even if an error occurs.
 #' This prevents connection leaks and ensures proper resource cleanup.
 #'
-#' @param connection_name Character. Name of the connection in config.yml
+#' @param connection_name Character. Name of the connection in settings.yml
 #' @param code Expression to evaluate with the connection (use `conn` to access the connection)
 #'
 #' @return The result of evaluating `code`

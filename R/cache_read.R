@@ -28,9 +28,13 @@
 #' @export
 cache_list <- function() {
 
+  # Reading must not create an empty framework.db
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  db_file <- if (is.null(root)) "framework.db" else file.path(root, "framework.db")
+
   # Get database connection
 
-  con <- tryCatch(
+  con <- if (!file.exists(db_file)) NULL else tryCatch(
     .get_db_connection(),
     error = function(e) {
       warning(sprintf("Failed to connect to database: %s", e$message))
@@ -189,21 +193,8 @@ cache_list <- function() {
   checkmate::assert_string(file, min.chars = 1, null.ok = TRUE)
   expire_after <- .normalize_expire_after(expire_after)
 
-  # Get cache directory from config
-  cache_dir <- config("cache")
-  if (is.null(cache_dir)) {
-    stop("Cache directory not configured. Add 'cache: outputs/private/cache' to settings/directories.yml")
-  }
-
-  config_obj <- settings_read()
-  default_expire <- config_obj$options$data$cache_default_expire
-
-  # Determine cache file path
-  cache_file <- if (is.null(file)) {
-    file.path(cache_dir, paste0(name, ".rds"))
-  } else {
-    file
-  }
+  # Determine cache file path (FW_CACHE_DIR, then the configured folder)
+  cache_file <- .cache_file_path(name, file)
 
   if (!file.exists(cache_file)) {
     message(sprintf("Cache '%s' not found", name))
@@ -255,15 +246,18 @@ cache_list <- function() {
   }
 
   # Read the actual value from RDS
+  # A stored NULL is a valid value, so a read error is told apart from it
+  read_failed <- FALSE
   value <- tryCatch(
     readRDS(cache_file),
     error = function(e) {
       warning(sprintf("Failed to read cache file: %s", e$message))
-      return(NULL)
+      read_failed <<- TRUE
+      NULL
     }
   )
 
-  if (is.null(value)) {
+  if (read_failed) {
     message(sprintf("Failed to read cache '%s'", name))
     return(NULL)
   }
@@ -304,7 +298,8 @@ cache_list <- function() {
 #' Get a cached value
 #' @param name The cache name
 #' @param file Optional file path to store the cache (default: `cache/{name}.rds`)
-#' @param expire_after Optional expiration time in hours (default: from config)
+#' @param expire_after Not used. Expiry is set when the value is stored, with
+#'   [cache()] or [cache_remember()]. Kept so older code still runs.
 #' @return The cached value, or NULL if not found, expired, or hash mismatch
 #' @export
 cache_get <- function(name, file = NULL, expire_after = NULL) {
@@ -376,9 +371,11 @@ cache_remember <- function(name, expr, file = NULL, expire_after = NULL, refresh
     .remove_cache(name, file)
   }
 
-  result <- cache_get(name, file, effective_expire)
-  if (!is.null(result)) {
-    return(result)
+  # .get_cache() returns NULL on a miss and list(value = ...) on a hit, so a
+  # cached NULL counts as a hit
+  hit <- .get_cache(name, file, effective_expire)
+  if (!is.null(hit)) {
+    return(hit$value)
   }
 
   value <- tryCatch(

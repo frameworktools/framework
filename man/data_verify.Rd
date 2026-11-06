@@ -11,7 +11,10 @@ data_verify(name)
 \code{\link[=data_read]{data_read()}} / \code{\link[=data_save]{data_save()}}.}
 }
 \value{
-Invisibly, TRUE when every available record matches.
+Invisibly, TRUE when no available record disagrees with the file.
+It prints which records were compared. With no framework.db record and
+no cloud ledger entry, nothing is compared: it says "Not verified" and
+still returns TRUE, as framework-py does.
 }
 \description{
 Hashes the file behind a catalog name and compares it against the local

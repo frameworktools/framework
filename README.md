@@ -17,8 +17,8 @@ remotes::install_github("frameworktools/framework")
 framework::setup()
 
 # Create projects using your saved defaults
-framework::new()
-framework::new("my-analysis", "~/projects/my-analysis")
+framework::new_project()
+framework::new_project("my-analysis", "~/projects/my-analysis")
 framework::new_presentation("quarterly-review", "~/talks/q4")
 framework::new_course("stats-101", "~/teaching/stats")
 
@@ -314,3 +314,53 @@ packages:
 - Better database support (DuckDB, MySQL, SQL Server)
 - Results publishing to S3
 - Enhanced results tracking with blinding support
+
+### Publishing destinations
+
+`publish()` accepts tables, models, figures, rendered documents, and files.
+Choose a named destination in `settings.yml`:
+
+```yaml
+default:
+  publish:
+    default: lab-share
+    destinations:
+      lab-share:
+        driver: folder
+        path: /Volumes/lab/published
+        url: https://files.example.org/published
+      pages:
+        driver: github
+      cloud:
+        driver: cloud
+      bucket:
+        driver: s3
+        bucket: results
+```
+
+```r
+publish(mtcars, slug = "fuel-economy", title = "Fuel economy")
+publish(lm(mpg ~ wt + hp, mtcars), to = "pages", slug = "fuel-economy-model")
+publish("outputs/report.html", to = "cloud")
+```
+
+Folder and GitHub destinations include a site index, offline reader pages,
+SHA-256 file manifests, and version archives. Named S3 destinations upload
+immutable version folders and the latest bundle. An explicit `to` overrides
+`publish.default`. Without either, existing bucket and Cloud selection applies.
+Legacy bucket uploads retain their file paths and formats.
+
+Passwords and unlisted links require Cloud. Private folder and S3 destinations
+use `visibility: private` and destination access controls. The `private: true`
+configuration remains a compatibility alias. S3 also requires API confirmation of
+a non-public bucket policy and all Public Access Block settings.
+Private GitHub Pages requires confirmation from GitHub's Pages API through
+an authenticated `gh` command. Unsupported sharing options fail before delivery.
+
+External deliveries with a project token record metadata in Cloud. File contents
+and local folder paths stay at the destination. Tracking failures produce a warning
+and preserve the completed delivery. Legacy bucket metadata uses version 1;
+conflicting updates produce a tracking warning.
+
+`new_project()` is the preferred project creation function. `new()` remains
+available for existing scripts and can mask `methods::new()` when attached.

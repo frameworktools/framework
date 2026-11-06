@@ -7,7 +7,7 @@
 db_with(connection_name, code)
 }
 \arguments{
-\item{connection_name}{Character. Name of the connection in config.yml}
+\item{connection_name}{Character. Name of the connection in settings.yml}
 
 \item{code}{Expression to evaluate with the connection (use \code{conn} to access the connection)}
 }

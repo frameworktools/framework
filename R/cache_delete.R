@@ -7,20 +7,8 @@
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_string(file, min.chars = 1, null.ok = TRUE)
 
-  # Get config
-  config <- settings_read()
-  cache_dir <- config$directories$cache %||% config$options$data$cache_dir
-
-  if (is.null(cache_dir) || !nzchar(cache_dir)) {
-  stop("Cache directory not configured. Add 'cache: outputs/private/cache' to settings/directories.yml")
-  }
-
-  # Determine cache file path
-  cache_file <- if (is.null(file)) {
-    file.path(cache_dir, paste0(name, ".rds"))
-  } else {
-    file
-  }
+  # Determine cache file path (FW_CACHE_DIR, then the configured folder)
+  cache_file <- .cache_file_path(name, file)
 
   if (file.exists(cache_file)) {
     tryCatch(
@@ -69,13 +57,8 @@ cache_forget <- function(name, file = NULL) {
 #' @return Invisibly returns NULL.
 #' @export
 cache_flush <- function() {
-  # Get config
-  config <- settings_read()
-  cache_dir <- config$directories$cache %||% config$options$data$cache_dir
-
-  if (is.null(cache_dir) || !nzchar(cache_dir)) {
-  stop("Cache directory not configured. Add 'cache: outputs/private/cache' to settings/directories.yml")
-  }
+  # FW_CACHE_DIR, then the configured folder
+  cache_dir <- .get_cache_dir()
 
   # Remove all RDS files
   if (dir.exists(cache_dir)) {
@@ -98,6 +81,17 @@ cache_flush <- function() {
 
   if (!is.null(con)) {
     on.exit(DBI::dbDisconnect(con))
+    # Entries saved with a custom `file =` live outside the cache folder
+    custom <- tryCatch(
+      if ("file_path" %in% DBI::dbListFields(con, "cache")) {
+        DBI::dbGetQuery(con, "SELECT file_path FROM cache WHERE file_path IS NOT NULL")$file_path
+      },
+      error = function(e) NULL
+    )
+    for (path in custom) {
+      path <- .fw_project_path(path)
+      if (grepl("\\.rds$", path, ignore.case = TRUE) && file.exists(path)) unlink(path)
+    }
     tryCatch(
       DBI::dbExecute(con, "DELETE FROM cache"),
       error = function(e) {

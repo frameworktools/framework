@@ -1,15 +1,15 @@
 ---
 id: ai-assistants
-title: AI Assistants
+title: AI assistants
 section: features
 position: 11
-description: 'Configuring AI coding assistants in Framework projects'
+description: 'Context files for AI coding assistants'
 ---
 ## Overview
 
 Framework generates and maintains context files for AI coding assistants, giving them project-specific knowledge about your Framework environment, data catalog, and directory structure.
 
-## Supported Assistants
+## Supported assistants
 
 Framework supports three AI assistant configurations:
 
@@ -25,17 +25,17 @@ framework::setup()
 
 ![AI Assistants GUI](images/ai-assistants-gui.png)
 
-## Canonical Context File
+## Canonical context file
 
-The canonical file is your source of truth. Choose one format as primary—Framework mirrors its content to other assistant files when sync hooks run.
+The canonical file is your source of truth. Choose one format as primary. Framework mirrors its content to the other assistant files when sync hooks run.
 
 Options: `CLAUDE.md`, `AGENTS.md`, or `.github/copilot-instructions.md`
 
 By default, Framework creates `CLAUDE.md` even if you haven't listed assistants, so `ai_regenerate_context()` works immediately. Change the canonical file in settings if you prefer a different file.
 
-## Context Templates
+## Context templates
 
-Framework provides a default template that gives AI assistants deep knowledge of your project. The template includes:
+Framework provides a default template that describes your project to AI assistants. The template includes:
 
 - Framework conventions and best practices
 - Your project's directory structure
@@ -45,9 +45,9 @@ Framework provides a default template that gives AI assistants deep knowledge of
 
 Sections marked with `@framework:regenerate` are automatically updated when your project changes, while your custom notes are preserved.
 
-You can customize the template under **Templates** in the GUI, but the default is designed to make assistants highly effective with Framework projects out of the box.
+You can customize the template under **Templates** in the GUI.
 
-## Keeping Files in Sync
+## File sync
 
 If you enable multiple assistants, use the **Sync AI Files Before Commit** hook to keep them synchronized:
 
@@ -57,9 +57,9 @@ git:
     ai_sync: true
 ```
 
-When you commit, Framework copies content from your canonical file to the others, ensuring all assistants have identical instructions.
+When you commit, Framework copies content from your canonical file to the others. All assistants then have the same instructions.
 
-## Regenerating Context
+## Context regeneration
 
 Update the auto-generated sections when your project changes:
 
@@ -73,7 +73,7 @@ This refreshes directory structure, data catalog entries, and package lists whil
 
 <div style="display: flex; justify-content: space-between">
 
-[← Git Integration](guide:git)
+[← Git integration](guide:git)
 
 [Caching →](guide:caching)
 

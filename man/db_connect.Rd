@@ -7,13 +7,15 @@
 db_connect(name)
 }
 \arguments{
-\item{name}{Character. Name of the connection in config.yml (e.g., "postgres")}
+\item{name}{Character. Name of the connection in settings (e.g., "postgres")}
 }
 \value{
 A database connection object (DBIConnection)
 }
 \description{
-Gets a database connection based on the connection name in config.yml.
+Gets a database connection based on the connection name in settings.yml
+(or settings/connections.yml). SQLite and DuckDB paths are relative to the
+project root.
 For most use cases, prefer \code{db_query()} or \code{db_execute()} which handle
 connection lifecycle automatically.
 }

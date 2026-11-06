@@ -13,5 +13,10 @@ read_framework_template(name)
 Character scalar containing template contents
 }
 \description{
-Read the contents of a Framework template
+Templates are your versions of Framework's starter files, kept in the
+\verb{templates/} folder of your Framework settings. Three are used:
+\code{"notebook"} by \code{\link[=make_notebook]{make_notebook()}} and \code{\link[=make_qmd]{make_qmd()}} with the default stub,
+\code{"script"} by \code{\link[=make_script]{make_script()}}, and \code{"presentation"} by \code{\link[=make_revealjs]{make_revealjs()}}.
+A project's own \verb{stubs/} folder still comes first. The gitignore and AI
+templates are kept for older settings and are not used by project creation.
 }

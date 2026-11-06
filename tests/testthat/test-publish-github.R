@@ -46,15 +46,16 @@ test_that("publish(to = 'github') commits only published/<slug> and pushes", {
 
   expect_identical(r$git("log", "-1", "--format=%s"), "Publish report")
   committed <- r$git("show", "--name-only", "--format=", "HEAD")
-  expect_setequal(committed, c("published/report/index.html", "published/report/report_files/libs/a.js"))
+  expect_setequal(committed, c("published/report/artifact.json", "published/report/index.html", "published/report/report.html", "published/report/report_files/libs/a.js", "published/index.html", "published/index.json", "published/report/v/1/artifact.json", "published/report/v/1/index.html", "published/report/v/1/report.html", "published/report/v/1/report_files/libs/a.js"))
   # The user's staged file stays staged and out of the commit
   expect_identical(r$git("diff", "--cached", "--name-only"), "notes.txt")
   remote_head <- system2("git", c("-C", shQuote(r$bare), "log", "-1", "--format=%s", "main"), stdout = TRUE)
   expect_identical(remote_head, "Publish report")
 
-  # Unchanged: no commit
-  expect_message(publish("outputs/public/report.html", to = "github"), "No change")
-  expect_identical(length(r$git("log", "--format=%h")), 2L)
+  # Every publish preserves a version, including identical content.
+  suppressMessages(publish("outputs/public/report.html", to = "github"))
+  expect_identical(length(r$git("log", "--format=%h")), 3L)
+  expect_true(file.exists("published/report/v/2/artifact.json"))
 
   # The folder is replaced completely
   unlink("outputs/public/report_files", recursive = TRUE)
@@ -77,7 +78,7 @@ test_that("publish(to = 'github') needs a GitHub remote", {
   system2("git", c("remote", "add", "origin", "https://gitlab.com/ada/study.git"))
   expect_error(publish("x.html", to = "github"), "GitHub first")
   expect_error(publish("x.html", to = "pages"), "github")
-  expect_error(publish("x.html", to = "github", slug = "a b"), "slug")
+  expect_identical(framework:::.fw_bundle_slug("a b"), "a-b")
 })
 
 test_that("GitHub Pages slugs are lowercase, and hosted-only arguments are errors", {
@@ -87,7 +88,7 @@ test_that("GitHub Pages slugs are lowercase, and hosted-only arguments are error
   writeLines("<p>x</p>", "Final Report (v2).html")
   expect_identical(suppressMessages(publish("Final Report (v2).html", to = "github")),
                    "https://ada.github.io/study/final-report-v2/")
-  expect_error(publish("Final Report (v2).html", to = "github", slug = "Main"), "lowercase")
+  expect_identical(suppressMessages(publish("Final Report (v2).html", to = "github", slug = "Main")), "https://ada.github.io/study/main/")
   expect_error(publish("Final Report (v2).html", to = "github", slug = TRUE), "slug = TRUE/FALSE")
   expect_error(publish("Final Report (v2).html", to = "github", dest = "a"), "dest")
 

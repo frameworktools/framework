@@ -54,3 +54,14 @@ default:
   security:
     data_key: !expr Sys.getenv("DATA_ENCRYPTION_KEY", "")
     results_key: !expr Sys.getenv("RESULTS_ENCRYPTION_KEY", "")
+
+  # Named publishing destinations. Explicit publish(to=...) overrides this default.
+  # publish:
+  #   default: lab-share
+  #   destinations:
+  #     lab-share:
+  #       driver: folder
+  #       path: /Volumes/lab/published
+  #       url: https://files.example.org/published
+  #     cloud:
+  #       driver: cloud

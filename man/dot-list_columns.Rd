@@ -55,7 +55,7 @@ Uses database-specific introspection methods via S3 dispatch.
 \examples{
 \donttest{
 if (FALSE) {
-conn <- connection_get("my_db")
+conn <- db_connect("my_db")
 columns <- .list_columns(conn, "users")
 DBI::dbDisconnect(conn)
 }

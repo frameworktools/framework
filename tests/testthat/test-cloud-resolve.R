@@ -7,6 +7,7 @@ local_signed_in <- function(env = parent.frame()) {
   testthat::local_mocked_bindings(
     .fw_cloud_token = function(url = NULL) "fw_test",
     .fw_cloud_url = function(url = NULL, scope = "user") "https://cloud.test:8443",
+    .fw_api = function(...) stop("Cloud registration unavailable in this test"),
     .env = env
   )
   withr::local_options(rlang_interactive = FALSE, .local_envir = env)
@@ -95,7 +96,10 @@ test_that("offline with no usable defaults stops in scripts unless offline = TRU
 
 test_that("offline = TRUE never contacts the cloud", {
   local_signed_in()
-  local_mocked_bindings(.fw_resolve_request = function(...) stop("contacted the cloud"))
+  local_mocked_bindings(
+    .fw_resolve_request = function(...) stop("contacted the cloud"),
+    .fw_api = function(...) testthat::fail("offline creation attempted registration")
+  )
   location <- create(offline = TRUE)
   expect_true(file.exists(file.path(location, "_quarto.yml")))
 })
@@ -133,4 +137,52 @@ test_that("the resolve request sorts offline, auth, and conflict responses", {
     status_code = 422, headers = "Content-Type: application/json",
     body = charToRaw('{"message":"Invalid","errors":{"tools.quarto":["The Course blueprint requires Quarto."]}}')
   )), "requires Quarto")
+})
+
+
+test_that("new_project registers its resolved choices and saves an ignored project token", {
+  local_signed_in()
+  sent <- NULL
+  local_mocked_bindings(
+    .fw_resolve_request = function(choices, token, url) {
+      list(status = "ok", envelope = scripts_envelope(), revision = "rev-9", notices = character())
+    },
+    .fw_api = function(path, token, method = "GET", body = NULL, url = NULL) {
+      sent <<- list(path = path, body = body, method = method)
+      list(slug = "study", token = "1|project-token")
+    }
+  )
+  location <- create(type = "project", tools = c(targets = TRUE), skill_sets = "framework")
+  expect_identical(sent$path, "/api/v2/projects")
+  expect_identical(sent$method, "POST")
+  expect_identical(sent$body, list(
+    language = "r", name = "Study", blueprint = "framework/project",
+    tools = list(targets = TRUE), skill_sets = list("framework")
+  ))
+  expect_true("FW_PROJECT_TOKEN=1|project-token" %in% readLines(file.path(location, ".env")))
+  expect_true("FW_CLOUD_URL=https://cloud.test:8443" %in% readLines(file.path(location, ".env")))
+  expect_true(".env" %in% readLines(file.path(location, ".gitignore")))
+})
+
+test_that("failed Cloud registration leaves a usable local project", {
+  local_signed_in()
+  local_mocked_bindings(
+    .fw_resolve_request = function(...) {
+      list(status = "ok", envelope = scripts_envelope(), revision = "rev-9", notices = character())
+    },
+    .fw_api = function(...) stop("server unavailable")
+  )
+  location <- file.path(withr::local_tempdir(), "study")
+  expect_message(new_project("Study", location, browse = FALSE), "Cloud project registration skipped: server unavailable")
+  expect_true(file.exists(file.path(location, "settings.yml")))
+  expect_false(any(grepl("^FW_PROJECT_TOKEN=", readLines(file.path(location, ".env")))))
+})
+
+
+test_that("bare project registration does not create a token file", {
+  local_signed_in()
+  location <- withr::local_tempdir()
+  local_mocked_bindings(.fw_api = function(...) list(slug = "bare", token = "1|bare-token"))
+  expect_message(framework:::.fw_cloud_register_project(location, "Bare", "bare", list(language = "r", name = "Bare")), "Registered on")
+  expect_false(file.exists(file.path(location, ".env")))
 })

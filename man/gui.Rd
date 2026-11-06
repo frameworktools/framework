@@ -28,6 +28,14 @@ project management, and settings configuration.
 The GUI requires the optional 'plumber' package, which in turn depends on
 'sodium' (and the system libsodium library). Everything else in Framework
 works without it.
+
+The GUI's API can change settings and \code{.env} files, so the server
+accepts API calls only from the GUI page it served. It rejects requests
+from other websites (by their \code{Origin} header), and requests that change
+things must carry a session cookie that only the GUI page gets. When bound
+to a loopback address, it answers only to \code{localhost} and \verb{127.0.0.1}.
+Set \code{FW_GUI_ALLOWED_ORIGINS} (comma-separated) to allow another origin,
+such as a development server.
 }
 \examples{
 \donttest{

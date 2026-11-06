@@ -21,13 +21,15 @@
 #'   }
 #'
 #' @details
-#' The security audit performs the following checks:
+#' The security audit performs the following checks. Each is a row of
+#' `summary` (named by its `check`), and its details are in `findings` under
+#' the key in brackets:
 #' \itemize{
-#'   \item **gitignore_coverage**: Verifies all private data files are in .gitignore
-#'   \item **git_history**: Scans git history for accidentally committed data files
-#'   \item **orphaned_files**: Finds data files outside configured directories
-#'   \item **private_data_exposure**: Checks if private data is tracked by git
-#'   \item **secrets_exposure**: Checks if `.env` files (which hold passwords and
+#'   \item **gitignore_coverage** (`gitignore_issues`): Verifies all private data files are in .gitignore
+#'   \item **git_history** (`git_history_issues`): Scans git history for accidentally committed data files
+#'   \item **orphaned_files** (`orphaned_files`): Finds data files outside configured directories
+#'   \item **private_data_exposure** (`private_data_exposure`): Checks if private data is tracked by git
+#'   \item **secrets_exposure** (`secrets_exposure`): Checks if `.env` files (which hold passwords and
 #'     tokens) are tracked by git
 #' }
 #'
@@ -74,7 +76,7 @@ git_security_audit <- function(config_file = NULL,
   checkmate::assert_string(config_file, min.chars = 1, null.ok = TRUE)
   checkmate::assert_logical(check_git_history, len = 1)
   checkmate::assert(
-    checkmate::check_string(history_depth),
+    checkmate::check_choice(history_depth, c("all", "shallow")),
     checkmate::check_number(history_depth, lower = 1)
   )
   checkmate::assert_logical(auto_fix, len = 1)
@@ -408,8 +410,11 @@ git_security_audit <- function(config_file = NULL,
       next
     }
 
-    # Check if directory itself is ignored
-    is_ignored <- .check_path_ignored(dir_path, gitignore_patterns)
+    # Check if directory itself is ignored. A pattern such as
+    # `**/scratch/**` ignores only what is inside the folder, which git
+    # treats as ignoring the folder, so test a path inside it too.
+    is_ignored <- .check_path_ignored(dir_path, gitignore_patterns) ||
+      .check_path_ignored(file.path(sub("/+$", "", dir_path), ".framework-probe"), gitignore_patterns)
 
     if (!is_ignored) {
       issues <- rbind(issues, data.frame(

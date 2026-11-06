@@ -33,7 +33,8 @@
 \item{column_name}{Character. Name of the column to check}
 }
 \value{
-Logical. TRUE if column exists, FALSE otherwise
+Logical. TRUE if column exists, FALSE otherwise. The name must
+match exactly, including case.
 }
 \description{
 Cross-database method to check if a column exists in a table.
@@ -57,7 +58,7 @@ Uses database-specific introspection methods via S3 dispatch.
 \examples{
 \donttest{
 if (FALSE) {
-conn <- connection_get("my_db")
+conn <- db_connect("my_db")
 has_deleted_at <- .has_column(conn, "users", "deleted_at")
 DBI::dbDisconnect(conn)
 }

@@ -54,7 +54,7 @@ connection_pool <- function(name,
     stop(
       "Connection pooling requires the 'pool' package.\n\n",
       "Install with: install.packages('pool')\n\n",
-      "Alternatively, use connection_get() for single-use connections.",
+      "Alternatively, use db_connect() for single-use connections.",
       call. = FALSE
     )
   }
@@ -109,6 +109,9 @@ connection_pool <- function(name,
 
   # Validate driver package
   .validate_driver(conn_config$driver)
+  if (conn_config$driver %in% c("sqlite", "duckdb")) {
+    conn_config$database <- .fw_project_path(conn_config$database)
+  }
 
   # Create pool based on driver
   new_pool <- tryCatch({

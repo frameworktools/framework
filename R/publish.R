@@ -85,7 +85,7 @@ NULL
   }
   paths <- source
   if (dir.exists(source)) {
-    paths <- c(source, list.files(source, recursive = TRUE, full.names = TRUE))
+    paths <- c(source, list.files(source, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
   }
   paths <- normalizePath(paths, winslash = "/", mustWork = FALSE)
   flagged <- paths[grepl("private", sub("^/private/", "/", paths), ignore.case = TRUE)]
@@ -189,17 +189,18 @@ NULL
   )
 }
 
-#' Publish files to S3 or Framework Cloud
+#' Publish files and artifacts
 #'
-#' Upload files or directories to an S3 bucket. This is the generic publishing
-#' function - use `publish_notebook()` for Quarto documents or `publish_data()`
-#' for data files.
+#' Publish files, directories, and R objects to named Cloud, GitHub, folder,
+#' or S3 destinations. `publish_notebook()` renders Quarto documents.
+#' `publish_data()` retains the low-level bucket export API.
 #'
 #' With no `connection` and no storage bucket in settings.yml, a project set
 #' up from Framework Cloud publishes to its server instead (the
 #' `FW_CLOUD_URL` and `FW_PROJECT_TOKEN` in the project's `.env`). Each
-#' publish to Framework Cloud adds a new version of the document. Documents
-#' start private, shared by a private link; `slug` turns on a readable URL
+#' publish to Framework Cloud adds a new version of the document. Cloud
+#' provides owner-only access, public and unlisted links, and password protection.
+#' A new artifact is unlisted. Set `visibility = "public"` for a readable URL
 #' (`/@handle/project/slug`).
 #'
 #' @param source A local file or rendered directory path, or an R object.
@@ -231,8 +232,9 @@ NULL
 #'     are installed.
 #'
 #'   Framework Cloud receives tables, tests, and models as structured JSON.
-#'   Storage buckets receive CSV tables, HTML summaries for `lm` and `glm`,
-#'   and JSON for other models and tests.
+#'   Legacy storage uploads receive CSV tables, HTML summaries for `lm` and
+#'   `glm`, and JSON for other models and tests. Named destinations receive
+#'   typed bundles with offline readers and SHA-256 file manifests.
 #' @param dest Character or NULL. Destination path in S3 bucket. If NULL,
 #'   derives from source filename. On Framework Cloud, use `slug` instead;
 #'   `dest` still names the document there when `slug` isn't a string, for
@@ -247,34 +249,44 @@ NULL
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
-#' @param to Character or NULL. `"cloud"` selects Framework Cloud even when a
+#' @param to Named destination from `publish.destinations`, or a driver name.
+#'   `publish.default` selects the default destination. `"folder"` needs a named
+#'   destination with a path. `"s3"` and `"bucket"` retain legacy storage uploads.
+#'   `"cloud"` selects Framework Cloud even when a
 #'   bucket is configured. `"bucket"` selects storage. `"github"` publishes to the project's GitHub
 #'   Pages site instead of a storage bucket or Framework Cloud: the document
-#'   is copied to `published/<slug>/index.html` (with its `<name>_files/`
-#'   folder), only that folder is committed, and the commit is pushed. The
+#'   is bundled under `published/<slug>/`. The artifact, version archives, and
+#'   site index are committed and pushed. The
 #'   site deploys from the default branch once "Publish with GitHub Pages" is
 #'   on for the project in Framework Cloud, and it is public even when the
 #'   repository is private, so an interactive session asks first. `slug`
-#'   names the folder: lowercase letters, digits, `.`, `_`, and `-`. The
+#'   names the folder. Runs of characters outside lowercase letters and digits
+#'   become `-`. The
 #'   default is the file name lowercased, with other characters as `-`
 #'   ("Final Report (v2).html" becomes `final-report-v2`). A folder needs an
 #'   `index.html` at its top. `dest`, `connection`, and a `TRUE`/`FALSE`
 #'   `slug` are errors here.
-#' @param slug Framework Cloud only. A string names the document and turns on
-#'   its readable URL, for example `slug = "main-results"`. `TRUE` turns the
-#'   readable URL on with the name derived from `dest` or the file name, and
-#'   `FALSE` turns it off. `NULL` (the default) publishes under the derived
-#'   name and leaves the document's setting as it is (new documents start
-#'   private). Ignored, with a warning, for S3. With `to = "github"`, a
-#'   string names the folder under `published/`.
-#' @param title Artifact title on Framework Cloud.
-#' @param description Artifact description on Framework Cloud.
-#' @param kind Optional artifact kind override on Framework Cloud.
+#' @param slug Framework Cloud only. A string names the document, for
+#'   example `slug = "main-results"`. It does not change visibility: a new
+#'   artifact is unlisted and an existing one keeps its visibility. `TRUE`
+#'   makes the artifact public under the name derived from `dest` or the file
+#'   name, and `FALSE` makes it unlisted. `NULL` (the default) publishes
+#'   under the derived name. Ignored, with a warning, for S3. With
+#'   `to = "github"`, a string names the folder under `published/`.
+#' @param title Artifact title.
+#' @param description Artifact description.
+#' @param kind Optional artifact kind override.
 #' @param password Password required to view the artifact on Framework Cloud.
-#' @param visibility Artifact visibility: `"public"` or `"unlisted"`.
+#' @param visibility Artifact visibility: `"public"`, `"unlisted"`, or `"private"`.
+#'   Set `"public"` for a readable URL. An explicit visibility wins over a
+#'   `TRUE` or `FALSE` `slug`. Without one, a new artifact is unlisted.
+#'   Unsupported access controls fail before delivery. Private folder and S3
+#'   destinations use `visibility: private` and destination access controls.
+#'   `private: true` remains a compatibility alias. S3 requires API confirmation
+#'   of a non-public bucket policy and Public Access Block settings.
 #' @param collection Existing project collection ID or slug. Follows the latest artifact version.
 #' @param share_unlisted Explicit consent to share an unlisted artifact with collection readers.
-#' @return Character. The public URL(s) of uploaded file(s).
+#' @return Character. Published URLs, or the local path for a folder without a URL.
 #'
 #' @export
 #'
@@ -295,7 +307,7 @@ NULL
 #' publish("data.csv", connection = "s3_backup")
 #'
 #' # Framework Cloud: a new version with a readable URL
-#' publish("outputs/report.html", slug = "main-results")
+#' publish("outputs/report.html", slug = "main-results", visibility = "public")
 #'
 #' # GitHub Pages: commits published/main-results/ and pushes it
 #' publish("outputs/report.html", to = "github", slug = "main-results")
@@ -305,6 +317,29 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
                     self_contained = TRUE, slug = NULL, include_private = FALSE,
                     to = NULL, title = NULL, description = NULL, kind = NULL,
                     password = NULL, visibility = NULL, collection = NULL, share_unlisted = FALSE) {
+  checkmate::assert_flag(share_unlisted)
+  checkmate::assert_flag(overwrite)
+  checkmate::assert_flag(self_contained)
+  checkmate::assert_flag(include_private)
+  .fw_assert_slug(slug)
+  if (is.character(source) && is.null(dim(source))) {
+    checkmate::assert_string(source, min.chars = 1)
+    if (!file.exists(source)) stop("Source not found: ", source, call. = FALSE)
+    .fw_confirm_private(source, include_private)
+  }
+  if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
+  destination <- .fw_publish_destination(to, connection)
+  visibility <- .fw_publish_visibility(destination, visibility)
+  .fw_publish_capabilities(destination, visibility, password, collection)
+  if (!isTRUE(destination$legacy) && destination$driver != "cloud") {
+    return(.fw_publish_bundle(source, destination, dest, connection, overwrite,
+                              self_contained, slug, include_private, title,
+                              description, kind, password, visibility, collection))
+  }
+  bundle <- .fw_bundle_build(source, slug, title, description, kind, self_contained, include_private)
+  on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
+  if (destination$driver == "cloud") to <- "cloud"
+  if (isTRUE(destination$legacy) && identical(to, "s3")) to <- "bucket"
   if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
   if (!is.character(source) || !is.null(dim(source))) {
     stage <- tempfile("fw_artifact_")
@@ -331,6 +366,10 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
   checkmate::assert_choice(to, c("cloud", "bucket", "github"), null.ok = TRUE)
   .fw_confirm_private(source, include_private)
 
+  if (destination$driver == "cloud" && tolower(tools::file_ext(source)) %in% c("qmd", "rmd")) {
+    source <- if (self_contained) file.path(bundle$path, "index.html") else bundle$path
+    if (is.null(slug)) dest <- dest %||% bundle$manifest$slug
+  }
   metadata <- list(title, description, kind, password, visibility, collection)
   if (identical(to, "github")) {
     if (any(!vapply(metadata, is.null, logical(1)))) {
@@ -344,9 +383,6 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
                              title = title, description = description, kind = kind,
                              password = password, visibility = visibility,
                              collection = collection, share_unlisted = share_unlisted))
-  }
-  if (any(!vapply(metadata, is.null, logical(1)))) {
-    stop("Artifact metadata requires publishing to Framework Cloud.", call. = FALSE)
   }
   .fw_warn_slug_ignored(slug)
 
@@ -367,6 +403,8 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
     message(sprintf("Published: %s", urls))
   }
 
+  .fw_track_external(bundle, list(driver = "s3", url = if (length(urls)) urls[[1]] else NULL,
+                                  version_url = NULL, version = 1L), visibility)
   invisible(urls)
 }
 
@@ -398,8 +436,8 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
-#' @param slug Framework Cloud only: name the document and turn on its
-#'   readable URL. See [publish()]. With `to = "github"`, names the folder
+#' @param slug Framework Cloud only: name the document. It does not make
+#'   the document public. See [publish()]. With `to = "github"`, names the folder
 #'   under `published/`.
 #' @param to Character or NULL. `"cloud"` selects Framework Cloud and `"bucket"`
 #'   selects storage. `"github"` publishes the rendered HTML to the
@@ -436,6 +474,17 @@ publish_notebook <- function(file,
                              collection = NULL,
                              share_unlisted = FALSE,
                              ...) {
+  checkmate::assert_file_exists(file, extension = c("qmd", "Qmd", "QMD"))
+  .fw_confirm_private(file, include_private)
+  destination <- .fw_publish_destination(to, connection)
+  if (!isTRUE(destination$legacy) || destination$driver == "cloud") {
+    if (!identical(format, "html")) stop("Static publishing requires HTML output.", call. = FALSE)
+    return(publish(file, dest = dest, connection = connection, self_contained = self_contained,
+                   slug = slug, include_private = include_private, to = to,
+                   collection = collection, share_unlisted = share_unlisted))
+  }
+  if (destination$driver == "cloud") to <- "cloud"
+  if (isTRUE(destination$legacy) && identical(to, "s3")) to <- "bucket"
   checkmate::assert_flag(share_unlisted)
   if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
   if (!is.null(collection) && identical(to, "github")) {
@@ -513,13 +562,18 @@ publish_notebook <- function(file,
     stop("Quarto render failed:\n", paste(result, collapse = "\n"), call. = FALSE)
   }
 
-  # Find the output file
-  output_files <- list.files(temp_dir, pattern = "\\.html$", full.names = TRUE)
+  # Find the output file. Inside a Quarto project, Quarto keeps the source
+  # folder under --output-dir (notebooks/x.qmd -> <tmp>/notebooks/x.html).
+  expected <- paste0(tools::file_path_sans_ext(basename(file)), ".html")
+  output_files <- list.files(temp_dir, pattern = "\\.html$", full.names = TRUE, recursive = TRUE)
+  output_files <- output_files[!grepl("_files/", output_files, fixed = TRUE)]
   if (length(output_files) == 0) {
     stop("No HTML output found after rendering", call. = FALSE)
   }
 
-  main_output <- output_files[1]
+  named <- output_files[basename(output_files) == expected]
+  main_output <- if (length(named)) named[1] else output_files[1]
+  output_root <- dirname(main_output)
 
   # Determine base destination (without extension)
   if (is.null(dest)) {
@@ -530,6 +584,8 @@ publish_notebook <- function(file,
     base_dest <- sub("\\.html$", "", base_dest)
   }
 
+  bundle <- .fw_bundle_build(main_output, slug = base_dest, include_private = TRUE)
+  on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   # Upload based on static_hosting setting
   if (static_hosting) {
     # Static hosting: upload to dest/index.html, return dest/
@@ -541,10 +597,10 @@ publish_notebook <- function(file,
       # Upload entire directory (including _files folder)
       # Rename main file to index.html if needed
       if (basename(main_output) != "index.html") {
-        new_path <- file.path(temp_dir, "index.html")
+        new_path <- file.path(output_root, "index.html")
         file.rename(main_output, new_path)
       }
-      urls <- .s3_upload_dir(temp_dir, base_dest, s3_config)
+      urls <- .s3_upload_dir(output_root, base_dest, s3_config)
       url <- urls[grepl("index\\.html$", urls)][1]
       message(sprintf("Published %d files", length(urls)))
     }
@@ -642,8 +698,10 @@ publish_data <- function(data,
 
   # Compress if requested
   if (compress) {
-    compressed_file <- paste0(source_file, ".gz")
-    R.utils::gzip(source_file, compressed_file, remove = FALSE)
+    # Base R gzip, so R.utils (Suggests only) is not needed. A temp file, so
+    # nothing is written next to the user's file.
+    compressed_file <- tempfile(fileext = ".gz")
+    .fw_gzip_file(source_file, compressed_file)
     source_file <- compressed_file
     on.exit(unlink(compressed_file), add = TRUE)
     if (!grepl("\\.gz$", dest)) {
@@ -651,11 +709,29 @@ publish_data <- function(data,
     }
   }
 
+  bundle <- .fw_bundle_build(if (is.data.frame(data)) data else source_file,
+                             slug = tools::file_path_sans_ext(basename(dest)), include_private = TRUE)
+  on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   # Upload
   url <- .s3_upload_file(source_file, dest, s3_config)
   message(sprintf("Published: %s", url))
 
+  .fw_track_external(bundle, list(driver = "s3", url = url, version_url = NULL, version = 1L))
   invisible(url)
+}
+
+
+.fw_gzip_file <- function(source, dest) {
+  input <- file(source, "rb")
+  on.exit(close(input), add = TRUE)
+  output <- gzfile(dest, "wb")
+  on.exit(close(output), add = TRUE)
+  repeat {
+    chunk <- readBin(input, "raw", n = 1048576L)
+    if (!length(chunk)) break
+    writeBin(chunk, output)
+  }
+  invisible(dest)
 }
 
 
@@ -728,6 +804,8 @@ publish_dir <- function(dir,
     return(invisible(character(0)))
   }
 
+  bundle <- .fw_bundle_build(dir, slug = basename(dest), include_private = include_private)
+  on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   # Upload each file
   message(sprintf("Uploading %d files...", length(files)))
   urls <- character(length(files))
@@ -740,6 +818,8 @@ publish_dir <- function(dir,
 
   message(sprintf("Published %d files to %s", length(urls), dest))
 
+  .fw_track_external(bundle, list(driver = "s3", url = if (length(urls)) urls[[1]] else NULL,
+                                  version_url = NULL, version = 1L))
   invisible(urls)
 }
 
@@ -803,7 +883,7 @@ publish_list <- function(prefix = NULL, connection = NULL, max = 1000L) {
     withr::local_envvar(AWS_SESSION_TOKEN = s3_config$session_token)
   }
 
-  base_url <- if (!is.null(s3_config$endpoint)) s3_config$endpoint else NULL
+  base_url <- if (!is.null(s3_config$endpoint)) s3_config$endpoint else "s3.amazonaws.com"
 
   # List objects
   result <- tryCatch({
@@ -812,7 +892,10 @@ publish_list <- function(prefix = NULL, connection = NULL, max = 1000L) {
       prefix = full_prefix,
       max = max,
       base_url = base_url,
-      region = s3_config$region
+      # Custom endpoints (MinIO, R2, moto) take an empty region, as the upload
+      # code does; otherwise aws.s3 builds "<region>.<endpoint>" as the host.
+      region = if (!is.null(s3_config$endpoint)) "" else s3_config$region,
+      use_https = s3_config$use_https %||% TRUE
     )
   }, error = function(e) {
     stop(sprintf("Failed to list S3 objects: %s", e$message), call. = FALSE)

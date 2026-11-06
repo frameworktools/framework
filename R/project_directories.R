@@ -6,7 +6,7 @@
 #'
 #' @param project_path Character string. Absolute path to the project root directory.
 #' @param key Character string. Internal key for the directory (e.g., "analysis_archive").
-#'   Must be unique within the project's directory configuration.
+#'   An `extra_directories` entry with the same key is replaced.
 #' @param label Character string. Human-readable label for the directory (e.g., "Analysis Archive").
 #' @param path Character string. Relative path where the directory should be created
 #'   (e.g., "analysis/archive"). Must be relative, not absolute. Parent directories
@@ -20,15 +20,17 @@
 #'   }
 #'
 #' @details
-#' This function performs the following steps:
+#' This function performs the following steps, as the Python package does:
 #' \enumerate{
 #'   \item Validates all input arguments
-#'   \item Reads the project's config.yml file
-#'   \item Checks for duplicate keys in existing directories
-#'   \item Adds the new directory to the directories section
-#'   \item Writes the updated config.yml back to disk
+#'   \item Finds the project's settings.yml (or config.yml)
 #'   \item Creates the directory on the filesystem (with recursive creation)
+#'   \item Records it under `extra_directories` in that file, as
+#'     `key`, `label`, and `path`. An entry with the same key is replaced,
+#'     so a second call with the same key updates it.
 #' }
+#'
+#' Core directories under `directories` are not checked or changed.
 #'
 #' The function follows a non-destructive, additive-only approach. It will not:
 #' \itemize{
@@ -43,7 +45,7 @@
 #' \itemize{
 #'   \item Rejects absolute paths (must be relative)
 #'   \item Rejects paths containing ".." (no directory traversal)
-#'   \item Checks for duplicate keys before adding
+#'   \item Replaces, never duplicates, an entry with the same key
 #'   \item Wraps filesystem operations in error handling
 #' }
 #'
@@ -89,7 +91,7 @@ project_add_directory <- function(project_path, key, label, path) {
 
   tryCatch(
     {
-      # 4. CREATE DIRECTORY ON FILESYSTEM (config is saved separately by the GUI)
+      # 4. CREATE DIRECTORY ON FILESYSTEM
       absolute_path <- file.path(project_path, path)
 
       dir_created <- tryCatch(
@@ -106,7 +108,10 @@ project_add_directory <- function(project_path, key, label, path) {
         }
       )
 
-      # 8. RETURN SUCCESS
+      # 5. RECORD IT UNDER extra_directories (same key replaced)
+      .fw_record_extra_directory(config_path, key, label, path)
+
+      # 6. RETURN SUCCESS
       return(list(
         success = TRUE,
         directory = list(
@@ -125,4 +130,27 @@ project_add_directory <- function(project_path, key, label, path) {
       ))
     }
   )
+}
+
+# Add or replace one extra_directories entry in a project settings file.
+# Entries may be a list of {key, label, path} or a map keyed by name.
+.fw_record_extra_directory <- function(settings_file, key, label, path) {
+  raw <- yaml::read_yaml(settings_file) %||% list()
+  scoped <- is.list(raw$default)
+  config <- if (scoped) raw$default else raw
+  extra <- config$extra_directories %||% list()
+  if (is.character(extra)) {
+    stop("extra_directories points to another file; add the folder there.", call. = FALSE)
+  }
+  entry <- list(key = key, label = label, path = path)
+  if (!is.null(names(extra)) && all(nzchar(names(extra)))) {
+    extra[[key]] <- entry[c("label", "path")]
+  } else {
+    extra <- Filter(function(e) !identical(e$key, key), extra)
+    extra[[length(extra) + 1L]] <- entry
+  }
+  config$extra_directories <- extra
+  if (scoped) raw$default <- config else raw <- config
+  yaml::write_yaml(raw, settings_file)
+  invisible(TRUE)
 }

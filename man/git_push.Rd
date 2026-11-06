@@ -9,7 +9,9 @@ git_push(remote = "origin", branch = NULL)
 \arguments{
 \item{remote}{Remote name (default: "origin")}
 
-\item{branch}{Branch name (default: current branch)}
+\item{branch}{Branch name (default: current branch). When the branch has
+no upstream yet, it is pushed with \code{--set-upstream}, so later pulls and
+pushes need no arguments.}
 }
 \value{
 Invisibly returns TRUE on success

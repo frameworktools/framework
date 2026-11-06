@@ -107,3 +107,18 @@ test_that("the Jupyter kernel step is only offered", {
   expect_message(res <- framework:::.offer_jupyter_kernel(), "installspec")
   expect_false(res)
 })
+
+test_that("new() makes a Standard Project by default, and bare on request", {
+  seen <- NULL
+  local_mocked_bindings(
+    .fw_cloud_token = function(...) NULL,
+    new_project = function(name = NULL, location = NULL, type = NULL, ...) {
+      seen <<- type
+      invisible(NULL)
+    }
+  )
+  new("Study", tempfile(), browse = FALSE)
+  expect_identical(seen, "project")
+  new("Study", tempfile(), type = "bare", browse = FALSE)
+  expect_identical(seen, "bare")
+})

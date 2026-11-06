@@ -194,7 +194,10 @@ write_quarto_yml <- function(yaml_lines, path) {
 #' @param render_dirs Named list. Render directories with their paths
 #' @param quarto_settings List. Quarto settings (html and revealjs configs)
 #' @param directories Named list. Source directories keyed the same as render_dirs
-#' @param root_output_dir Optional output directory to set on the root _quarto.yml
+#' @param root_output_dir Ignored. Kept so older calls still work. The root
+#'   output folder is the one most `render_dirs` share, as in the Python
+#'   package. Setting it from `quarto.render_dir` would nest renders, such as
+#'   `outputs/notebooks/notebooks/x.html`.
 #' 
 #' @return List with success status and paths of generated files
 #' 
@@ -305,6 +308,8 @@ quarto_regenerate <- function(project_path, backup = TRUE) {
   if (!dir.exists(project_path)) {
     stop("Project path does not exist: ", project_path)
   }
+  # Absolute, so paths still resolve after setwd(project_path) below
+  project_path <- normalizePath(project_path, winslash = "/", mustWork = TRUE)
 
   # Read project config to get settings
   settings_path <- file.path(project_path, "settings.yml")
@@ -341,7 +346,7 @@ wd <- getwd()
     )
 
     for (file in existing_files) {
-      rel_path <- sub(paste0("^", project_path, "/?"), "", file)
+      rel_path <- substring(file, nchar(project_path) + 2L)
       backup_path <- file.path(backup_dir, rel_path)
       backup_path_dir <- dirname(backup_path)
 

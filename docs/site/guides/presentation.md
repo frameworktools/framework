@@ -9,7 +9,7 @@ description: 'Minimal structure for slides and presentations'
 
 The **Presentation** type is a minimal structure for focused, single-output work like conference presentations, standalone reports, or one-off analyses.
 
-## Directory Structure
+## Directory structure
 
 ```text
 my-presentation/
@@ -19,13 +19,13 @@ my-presentation/
 
 Optional directories available in the GUI: `data/`, `functions/`, `outputs/`, `scripts/`
 
-## Creating a Presentation
+## Presentation creation
 
 ```r
 new_presentation("quarterly-report", "~/presentations/q4")
 ```
 
-This creates a streamlined structure with a main `presentation.qmd` file.
+This creates a minimal structure with a main `presentation.qmd` file.
 
 ## Configuration
 
@@ -47,14 +47,14 @@ default:
 
 ## Workflow
 
-### 1. Set Up
+### 1. Setup
 
 ```r
 library(framework)
 scaffold()
 ```
 
-### 2. Edit Presentation
+### 2. Editing
 
 Work directly in `presentation.qmd`:
 
@@ -76,7 +76,7 @@ sales_plot
 ```
 ````
 
-### 3. Render
+### 3. Rendering
 
 ```bash
 quarto render presentation.qmd
@@ -88,37 +88,37 @@ Or in R:
 quarto::quarto_render("presentation.qmd")
 ```
 
-## Output Formats
+## Output formats
 
 Change the format in the YAML header:
 
-### Reveal.js Slides
+### Reveal.js slides
 ```yaml
 format: revealjs
 ```
 
-### HTML Document
+### HTML document
 ```yaml
 format: html
 ```
 
-### PDF Report
+### PDF report
 ```yaml
 format: pdf
 ```
 
-### Word Document
+### Word document
 ```yaml
 format: docx
 ```
 
-## Best Practices
+## Best practices
 
-### Keep It Focused
+### Scope
 
 The presentation type is for single deliverables. For multi-document projects, use the standard **Project** type.
 
-### Use Functions
+### Functions
 
 Even in minimal projects, extract reusable code by enabling the `functions/` directory:
 
@@ -131,7 +131,7 @@ create_revenue_chart <- function(data) {
 }
 ```
 
-### Cache Computations
+### Caching
 
 Speed up rendering:
 
@@ -142,7 +142,7 @@ summary_stats <- cache_remember("summary", {
 })
 ```
 
-## When to Use
+## Suitable uses
 
 **Good for:**
 - Conference talks

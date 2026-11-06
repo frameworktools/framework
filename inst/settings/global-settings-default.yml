@@ -227,3 +227,10 @@ project_types:
       cache: "outputs/private/cache"
       scratch: "scratch"
       logs: "logs"
+
+# Publishing defaults for new projects. Project settings override these values.
+# publish:
+#   default: cloud
+#   destinations:
+#     cloud:
+#       driver: cloud

@@ -15,7 +15,8 @@ Bioconductor package (\code{"bioc::DESeq2"}).}
 FALSE.}
 
 \item{install}{Logical. Install the package now if it isn't installed (or
-the installed version doesn't match a pin). Default TRUE.}
+the installed version doesn't match a pin). Default TRUE. If the install
+fails, the settings are left as they were and \code{package_add()} stops.}
 }
 \value{
 Invisibly, the package entry that was recorded.

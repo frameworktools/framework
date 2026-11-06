@@ -1,5 +1,8 @@
 # framework 1.9.0.9002
 
+* `new()` makes a Standard Project (`type = "project"`) by default when
+  you are not signed in, as `new_project()` does. Its menu lists the
+  Standard Project first. Pass `type = "bare"` for a bare project.
 * Skill sync retains executable-mode metadata on Windows. Canonical skill
   checkouts preserve LF line endings for stable source hashes.
 

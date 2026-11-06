@@ -4,10 +4,17 @@
 \alias{cloud_login}
 \title{Log In to Framework Cloud}
 \usage{
-cloud_login(token, url = NULL, verify = TRUE, consent = NULL)
+cloud_login(
+  token = NULL,
+  url = NULL,
+  verify = TRUE,
+  consent = NULL,
+  browser = TRUE
+)
 }
 \arguments{
-\item{token}{Your user token from Framework Cloud (Settings -> API tokens).}
+\item{token}{Your user token from Framework Cloud (Settings -> API tokens).
+Omit it to approve this computer in the browser.}
 
 \item{url}{The Framework Cloud server. Defaults to \code{FW_CLOUD_URL}, then the
 server you last logged in to, then \url{https://framework.pub}. Plain \code{http}
@@ -18,6 +25,9 @@ is accepted only for \code{localhost} and \verb{127.0.0.1}.}
 \item{consent}{Set TRUE to confirm non-interactively (scripts, CI). In an
 interactive session you are prompted instead. What connecting shares is
 printed first and documented at the server's \verb{/privacy} page.}
+
+\item{browser}{Open the approval page when no token is given. FALSE prints
+the link only.}
 }
 \value{
 Invisibly, where the token was stored ("keyring" or the file path).
@@ -25,8 +35,9 @@ Invisibly, where the token was stored ("keyring" or the file path).
 \description{
 Shows what connecting shares, asks for confirmation, then verifies the
 token and stores it in the native credential store for your platform --
-the macOS Keychain, Windows Credential Manager, or Linux Secret Service
-(via the \code{keyring} package) -- falling back to a permission-restricted
+the macOS Keychain (through \verb{/usr/bin/security}, as \code{fw} does), or Windows
+Credential Manager or Linux Secret Service (through the \code{keyring} package),
+falling back to a permission-restricted
 file in the Framework config directory. This is the whole onboarding:
 }
 \details{
@@ -40,6 +51,11 @@ framework::cloud_login("fw_...", url = "http://localhost:8080")
 Tokens are stored per server, and the server you log in to becomes this
 machine's default for \code{\link[=cloud_status]{cloud_status()}}, \code{\link[=cloud_sync]{cloud_sync()}}, and \code{\link[=new]{new()}}. The
 \code{FW_CLOUD_URL} environment variable overrides that default.
+
+Without a token, \code{cloud_login()} opens the server's approval page in your
+browser. Sign in, or create a free account, and approve this computer; the
+token comes back to R. With a token from the server's token page,
+\code{cloud_login(token)} stores that token instead.
 }
 \seealso{
 \code{\link[=cloud_status]{cloud_status()}}, \code{\link[=cloud_logout]{cloud_logout()}}, \code{\link[=cloud_settings]{cloud_settings()}}

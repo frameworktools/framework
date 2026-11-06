@@ -9,7 +9,8 @@ env_clear(keep = character(), envir)
 \arguments{
 \item{keep}{Character vector of object names to keep (default: empty)}
 
-\item{envir}{The environment to clear}
+\item{envir}{The environment to clear. Required, so nothing is removed by
+accident. Use \code{globalenv()} for your workspace.}
 }
 \value{
 Invisibly returns NULL
@@ -17,10 +18,14 @@ Invisibly returns NULL
 \description{
 Cleans up the R environment by removing objects, closing plots, detaching
 packages, and running garbage collection. Does not clear the console.
+Framework itself stays attached.
 }
 \examples{
 \donttest{
 if (FALSE) {
+# Clean your workspace
+env_clear(envir = globalenv())
+
 # Clean a specific environment
 env_clear(envir = my_env)
 

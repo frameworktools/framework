@@ -7,11 +7,11 @@ description: 'Framework conventions and project organization'
 ---
 ## Philosophy
 
-Framework favors **convention over configuration**, providing sensible defaults that work for most projects.  If you have needs or preferences that differ from the defaults, nearly everything about how Framework structures projects is customizable.
+Framework favors **convention over configuration**. Its defaults work for most projects. Nearly everything about how Framework structures projects is customizable.
 
-Once you have your settings configured, you should be able to create new projects without thinking about organizational details, saving time and providing consistency across your work.
+Once your settings are configured, new projects use them without further organizational decisions. Projects stay consistent with each other.
 
-We will on this page explain basic features and conventions that guide the design of Framework.
+This page describes Framework's basic features and conventions.
 
 ## scaffold()
 
@@ -22,13 +22,13 @@ library(framework)
 scaffold()
 ```
 
-If you prefer fully namespacing things, you simply write `framework::scaffold()`.
+To namespace it fully, write `framework::scaffold()`.
 
-The `scaffold()` function ensures all packages your project uses are installed, attaches specified packages to the environment, loads a function library from the `functions/` directory, and performs a handful of other quality of life features, such as setting a random seed or `ggplot2` theme, depending on your configuration.
+The `scaffold()` function installs the packages your project uses, attaches specified packages to the environment, and sources functions from the `functions/` directory. Depending on your configuration, it also sets a random seed or `ggplot2` theme.
 
-## Package Loading
+## Package loading
 
-Scaffold will call `library()` on auto-attached packages. We recommend fully namespacing functions in packages not commonly used across your project. Alternatively, you can call `library()` for these uncommon packages after `scaffold()`. 
+Scaffold will call `library()` on auto-attached packages. We recommend fully namespacing functions in packages not commonly used across your project. Alternatively, you can call `library()` for these uncommon packages after `scaffold()`.
 
 With an example `settings.yml`:
 
@@ -53,7 +53,7 @@ df <- readr::read_csv("data.csv") |>
 
 Here `dplyr` functions (`filter`, `mutate`) work directly because `auto_attach: true`. But `readr` is namespaced explicitly since it's installed but not auto-loaded.
 
-## Functions and Auto-Loading
+## Functions and auto-loading
 
 Framework automatically sources all `.R` files in your `functions/` directory when `scaffold()` runs.
 
@@ -66,11 +66,11 @@ functions/
 └── plotting_helpers.R
 ```
 
-Every file is sourced on scaffold, giving you access to all your functions without manual loading.
+Every file is sourced on scaffold, so all your functions are available without manual loading.
 
 **Important:** Only include function definitions in these files. Any code outside a `function()` block will execute every time `scaffold()` runs.
 
-This approach eliminates the need to manually source files:
+Auto-loading replaces manual `source()` calls such as:
 
 ```r
 source("helpers/cleaning.R")
@@ -78,13 +78,13 @@ source("helpers/plotting.R")
 source("utils/text_processing.R")
 ```
 
-With auto-loading, you can reorganize your functions directory — rename files, move functions between files, add new files — without updating any notebooks or scripts that use them.
+With auto-loading, you can reorganize your functions directory (rename files, move functions between files, or add new files) without updating the notebooks or scripts that use them.
 
 This behavior can be turned off in global settings if you prefer manual control.
 
 See [Functions](guide:functions) for full documentation.
 
-## Inputs and Outputs
+## Inputs and outputs
 
 Framework separates **inputs** (read-only data) from **outputs** (generated files).
 
@@ -103,7 +103,7 @@ inputs/
 - **intermediate/**: Cleaned or transformed data mid-pipeline
 - **final/**: Analysis-ready datasets
 
-### Data Catalog
+### Data catalog
 
 Framework tracks your data files in a catalog stored in `settings.yml`. As you work, register files with `data_add()`:
 
@@ -118,13 +118,13 @@ Or save and register in one step:
 data_save(clean_df, "intermediate.survey_clean")
 ```
 
-The catalog becomes a manifest that tells collaborators what data files exist and where they live. Load data by name:
+The catalog lists the project's data files and their locations. Load data by name:
 
 ```r
 survey <- data_read("raw.survey")
 ```
 
-See [Data Management](guide:data-management) for full documentation.
+See [Data management](guide:data-management) for full documentation.
 
 ### Outputs
 
@@ -143,16 +143,16 @@ outputs/
 - **models/**: `save_model()` writes here
 - **notebooks/**: `save_notebook()` renders and saves here
 
-Use `save_notebook("notebooks/analysis.qmd")` to render and save in one step. This keeps generated HTML/PDF files separate from source `.qmd` files, making it easy to `.gitignore` outputs and keep the project organized.
+Use `save_notebook("notebooks/analysis.qmd")` to render and save in one step. Generated HTML/PDF files stay separate from source `.qmd` files, so outputs can be gitignored as a group.
 
-## Work Directories
+## Work directories
 
 - **notebooks/**: Quarto/R Markdown analysis files
 - **scripts/**: Standalone R scripts
 - **functions/**: Reusable R functions (auto-loaded by `scaffold()`)
 - **scratch/**: One-off experiments, throwaway code
 
-## Sensitive Data Projects
+## Sensitive data projects
 
 For projects with privacy requirements, inputs split into:
 
@@ -162,9 +162,9 @@ inputs/
 └── public/     # Shareable data
 ```
 
-This makes the privacy boundary explicit in your directory structure.
+The directory structure marks the privacy boundary.
 
-## Data Integrity
+## Data integrity
 
 Framework automatically tracks data integrity. When you use `data_read()`, file hashes are stored in `framework.db`. If a file changes unexpectedly, you'll get a warning:
 
@@ -174,7 +174,7 @@ Previous hash: a1b2c3...
 Current hash:  d4e5f6...
 ```
 
-This helps catch accidental data modifications and ensures reproducibility.
+The warning catches accidental changes to data files.
 
 ## Customization
 

@@ -2,7 +2,7 @@
 % Please edit documentation in R/scratch.R
 \name{scratch_clean}
 \alias{scratch_clean}
-\title{Clean up the scratch directory by deleting all files}
+\title{Clean up the scratch directory}
 \usage{
 scratch_clean()
 }
@@ -10,5 +10,6 @@ scratch_clean()
 Invisibly returns NULL. Called for side effect of removing scratch files.
 }
 \description{
-Clean up the scratch directory by deleting all files
+Deletes the files at the top of the scratch directory, dotfiles included.
+Subfolders and their contents stay.
 }

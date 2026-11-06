@@ -22,21 +22,26 @@ NULL
     )
   }
 
-  # Load .env file if present (ensures env vars are available)
-  if (file.exists(".env")) {
-    tryCatch(
-      dotenv::load_dot_env(".env"),
-      error = function(e) NULL
-    )
-  }
+  # The project's .env fills in variables the session does not set. It is
+  # read here, not loaded into the session, so empty template lines never
+  # blank a shell credential.
+  root <- .find_project_root(getwd())
+  dotenv_values <- tryCatch(
+    .fw_read_dotenv(file.path(root %||% ".", ".env")),
+    error = function(e) character()
+  )
 
   # Helper to get value - env vars take precedence, then config, then default
   # This handles the case where config has placeholder defaults from env() calls
   resolve_value <- function(config_val, env_vars, default = "") {
-    # First try env vars (they take precedence)
+    # First try env vars (they take precedence), then the project's .env
     for (env_var in env_vars) {
       val <- Sys.getenv(env_var, "")
       if (nchar(val) > 0) return(val)
+    }
+    for (env_var in env_vars) {
+      val <- unname(dotenv_values[env_var])
+      if (length(val) == 1 && !is.na(val) && nchar(val) > 0) return(val)
     }
     # Fall back to config value if non-empty
     if (!is.null(config_val) && nchar(config_val) > 0) {
@@ -244,28 +249,43 @@ key <- gsub("//+", "/", key)
   }
 
   # Build base_url for custom endpoints
-  base_url <- s3_config$endpoint
+  base_url <- s3_config$endpoint %||% "s3.amazonaws.com"
   # For custom endpoints, use empty region to avoid region prefix in URL
-  region <- if (!is.null(base_url)) "" else s3_config$region
+  region <- if (!is.null(s3_config$endpoint)) "" else s3_config$region
   use_https <- s3_config$use_https %||% TRUE
 
   put <- function(headers) {
-    aws.s3::put_object(
+    # Keep the raw response so ACL-disabled errors retain their S3 code. The
+    # aws.s3 parser otherwise prints signing metadata and drops the error code.
+    result <- aws.s3::put_object(
       file = file,
       object = key,
       bucket = s3_config$bucket,
       headers = headers,
       base_url = base_url,
       region = region,
-      use_https = use_https
+      use_https = use_https,
+      parse_response = FALSE
     )
+    response <- attr(result, "response")
+    if (is.list(response) && !is.null(response$status_code)) {
+      if (response$status_code >= 300L) {
+        body <- if (is.raw(response$content)) rawToChar(response$content) else ""
+        matched <- regmatches(body, regexec("<Code>([A-Za-z0-9]+)</Code>", body))[[1L]]
+        code <- if (length(matched) > 1L) matched[2L] else "UnknownError"
+        stop(sprintf("S3 upload failed: %s (HTTP %d).", code, response$status_code), call. = FALSE)
+      }
+      return(invisible(TRUE))
+    }
+    if (identical(result, FALSE)) stop("S3 rejected the upload.", call. = FALSE)
+    invisible(TRUE)
   }
 
   # Upload with a public-read ACL so published assets are accessible. Buckets
   # with ACLs disabled (the AWS default since 2023, "bucket owner enforced")
   # reject that header; retry without it and leave access to the bucket policy.
   result <- tryCatch(
-    put(list(`Content-Type` = content_type, `x-amz-acl` = "public-read")),
+    put(if (isTRUE(s3_config$private)) list(`Content-Type` = content_type) else list(`Content-Type` = content_type, `x-amz-acl` = "public-read")),
     error = function(e) {
       if (!grepl("AccessControlListNotSupported", conditionMessage(e), fixed = TRUE)) {
         stop(sprintf("Failed to upload to S3: %s", conditionMessage(e)), call. = FALSE)
@@ -417,18 +437,19 @@ storage_test <- function(connection = NULL) {
     withr::local_envvar(AWS_SESSION_TOKEN = s3_config$session_token)
   }
 
-  base_url <- s3_config$endpoint
+  base_url <- s3_config$endpoint %||% "s3.amazonaws.com"
   # For custom endpoints, use empty region to avoid region prefix in URL
-  region <- if (!is.null(base_url)) "" else s3_config$region
+  region <- if (!is.null(s3_config$endpoint)) "" else s3_config$region
   use_https <- s3_config$use_https %||% TRUE
 
   result <- tryCatch({
-    aws.s3::bucket_exists(
+    # Quiet: aws.s3 prints "Client error: (404) Not Found" before our message
+    .fw_s3_quiet(aws.s3::bucket_exists(
       bucket = s3_config$bucket,
       base_url = base_url,
       region = region,
       use_https = use_https
-    )
+    ))
   }, error = function(e) {
     message("S3 connection failed: ", e$message)
     return(FALSE)

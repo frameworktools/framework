@@ -3,15 +3,15 @@ id: packages
 title: Packages
 section: features
 position: 3
-description: 'Managing R packages in Framework projects'
+description: 'R package management in Framework projects'
 ---
 ## Overview
 
 Framework manages your project's R package dependencies through `settings.yml`. When you call `scaffold()`, packages are automatically installed and loaded.
 
-## Configuring Packages
+## Package configuration
 
-In your `settings.yml`, or through **Packages** in `framework::gui()`, you can curate the defaults. The GUI lets you search CRAN with autocomplete, and you can switch the source dropdown to GitHub or Bioconductor when you need development builds.
+Set the default packages in `settings.yml` or through **Packages** in `framework::gui()`. The GUI lets you search CRAN with autocomplete, and you can switch the source dropdown to GitHub or Bioconductor when you need development builds.
 
 ![Default package configuration UI with source selector and auto-attach toggles](images/packages-defaults.png)
 
@@ -32,7 +32,7 @@ packages:
 - `true`: package is loaded automatically when you call `scaffold()`
 - `false`: package is installed but not loaded (use `library()` when needed)
 
-## How It Works
+## Installation and loading
 
 When `scaffold()` runs:
 
@@ -42,7 +42,7 @@ When `scaffold()` runs:
 
 You don't need to write `library()` calls for attached packages.
 
-## Version Pinning
+## Version pinning
 
 Pin specific versions or install from GitHub:
 
@@ -64,7 +64,7 @@ packages:
     auto_attach: false
 ```
 
-## renv Integration
+## renv integration
 
 Framework detects if your project uses [renv](https://rstudio.github.io/renv/) and routes installations through it automatically.
 
@@ -85,6 +85,6 @@ When renv is active:
 
 [← framework.db](guide:framework-db)
 
-[Data Management →](guide:data-management)
+[Data management →](guide:data-management)
 
 </div>

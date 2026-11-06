@@ -164,6 +164,12 @@ properties <- list(
     ),
     required = c("databases", "storage_buckets")
   ),
+  publish = obj(list(
+    default = str(maxLength = 100),
+    destinations = map_of(obj(list(
+      driver = str(enum = list("cloud", "github", "folder", "s3"))
+    ), required = "driver", additional = TRUE))
+  )),
   security = obj(list(sensitive = bool()), required = c("sensitive")),
   env = map_of(str(), key_pattern = ENV_NAME,
                description = "Variables written to .env. Secret-looking names must be empty."),

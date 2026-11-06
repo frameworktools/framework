@@ -99,6 +99,11 @@ db_drivers_install <- function(drivers = NULL, repos = getOption("repos")) {
   # Get current status
   status <- db_drivers_status(quiet = TRUE)
 
+  if (is.null(drivers) && !interactive()) {
+    stop("Name the drivers to install, such as db_drivers_install(\"postgres\"). ",
+         "The menu needs an interactive session.", call. = FALSE)
+  }
+
   if (is.null(drivers)) {
     # Interactive mode
     cat("\n=== Install Database Drivers ===\n\n")
@@ -119,6 +124,12 @@ db_drivers_install <- function(drivers = NULL, repos = getOption("repos")) {
       drivers <- strsplit(input, ",")[[1]]
       drivers <- trimws(drivers)
     }
+  }
+
+  drivers <- drivers[!is.na(drivers) & nzchar(trimws(drivers))]
+  if (length(drivers) == 0) {
+    message("No drivers named, so nothing was installed.")
+    return(invisible(NULL))
   }
 
   # Validate driver names

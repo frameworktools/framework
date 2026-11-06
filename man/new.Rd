@@ -20,10 +20,11 @@ new(
 \item{location}{Directory path where project will be created. If NULL (default),
 prompts interactively.}
 
-\item{type}{Project type: one of Framework's structures, "project",
-"project_sensitive", "course", "presentation", or "bare". NULL (default)
-uses your default blueprint on Framework Cloud when you are signed in,
-and "project" otherwise.}
+\item{type}{Project type, as in \code{\link[=new_project]{new_project()}}. NULL (default): signed
+in to Framework Cloud, your default blueprint is used. Not signed in,
+an interactive session asks, with the Standard Project ("project")
+first, and a non-interactive one makes a "project". Pass
+\code{type = "bare"} for a bare project.}
 
 \item{browse}{Whether to open the project folder after creation (default: TRUE in
 interactive sessions)}
@@ -45,6 +46,10 @@ Invisibly returns the result from \code{project_create()}
 \description{
 Flexible project creation interface. Alias for \code{new_project()} that accepts
 type as a parameter.
+}
+\details{
+\code{new_project()} is the preferred name. \code{new()} remains available for
+existing scripts. Its name can mask \code{methods::new()} when attached.
 }
 \examples{
 \donttest{

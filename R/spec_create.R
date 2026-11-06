@@ -113,7 +113,8 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     security = spec$security,
     data_hooks = spec$data_hooks,
     tools = tools,
-    settings_layout = .spec_settings_layout(spec)
+    settings_layout = .spec_settings_layout(spec),
+    publish = spec$publish
   )
   if (use_split_files) {
     .create_connections_file(project_dir, spec$connections, connections_rel_path)

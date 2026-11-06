@@ -54,8 +54,9 @@ are installed.
 }
 
 Framework Cloud receives tables, tests, and models as structured JSON.
-Storage buckets receive CSV tables, HTML summaries for \code{lm} and \code{glm},
-and JSON for other models and tests.}
+Legacy storage uploads receive CSV tables, HTML summaries for \code{lm} and
+\code{glm}, and JSON for other models and tests. Named destinations receive
+typed bundles with offline readers and SHA-256 file manifests.}
 
 \item{dest}{Character or NULL. Destination path in S3 bucket. If NULL,
 derives from source filename. On Framework Cloud, use \code{slug} instead;
@@ -70,13 +71,13 @@ If NULL, uses the connection marked with \code{default: true}.}
 \item{self_contained}{Logical. When publishing to Framework Cloud, whether
 to bundle an HTML file with its resources. Ignored for S3. Default TRUE.}
 
-\item{slug}{Framework Cloud only. A string names the document and turns on
-its readable URL, for example \code{slug = "main-results"}. \code{TRUE} turns the
-readable URL on with the name derived from \code{dest} or the file name, and
-\code{FALSE} turns it off. \code{NULL} (the default) publishes under the derived
-name and leaves the document's setting as it is (new documents start
-private). Ignored, with a warning, for S3. With \code{to = "github"}, a
-string names the folder under \verb{published/}.}
+\item{slug}{Framework Cloud only. A string names the document, for
+example \code{slug = "main-results"}. It does not change visibility: a new
+artifact is unlisted and an existing one keeps its visibility. \code{TRUE}
+makes the artifact public under the name derived from \code{dest} or the file
+name, and \code{FALSE} makes it unlisted. \code{NULL} (the default) publishes
+under the derived name. Ignored, with a warning, for S3. With
+\code{to = "github"}, a string names the folder under \verb{published/}.}
 
 \item{include_private}{Logical. Skip the private-path check. When the
 absolute path of any file to upload contains "private" in any case
@@ -84,51 +85,62 @@ absolute path of any file to upload contains "private" in any case
 warns and, in an interactive session, asks before publishing (default No).
 In a non-interactive session it stops unless \code{include_private = TRUE}.}
 
-\item{to}{Character or NULL. \code{"cloud"} selects Framework Cloud even when a
+\item{to}{Named destination from \code{publish.destinations}, or a driver name.
+\code{publish.default} selects the default destination. \code{"folder"} needs a named
+destination with a path. \code{"s3"} and \code{"bucket"} retain legacy storage uploads.
+\code{"cloud"} selects Framework Cloud even when a
 bucket is configured. \code{"bucket"} selects storage. \code{"github"} publishes to the project's GitHub
 Pages site instead of a storage bucket or Framework Cloud: the document
-is copied to \verb{published/<slug>/index.html} (with its \verb{<name>_files/}
-folder), only that folder is committed, and the commit is pushed. The
+is bundled under \verb{published/<slug>/}. The artifact, version archives, and
+site index are committed and pushed. The
 site deploys from the default branch once "Publish with GitHub Pages" is
 on for the project in Framework Cloud, and it is public even when the
 repository is private, so an interactive session asks first. \code{slug}
-names the folder: lowercase letters, digits, \code{.}, \verb{_}, and \code{-}. The
+names the folder. Runs of characters outside lowercase letters and digits
+become \code{-}. The
 default is the file name lowercased, with other characters as \code{-}
 ("Final Report (v2).html" becomes \code{final-report-v2}). A folder needs an
 \code{index.html} at its top. \code{dest}, \code{connection}, and a \code{TRUE}/\code{FALSE}
 \code{slug} are errors here.}
 
-\item{title}{Artifact title on Framework Cloud.}
+\item{title}{Artifact title.}
 
-\item{description}{Artifact description on Framework Cloud.}
+\item{description}{Artifact description.}
 
-\item{kind}{Optional artifact kind override on Framework Cloud.}
+\item{kind}{Optional artifact kind override.}
 
 \item{password}{Password required to view the artifact on Framework Cloud.}
 
-\item{visibility}{Artifact visibility: \code{"public"} or \code{"unlisted"}.}
+\item{visibility}{Artifact visibility: \code{"public"}, \code{"unlisted"}, or \code{"private"}.
+Set \code{"public"} for a readable URL. An explicit visibility wins over a
+\code{TRUE} or \code{FALSE} \code{slug}. Without one, a new artifact is unlisted.
+Unsupported access controls fail before delivery. Private folder and S3
+destinations use \code{visibility: private} and destination access controls.
+\code{private: true} remains a compatibility alias. S3 requires API confirmation
+of a non-public bucket policy and Public Access Block settings.}
 
 \item{collection}{Existing project collection ID or slug. Follows the latest artifact version.}
 
 \item{share_unlisted}{Explicit consent to share an unlisted artifact with collection readers.}
 }
 \value{
-Character. The public URL(s) of uploaded file(s).
+Character. Published URLs, or the local path for a folder without a URL.
 }
 \description{
 Functions for publishing notebooks, data, and files to S3
 storage or Framework Cloud.
 
-Upload files or directories to an S3 bucket. This is the generic publishing
-function - use \code{publish_notebook()} for Quarto documents or \code{publish_data()}
-for data files.
+Publish files, directories, and R objects to named Cloud, GitHub, folder,
+or S3 destinations. \code{publish_notebook()} renders Quarto documents.
+\code{publish_data()} retains the low-level bucket export API.
 }
 \details{
 With no \code{connection} and no storage bucket in settings.yml, a project set
 up from Framework Cloud publishes to its server instead (the
 \code{FW_CLOUD_URL} and \code{FW_PROJECT_TOKEN} in the project's \code{.env}). Each
-publish to Framework Cloud adds a new version of the document. Documents
-start private, shared by a private link; \code{slug} turns on a readable URL
+publish to Framework Cloud adds a new version of the document. Cloud
+provides owner-only access, public and unlisted links, and password protection.
+A new artifact is unlisted. Set \code{visibility = "public"} for a readable URL
 (\verb{/@handle/project/slug}).
 }
 \examples{
@@ -148,7 +160,7 @@ publish("outputs/charts/", dest = "reports/charts/")
 publish("data.csv", connection = "s3_backup")
 
 # Framework Cloud: a new version with a readable URL
-publish("outputs/report.html", slug = "main-results")
+publish("outputs/report.html", slug = "main-results", visibility = "public")
 
 # GitHub Pages: commits published/main-results/ and pushes it
 publish("outputs/report.html", to = "github", slug = "main-results")

@@ -7,11 +7,14 @@
 write_frameworkrc(config)
 }
 \arguments{
-\item{config}{List containing configuration to write}
+\item{config}{A named list, such as one from \code{\link[=read_frameworkrc]{read_frameworkrc()}}. \code{NULL}
+or an empty list is an error, so a slip can't wipe the global settings.}
 }
 \value{
 Invisibly returns NULL
 }
 \description{
-Write global Framework configuration
+Writes the global settings file. When \code{config} has a \code{projects} element,
+the project registry (\code{projects.yml}) is written too; otherwise it stays
+as it is.
 }

@@ -206,15 +206,20 @@ env_resolve_lines <- function(env_config = NULL) {
 #'
 #' Cleans up the R environment by removing objects, closing plots, detaching
 #' packages, and running garbage collection. Does not clear the console.
+#' Framework itself stays attached.
 #'
 #' @param keep Character vector of object names to keep (default: empty)
-#' @param envir The environment to clear
+#' @param envir The environment to clear. Required, so nothing is removed by
+#'   accident. Use `globalenv()` for your workspace.
 #' @return Invisibly returns NULL
 #' @export
 #'
 #' @examples
 #' \donttest{
 #' if (FALSE) {
+#' # Clean your workspace
+#' env_clear(envir = globalenv())
+#'
 #' # Clean a specific environment
 #' env_clear(envir = my_env)
 #'
@@ -223,6 +228,12 @@ env_resolve_lines <- function(env_config = NULL) {
 #' }
 #' }
 env_clear <- function(keep = character(), envir) {
+  if (missing(envir)) {
+    stop("Name the environment to clear, such as env_clear(envir = globalenv())", call. = FALSE)
+  }
+  checkmate::assert_environment(envir)
+  checkmate::assert_character(keep, any.missing = FALSE)
+
   # Remove all objects except those specified in 'keep'
   all_objects <- ls(all.names = TRUE, envir = envir)
   to_remove <- setdiff(all_objects, keep)
@@ -237,13 +248,16 @@ env_clear <- function(keep = character(), envir) {
   }
 
   # Clear plots
+  # dev.off() closes one device at a time
   if (dev.cur() != 1) {
-    dev.off(dev.list())
+    for (device in rev(dev.list())) {
+      tryCatch(dev.off(device), error = function(e) invisible(NULL))
+    }
     message("[ok] Cleared plot devices")
   }
 
   # Detach loaded packages (with dependency resolution to avoid warnings)
-  pkgs <- names(sessionInfo()$otherPkgs)
+  pkgs <- .env_attached_packages()
   if (length(pkgs) > 0) {
     # Build dependency graph and unload in reverse topological order
     suppressWarnings({
@@ -283,7 +297,8 @@ env_clear <- function(keep = character(), envir) {
 #' Displays a summary of the current R environment including loaded packages,
 #' objects in the global environment, and memory usage.
 #'
-#' @param envir The environment to summarize
+#' @param envir The environment to summarize. Use `globalenv()` for your
+#'   workspace.
 #' @return Invisibly returns a list with environment information
 #' @export
 #'
@@ -294,6 +309,14 @@ env_clear <- function(keep = character(), envir) {
 #' }
 #' }
 env_summary <- function(envir) {
+  if (missing(envir)) {
+    stop("Name the environment to summarize, such as env_summary(envir = globalenv())", call. = FALSE)
+  }
+  checkmate::assert_environment(envir)
+  env_label <- if (identical(envir, globalenv())) "Global Environment" else {
+    name <- environmentName(envir)
+    if (nzchar(name)) sprintf("environment '%s'", name) else "the environment"
+  }
   message("\n=== Environment Summary ===\n")
 
   # Session info
@@ -319,7 +342,7 @@ env_summary <- function(envir) {
   all_objects <- ls(all.names = FALSE, envir = envir)
   hidden_objects <- setdiff(ls(all.names = TRUE, envir = envir), all_objects)
 
-  message(sprintf("Objects in Global Environment: %d", length(all_objects)))
+  message(sprintf("Objects in %s: %d", env_label, length(all_objects)))
   if (length(all_objects) > 0) {
     # Group by class
     obj_info <- lapply(all_objects, function(x) {
@@ -370,4 +393,10 @@ env_summary <- function(envir) {
     n_hidden = length(hidden_objects),
     memory_mb = mem_used_mb
   ))
+}
+
+# Attached packages env_clear() may detach: all but framework itself
+#' @keywords internal
+.env_attached_packages <- function() {
+  setdiff(names(sessionInfo()$otherPkgs), "framework")
 }

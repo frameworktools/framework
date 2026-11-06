@@ -10,7 +10,8 @@ git_add(files = ".")
 \item{files}{Character vector of file paths to stage, or "." for all (default)}
 }
 \value{
-Invisibly returns TRUE on success
+Invisibly returns TRUE on success. Stops with git's message when
+nothing could be staged (a missing or ignored file, for example).
 }
 \description{
 Add file contents to the staging area.

@@ -23,7 +23,8 @@
   security = NULL,
   data_hooks = NULL,
   tools = NULL,
-  settings_layout = NULL
+  settings_layout = NULL,
+  publish = NULL
 )
 }
 \description{

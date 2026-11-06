@@ -7,9 +7,9 @@ description: 'Organizing reusable functions in Framework projects'
 ---
 ## Overview
 
-Framework auto-loads functions from a `functions/` directory, allowing you to maintain a library of semantically organized utility functions that are always of available to you.
+Framework auto-loads functions from a `functions/` directory. Utility functions grouped by purpose are available in every notebook and script.
 
-## Benefits of Auto-loading
+## Auto-loading benefits
 
 **Semantic organization**: Group functions by purpose (cleaning, plotting, modeling) without worrying about load order.
 
@@ -17,7 +17,7 @@ Framework auto-loads functions from a `functions/` directory, allowing you to ma
 
 **Consistent environment**: Every notebook and script gets the same functions via `scaffold()`.
 
-## The Functions Directory
+## Functions directory
 
 Put reusable functions in `functions/`:
 
@@ -31,7 +31,7 @@ my-project/
 └── scripts/
 ```
 
-When you call `scaffold()`, all `.R` files in `functions/` are automatically sourced. Your scripts just work:
+When you call `scaffold()`, all `.R` files in `functions/` are automatically sourced. Scripts can then call the functions directly:
 
 ```r
 library(framework)
@@ -40,7 +40,7 @@ scaffold()
 clean_data <- my_cleaning_function(raw_data)
 ```
 
-## Configuring the Functions Directory
+## Directory configuration
 
 The default is `functions/`, but you can customize it in `settings.yml`:
 
@@ -63,7 +63,7 @@ directories:
 
 <div style="display: flex; justify-content: space-between">
 
-[← Data Management](guide:data-management)
+[← Data management](guide:data-management)
 
 [Templates →](guide:templates)
 

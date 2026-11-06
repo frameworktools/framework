@@ -98,6 +98,10 @@ NULL
     }
 
     target_dir <- file.path(project_dir, ".claude", "skills", skill)
+    skill_hash <- function() {
+      if (dir.exists(target_dir)) tryCatch(.skill_hash(.skill_scan(target_dir)), error = function(e) NA) else NULL
+    }
+    before <- skill_hash()
     if (!.skill_package_install(dirname(source_file), project_dir,
         file.path(".claude", "skills", skill), skill)) {
       if (verbose) message("  Preserved local skill: ", skill)
@@ -106,7 +110,8 @@ NULL
     installed <- c(installed, skill)
 
     if (verbose) {
-      message("  Created: .claude/skills/", skill, "/SKILL.md")
+      status <- if (is.null(before)) "Created" else if (identical(before, skill_hash())) "Up to date" else "Updated"
+      message("  ", status, ": .claude/skills/", skill, "/SKILL.md")
     }
   }
 
@@ -136,6 +141,11 @@ NULL
 #' }
 #' }
 ai_skills_update <- function(project_path = ".") {
+  checkmate::assert_string(project_path, min.chars = 1)
+  # A mistyped path must not create a new folder full of skills
+  if (!dir.exists(project_path) || !.has_settings_file(project_path)) {
+    stop("Not a Framework project (no settings.yml): ", project_path, call. = FALSE)
+  }
   config <- tryCatch(
     settings_read(file.path(project_path, "settings.yml")),
     error = function(e) list()

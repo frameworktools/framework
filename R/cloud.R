@@ -81,40 +81,72 @@
   file.path(fw_config_dir(), "cloud.yml")
 }
 
-# The default server cloud_login() saved, or NULL.
+# fw's and Python's config folder: FW_CONFIG_HOME when set, else
+# $XDG_CONFIG_HOME/framework, else ~/.config/framework.
 #' @keywords internal
-.fw_saved_cloud_url <- function() {
-  path <- .fw_cloud_config_file()
-  if (!file.exists(path)) {
-    return(NULL)
-  }
-  url <- tryCatch(yaml::read_yaml(path)$server, error = function(e) NULL)
-  if (is.character(url) && length(url) == 1 && nzchar(url)) url else NULL
+.fw_fw_config_dir <- function() {
+  custom <- Sys.getenv("FW_CONFIG_HOME", "")
+  if (nzchar(custom)) path.expand(custom) else .fw_shared_config_dir()
 }
 
+# The default server a login saved, or NULL. As in fw and Python, fw's
+# cloud.yml comes first and R's second, so all three tools agree.
+#' @keywords internal
+.fw_saved_cloud_url <- function() {
+  for (dir in unique(c(.fw_fw_config_dir(), fw_config_dir()))) {
+    path <- file.path(dir, "cloud.yml")
+    if (!file.exists(path)) {
+      next
+    }
+    url <- tryCatch(yaml::read_yaml(path)$server, error = function(e) NULL)
+    if (is.character(url) && length(url) == 1 && !is.na(url) && nzchar(url)) {
+      return(url)
+    }
+  }
+  NULL
+}
+
+# Writes R's cloud.yml. fw's file is read first, so when it already exists
+# it is updated too. Otherwise R writes nothing outside its own folder.
 #' @keywords internal
 .fw_save_cloud_url <- function(url) {
   path <- .fw_cloud_config_file()
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   yaml::write_yaml(list(server = url), path)
+  shared <- file.path(.fw_fw_config_dir(), "cloud.yml")
+  if (!identical(normalizePath(shared, mustWork = FALSE), normalizePath(path, mustWork = FALSE)) &&
+      file.exists(shared)) {
+    yaml::write_yaml(list(server = url), shared)
+  }
   invisible(path)
 }
 
 # A value from the project's .env file, or NULL.
 #' @keywords internal
 .fw_project_env_value <- function(key, project_dir = ".") {
+  # From a subfolder such as notebooks/, use the project root's .env, as
+  # framework-py does
+  if (identical(project_dir, ".") && !file.exists(".env")) {
+    project_dir <- tryCatch(.find_project_root(getwd()), error = function(e) NULL) %||% "."
+  }
   env_path <- file.path(project_dir, ".env")
   if (!file.exists(env_path)) {
     return(NULL)
   }
-  lines <- readLines(env_path, warn = FALSE)
-  hit <- grep(paste0("^", key, "="), lines, value = TRUE)
-  if (length(hit) == 0) {
-    return(NULL)
+  values <- tryCatch(.fw_read_dotenv(env_path), error = function(e) NULL)
+  if (is.null(values)) {
+    # An unparsable line elsewhere in the file: fall back to a plain match
+    lines <- readLines(env_path, warn = FALSE)
+    hit <- grep(paste0("^", key, "="), lines, value = TRUE)
+    if (length(hit) == 0) {
+      return(NULL)
+    }
+    value <- sub(paste0("^", key, "="), "", hit[1])
+    value <- gsub('^["\']|["\']$', "", trimws(value))
+  } else {
+    value <- unname(values[key])
   }
-  value <- sub(paste0("^", key, "="), "", hit[1])
-  value <- gsub('^["\']|["\']$', "", trimws(value))
-  if (nzchar(value)) value else NULL
+  if (length(value) == 1 && !is.na(value) && nzchar(value)) value else NULL
 }
 
 # Which server to use, and where that setting came from.
@@ -145,7 +177,8 @@
   .fw_cloud_server(url, scope = scope)$url
 }
 
-# Token storage. Native-first: the OS credential store via the keyring
+# Token storage. Native-first: the OS credential store (macOS Keychain via
+# /usr/bin/security; elsewhere the keyring
 # package (macOS Keychain, Windows Credential Manager, Linux Secret
 # Service), falling back to a 0600 file in the Framework config dir. Tokens
 # are stored per server. Resolution order:
@@ -189,8 +222,49 @@
   if (!is.na(token) && nzchar(token)) token else NULL
 }
 
+# On macOS the token lives in the login keychain and is read, written, and
+# deleted through /usr/bin/security, as fw does. fw's items trust only that
+# tool, so reading them from R's own process would raise an access dialog
+# (and hang a headless session). Other systems use the keyring package.
+#' @keywords internal
+.fw_use_macos_security <- function() {
+  identical(Sys.info()[["sysname"]], "Darwin") && file.exists("/usr/bin/security")
+}
+
+#' @keywords internal
+.fw_security <- function(args) {
+  out <- suppressWarnings(system2("/usr/bin/security", args, stdout = TRUE, stderr = FALSE))
+  list(status = attr(out, "status") %||% 0L, output = out)
+}
+
+# Runs `security -i` with one command on stdin, through a pipe, so the
+# command never appears in argv or a temp file. Returns the exit status.
+#' @keywords internal
+.fw_security_stdin <- function(command) {
+  con <- pipe("/usr/bin/security -i >/dev/null 2>&1", open = "w")
+  writeLines(command, con)
+  status <- close(con)
+  if (is.null(status)) 0L else as.integer(status)
+}
+
+#' @keywords internal
+.fw_keychain_available <- function() {
+  .fw_use_macos_security() || requireNamespace("keyring", quietly = TRUE)
+}
+
 #' @keywords internal
 .fw_keyring_get <- function(service) {
+  if (.fw_use_macos_security()) {
+    res <- .fw_security(c("find-generic-password", "-s", shQuote(service), "-a", "token", "-w"))
+    if (!identical(as.integer(res$status), 0L) || length(res$output) == 0) {
+      return(NULL)
+    }
+    token <- sub("[\r\n]+$", "", paste(res$output, collapse = "\n"))
+    if (startsWith(token, "go-keyring-base64:")) {
+      token <- rawToChar(jsonlite::base64_dec(sub("^go-keyring-base64:", "", token)))
+    }
+    return(if (nzchar(token)) token else NULL)
+  }
   tryCatch(
     {
       token <- keyring::key_get(service, "token")
@@ -200,9 +274,44 @@
   )
 }
 
+# Stores a token. Errors when it cannot.
+#' @keywords internal
+.fw_keyring_set <- function(service, token) {
+  if (.fw_use_macos_security()) {
+    unsafe <- function(x) grepl("['\\\\]|[[:cntrl:]]", x)
+    if (unsafe(token) || unsafe(service)) {
+      stop("The token contains a quote, backslash, or control character the keychain command cannot take.",
+           call. = FALSE)
+    }
+    cmd <- sprintf("add-generic-password -U -s '%s' -a 'token' -w '%s'", service, token)
+    if (!identical(.fw_security_stdin(cmd), 0L)) {
+      stop("security add-generic-password failed.", call. = FALSE)
+    }
+    return(invisible(TRUE))
+  }
+  keyring::key_set_with_value(service, "token", token)
+  invisible(TRUE)
+}
+
+# Deletes a stored token. TRUE when one was removed.
+#' @keywords internal
+.fw_keyring_delete <- function(service) {
+  if (.fw_use_macos_security()) {
+    res <- .fw_security(c("delete-generic-password", "-s", shQuote(service), "-a", "token"))
+    return(identical(as.integer(res$status), 0L))
+  }
+  tryCatch(
+    {
+      keyring::key_delete(service, "token")
+      TRUE
+    },
+    error = function(e) FALSE
+  )
+}
+
 #' @keywords internal
 .fw_keyring_token <- function(url) {
-  if (!requireNamespace("keyring", quietly = TRUE)) {
+  if (!.fw_keychain_available()) {
     return(NULL)
   }
   token <- .fw_keyring_get(.fw_keyring_service(url))
@@ -312,8 +421,9 @@
 #'
 #' Shows what connecting shares, asks for confirmation, then verifies the
 #' token and stores it in the native credential store for your platform --
-#' the macOS Keychain, Windows Credential Manager, or Linux Secret Service
-#' (via the `keyring` package) -- falling back to a permission-restricted
+#' the macOS Keychain (through `/usr/bin/security`, as `fw` does), or Windows
+#' Credential Manager or Linux Secret Service (through the `keyring` package),
+#' falling back to a permission-restricted
 #' file in the Framework config directory. This is the whole onboarding:
 #'
 #' ```r
@@ -328,7 +438,13 @@
 #' machine's default for [cloud_status()], [cloud_sync()], and [new()]. The
 #' `FW_CLOUD_URL` environment variable overrides that default.
 #'
+#' Without a token, `cloud_login()` opens the server's approval page in your
+#' browser. Sign in, or create a free account, and approve this computer; the
+#' token comes back to R. With a token from the server's token page,
+#' `cloud_login(token)` stores that token instead.
+#'
 #' @param token Your user token from Framework Cloud (Settings -> API tokens).
+#'   Omit it to approve this computer in the browser.
 #' @param url The Framework Cloud server. Defaults to `FW_CLOUD_URL`, then the
 #'   server you last logged in to, then <https://framework.pub>. Plain `http`
 #'   is accepted only for `localhost` and `127.0.0.1`.
@@ -337,15 +453,27 @@
 #'   interactive session you are prompted instead. What connecting shares is
 #'   printed first and documented at the server's `/privacy` page.
 #'
+#' @param browser Open the approval page when no token is given. FALSE prints
+#'   the link only.
+#'
 #' @return Invisibly, where the token was stored ("keyring" or the file path).
 #'
 #' @seealso [cloud_status()], [cloud_logout()], [cloud_settings()]
 #' @export
-cloud_login <- function(token, url = NULL, verify = TRUE, consent = NULL) {
-  checkmate::assert_string(token, min.chars = 10)
+cloud_login <- function(token = NULL, url = NULL, verify = TRUE, consent = NULL,
+                        browser = TRUE) {
+  checkmate::assert_string(token, min.chars = 10, null.ok = TRUE)
   checkmate::assert_string(url, min.chars = 1, null.ok = TRUE)
+  checkmate::assert_flag(browser)
   url <- .fw_cloud_url(url)
   host <- .fw_cloud_host(url)
+
+  if (is.null(token)) {
+    # Approving in the browser is the confirmation.
+    message(.fw_consent_notice(url))
+    token <- .fw_device_login(url, browser)
+    consent <- TRUE
+  }
 
   if (!isTRUE(consent)) {
     message(.fw_consent_notice(url))
@@ -381,10 +509,10 @@ cloud_login <- function(token, url = NULL, verify = TRUE, consent = NULL) {
     Sys.chmod(path, mode = "0600")
     stored <- path
     message("[ok] Token saved to ", path, " (FW_TOKEN_FILE)")
-  } else if (requireNamespace("keyring", quietly = TRUE)) {
+  } else if (.fw_keychain_available()) {
     stored <- tryCatch(
       {
-        keyring::key_set_with_value(service, "token", token)
+        .fw_keyring_set(service, token)
         message("[ok] Token stored in your system keyring (service: ", service, ")")
         "keyring"
       },
@@ -415,11 +543,94 @@ cloud_login <- function(token, url = NULL, verify = TRUE, consent = NULL) {
   invisible(stored)
 }
 
+# Tests replace the pause between approval checks.
+.fw_sleep <- function(seconds) Sys.sleep(seconds)
+
+.fw_browse <- function(url) utils::browseURL(url)
+
+.fw_device_request <- function(url, path, body) {
+  if (!requireNamespace("httr2", quietly = TRUE)) {
+    stop(
+      "Cloud features require the 'httr2' package. ",
+      'Install it with install.packages("httr2").',
+      call. = FALSE
+    )
+  }
+  req <- httr2::request(paste0(url, path))
+  req <- httr2::req_headers(req, Accept = "application/json")
+  req <- httr2::req_user_agent(
+    req,
+    paste0("framework-r/", as.character(utils::packageVersion("framework")))
+  )
+  req <- httr2::req_body_json(req, body)
+  if (nzchar(Sys.getenv("FW_CLOUD_INSECURE", ""))) {
+    req <- httr2::req_options(req, ssl_verifypeer = 0, ssl_verifyhost = 0)
+  }
+  req <- httr2::req_error(req, is_error = function(resp) FALSE)
+  httr2::req_perform(req)
+}
+
+# Approve this machine in the browser and return the new token: the same
+# flow as fw login and Stata's fw_login.
+.fw_device_login <- function(url, browser = TRUE) {
+  host <- .fw_cloud_host(url)
+  resp <- .fw_device_request(
+    url, "/api/v1/cli/device",
+    list(client_name = paste("R on", Sys.info()[["nodename"]]))
+  )
+  status <- httr2::resp_status(resp)
+  if (status %in% c(404L, 405L)) {
+    stop(host, " does not offer browser login. Create a token at ", url,
+         "/tokens, then call cloud_login(token).", call. = FALSE)
+  }
+  if (status >= 400L) {
+    stop("Browser login failed (HTTP ", status, ").", call. = FALSE)
+  }
+  start <- httr2::resp_body_json(resp)
+  page <- start$verification_url_complete %||% start$verification_url
+  interval <- as.numeric(start$interval %||% 5)
+  expires <- as.numeric(start$expires_in %||% 600)
+  message(
+    "Approve this computer in your browser.\n  Code: ", start$user_code %||% "",
+    "\n  Page: ", page, "\nWaiting for approval. Press Esc or Ctrl+C to stop."
+  )
+  if (isTRUE(browser) && interactive()) {
+    try(.fw_browse(page), silent = TRUE)
+  }
+  waited <- 0
+  while (waited < expires) {
+    .fw_sleep(interval)
+    waited <- waited + interval
+    poll <- .fw_device_request(
+      url, "/api/v1/cli/device/token", list(device_code = start$device_code)
+    )
+    status <- httr2::resp_status(poll)
+    if (status == 428L) next
+    if (status == 429L) {
+      interval <- interval + 5
+      next
+    }
+    if (status == 403L) stop("The login request was denied in the browser.", call. = FALSE)
+    if (status == 410L) break
+    if (status >= 400L) stop("Browser login failed (HTTP ", status, ").", call. = FALSE)
+    token <- httr2::resp_body_json(poll)$token
+    if (!is.character(token) || !nzchar(token)) {
+      stop(host, " approved the login but returned no token.", call. = FALSE)
+    }
+    return(token)
+  }
+  stop("The login code expired. Run cloud_login() again.", call. = FALSE)
+}
+
 #' Log Out of Framework Cloud
 #'
-#' Removes this machine's stored token for a server from the system keyring
-#' and any token files. Tokens can also be revoked on the server under API
-#' tokens.
+#' Revokes this machine's stored token for a server on that server, then
+#' removes it from the system keyring and any token files. When
+#' `FW_TOKEN_FILE` is set, only that file is used, because it is the only
+#' place [cloud_login()] wrote. A token in `FW_CLOUD_TOKEN` is neither
+#' revoked nor removed. When the server can't be reached, the local copy is
+#' still removed and the token can be revoked on the server's tokens page.
+#' The default server saved by [cloud_login()] is kept.
 #'
 #' @param url The server to log out of. Defaults to the server
 #'   [cloud_login()] would use.
@@ -432,25 +643,44 @@ cloud_logout <- function(url = NULL) {
   url <- .fw_cloud_url(url)
   removed <- character(0)
 
-  if (requireNamespace("keyring", quietly = TRUE)) {
+  # FW_TOKEN_FILE is authoritative when set: cloud_login() writes only
+  # there and every lookup reads only there, so logout removes only it
+  override <- Sys.getenv("FW_TOKEN_FILE", "")
+  if (nzchar(override)) {
+    path <- path.expand(override)
+    if (file.exists(path)) {
+      .fw_revoke_tokens(.fw_read_token_file(path), url)
+      file.remove(path)
+      message("[ok] Removed: ", path, " (FW_TOKEN_FILE)")
+    } else {
+      message("No stored token found in FW_TOKEN_FILE (", path, ").")
+    }
+    return(invisible(TRUE))
+  }
+
+  services <- character(0)
+  if (.fw_keychain_available()) {
     services <- .fw_keyring_service(url)
     if (.fw_is_default_cloud(url)) {
       services <- c(services, .fw_legacy_keyring_service)
     }
-    for (service in services) {
-      tryCatch(
-        {
-          keyring::key_delete(service, "token")
-          removed <- c(removed, paste0("keyring (", service, ")"))
-        },
-        error = function(e) NULL
-      )
-    }
   }
-
   paths <- .fw_token_file(url)
   if (.fw_is_default_cloud(url)) {
     paths <- c(paths, .fw_legacy_token_file())
+  }
+
+  # Revoke every stored copy on the server first, then remove them here
+  tokens <- c(
+    unlist(lapply(services, .fw_keyring_get)),
+    unlist(lapply(paths, .fw_read_token_file))
+  )
+  .fw_revoke_tokens(tokens, url)
+
+  for (service in services) {
+    if (.fw_keyring_delete(service)) {
+      removed <- c(removed, paste0("keyring (", service, ")"))
+    }
   }
   for (path in paths) {
     if (file.exists(path)) {
@@ -466,6 +696,43 @@ cloud_logout <- function(url = NULL) {
   }
 
   invisible(TRUE)
+}
+
+# Revokes tokens on the server with DELETE /api/v1/token. A 401 means a
+# token was already invalid. Any other failure prints one line and lets
+# logout go on.
+#' @keywords internal
+.fw_revoke_tokens <- function(tokens, url) {
+  tokens <- unique(tokens[!is.na(tokens) & nzchar(tokens)])
+  if (length(tokens) == 0 || !requireNamespace("httr2", quietly = TRUE)) {
+    return(invisible(FALSE))
+  }
+  failed <- FALSE
+  for (token in tokens) {
+    status <- tryCatch(
+      {
+        req <- httr2::request(paste0(url, "/api/v1/token"))
+        req <- httr2::req_auth_bearer_token(req, token)
+        req <- httr2::req_method(req, "DELETE")
+        req <- httr2::req_headers(req, Accept = "application/json")
+        req <- httr2::req_error(req, is_error = function(resp) FALSE)
+        req <- httr2::req_timeout(req, 15)
+        if (nzchar(Sys.getenv("FW_CLOUD_INSECURE", ""))) {
+          req <- httr2::req_options(req, ssl_verifypeer = 0, ssl_verifyhost = 0)
+        }
+        httr2::resp_status(httr2::req_perform(req))
+      },
+      error = function(e) NA_integer_
+    )
+    if (is.na(status) || !(status < 300 || status == 401)) {
+      failed <- TRUE
+    }
+  }
+  if (failed) {
+    message("Could not revoke the token on ", .fw_cloud_host(url),
+            ". Revoke it at ", url, "/tokens.")
+  }
+  invisible(!failed)
 }
 
 #' Check Cloud Connection Status
@@ -641,7 +908,7 @@ cloud_settings <- function() {
 # Register a locally created project on Framework Cloud and store its key.
 # Quiet by design: offline or name-taken just means no cloud registration.
 #' @keywords internal
-.fw_cloud_register_project <- function(project_dir, name, type) {
+.fw_cloud_register_project <- function(project_dir, name, type, choices = NULL) {
   url <- .fw_cloud_url()
   token <- .fw_cloud_token(url)
   if (is.null(token)) {
@@ -649,10 +916,18 @@ cloud_settings <- function() {
   }
 
   res <- tryCatch(
-    .fw_api(
-      "/api/v1/projects", token = token, method = "POST",
-      body = list(name = name, project_type = type, language = "r"), url = url
-    ),
+    {
+      if (is.null(choices)) {
+        .fw_api(
+          "/api/v1/projects", token = token, method = "POST",
+          body = list(name = name, project_type = type, language = "r"), url = url
+        )
+      } else {
+        # Register the same choices used to resolve the local project, rather
+        # than a name-only v1 record that cannot recreate its configuration.
+        .fw_api("/api/v2/projects", token = token, method = "POST", body = choices, url = url)
+      }
+    },
     error = function(e) {
       message("Cloud project registration skipped: ", conditionMessage(e))
       NULL
@@ -663,8 +938,12 @@ cloud_settings <- function() {
     return(invisible(NULL))
   }
 
-  message("[ok] Registered on ", .fw_cloud_host(url), ": ", res$project$slug)
-  .fw_write_project_token(project_dir, res$pull_token, url)
+  slug <- res$slug %||% res$project$slug
+  project_token <- res$token %||% res$pull_token
+  message("[ok] Registered on ", .fw_cloud_host(url), ": ", slug)
+  if (!identical(type, "bare")) {
+    .fw_write_project_token(project_dir, project_token, url)
+  }
   invisible(res)
 }
 
@@ -724,8 +1003,9 @@ cloud_settings <- function() {
 #   - .qmd (rendered: embedded by default, full bundle when self_contained = FALSE)
 #   - .Rmd (rendered self-contained)
 # Each publish adds a version. `slug` is publish()'s argument: a string names
-# the document and turns on its readable URL, TRUE turns it on with the
-# derived name, FALSE turns it off, and NULL leaves the setting alone.
+# the document only. TRUE makes it public with the derived name, FALSE makes
+# it unlisted, and NULL or a string leaves the visibility alone (a new
+# artifact is unlisted).
 #' @keywords internal
 .fw_cloud_publish <- function(source, dest = NULL, title = NULL, self_contained = TRUE,
                               slug = NULL, description = NULL, kind = NULL,
@@ -743,7 +1023,9 @@ cloud_settings <- function() {
                         identical(x$slug, as.character(collection)), rows)
     if (length(matches) != 1L) stop("Collection is missing or ambiguous in this project.", call. = FALSE)
     selected <- matches[[1]]
-    public <- if (!is.null(slug)) !isFALSE(slug) else if (!is.null(visibility)) visibility == "public" else NULL
+    # As on the server: an explicit visibility wins over the TRUE/FALSE
+    # switch. A string slug only names the artifact, so it predicts nothing.
+    public <- if (!is.null(visibility)) visibility == "public" else if (is.logical(slug)) isTRUE(slug) else NULL
     if (identical(selected$visibility, "public") && isFALSE(public)) {
       stop('Public collections require public artifacts. Set visibility = "public".', call. = FALSE)
     }
@@ -812,7 +1094,10 @@ cloud_settings <- function() {
     html_path <- source
   }
 
-  readable <- if (is.null(slug)) NULL else !isFALSE(slug)
+  # An explicit visibility wins. `readable` is the older switch between
+  # public and unlisted, sent only for slug = TRUE or FALSE. A string slug
+  # never sets it.
+  readable <- if (is.logical(slug) && is.null(visibility)) isTRUE(slug) else NULL
   if (!is.character(slug)) {
     slug <- dest %||% tools::file_path_sans_ext(basename(source))
   }
@@ -868,7 +1153,13 @@ cloud_settings <- function() {
   } else {
     message("Published: ", res$url)
   }
-  if (!is.null(res$notice) && nzchar(res$notice)) {
+  # The server's notice assumes an unlisted link. Say it plainly for a
+  # public artifact whose owner has no handle yet.
+  public <- identical(res$visibility, "public") ||
+    (is.null(res$visibility) && !is.null(res$notice) && grepl("handle", res$notice, fixed = TRUE))
+  if (public && is.null(res$readable_url)) {
+    message("Public. Set a handle in Account > Account details to get a readable URL.")
+  } else if (!is.null(res$notice) && nzchar(res$notice) && !grepl("handle", res$notice, fixed = TRUE)) {
     message(res$notice)
   }
   if (!is.null(selected)) {
@@ -945,7 +1236,8 @@ cloud_settings <- function() {
         algo = "sha256",
         hash = hash,
         size_bytes = size_bytes,
-        recorded_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+        # UTC with a Z, as ledger_push() and framework-py send
+        recorded_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
         client = list(
           device = Sys.info()[["nodename"]],
           package_version = as.character(utils::packageVersion("framework"))
@@ -976,7 +1268,10 @@ cloud_settings <- function() {
 #' @param name Data catalog name (e.g. "inputs.raw.enrollment"), as used with
 #'   [data_read()] / [data_save()].
 #'
-#' @return Invisibly, TRUE when every available record matches.
+#' @return Invisibly, TRUE when no available record disagrees with the file.
+#'   It prints which records were compared. With no framework.db record and
+#'   no cloud ledger entry, nothing is compared: it says "Not verified" and
+#'   still returns TRUE, as framework-py does.
 #'
 #' @export
 data_verify <- function(name) {
@@ -998,25 +1293,31 @@ data_verify <- function(name) {
   if (is.null(entry) || is.null(entry$path)) {
     stop("No data catalog entry named '", name, "'.", call. = FALSE)
   }
+  # Catalog paths are relative to the project root
+  entry$path <- .fw_project_path(entry$path)
   if (!file.exists(entry$path)) {
-    stop("File missing: ", entry$path, call. = FALSE)
+    stop("File missing: ", .fw_project_relative_path(entry$path), call. = FALSE)
   }
 
   # paste0 strips openssl's "hash" class, which would defeat identical()
   file_hash <- paste0(as.character(.calculate_file_hash(entry$path)))
   all_match <- TRUE
-  message("Verifying ", name, " (", entry$path, ")")
+  compared <- character()
+  message("Verifying ", name, " (", .fw_project_relative_path(entry$path), ")")
   message("  file sha256: ", substr(file_hash, 1, 16), "...")
 
   # Local framework.db record
   record <- tryCatch(.get_data_record(name), error = function(e) NULL)
-  if (!is.null(record)) {
+  if (!is.null(record) && NROW(record) > 0 && !is.na(record$hash[1])) {
+    compared <- c(compared, "framework.db")
     if (identical(record$hash[1], file_hash)) {
       message("  [ok] matches local framework.db record")
     } else {
       message("  [MISMATCH] local framework.db has ", substr(record$hash[1], 1, 16), "...")
       all_match <- FALSE
     }
+  } else {
+    message("  (no framework.db record for this name yet)")
   }
 
   # Cloud ledger head
@@ -1032,6 +1333,7 @@ data_verify <- function(name) {
     )
     if (length(entries) > 0) {
       head_entry <- entries[[1]]
+      compared <- c(compared, "the cloud ledger")
       if (identical(head_entry$hash, file_hash)) {
         message("  [ok] matches cloud ledger entry #", head_entry$sequence,
                 " (recorded ", head_entry$recorded_at %||% "?", ")")
@@ -1045,10 +1347,13 @@ data_verify <- function(name) {
     }
   }
 
-  if (all_match) {
-    message("[ok] Verified")
-  } else {
+  if (!all_match) {
     warning("Integrity mismatch for '", name, "'", call. = FALSE)
+  } else if (length(compared) == 0) {
+    message("[!] Not verified: no record to compare with. ",
+            "data_save() and data_add() record one.")
+  } else {
+    message("[ok] Verified against ", paste(compared, collapse = " and "))
   }
 
   invisible(all_match)
@@ -1176,7 +1481,11 @@ ledger_list <- function(name = NULL) {
   entries <- .fw_api(path, token = token, url = .fw_project_cloud_url())$entries
   if (length(entries) == 0) {
     message("No ledger entries yet.")
-    return(invisible(data.frame()))
+    # Same columns as a non-empty result, so code that selects them works
+    return(invisible(data.frame(
+      sequence = integer(), name = character(), hash = character(),
+      size_bytes = numeric(), recorded_at = character(), stringsAsFactors = FALSE
+    )))
   }
 
   do.call(rbind, lapply(entries, function(e) {
@@ -1245,8 +1554,8 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
     } else if (local_changed && remote_ahead) {
       stop(
         "Both your local mirror and the cloud changed since the last sync.\n",
-        "  cloud_sync(\"pull\") to take the cloud version (your file is backed up), or\n",
-        "  cloud_sync(\"push\") to overwrite the cloud with your local mirror.",
+        "  cloud_sync(\"pull\") takes the cloud version and backs up your file.\n",
+        "  Then copy your edits from the backup and run cloud_sync(\"push\").",
         call. = FALSE
       )
     } else if (local_changed) {

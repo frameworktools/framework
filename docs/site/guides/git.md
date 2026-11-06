@@ -1,17 +1,17 @@
 ---
 id: git
-title: Git Integration
+title: Git integration
 section: features
 position: 10
-description: 'Version control and git hooks in Framework'
+description: 'Version control and Git hooks'
 ---
 ## Overview
 
 Framework automatically initializes git repositories when you create new projects. It also manages commit identity, runs pre-commit hooks for security, and provides helper functions for common git operations.
 
-## .gitignore Templates
+## .gitignore templates
 
-Framework generates `.gitignore` files based on project type. Each project type has its own template with sensible defaults for that workflow:
+Framework generates `.gitignore` files based on project type. Each project type has its own template:
 
 - **project**: Standard research project ignores
 - **project_sensitive**: Stricter rules for sensitive data
@@ -24,7 +24,7 @@ Customize templates under **Project Defaults** in the GUI, where each project ty
 
 Templates use pattern-based rules that work regardless of your directory structure customization.
 
-## Commit Identity, Hooks & Settings
+## Commit identity and hooks
 
 Configure git settings through the GUI by running `setup()` and clicking **Git & Hooks**:
 
@@ -34,11 +34,11 @@ framework::setup()
 
 ![Git & Hooks GUI](images/git-hooks-gui.png)
 
-### Commit Identity
+### Commit identity
 
-Framework manages your git identity directly. Configure the name and email you want on commits once in the GUI (or via git config), and Framework reuses that for project initialization. If the identity is missing, Framework skips the initial auto-commit and prints guidance—set `user.name` and `user.email` to enable auto-commits.
+Framework manages your git identity directly. Configure the name and email you want on commits once in the GUI (or via git config), and Framework reuses that for project initialization. If the identity is missing, Framework skips the initial auto-commit and prints guidance. Set `user.name` and `user.email` to enable auto-commits.
 
-### Git Hooks
+### Git hooks
 
 Pre-commit hooks run automatically before each commit. Enable them in the GUI or in `settings.yml`:
 
@@ -52,11 +52,11 @@ git:
 
 **Sync AI Files Before Commit**: Updates non-canonical AI assistant files so all assistants share the same instructions. If your canonical file is `CLAUDE.md`, this syncs changes to `AGENTS.md` and other AI config files.
 
-**Check for Secrets**: Scans staged files for API keys, credentials, and other secrets before allowing a commit. Helps prevent accidentally committing sensitive data.
+**Check for Secrets**: Scans staged files for API keys, credentials, and other secrets before allowing a commit. This helps prevent accidental commits of sensitive data.
 
-**Warn About Unignored Sensitive Directories**: Blocks commits if directories with sensitive names (like `outputs/private/`) aren't properly gitignored. Catches misconfigured projects before data leaks. (Alias `warn_unignored_sensitive` is also accepted.)
+**Warn About Unignored Sensitive Directories**: Blocks commits if directories with sensitive names (like `outputs/private/`) aren't properly gitignored. This catches misconfigured projects before data is committed. (Alias `warn_unignored_sensitive` is also accepted.)
 
-## Git Helper Functions
+## Git helper functions
 
 Run common git operations from R without leaving your session:
 
@@ -83,8 +83,8 @@ git_push()
 
 <div style="display: flex; justify-content: space-between">
 
-[← Saving Work](guide:saving-work)
+[← Saving work](guide:saving-work)
 
-[AI Assistants →](guide:ai-assistants)
+[AI assistants →](guide:ai-assistants)
 
 </div>

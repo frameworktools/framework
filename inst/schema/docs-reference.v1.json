@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "schema": { "const": "docs-reference.v1" },
-    "product": { "enum": ["r", "py", "cli"] },
+    "product": { "enum": ["r", "py", "cli", "stata"] },
     "version": { "type": "string", "minLength": 1, "description": "The release this reference was built from, such as 2.0.0 or 0.1.0.dev1." },
     "categories": {
       "type": "array",

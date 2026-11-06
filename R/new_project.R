@@ -31,7 +31,9 @@
 #'   cloud can't be reached, your saved cloud defaults are used when you
 #'   made no choices beyond the name. Otherwise an interactive session asks
 #'   before using Framework's built-in defaults, and a non-interactive one
-#'   stops. `offline = TRUE` skips the cloud: saved defaults when there are
+#'   stops. Successful projects are registered with their choices on Cloud
+#'   and linked through a project token in the ignored `.env` file.
+#'   `offline = TRUE` skips the cloud: saved defaults when there are
 #'   any, else the built-ins. Not signed in, the built-ins are used.
 #' @param browse Whether to open the project folder after creation (default: TRUE in
 #'   interactive sessions)
@@ -72,10 +74,20 @@
 #' }
 #' }
 #'
+#' @param key Optional Framework Cloud project token.
+#' @param url Optional Framework Cloud server URL for `key`.
 #' @export
 new_project <- function(name = NULL, location = NULL, type = NULL, browse = interactive(),
                         tools = NULL, package_sets = NULL, skill_sets = NULL,
-                        workflow = NULL, offline = FALSE, ...) {
+                        workflow = NULL, offline = FALSE, key = NULL, url = NULL, ...) {
+  if (!is.null(key)) {
+    checkmate::assert_string(key, min.chars = 1)
+    checkmate::assert_string(url, min.chars = 1, null.ok = TRUE)
+    if (!is.null(name) || !is.null(type)) {
+      stop("With `key`, the name and type come from the cloud project; leave `name` and `type` out.", call. = FALSE)
+    }
+    return(.cloud_setup(token = key, location = location, browse = browse, url = url))
+  }
   # Check global config exists
   config_dir <- fw_config_dir()
   settings_path <- file.path(config_dir, "settings.yml")
@@ -149,6 +161,14 @@ new_project <- function(name = NULL, location = NULL, type = NULL, browse = inte
     spec <- spec_resolve(layers, name = name, author = envelope$author %||% args$author)
   } else {
     type <- type %||% "project"
+    # Offline or signed out, only Framework's structures and the project types
+    # in your global settings have a layout. Anything else is likely a typo.
+    if (!type %in% c(.spec_types(), names(config$project_types))) {
+      warning(sprintf(
+        "Unknown project type '%s': building Framework's default layout with that label. Framework's types are %s.",
+        type, paste(.spec_types(), collapse = ", ")
+      ), call. = FALSE)
+    }
     layers <- .new_project_layers(args, type, NULL, tools, package_sets, skill_sets, workflow)
     spec <- spec_resolve(layers, name = name, author = args$author)
   }
@@ -166,10 +186,10 @@ new_project <- function(name = NULL, location = NULL, type = NULL, browse = inte
     .create_env_file(result$path, args$env)
   }
 
-  # Register on Framework Cloud and store the project key (non-bare only:
-  # bare projects have no .env to hold the secret)
-  if (result$success && !identical(type, "bare")) {
-    .fw_cloud_register_project(result$path, name, type)
+  # Register the resolved choices on Cloud. Offline creation stays local.
+  # Bare projects are registered without writing a token or creating .env.
+  if (result$success && !isTRUE(offline)) {
+    .fw_cloud_register_project(result$path, name, type, choices = choices)
   }
 
   # Open project folder if requested
@@ -273,6 +293,11 @@ new_course <- function(name = NULL, location = NULL, browse = interactive(), ...
 #' type as a parameter.
 #'
 #' @inheritParams new_project
+#' @param type Project type, as in [new_project()]. NULL (default): signed
+#'   in to Framework Cloud, your default blueprint is used. Not signed in,
+#'   an interactive session asks, with the Standard Project ("project")
+#'   first, and a non-interactive one makes a "project". Pass
+#'   `type = "bare"` for a bare project.
 #' @param key A Framework Cloud project token. When given, the project's
 #'   definition is fetched from the cloud (as with `setup("fw_...")`) and
 #'   `name` and `type` come from it. The token is saved in the new project's
@@ -299,31 +324,29 @@ new_course <- function(name = NULL, location = NULL, browse = interactive(), ...
 #' }
 #' }
 #'
+#' @details `new_project()` is the preferred name. `new()` remains available for
+#'   existing scripts. Its name can mask `methods::new()` when attached.
 #' @export
 new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(),
                 key = NULL, url = NULL, ...) {
   if (!is.null(key)) {
-    checkmate::assert_string(key, min.chars = 1)
-    checkmate::assert_string(url, min.chars = 1, null.ok = TRUE)
-    if (!is.null(name) || !is.null(type)) {
-      stop("With `key`, the name and type come from the cloud project; leave `name` and `type` out.", call. = FALSE)
-    }
-    return(.cloud_setup(token = key, location = location, browse = browse, url = url))
+    return(new_project(name = name, location = location, type = type, browse = browse,
+                       key = key, url = url, ...))
   }
   # Signed in, Framework Cloud supplies the default blueprint
   if (is.null(type) && is.null(.fw_cloud_token())) {
-    # Bare (no blueprint) is the default; the rest are opinionated offerings
-    valid_types <- c("bare", "project", "project_sensitive", "course", "presentation")
+    # The Standard Project is the default; bare stays available on request
+    valid_types <- c("project", "project_sensitive", "course", "presentation", "bare")
     if (interactive()) {
-      labels <- c("bare (no blueprint - bring your own structure)",
-                  "project", "project_sensitive", "course", "presentation")
+      labels <- c("Standard Project (project)", "project_sensitive", "course", "presentation",
+                  "bare (no blueprint - bring your own structure)")
       choice <- utils::menu(labels, title = "Project type:")
       if (choice == 0) {
         stop("Project creation cancelled")
       }
       type <- valid_types[choice]
     } else {
-      type <- "bare"
+      type <- "project"
     }
   }
   new_project(name = name, location = location, type = type, browse = browse, ...)
@@ -367,6 +390,7 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
   if (!is.null(args$connections)) {
     user$connections <- .spec_connections_from_settings(args$connections)
   }
+  if (!is.null(args$publish)) user$publish <- args$publish
   if (isTRUE(args$packages$use_renv)) user$tools <- list(renv = TRUE)
 
   layers <- list(
@@ -461,6 +485,7 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
       ggplot_theme = "theme_minimal",
       ide = defaults$ide %||% "vscode"
     ),
+    publish = config$publish %||% defaults$publish,
     connections = defaults$connections,
     env = defaults$env
   )

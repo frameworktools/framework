@@ -9,13 +9,16 @@ add_project_to_config(project_dir, project_name = NULL, project_type = NULL)
 \arguments{
 \item{project_dir}{Path to project directory}
 
-\item{project_name}{Optional project name}
+\item{project_name}{Not stored. Kept so older code still runs.}
 
-\item{project_type}{Optional project type}
+\item{project_type}{Not stored. Kept so older code still runs.}
 }
 \value{
-Invisibly returns the project ID
+Invisibly returns the project ID. For a folder already in the
+registry, that project's existing ID.
 }
 \description{
-Add project to global configuration
+Adds a project folder to the registry (\code{projects.yml} in \code{\link[=fw_config_dir]{fw_config_dir()}}).
+The registry stores only the ID, the path, and the date. The project's name
+and type are read from its settings.yml when needed.
 }

@@ -15,7 +15,9 @@ configure_global(settings = NULL, validate = TRUE)
 Invisibly returns updated global configuration
 }
 \description{
-Unified function for reading and writing global Framework settings to ~/.frameworkrc.json.
+Unified function for reading and writing global Framework settings. They
+are stored in \code{settings.yml} and the project registry in \code{projects.yml},
+both in \code{\link[=fw_config_dir]{fw_config_dir()}}.
 This function provides a single source of truth for global configuration,
 used by both the CLI and GUI interfaces.
 }
@@ -25,7 +27,8 @@ used by both the CLI and GUI interfaces.
 \item \code{author} - Author information (name, email, affiliation)
 \item \code{defaults} - Project defaults
 \itemize{
-\item \code{project_type} - Default project type ("project", "presentation", "course")
+\item \code{project_type} - Default project type ("project", "project_sensitive",
+"presentation", "course", "bare")
 \item \code{notebook_format} - Default notebook format ("quarto", "rmarkdown", "jupyter")
 \item \code{ide} - IDE preference ("vscode", "rstudio", "both", "none")
 \item \code{use_git} - Initialize git repositories by default

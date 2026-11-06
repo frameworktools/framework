@@ -3,7 +3,7 @@ id: settings-yml
 title: settings.yml
 section: getting_started
 position: 4
-description: 'Understanding the settings.yml configuration file'
+description: 'The project configuration file'
 ---
 ## Overview
 
@@ -11,7 +11,7 @@ Every Framework project has a `settings.yml` file that controls project-specific
 
 Settings use the config package's environment format with a `default:` key (and optional environment overrides like `production:`).
 
-## Split Files
+## Split files
 
 For larger projects, split complex sections into separate files. Replace inline content with a file path:
 
@@ -55,7 +55,7 @@ author:
   affiliation: "Your Institution"
 ```
 
-### Project Structure
+### Project structure
 
 Maps logical directory names to paths. All paths are relative to the project root.
 
@@ -101,7 +101,7 @@ packages:
 
 See [Packages](guide:packages) for details on version pinning and GitHub packages.
 
-### Data Catalog
+### Data catalog
 
 The data catalog maps logical names to file paths. You can use three notation styles:
 
@@ -150,9 +150,9 @@ data_read("raw.survey")
 data_read("final.analysis")
 ```
 
-See [Data Management](guide:data-management) for full documentation.
+See [Data management](guide:data-management) for full documentation.
 
-### Git & Hooks
+### Git hooks
 
 Git hook configuration:
 
@@ -163,9 +163,9 @@ git:
     data_security: false  # Check for secrets before commit
 ```
 
-See [Git Integration](guide:git) for details.
+See [Git integration](guide:git) for details.
 
-### AI Assistants
+### AI assistants
 
 AI assistant configuration:
 
@@ -176,7 +176,7 @@ ai:
 
 The canonical file is the source of truth for AI instructions. Other AI files are synced from it when using git hooks.
 
-See [AI Assistants](guide:ai-assistants) for details.
+See [AI assistants](guide:ai-assistants) for details.
 
 ### Connections
 
@@ -192,9 +192,9 @@ connections:
     password: env("DB_PASS")
 ```
 
-See [Database Connections](guide:connections) for full documentation.
+See [Connections](guide:connections) for full documentation.
 
-### Random Seeds
+### Random seeds
 
 Control random seed behavior for reproducibility:
 
@@ -205,7 +205,7 @@ seed_on_scaffold: false   # Set seed automatically when scaffold() runs
 
 When `seed_on_scaffold: true`, Framework calls `set.seed()` during `scaffold()`. This is off by default.
 
-## Environment Variables
+## Environment variables
 
 Use `env()` to read environment variables in your settings:
 
@@ -223,7 +223,7 @@ DB_HOST=localhost
 DB_PASS=secret123
 ```
 
-## Environment-Specific Settings
+## Environment-specific settings
 
 For different settings per environment, add named environment blocks:
 
@@ -245,7 +245,7 @@ Activate with:
 Sys.setenv(R_CONFIG_ACTIVE = "production")
 ```
 
-## Accessing Settings
+## Settings access
 
 ```r
 settings("author.name")
@@ -254,9 +254,9 @@ settings("notebooks")           # Shorthand for directories.notebooks
 settings("missing.key", default = "fallback")
 ```
 
-## Complete Structure
+## Complete structure
 
-Here's the full structure of a project's `settings.yml`:
+The full structure of a project's `settings.yml`:
 
 ```yaml
 default:
@@ -314,6 +314,6 @@ default:
 
 [← Conventions](guide:conventions)
 
-[Making a New Project →](guide:new-project)
+[New projects →](guide:new-project)
 
 </div>

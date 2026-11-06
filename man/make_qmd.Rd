@@ -7,7 +7,8 @@
 make_qmd(name, dir = NULL, stub = "default", overwrite = FALSE, subdir = NULL)
 }
 \arguments{
-\item{name}{Character. The file name (with or without .qmd extension)}
+\item{name}{Character. The file name (with or without .qmd extension).
+Another extension wins: \code{"x.Rmd"} creates a .Rmd file.}
 
 \item{dir}{Character. Directory to create the file in. Uses your project's
 configured \code{directories$notebooks} setting. Default: "notebooks/".}

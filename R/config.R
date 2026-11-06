@@ -195,13 +195,20 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
     dotenv_path <- file.path(project_root, ".env")
   }
 
+  # The .env values are visible only while this call resolves env() and
+  # !expr values. They are never left in the R session, so one project's
+  # token or server cannot leak into the next project. A variable that is
+  # already set wins, and empty template lines (S3_ACCESS_KEY=) are skipped.
   if (file.exists(dotenv_path)) {
-    tryCatch(
-      dotenv::load_dot_env(dotenv_path),
+    dotenv_values <- tryCatch(
+      .fw_read_dotenv(dotenv_path),
       error = function(e) {
         warning(sprintf("Failed to load .env file: %s", e$message))
+        character()
       }
     )
+    restore_env <- .fw_scope_env(dotenv_values)
+    on.exit(restore_env(), add = TRUE)
   }
 
   # Resolve split file references recursively (this evaluates env() in split files)
@@ -225,6 +232,62 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
 
   config
 }
+
+
+# Parse a .env file into a named character vector, in file order. The
+# rules match the dotenv package and framework-py: `#` lines and blank
+# lines are skipped, `export ` is allowed, matching outer quotes are removed,
+# and a line that does not match is an error. Later keys win.
+#' @keywords internal
+.fw_read_dotenv <- function(path) {
+  if (!file.exists(path)) {
+    return(stats::setNames(character(), character()))
+  }
+  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
+  lines <- lines[!grepl("^#", lines) & nzchar(trimws(lines))]
+  pattern <- "^\\s*(?:export\\s+)?([^=]+)=(['\"]?)(.*)\\2\\s*$"
+  ok <- grepl(pattern, lines, perl = TRUE)
+  if (!all(ok)) {
+    stop(sprintf("Cannot parse .env line: %s", substr(lines[!ok][1], 1, 40)))
+  }
+  keys <- sub(pattern, "\\1", lines, perl = TRUE)
+  values <- sub(pattern, "\\3", lines, perl = TRUE)
+  values <- stats::setNames(values, keys)
+  values[!duplicated(keys, fromLast = TRUE)]
+}
+
+# Set .env values for a short time and return a function that undoes it.
+# Only names that are unset (or empty) in the session are set, and empty
+# values are skipped, so a shell credential is never replaced or blanked.
+#' @keywords internal
+.fw_scope_env <- function(values) {
+  values <- values[nzchar(values) & nzchar(names(values))]
+  values <- values[!nzchar(Sys.getenv(names(values), unset = ""))]
+  if (length(values) > 0) {
+    do.call(Sys.setenv, as.list(values))
+  }
+  added <- names(values)
+  function() {
+    if (length(added) > 0) Sys.unsetenv(added)
+    invisible(NULL)
+  }
+}
+
+# Load a .env file into the R session for good, without replacing variables
+# that are already set and without setting empty values. For code that
+# means to set up the session, such as scaffold(). Values an earlier load
+# set are removed first, so the last project's values do not carry over
+# (framework-py's dotenv.load() does the same).
+#' @keywords internal
+.fw_load_dotenv <- function(path) {
+  values <- .fw_read_dotenv(path)
+  undo <- .fw_dotenv_loaded$undo
+  if (is.function(undo)) undo()
+  .fw_dotenv_loaded$undo <- .fw_scope_env(values)
+  invisible(NULL)
+}
+
+.fw_dotenv_loaded <- new.env(parent = emptyenv())
 
 
 # Projects created by 2.0 development builds wrote settings/connections.yml

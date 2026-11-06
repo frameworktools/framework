@@ -2,11 +2,13 @@
 % Please edit documentation in R/git_hooks.R
 \name{.update_hook_config}
 \alias{.update_hook_config}
-\title{Update hook configuration in settings.yml/settings.yml}
+\title{Update hook configuration in settings.yml, or in its split git file}
 \usage{
 .update_hook_config(hook_name, enabled, config_file)
 }
 \description{
-Update hook configuration in settings.yml/settings.yml
+Projects made by new_project() store \code{git: settings/git.yml}. The hook
+setting is then written to that file, as framework-py does. The legacy
+alias \code{warn_unignored_sensitive} is stored as \code{check_sensitive_dirs}.
 }
 \keyword{internal}

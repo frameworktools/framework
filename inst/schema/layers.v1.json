@@ -735,6 +735,41 @@
           },
           "additionalProperties": false
         },
+        "publish": {
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "destinations": {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "driver": {
+                        "type": "string",
+                        "enum": [
+                          "cloud",
+                          "github",
+                          "folder",
+                          "s3"
+                        ]
+                      }
+                    },
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         "security": {
           "type": "object",
           "properties": {

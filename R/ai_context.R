@@ -102,15 +102,18 @@ if (is.null(project_name)) {
 #'
 #' @param project_path Path to the project directory
 #' @param sections Which sections to regenerate. NULL = all regeneratable sections.
-#'   Options: "environment", "packages", "data", "functions"
-#' @param ai_file Name of the AI context file (default: from settings or "CLAUDE.md")
+#'   Options: "environment", "packages", "data", "functions". A section is
+#'   regenerated only when the file has its marked heading; files made by
+#'   Framework 2.0 have no "functions" section.
+#' @param ai_file Name of the AI context file (default: `ai.canonical_file`
+#'   from settings, then "AGENTS.md", then "CLAUDE.md" for older projects)
 #'
 #' @return Invisible TRUE on success
 #' @export
 #'
 #' @examples
 #' \donttest{
-#' if (file.exists("CLAUDE.md")) {
+#' if (file.exists("AGENTS.md")) {
 #'   # Regenerate all dynamic sections
 #'   ai_regenerate_context()
 #'
@@ -121,12 +124,32 @@ if (is.null(project_name)) {
 ai_regenerate_context <- function(project_path = ".",
                           sections = NULL,
                           ai_file = NULL) {
+  # Read settings once. A broken settings file stops here: regenerating
+  # from empty settings would quietly wipe the sections.
+  settings_path <- file.path(project_path, "settings.yml")
+  config <- if (file.exists(settings_path)) {
+    tryCatch(
+      settings_read(settings_path),
+      error = function(e) {
+        stop("Could not read settings, so nothing was regenerated: ", conditionMessage(e), call. = FALSE)
+      }
+    )
+  } else {
+    list()
+  }
+
+  generators_known <- c("environment", "packages", "data", "functions")
+  if (!is.null(sections)) {
+    checkmate::assert_character(sections, min.len = 1, any.missing = FALSE)
+    unknown <- setdiff(sections, generators_known)
+    if (length(unknown) > 0) {
+      stop("Unknown section: ", paste(unknown, collapse = ", "),
+           ". Choose from: ", paste(generators_known, collapse = ", "), call. = FALSE)
+    }
+  }
+
   # Determine AI file path
   if (is.null(ai_file)) {
-    config <- tryCatch(
-      settings_read(file.path(project_path, "settings.yml")),
-      error = function(e) list()
-    )
     ai_file <- config$ai$canonical_file %||% "AGENTS.md"
     if (!file.exists(file.path(project_path, ai_file)) &&
         file.exists(file.path(project_path, "CLAUDE.md"))) {
@@ -144,11 +167,6 @@ ai_regenerate_context <- function(project_path = ".",
   # Read existing content
   content <- paste(readLines(ai_path, warn = FALSE), collapse = "\n")
 
-  # Read config for regeneration
-  config <- tryCatch(
-    settings_read(file.path(project_path, "settings.yml")),
-    error = function(e) list()
-  )
   project_type <- config$project_type %||% "project"
 
   # Define section generators
@@ -167,23 +185,37 @@ ai_regenerate_context <- function(project_path = ".",
     functions = "Function Reference"
   )
 
-  # Determine which sections to regenerate
-  if (is.null(sections)) {
+  # Determine which sections to regenerate. With no choice, sections a
+  # file does not have are skipped quietly.
+  all_sections <- is.null(sections)
+  missing_sections_ok <- function(section) all_sections
+  if (all_sections) {
     sections <- names(generators)
   }
 
   # Regenerate each section
+  done <- character()
   for (section in sections) {
-    if (section %in% names(generators)) {
-      heading <- heading_map[[section]]
-      new_content <- generators[[section]]()
-      content <- .replace_section(content, heading, new_content)
+    heading <- heading_map[[section]]
+    marker <- sprintf("## %s <!-- @framework:regenerate -->", heading)
+    if (!grepl(marker, content, fixed = TRUE)) {
+      if (!missing_sections_ok(section)) {
+        message("  Skipped ", section, ": ", ai_file, " has no '", heading, "' section")
+      }
+      next
     }
+    new_content <- generators[[section]]()
+    content <- .replace_section(content, heading, new_content)
+    done <- c(done, section)
   }
 
   # Write updated content
   writeLines(content, ai_path)
-  message("\u2713 Regenerated AI context: ", ai_file)
+  if (length(done) > 0) {
+    message("\u2713 Regenerated AI context: ", ai_file, " (", paste(done, collapse = ", "), ")")
+  } else {
+    message("No sections regenerated in ", ai_file)
+  }
 
   invisible(TRUE)
 }

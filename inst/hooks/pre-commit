@@ -58,6 +58,16 @@ if [ "$status" -eq 127 ] && { [ -f pyproject.toml ] || [ -f uv.lock ] || [ -d .v
   run_python
   status=$?
 fi
+# A project with no runtime markers (new_project() writes no .Rproj or
+# renv.lock) still has a runtime: try R, then Python
+if [ "$status" -eq 127 ] && [ -f settings.yml ]; then
+  run_r
+  status=$?
+  if [ "$status" -eq 127 ]; then
+    run_python
+    status=$?
+  fi
+fi
 
 if [ "$status" -eq 127 ]; then
   echo "Framework hook: found neither R with framework 2.0 or later nor Python with framework-py." >&2

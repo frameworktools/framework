@@ -21,10 +21,10 @@ Imports:
     yaml,
     fs,
     readr,
-    dotenv,
     openssl,
     lubridate,
-    jsonlite
+    jsonlite,
+    digest
 Suggests:
     bit64,
     gt,

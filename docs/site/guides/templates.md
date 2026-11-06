@@ -9,9 +9,9 @@ description: 'Customizing notebook, script, and project templates'
 
 Framework uses templates to generate new notebooks, scripts, and project files. You can customize these templates to match your workflow.
 
-## Using the GUI
+## GUI editor
 
-The easiest way to edit templates is through the GUI. Run `setup()` and click **Templates** in the sidebar:
+Edit templates in the GUI. Run `setup()` and click **Templates** in the sidebar:
 
 ```r
 framework::setup()
@@ -21,7 +21,7 @@ framework::setup()
 
 The GUI provides a code editor for each template type with syntax highlighting and a **Reset to default** button if you want to start over.
 
-## Available Variables
+## Template variables
 
 Templates support variable substitution. When you create a new file, these placeholders are replaced with actual values:
 
@@ -35,7 +35,7 @@ Templates support variable substitution. When you create a new file, these place
 | `{{github_username}}` | GitHub username |
 | `{{github_email}}` | GitHub email |
 
-## Template Types
+## Template types
 
 Framework manages several template types:
 
@@ -45,7 +45,7 @@ Framework manages several template types:
 - **gitignore**: `.gitignore` files per project type
 - **ai_canonical**: AI assistant instruction files (CLAUDE.md, etc.)
 
-## Where Templates Live
+## Template location
 
 Templates are stored in `~/.config/framework/templates/`. Framework copies default templates here on first use, then uses your customized versions.
 
@@ -64,9 +64,9 @@ Templates are stored in `~/.config/framework/templates/`. Framework copies defau
     └── ai-context.course.md
 ```
 
-## Customizing Templates
+## Customization
 
-### Notebook Template
+### Notebook template
 
 Edit `~/.config/framework/templates/notebook-default.qmd`:
 
@@ -94,7 +94,7 @@ Your analysis starts here.
 
 Variables like `{{ title }}` and `{{ author }}` are replaced when creating new files. Framework also accepts the compact `{{title}}` style, so either spacing works in custom templates.
 
-### Script Template
+### Script template
 
 Edit `~/.config/framework/templates/script-default.R`:
 
@@ -109,7 +109,7 @@ scaffold()
 # Your code here
 ```
 
-## Using Templates
+## Template use
 
 Templates are used automatically when you create new files:
 
@@ -119,7 +119,7 @@ make_script("process-data")
 make_presentation("quarterly-review")
 ```
 
-## Resetting Templates
+## Template reset
 
 To restore a template to its default, delete it from `~/.config/framework/templates/`. Framework will recreate it from the default on next use.
 
@@ -131,6 +131,6 @@ You can also use the **Reset to default** button in the GUI.
 
 [← Functions](guide:functions)
 
-[Quarto Integration →](guide:quarto)
+[Quarto integration →](guide:quarto)
 
 </div>

@@ -5,6 +5,8 @@ local_cloud_env <- function(env = parent.frame()) {
     FW_CLOUD_URL = NA, FW_CLOUD_TOKEN = NA, FW_PROJECT_TOKEN = NA,
     FW_TOKEN_FILE = NA, .local_envir = env
   )
+  # Never read or write the real keychain
+  testthat::local_mocked_bindings(.fw_keychain_available = function() FALSE, .env = env)
   dir <- withr::local_tempdir(.local_envir = env)
   withr::local_dir(dir, .local_envir = env)
   dir
@@ -137,14 +139,16 @@ test_that("publish_notebook() routes to Framework Cloud when the project has a t
       invisible("https://example/hi")
     }
   )
-  publish_notebook("hi.qmd", dest = "reports/hi", slug = "hi-there")
-  expect_identical(called$source, "hi.qmd")
+  suppressMessages(publish_notebook("hi.qmd", dest = "reports/hi", slug = "hi-there"))
+  # publish() renders the notebook once and sends the rendered page.
+  expect_identical(basename(called$source), "index.html")
   expect_identical(called$dest, "reports/hi")
   expect_identical(called$slug, "hi-there")
-  expect_error(publish_notebook("hi.qmd", format = "pdf"), "HTML only")
+  expect_true(called$self_contained)
+  expect_error(publish_notebook("hi.qmd", format = "pdf"), "requires HTML output")
 })
 
-test_that("publish() sends slug and readable to Framework Cloud", {
+test_that("publish() sends the slug, and readable only for TRUE or FALSE", {
   skip_if_not_installed("httr2")
   local_cloud_env()
   yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
@@ -168,7 +172,9 @@ test_that("publish() sends slug and readable to Framework Cloud", {
   last <- sent[[1]]
   expect_identical(last$url, "http://localhost:8080/api/v1/documents")
   expect_identical(last$fields$slug, "main-results")
-  expect_identical(last$fields$readable, "1")
+  # A string slug only names the artifact (a new one is unlisted)
+  expect_null(last$fields$readable)
+  expect_null(last$fields$visibility)
 
   suppressMessages(publish("main_report.html", slug = TRUE))
   expect_identical(sent[[2]]$fields$slug, "main_report")
@@ -181,8 +187,28 @@ test_that("publish() sends slug and readable to Framework Cloud", {
   expect_identical(sent[[4]]$fields$slug, "main_report")
   expect_null(sent[[4]]$fields$readable)
 
-  response$notice <- "Set a handle in Settings > Account to get a readable URL."
-  expect_message(publish("main_report.html", slug = TRUE), "Set a handle", fixed = TRUE)
+  # Public without a handle: the hint, without calling the link unlisted
+  response$notice <- "Set a handle in Account > Account details to get a readable URL. The unlisted link works now."
+  msgs <- testthat::capture_messages(publish("main_report.html", slug = TRUE))
+  expect_true(any(grepl("Set a handle", msgs, fixed = TRUE)))
+  expect_false(any(grepl("unlisted", msgs, fixed = TRUE)))
+
+  # Unlisted: no handle hint
+  response$notice <- NULL
+  response$visibility <- "unlisted"
+  msgs <- testthat::capture_messages(publish("main_report.html", slug = "main-results"))
+  expect_false(any(grepl("handle", msgs, fixed = TRUE)))
+
+  # Public with a readable URL: no hint either
+  response$visibility <- "public"
+  response$readable_url <- "http://localhost:8080/@ada/study/main-results"
+  msgs <- testthat::capture_messages(publish("main_report.html", visibility = "public"))
+  expect_false(any(grepl("handle", msgs, fixed = TRUE)))
+
+  # Public, no handle, and a server that reports visibility
+  response$readable_url <- NULL
+  msgs <- testthat::capture_messages(publish("main_report.html", visibility = "public"))
+  expect_true(any(grepl("Set a handle", msgs, fixed = TRUE)))
 
   expect_error(publish("main_report.html", slug = ""), "slug")
   expect_error(publish("main_report.html", slug = c("a", "b")), "slug")

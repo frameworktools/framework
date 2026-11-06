@@ -10,6 +10,7 @@
 The cache directory path
 }
 \description{
-Get the cache directory, respecting FW_CACHE_DIR environment variable
+Every cache function uses this, so reads, writes, and deletes agree.
+A relative folder is relative to the project root.
 }
 \keyword{internal}

@@ -1,5 +1,5 @@
 test_that("functions_dir supports single directory", {
-  test_dir <- tempdir()
+  test_dir <- withr::local_tempdir()
   orig_wd <- getwd()
   setwd(test_dir)
   on.exit(setwd(orig_wd))
@@ -28,7 +28,7 @@ test_that("functions_dir supports single directory", {
 })
 
 test_that("functions_dir supports multiple directories", {
-  test_dir <- tempdir()
+  test_dir <- withr::local_tempdir()
   orig_wd <- getwd()
   setwd(test_dir)
   on.exit(setwd(orig_wd))
@@ -62,7 +62,7 @@ test_that("functions_dir supports multiple directories", {
 })
 
 test_that("functions_dir defaults to 'functions' if not configured", {
-  test_dir <- tempdir()
+  test_dir <- withr::local_tempdir()
   orig_wd <- getwd()
   setwd(test_dir)
   on.exit(setwd(orig_wd))
@@ -87,7 +87,7 @@ test_that("functions_dir defaults to 'functions' if not configured", {
 })
 
 test_that("functions_dir silent when default dir doesn't exist", {
-  test_dir <- tempdir()
+  test_dir <- withr::local_tempdir()
   orig_wd <- getwd()
   setwd(test_dir)
   on.exit(setwd(orig_wd))
@@ -102,7 +102,7 @@ test_that("functions_dir silent when default dir doesn't exist", {
 })
 
 test_that("functions_dir warns when custom dir doesn't exist", {
-  test_dir <- tempdir()
+  test_dir <- withr::local_tempdir()
   orig_wd <- getwd()
   setwd(test_dir)
   on.exit(setwd(orig_wd))
@@ -123,7 +123,7 @@ test_that("functions_dir warns when custom dir doesn't exist", {
 # Tests for results directories can be re-added when using the new API
 
 test_that("custom data directories override defaults", {
-  test_dir <- tempdir()
+  test_dir <- withr::local_tempdir()
   orig_wd <- getwd()
   setwd(test_dir)
 

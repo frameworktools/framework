@@ -7,7 +7,8 @@
 #' @param table_name Character. Name of the table
 #' @param column_name Character. Name of the column to check
 #'
-#' @return Logical. TRUE if column exists, FALSE otherwise
+#' @return Logical. TRUE if column exists, FALSE otherwise. The name must
+#'   match exactly, including case.
 #' @keywords internal
 #' @export
 #' @name dot-has_column
@@ -15,7 +16,7 @@
 #' @examples
 #' \donttest{
 #' if (FALSE) {
-#' conn <- connection_get("my_db")
+#' conn <- db_connect("my_db")
 #' has_deleted_at <- .has_column(conn, "users", "deleted_at")
 #' DBI::dbDisconnect(conn)
 #' }
@@ -183,7 +184,7 @@
 #' @examples
 #' \donttest{
 #' if (FALSE) {
-#' conn <- connection_get("my_db")
+#' conn <- db_connect("my_db")
 #' tables <- .list_tables(conn)
 #' DBI::dbDisconnect(conn)
 #' }
@@ -222,7 +223,7 @@
 #' @examples
 #' \donttest{
 #' if (FALSE) {
-#' conn <- connection_get("my_db")
+#' conn <- db_connect("my_db")
 #' columns <- .list_columns(conn, "users")
 #' DBI::dbDisconnect(conn)
 #' }
@@ -243,7 +244,8 @@
       conn,
       sprintf("PRAGMA table_info(%s)", DBI::dbQuoteIdentifier(conn, table_name))
     )
-    table_info$name
+    # A missing table gives a 0-row result whose name column is logical
+    as.character(table_info$name)
   }, error = function(e) {
     warning(sprintf("Could not list columns: %s", e$message))
     character(0)

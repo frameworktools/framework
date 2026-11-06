@@ -220,3 +220,21 @@ standardize_wd <- function(project_root = NULL) {
 
   invisible(project_root)
 }
+
+# A project-relative path made absolute against the project root, so code
+# run from notebooks/ or another subfolder finds the same files. Absolute
+# paths, and any path outside a project, are returned unchanged.
+#' @keywords internal
+.fw_project_path <- function(path, root = NULL) {
+  if (is.null(path) || length(path) != 1 || is.na(path) || !nzchar(path)) {
+    return(path)
+  }
+  if (grepl("^(/|~|[A-Za-z]:[/\\\\]|\\\\\\\\)", path) || identical(path, ":memory:")) {
+    return(path)
+  }
+  root <- root %||% tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  if (is.null(root)) {
+    return(path)
+  }
+  file.path(root, path)
+}
