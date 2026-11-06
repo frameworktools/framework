@@ -6,8 +6,8 @@ position: 1
 description: 'Requirements, installation, and updates'
 ---
 > [!NOTE]
-> Framework 2.0 will be on CRAN soon. Until then, install it from GitHub:
-> `remotes::install_github("frameworktools/framework")`. The CRAN version is 1.x, which these docs don't cover.
+> Framework 1.1 is on CRAN. Framework 2.0 is in beta and works with Framework Cloud. These docs cover 2.0. Install it from GitHub:
+> `remotes::install_github("frameworktools/framework")`. 2.0 will be on CRAN soon.
 
 ## Requirements
 
