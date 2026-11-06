@@ -274,12 +274,31 @@ test_that("renv_enable() locks every project package and copies framework locall
     snapshot = function(..., type = NULL) { calls$snapshot_type <<- type; invisible() },
     .package = "renv"
   )
-  testthat::local_mocked_bindings(.has_settings_file = function(...) FALSE)
+  testthat::local_mocked_bindings(.has_settings_file = function(...) FALSE,
+                                  .fw_framework_installed = function(...) TRUE)
   suppressMessages(renv_enable(sync = FALSE))
   expect_identical(calls$hydrate, "framework")
   expect_false(any(grepl("framework", calls$install)))
   expect_identical(calls$snapshot_type, "all")
   expect_true(renv_enabled())
+})
+
+test_that("renv_enable() installs framework from GitHub when no installed copy exists", {
+  skip_if_not_installed("renv")
+  local_audit_project()
+  calls <- list()
+  testthat::local_mocked_bindings(
+    init = function(...) { dir.create("renv"); writeLines("{}", "renv.lock"); invisible() },
+    hydrate = function(packages = NULL, ...) { calls$hydrate <<- packages; invisible() },
+    install = function(packages, ...) { calls$install <<- c(calls$install, packages); invisible() },
+    snapshot = function(...) invisible(),
+    .package = "renv"
+  )
+  testthat::local_mocked_bindings(.has_settings_file = function(...) FALSE,
+                                  .fw_framework_installed = function(...) FALSE)
+  suppressMessages(renv_enable(sync = FALSE))
+  expect_null(calls$hydrate)
+  expect_true("frameworktools/framework" %in% calls$install)
 })
 
 test_that("renv_enable() undoes every step when one fails", {

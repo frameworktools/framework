@@ -132,13 +132,19 @@ renv_enable <- function(sync = TRUE) {
 # lockfile records the framework this project was built with. Install from
 # GitHub only when no installed copy exists.
 .fw_renv_install_framework <- function(sources = .libPaths()) {
-  installed <- find.package("framework", lib.loc = sources, quiet = TRUE)
-  if (length(installed) > 0) {
+  if (.fw_framework_installed(sources)) {
     renv::hydrate(packages = "framework", sources = sources, prompt = FALSE, report = FALSE)
   } else {
     renv::install("frameworktools/framework", rebuild = FALSE, prompt = FALSE)
   }
   invisible(TRUE)
+}
+
+# Whether an installed framework exists in these libraries. Under
+# devtools::load_all() there may be none.
+#' @keywords internal
+.fw_framework_installed <- function(sources = .libPaths()) {
+  length(find.package("framework", lib.loc = sources, quiet = TRUE)) > 0
 }
 
 # Undo a failed renv_enable(): remove what it created and restore what it
