@@ -20,7 +20,7 @@ test_that("every tool and set definition is well formed", {
   }
 
   sets <- c(framework:::.fw_skill_sets(), framework:::.fw_package_sets())
-  expect_setequal(names(sets), c("framework", "ggplot2", "tidyverse-analysis"))
+  expect_setequal(names(sets), c("framework", "ggplot2", "python-data-analysis", "tidyverse-analysis"))
   for (id in names(sets)) expect_true(v$validate(as_json(sets[[id]]$layer)), info = id)
   shipped <- list.files(system.file("templates", "skills", package = "framework"))
   for (id in names(framework:::.fw_skill_sets())) {
