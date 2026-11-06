@@ -181,23 +181,35 @@ test_that("cloud_logout() leaves an FW_CLOUD_TOKEN token alone", {
 
 # ---- Default server: fw's cloud.yml ------------------------------------
 
-test_that("the saved server reads fw's cloud.yml first, then R's", {
+test_that("the saved server comes from the newest cloud.yml, fw's or R's", {
   dirs <- local_interop_env()
   server <- framework:::.fw_cloud_server
+  stamp <- function(path, offset) Sys.setFileTime(path, Sys.time() + offset)
 
   expect_identical(server()$url, "https://framework.pub")
 
-  writeLines("server: http://localhost:8080", file.path(dirs$r, "cloud.yml"))
+  r_file <- file.path(dirs$r, "cloud.yml")
+  writeLines("server: http://localhost:8080", r_file)
   expect_identical(server()$url, "http://localhost:8080")
 
-  # After `fw login`: fw's file wins, as in fw and Python
+  # After a later `fw login`, fw's file is newer and wins, as in fw and Python
   dir.create(dirs$fw, recursive = TRUE)
-  writeLines("server: https://fw.example.edu", file.path(dirs$fw, "cloud.yml"))
+  fw_file <- file.path(dirs$fw, "cloud.yml")
+  writeLines("server: https://fw.example.edu", fw_file)
+  stamp(r_file, -3600)
   expect_identical(server()$url, "https://fw.example.edu")
   expect_identical(server()$source, "your cloud_login() default")
 
+  # A later cloud_login() in R makes R's file newer
+  stamp(r_file, 60)
+  expect_identical(server()$url, "http://localhost:8080")
+
+  # On a tie fw's file comes first
+  stamp(fw_file, 60)
+  expect_identical(server()$url, "https://fw.example.edu")
+
   # An empty or broken fw file falls through to R's
-  writeLines("server: ''", file.path(dirs$fw, "cloud.yml"))
+  writeLines("server: ''", fw_file)
   expect_identical(server()$url, "http://localhost:8080")
 
   withr::local_envvar(FW_CLOUD_URL = "https://env.example.edu")
@@ -212,16 +224,17 @@ test_that("FW_CONFIG_HOME is fw's folder and R's at once", {
   expect_identical(framework:::.fw_cloud_server()$url, "https://shared.example.edu")
 })
 
-test_that("saving the server writes R's file, and fw's only when it exists", {
+test_that("saving the server writes only R's file, which then wins as the newest", {
   dirs <- local_interop_env()
-  framework:::.fw_save_cloud_url("http://localhost:8080")
-  expect_identical(yaml::read_yaml(file.path(dirs$r, "cloud.yml"))$server, "http://localhost:8080")
-  expect_false(dir.exists(dirs$fw))
-
   dir.create(dirs$fw, recursive = TRUE)
-  writeLines("server: https://fw.example.edu", file.path(dirs$fw, "cloud.yml"))
+  fw_file <- file.path(dirs$fw, "cloud.yml")
+  writeLines("server: https://fw.example.edu", fw_file)
+  Sys.setFileTime(fw_file, Sys.time() - 3600)
+
   framework:::.fw_save_cloud_url("https://r.example.edu")
-  expect_identical(yaml::read_yaml(file.path(dirs$fw, "cloud.yml"))$server, "https://r.example.edu")
+  expect_identical(yaml::read_yaml(file.path(dirs$r, "cloud.yml"))$server, "https://r.example.edu")
+  # fw's folder is never written
+  expect_identical(yaml::read_yaml(fw_file)$server, "https://fw.example.edu")
   expect_identical(framework:::.fw_cloud_server()$url, "https://r.example.edu")
 })
 

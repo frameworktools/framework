@@ -89,35 +89,38 @@
   if (nzchar(custom)) path.expand(custom) else .fw_shared_config_dir()
 }
 
-# The default server a login saved, or NULL. As in fw and Python, fw's
-# cloud.yml comes first and R's second, so all three tools agree.
+# The default server a login saved, or NULL. fw's cloud.yml and R's can both
+# exist. The most recently written one wins, so the last login in any tool
+# counts; on a tie fw's folder comes first. fw and Python use the same rule.
 #' @keywords internal
 .fw_saved_cloud_url <- function() {
+  best <- NULL
+  best_time <- -Inf
   for (dir in unique(c(.fw_fw_config_dir(), fw_config_dir()))) {
     path <- file.path(dir, "cloud.yml")
     if (!file.exists(path)) {
       next
     }
     url <- tryCatch(yaml::read_yaml(path)$server, error = function(e) NULL)
-    if (is.character(url) && length(url) == 1 && !is.na(url) && nzchar(url)) {
-      return(url)
+    if (!is.character(url) || length(url) != 1 || is.na(url) || !nzchar(url)) {
+      next
+    }
+    time <- as.numeric(file.info(path)$mtime)
+    if (time > best_time) {
+      best <- url
+      best_time <- time
     }
   }
-  NULL
+  best
 }
 
-# Writes R's cloud.yml. fw's file is read first, so when it already exists
-# it is updated too. Otherwise R writes nothing outside its own folder.
+# Writes R's cloud.yml, and nothing outside R's own folder. A newer file
+# wins when the tools read it, so this login takes effect in fw and Python too.
 #' @keywords internal
 .fw_save_cloud_url <- function(url) {
   path <- .fw_cloud_config_file()
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   yaml::write_yaml(list(server = url), path)
-  shared <- file.path(.fw_fw_config_dir(), "cloud.yml")
-  if (!identical(normalizePath(shared, mustWork = FALSE), normalizePath(path, mustWork = FALSE)) &&
-      file.exists(shared)) {
-    yaml::write_yaml(list(server = url), shared)
-  }
   invisible(path)
 }
 
