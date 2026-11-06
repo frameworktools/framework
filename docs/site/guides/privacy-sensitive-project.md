@@ -13,6 +13,7 @@ The **Privacy Sensitive Project** is designed for research involving sensitive o
 
 ```text
 my-study/
+├── docs/                # Project documents
 ├── functions/           # Custom R functions (auto-loaded)
 │   └── helpers.R
 ├── inputs/
@@ -24,34 +25,50 @@ my-study/
 │       ├── raw/
 │       ├── intermediate/
 │       └── final/
+├── logs/                # Logs (gitignored)
 ├── notebooks/           # Analysis notebooks
 ├── outputs/
 │   └── private/
 │       └── notebooks/   # Rendered notebooks (gitignored)
+├── scratch/             # Throwaway work (gitignored)
 ├── scripts/             # Automation scripts
-├── framework.db         # Metadata database
+├── settings/            # Settings sections (packages, data, git, ...)
+├── _quarto.yml          # Quarto configuration
+├── AGENTS.md            # AI assistant guide
+├── framework.db         # Metadata database (created on first use)
+├── scaffold.R           # Project startup code
 └── settings.yml         # Project configuration
 ```
 
 Additional directories are created on first use:
 - `outputs/private/cache` - Cached computations
-- `outputs/private/figures` - Private figures
-- `outputs/private/tables` - Private tables
-- `outputs/public/` - Shareable results
+- `outputs/private/tables`, `figures`, `models`, `reports` - Private outputs
+- `outputs/public/tables`, `figures`, `models`, `reports` - Shareable results
 
 ## Privacy controls
 
 ### Gitignored paths
 
 The privacy sensitive `.gitignore` template excludes:
-- `inputs/private/` - All private input data
-- `outputs/private/` - All private outputs
-- `.env` - Environment variables with credentials
-- `framework.db` - May contain data hashes
+- `inputs/private/` and `outputs/private/` - All private inputs and outputs
+- Any `private/`, `*_private/`, or `sensitive/` folder
+- `cache/`, `scratch/`, `logs/`, and temporary folders
+- `.env` and credential files such as `*.key` and `*.pem`
+- `framework.db` - Local metadata, including data hashes
+
+### AI assistant controls
+
+- `AGENTS.md` names the private folders agents must not read.
+- The `framework-sensitive-data` skill covers private and public data rules.
+- `.claude/settings.json` denies Claude Code access to `inputs/private/`, `outputs/private/`, and `.env`, and turns on its sandbox.
+
+### Publishing checks
+
+`publish()` checks every file it would upload. A path containing `private` triggers a warning. Interactive sessions ask first. Scripts stop unless `include_private = TRUE`.
 
 ### Public and private outputs
 
-Use the `public` parameter when saving outputs:
+`save_table()`, `save_figure()`, `save_model()`, `save_report()`, and `save_notebook()` save to private folders by default. Use `public = TRUE` for shareable results:
 
 ```r
 # Save to private (default)
@@ -60,6 +77,8 @@ save_table(results, "analysis_results")
 # Save to public for sharing
 save_table(summary_stats, "summary", public = TRUE)
 ```
+
+Any project splits outputs this way when `security.sensitive` is on or it lists `outputs_private_*` folders.
 
 ## Workflow
 
@@ -120,6 +139,9 @@ Example `settings.yml` for a privacy sensitive project:
 ```yaml
 default:
   project_type: project_sensitive
+  tools:
+    quarto: true
+    renv: false
 
   directories:
     notebooks: notebooks
@@ -131,26 +153,35 @@ default:
     inputs_public_raw: inputs/public/raw
     inputs_public_intermediate: inputs/public/intermediate
     inputs_public_final: inputs/public/final
+    outputs_private_tables: outputs/private/tables
+    outputs_public_tables: outputs/public/tables
     cache: outputs/private/cache
 
-  packages:
-    - name: dplyr
-      auto_attach: true
-    - name: ggplot2
-      auto_attach: true
+  render_dirs:
+    notebooks: outputs/private/notebooks
 
-  data:
-    inputs.private.raw.patients:
-      path: inputs/private/raw/patients.csv
-      type: csv
-      locked: true
+  packages: settings/packages.yml
+  data: settings/data.yml
+
+  security:
+    sensitive: true
+```
+
+The data catalog lives in `settings/data.yml`:
+
+```yaml
+data:
+  inputs.private.raw.patients:
+    path: inputs/private/raw/patients.csv
+    type: csv
+    locked: true
 ```
 
 ## Best practices
 
 ### Locked source data
 
-Use `locked: true` to ensure source data hasn't changed:
+Use `locked: true` to ensure source data hasn't changed. `data_read()` warns when an unlocked file changes and errors when a locked one does:
 
 ```yaml
 data:
@@ -182,6 +213,13 @@ Check `git status` before committing to ensure no private data is staged:
 
 ```r
 git_status()
+```
+
+Audit the repository for private data, or block such commits with the pre-commit hook. The hook is off by default:
+
+```r
+git_security_audit()
+git_hooks_enable("data_security")
 ```
 
 ---

@@ -3,51 +3,79 @@ id: new-project
 title: New projects
 section: getting_started
 position: 5
-description: 'Project creation from the GUI or the R console'
+description: 'Project creation from the R console and Framework Cloud'
 ---
+> [!NOTE]
+> Framework 2.0 will be on CRAN soon. Until then, install it from GitHub:
+> `remotes::install_github("frameworktools/framework")`. The CRAN version is 1.x, which these docs don't cover.
+
 ## Project creation
-
-After running `setup()`, create a new project from the GUI or command line.
-
-### GUI
-
-Click **+ New Project** in the GUI sidebar, or run:
-
-```r
-framework::gui()
-```
-
-![New Project GUI](images/new-project-gui.png)
-
-### Command line
 
 ```r
 framework::new_project()
 ```
 
-This prompts for a project name and location, then creates a fully configured project using your saved defaults.
+`new_project()` prompts for a project name and location, then creates the project. The suggested location is `~/projects/<name>`.
 
-You can also specify the name and location directly:
+Pass the name and location directly to skip the prompts:
 
 ```r
 new_project("my-analysis", "~/code/my-analysis")
 ```
 
+Non-interactive sessions must pass both.
+
+## Tools and sets
+
+Turn on tools and add Framework's package and skill sets:
+
+```r
+new_project(
+  "study", "~/code/study",
+  tools = "targets",
+  package_sets = "tidyverse-analysis"
+)
+```
+
+- `tools`: `quarto`, `quarto_manuscript`, `quarto_slides`, `targets`, `renv`, or `jupyter`. A tool's requirements are added with a message. A named logical such as `c(quarto = FALSE, targets = TRUE)` also turns a structure's tool off.
+- `package_sets`: package sets such as `tidyverse-analysis`.
+- `skill_sets`: AI skill sets. The default installs `framework` and `ggplot2`. Sensitive projects also get the sensitive-data skill.
+- `workflow`: `"quarto"`, `"jupyter"`, or `"scripts"`.
+
+Quarto is on for every structure except bare.
+
 ## Framework Cloud
 
 After `cloud_login()`, `new_project()` uses your Cloud defaults and registers the
 project with the same blueprint, tools, package sets, and skill sets used to
-create it locally. It saves a project token in the ignored `.env` file so the
+create it locally. Without `type`, your default blueprint on Framework Cloud is
+used. It saves a project token in the ignored `.env` file so the
 project can publish results and share its data ledger. Bare projects are
 registered without creating a token file. Datasets stay on your machine.
+
+When Framework Cloud can't be reached, a project with no choices beyond its name
+uses your cached Cloud defaults. Otherwise an interactive session asks before
+using Framework's built-in defaults, and a non-interactive session stops.
 
 Use `offline = TRUE` to create locally without contacting Cloud. If registration
 fails after the local project is created, Framework reports the failure and
 keeps the local project.
 
+Signed out, `new_project()` uses Framework's built-in defaults and creates a
+Standard Project unless you pass `type`.
+
+To create a project defined on Framework Cloud, pass its project token:
+
+```r
+new_project(key = "fw_...", location = "~/code/study")
+```
+
+The name and type come from the cloud project. `setup("fw_...")` does the same.
+See [Setup](guide:setup).
+
 ## Project types
 
-Framework supports four project types, each with its own function:
+Framework has five structures. Four have their own function, and all work as `type` in `new_project()`:
 
 ### Standard project
 
@@ -81,18 +109,32 @@ A structure for teaching materials with slides, assignments, and modules:
 new_course("stats-101")
 ```
 
+### Bare project
+
+No structure or starter files. Bring your own layout:
+
+```r
+new_project("my-tool", type = "bare")
+```
+
+Any lowercase id also works as `type`. It labels the blueprint the project came from. Signed out, an unknown type warns and builds the standard layout. See [Project types](guide:project-types).
+
 ## Created files
 
 When you create a project, Framework:
 
-1. Creates the directory structure based on your defaults
-2. Generates a `settings.yml` with your configuration
-3. Sets up `.gitignore` with default patterns
-4. Creates IDE workspace files (VS Code/Positron)
-5. Adds AI assistant configuration (CLAUDE.md) if enabled
-6. Initializes git if configured
+1. Creates the directory structure for its type
+2. Writes `settings.yml`. Standard and sensitive projects split sections into `settings/*.yml`
+3. Writes `.env` and a `.gitignore` for the project type that ignores `.env`
+4. Writes `scaffold.R` and a VS Code/Positron `.code-workspace` file
+5. Writes `_quarto.yml` when the Quarto tool is on
+6. Adds `AGENTS.md`, a `CLAUDE.md` that points to it, and Framework skills in `.claude/skills/`
+7. Records the resolved project spec in `.framework/spec.json`
+8. Initializes git and makes the first commit
    - If git identity isn’t configured, the initial commit is skipped with a note
-   - Set `git config user.name` and `git config user.email` to enable auto-commit
+   - Set `git config user.name` and `git config user.email`. The next `scaffold()` makes the first commit
+
+Sensitive projects also get `.claude/settings.json`, which keeps Claude Code out of the private folders.
 
 ---
 

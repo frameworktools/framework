@@ -15,20 +15,27 @@ An example project might look like:
 
 ```text
 my-project/
+├── docs/                # Project documents
 ├── functions/           # Custom R functions (auto-loaded)
 │   └── helpers.R
 ├── inputs/              # Data inputs
 │   ├── raw/             # Original data (never modify)
 │   ├── intermediate/    # Cleaned/processed data
 │   └── final/           # Analysis-ready datasets
+├── logs/                # Logs (gitignored)
 ├── notebooks/           # Analysis notebooks
 │   ├── 01-exploration.qmd
 │   └── 02-modeling.qmd
 ├── outputs/
 │   └── notebooks/       # Rendered notebooks
+├── scratch/             # Throwaway work (gitignored)
 ├── scripts/             # Automation scripts
 │   └── data-pipeline.R
-├── framework.db         # Metadata database
+├── settings/            # Settings sections (packages, data, git, ...)
+├── _quarto.yml          # Quarto configuration
+├── AGENTS.md            # AI assistant guide
+├── framework.db         # Metadata database (created on first use)
+├── scaffold.R           # Project startup code
 └── settings.yml         # Project configuration
 ```
 
@@ -36,6 +43,10 @@ Additional directories are created on first use:
 - `outputs/cache` - Cached computations
 - `outputs/tables` - Saved tables
 - `outputs/figures` - Saved figures
+- `outputs/models` - Saved models
+- `outputs/reports` - Saved reports
+
+`framework.db` is created by the first `scaffold()`, `bootstrap()`, or saved output.
 
 ## Workflow
 
@@ -49,9 +60,10 @@ scaffold()
 ```
 
 This loads:
-- Required packages from `settings.yml`
+- Packages from `settings/packages.yml`
 - Custom functions from `functions/`
 - Project configuration
+- `scaffold.R`, if present
 
 ### 2. Notebooks
 
@@ -64,7 +76,7 @@ make_notebook("modeling", subdir = "analysis")
 
 ### 3. Data
 
-Define data in `settings.yml`:
+Define data in `settings/data.yml`:
 
 ```yaml
 data:

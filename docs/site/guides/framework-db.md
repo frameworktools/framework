@@ -7,7 +7,9 @@ description: 'The SQLite database that tracks project metadata and data integrit
 ---
 ## Overview
 
-Every Framework project includes a `framework.db` SQLite database for internal tracking. It stores metadata about your data sources, cached computations, saved outputs, and connections.
+Every Framework project has a `framework.db` SQLite database for internal tracking. It stores metadata about your data sources, cached computations, saved outputs, and connections.
+
+New projects don't include it. The first `scaffold()`, `bootstrap()`, or saved output creates it. Both `scaffold()` and `bootstrap()` add tables a newer version needs.
 
 You generally don't interact with `framework.db` directly. Framework updates it when you use functions like `data_read()`, `cache_remember()`, and `save_table()`.
 
@@ -38,10 +40,10 @@ data:
 patients <- data_read("inputs.raw.patients")
 
 # First read: computes and stores hash in framework.db
-# Subsequent reads: verifies hash matches, errors if file changed
+# Later reads: compares hashes and warns if the file changed
 ```
 
-If you set `locked: true` in the data catalog, `data_read()` errors when the source file has changed.
+If you set `locked: true` in the data catalog, `data_read()` errors when the source file has changed. Unlocked entries warn and record the new hash.
 
 ## Cache tracking
 
@@ -52,7 +54,7 @@ result <- cache_remember("expensive_model", {
   fit_complex_model(data)
 }, expire = "7 days")  # Strings like "7 days" or numeric hours are accepted
 # Metadata stored in framework.db
-# Actual data stored in outputs/cache/expensive_model.rds
+# Actual data stored in the cache folder: outputs/cache/expensive_model.rds
 ```
 
 Framework uses the database to:
@@ -61,6 +63,8 @@ Framework uses the database to:
 - Verify cached data hasn't been corrupted
 
 **Durations:** `expire_after` (or `expire`) accepts numeric hours (e.g., `4`) or strings like `"1 day"` or `"7 days"`.
+
+The cache folder is the `cache` directory setting: `outputs/cache` in standard projects, `outputs/private/cache` in privacy-sensitive projects, and `cache/` in courses and presentations. `FW_CACHE_DIR` overrides it.
 
 ## Results registry
 
@@ -103,6 +107,10 @@ data_registry <- db_query("SELECT name, path, hash, locked FROM data", "framewor
 results <- db_query("SELECT name, type, created_at FROM results", "framework")
 ```
 
+New rows store timestamps as epoch seconds. Rows written before 2.0 hold local date-time text. `result_list()` reads both.
+
+The `framework` connection is defined in the connections settings of every new project.
+
 ## Location
 
 The database lives at your project root:
@@ -114,6 +122,7 @@ my-project/
 ├── notebooks/
 └── ...
 ```
+
 ---
 
 <div style="display: flex; justify-content: space-between">

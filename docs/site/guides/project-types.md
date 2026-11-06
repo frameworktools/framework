@@ -3,18 +3,27 @@ id: project-types
 title: Project types
 section: project_types
 position: 10
-description: 'The four Framework project types'
+description: 'Framework project structures and type labels'
 ---
 ## Overview
 
-Framework supports four project types:
+A project's type is a label for the blueprint it came from. Framework builds each project from three parts:
+
+- **Structure**: the folders and starter files.
+- **Tools**: Quarto, renv, targets, Jupyter, and others.
+- **Sets**: package sets and AI skill sets.
+
+Framework ships five structures:
 
 | Type | Best For |
 |------|----------|
-| **Standard Project** | Data analysis, research, reporting |
-| **Privacy Sensitive Project** | Research with private/public data separation |
-| **Course/Teaching** | Academic courses with lectures and assignments |
-| **Presentation** | Slides and presentations |
+| **Standard Project** (`project`) | Data analysis, research, reporting |
+| **Privacy Sensitive Project** (`project_sensitive`) | Research with private/public data separation |
+| **Course/Teaching** (`course`) | Academic courses with lectures and assignments |
+| **Presentation** (`presentation`) | Slides and presentations |
+| **Bare** (`bare`) | Your own structure |
+
+Any lowercase id works as `type`. A Framework Cloud blueprint can use its own label. Offline, an unknown label builds the default layout and warns.
 
 ## Type comparison
 
@@ -30,19 +39,23 @@ Use for most data analysis work:
 **Default structure:**
 ```text
 my-analysis/
+├── docs/
 ├── functions/
 ├── inputs/
 │   ├── raw/
 │   ├── intermediate/
 │   └── final/
+├── logs/
 ├── notebooks/
 ├── outputs/
 │   └── notebooks/
+├── scratch/
 ├── scripts/
+├── settings/
+├── _quarto.yml
+├── scaffold.R
 └── settings.yml
 ```
-
-Optional directories available in the GUI: `docs/`, `scratch/`
 
 ### Privacy-sensitive project
 
@@ -55,6 +68,7 @@ Use for research involving sensitive or protected data:
 **Default structure:**
 ```text
 my-study/
+├── docs/
 ├── functions/
 ├── inputs/
 │   ├── private/
@@ -65,32 +79,39 @@ my-study/
 │       ├── raw/
 │       ├── intermediate/
 │       └── final/
+├── logs/
 ├── notebooks/
 ├── outputs/
 │   └── private/
 │       └── notebooks/
+├── scratch/
 ├── scripts/
+├── settings/
+├── _quarto.yml
+├── scaffold.R
 └── settings.yml
 ```
 
-Optional directories available in the GUI: `docs/`, `scratch/`
-
 ### Course/Teaching
 
-This type has a simplified structure for teaching materials, such as lecture slides, student assignments, and course materials.
+This type has a structure for teaching materials, such as lecture slides, student assignments, and course materials.
 
 **Default structure:**
 ```text
 my-course/
 ├── assignments/
+├── cache/
 ├── course_docs/
 ├── data/
+├── functions/
+├── modules/
 ├── readings/
+├── scripts/
 ├── slides/
+├── _quarto.yml
+├── scaffold.R
 └── settings.yml
 ```
-
-Optional directories available in the GUI: `functions/`, `modules/`, `scripts/`
 
 ### Presentation
 
@@ -99,23 +120,32 @@ This type has a minimal structure for slides and presentations.
 **Default structure:**
 ```text
 my-presentation/
+├── cache/
+├── data/
+├── functions/
+├── outputs/
+├── scripts/
+├── _quarto.yml
 ├── presentation.qmd
+├── scaffold.R
 └── settings.yml
 ```
 
-Optional directories available in the GUI: `data/`, `functions/`, `outputs/`, `scripts/`
+### Bare
+
+This type writes only `settings.yml`, `.gitignore`, and `.framework/spec.json`. It has no folders, starter files, `.env`, or Quarto configuration. Use it to bring your own structure.
 
 ## Project creation
 
-### GUI
+### Framework Cloud
 
-Create projects in the GUI:
+Signed in with `cloud_login()`, `new_project()` uses your default blueprint on Framework Cloud. It registers the new project there.
+
+To set up a project already defined on Framework Cloud, pass its project token:
 
 ```r
-framework::setup()
+framework::setup("fw_...")
 ```
-
-Navigate to **New Project** and follow the wizard.
 
 ### Programmatic creation
 
@@ -131,16 +161,47 @@ new_course("data-science-101", "~/teaching/ds101")
 
 # Create a presentation
 new_presentation("q4-report", "~/presentations/q4")
+
+# Create a bare project
+new_project("my-layout", "~/projects/my-layout", type = "bare")
 ```
+
+### Tools and sets
+
+Add tools and sets to any structure:
+
+```r
+new_project(
+  "study", "~/projects/study",
+  tools = "targets",
+  package_sets = "tidyverse-analysis"
+)
+
+# Turn a structure's tool off
+new_project("study", "~/projects/study", tools = c(quarto = FALSE, renv = TRUE))
+```
+
+| Tool | Effect |
+|------|--------|
+| `quarto` | Quarto notebooks and `_quarto.yml`. On for every structure except bare. |
+| `quarto_manuscript` | A manuscript folder with a Quarto manuscript. Needs `quarto`. |
+| `quarto_slides` | A slides folder that renders with Quarto RevealJS. Needs `quarto`. |
+| `renv` | renv records package versions. |
+| `targets` | The targets and tarchetypes packages and a starter `_targets.R`. |
+| `jupyter` | Jupyter notebooks with the IRkernel kernel. |
+
+A tool's requirements are added with a message. Skill sets default to `framework` and `ggplot2`. Pass `offline = TRUE` to skip Framework Cloud.
 
 ## Shared features
 
-All project types include:
+All project types except bare include:
 
-- **Configuration** (`settings.yml`) - Project settings
-- **Git integration** - Version control with a type-specific `.gitignore`
-- **Quarto support** - Document rendering
-- **AI assistant context** - Optional CLAUDE.md/AGENTS.md generation
+- **Configuration** (`settings.yml`): project settings. Standard and privacy-sensitive projects split sections into `settings/*.yml`.
+- **Git integration**: version control with a type-specific `.gitignore`.
+- **Quarto support**: document rendering.
+- **AI assistant context**: `AGENTS.md`, a `CLAUDE.md` that points to it, and skills in `.claude/skills/`.
+- **Project spec**: `.framework/spec.json` records the structure, tools, and sets.
+- **Environment file**: `.env`, ignored by git.
 
 ---
 

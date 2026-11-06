@@ -40,23 +40,29 @@ scaffold()
 clean_data <- my_cleaning_function(raw_data)
 ```
 
+Files are sourced into the global environment in alphabetical order.
+
 ## Directory configuration
 
-The default is `functions/`, but you can customize it in `settings.yml`:
+The default is `functions/`. To source other folders, list them under `options.functions_dir` in `settings.yml`:
 
 ```yaml
-directories:
-  functions: R
+default:
+  options:
+    functions_dir:
+      - functions
+      - helpers
 ```
 
-Or use multiple directories:
+`scaffold()` warns when none of the listed folders exist.
+
+## Sourcing control
+
+To stop `scaffold()` from sourcing functions, set `source_all_functions` to `false` in the scaffold settings (`settings/scaffold.yml` in split-settings projects):
 
 ```yaml
-directories:
-  functions:
-    - functions
-    - helpers
-    - lib
+scaffold:
+  source_all_functions: false
 ```
 
 ---

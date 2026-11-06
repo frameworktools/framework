@@ -20,12 +20,14 @@ Cached items are stored as RDS files in your project's cache directory. Framewor
 | course | `cache` |
 | presentation | `cache` |
 
-Cache directories are created lazily. They don't exist until you first cache something. You can customize the cache directory per project type in the GUI under **Project Defaults**, or in `settings.yml`:
+Cache directories are created lazily. They don't exist until you first cache something. Change the folder in `settings.yml`:
 
 ```yaml
 directories:
   cache: my/cache/path
 ```
+
+The `FW_CACHE_DIR` environment variable overrides the setting. Cache metadata lives in the `cache` table of `framework.db`.
 
 ## Basic caching
 
@@ -50,7 +52,7 @@ processed_data <- cache_remember("my_analysis", {
 
 ## Cache expiration
 
-Set an expiration time for cached data. You can pass hours as a number, or human-readable strings:
+Set an expiration time for cached data. Pass hours as a number, or a string in hours, days, or weeks:
 
 ```r
 # Cache expires after 1 hour
@@ -88,9 +90,11 @@ cache("temp_results", my_data, expire_after = 24)
 ## Cached values
 
 ```r
-# Get cached value (returns NULL if not found or expired)
+# Get cached value (returns NULL if not found, expired, or changed on disk)
 cached <- cache_get("processed_results")
 ```
+
+`cache_get()` and `cache_remember()` check the file's hash. A cache file that changed since it was written counts as missing, with a warning.
 
 ## Removing one item
 
@@ -103,7 +107,8 @@ cache_forget("my_analysis")
 
 ```r
 cache_list()
-# Returns data frame with name, expire_at, created_at, status
+# Returns a data frame with name, expire_at, created_at, updated_at,
+# last_read_at, and status ("active" or "expired")
 ```
 
 ## Clearing the cache
@@ -132,7 +137,7 @@ Cache only expensive operations:
 ```r
 # Good: Cache expensive database query
 results <- cache_remember("quarterly_report", {
-  query_get("complex_aggregation")
+  db_query("SELECT region, SUM(amount) AS total FROM sales GROUP BY region", "warehouse")
 })
 
 # Avoid: Don't cache simple operations

@@ -27,11 +27,14 @@ When you call `scaffold()`, it:
 1. **Finds your project**: locates the project root, even from subdirectories
 2. **Loads environment variables**: reads secrets from `.env`
 3. **Reads configuration**: parses `settings.yml`
-4. **Sets random seed**: if enabled in settings (off by default)
-5. **Sets ggplot theme**: applies your default theme (if enabled and configured)
-6. **Installs packages**: any uninstalled packages from your packages settings
-7. **Loads packages**: attaches packages with `auto_attach: true`
-8. **Sources functions**: loads all `.R` files from `functions/`
+4. **Prepares framework.db**: creates it, or adds missing tables
+5. **Sets random seed**: if enabled in settings (off by default)
+6. **Sets ggplot theme**: applies your default theme (`theme_minimal` in new projects)
+7. **Installs packages**: any uninstalled packages from your packages settings
+8. **Loads packages**: attaches packages with `auto_attach: true`
+9. **Sources functions**: loads all `.R` files from `functions/`
+10. **Sources scaffold.R**: runs the project's `scaffold.R`, if there is one
+11. **Makes the first git commit**: in a repository with no commits yet, commits every file `.gitignore` allows as "Project initialized."
 
 ## Session state after scaffold()
 
@@ -78,20 +81,23 @@ my-project/
 
 ## Configuration
 
-`scaffold()` behavior is controlled by `settings.yml`:
+`scaffold()` behavior is controlled by the `scaffold` and `packages` settings. Standard and privacy-sensitive projects keep them in `settings/scaffold.yml` and `settings/packages.yml`. Other types keep them in `settings.yml`.
 
 ```yaml
-seed: 123
-seed_on_scaffold: true
+scaffold:
+  seed_on_scaffold: false
+  seed: 123
+  set_theme_on_scaffold: true
+  ggplot_theme: theme_minimal
+  source_all_functions: true
 
 packages:
-  - name: dplyr
-    auto_attach: true
-  - name: ggplot2
-    auto_attach: true
-
-directories:
-  functions: functions
+  use_renv: false
+  default_packages:
+    - name: dplyr
+      auto_attach: true
+    - name: ggplot2
+      auto_attach: true
 ```
 
 ### Seed
@@ -99,9 +105,16 @@ directories:
 Random seed setting is **off by default**. To enable it for reproducibility, set both values:
 
 ```yaml
-seed: 123
-seed_on_scaffold: true
+scaffold:
+  seed: 123
+  seed_on_scaffold: true
 ```
+
+With `seed_on_scaffold` unset, the `FW_SEED` environment variable turns seeding on. The project's `seed` wins over `FW_SEED`.
+
+### Theme
+
+`set_theme_on_scaffold: true` applies `ggplot_theme` with `ggplot2::theme_set()`. Set it to `false` to leave the theme alone.
 
 ### Packages
 
@@ -109,33 +122,31 @@ Packages with `auto_attach: true` are loaded automatically. Others are just inst
 
 ```yaml
 packages:
-  - name: dplyr
-    auto_attach: true    # loaded
-  - name: jsonlite
-    auto_attach: false   # installed but not loaded
+  default_packages:
+    - name: dplyr
+      auto_attach: true    # loaded
+    - name: jsonlite
+      auto_attach: false   # installed but not loaded
 ```
+
+With renv on, packages install through renv.
 
 ### Functions directory
 
-All `.R` files in your `functions/` directory are sourced:
+All `.R` files in `functions/` are sourced. Set `source_all_functions: false` under `scaffold:` to skip them.
+
+To source other folders, list them under `options: functions_dir`:
 
 ```yaml
-directories:
-  functions: functions
-```
-
-You can also specify multiple directories:
-
-```yaml
-directories:
-  functions:
+options:
+  functions_dir:
     - functions
     - helpers
 ```
 
 ## Custom scaffold.R
 
-If a `scaffold.R` file exists in your project root, it's sourced after the standard setup. Use this for project-specific initialization:
+If a `scaffold.R` file exists in your project root, it's sourced after the standard setup. New projects include a starter `scaffold.R`. Use it for project-specific initialization:
 
 ```r
 # scaffold.R

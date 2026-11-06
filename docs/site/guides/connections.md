@@ -7,32 +7,38 @@ description: 'Database and object storage connections'
 ---
 ## Overview
 
-Framework connects to databases and object storage through connections defined once in `settings.yml`. For queries and database helpers, see the [Database integration guide](guide:database).
+Framework connects to databases and object storage through connections defined once in settings. New projects keep them in `settings/connections.yml`. For queries and database helpers, see the [Database integration guide](guide:database).
 
 ## Database connections
 
-Define database connections in `settings.yml`:
+Define database connections under `connections.databases`:
 
 ```yaml
 connections:
-  analytics:
-    driver: postgres
-    host: env("DB_HOST")
-    port: 5432
-    database: analytics
-    user: env("DB_USER")
-    password: env("DB_PASSWORD")
+  default_database: framework
+  databases:
+    framework:
+      driver: sqlite
+      database: framework.db
 
-  warehouse:
-    driver: duckdb
-    database: data/warehouse.duckdb
+    analytics:
+      driver: postgres
+      host: env("DB_HOST")
+      port: 5432
+      database: analytics
+      user: env("DB_USER")
+      password: env("DB_PASSWORD")
 
-  local:
-    driver: sqlite
-    database: data/local.db
+    warehouse:
+      driver: duckdb
+      database: data/warehouse.duckdb
 ```
 
-The `env()` syntax reads values from environment variables, keeping credentials out of your config files.
+New projects start with the `framework` connection to the project's own `framework.db`. SQLite and DuckDB paths are relative to the project root, so a notebook in `notebooks/` opens the same file.
+
+Older projects that list connections directly under `connections:`, without `databases:`, still work.
+
+The `env()` syntax reads values from environment variables, keeping credentials out of your settings files. `env("VAR", "default")` supplies a fallback.
 
 Store sensitive values in `.env`:
 
@@ -45,19 +51,27 @@ DB_PASSWORD=secret
 
 ## Object storage connections
 
-Define object storage endpoints and buckets in `settings.yml`, then use helpers like `s3_ls()`, `s3_download()`, and `s3_upload()` to browse or sync data:
+Define S3-compatible buckets (AWS S3, MinIO, Cloudflare R2, and others) under `connections.storage_buckets`. The publishing functions upload to them:
 
 ```yaml
-object_storage:
-  raw_data:
-    provider: s3
-    bucket: env("S3_BUCKET")
-    region: env("AWS_REGION")
-    access_key_id: env("AWS_ACCESS_KEY_ID")
-    secret_access_key: env("AWS_SECRET_ACCESS_KEY")
+connections:
+  storage_buckets:
+    reports:
+      bucket: env("S3_BUCKET")
+      region: us-east-1
+      access_key: env("S3_ACCESS_KEY")
+      secret_key: env("S3_SECRET_KEY")
+  default_storage_bucket: reports
 ```
 
-Both the GUI and the R helpers respect these connection profiles, so you can browse buckets in `framework::gui()` or automate transfers in code.
+The `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_SESSION_TOKEN`, `S3_REGION`, `S3_BUCKET`, and `S3_ENDPOINT` variables fill these fields. When one is set in the session or `.env`, it takes precedence over the bucket's own value. The matching `AWS_*` names also work. The region defaults to `us-east-1`. Uploads need the aws.s3 package. See the [Publishing guide](guide:publishing#s3-configuration) for every bucket option.
+
+Check that a bucket's credentials work:
+
+```r
+storage_test()            # The default bucket
+storage_test("reports")   # A named bucket
+```
 
 ## Connection list
 
@@ -87,10 +101,11 @@ password: "my_secret_password"
 
 ```yaml
 connections:
-  production_analytics:  # Clear purpose
-    ...
-  staging_analytics:     # Environment obvious
-    ...
+  databases:
+    production_analytics:  # Clear purpose
+      ...
+    staging_analytics:     # Environment obvious
+      ...
 ```
 
 ---
@@ -99,6 +114,6 @@ connections:
 
 [← Caching](guide:caching)
 
-[Environment →](guide:environment)
+[Database integration →](guide:database)
 
 </div>

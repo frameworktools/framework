@@ -7,19 +7,17 @@ description: 'Customizing notebook, script, and project templates'
 ---
 ## Overview
 
-Framework uses templates to generate new notebooks, scripts, and project files. You can customize these templates to match your workflow.
+Framework uses templates to generate new notebooks, scripts, and presentations. You can customize these templates to match your workflow.
 
-## GUI editor
+## Template sources
 
-Edit templates in the GUI. Run `setup()` and click **Templates** in the sidebar:
+`make_notebook()`, `make_script()`, and `make_presentation()` look for a template in this order:
 
-```r
-framework::setup()
-```
+1. The project's `stubs/` folder
+2. Your templates, in the `templates/` folder of your Framework settings
+3. Framework's built-in stubs
 
-![Templates GUI](images/templates-gui.png)
-
-The GUI provides a code editor for each template type with syntax highlighting and a **Reset to default** button if you want to start over.
+Project stubs apply to one project. Your templates apply to every project you create files in.
 
 ## Template variables
 
@@ -27,48 +25,62 @@ Templates support variable substitution. When you create a new file, these place
 
 | Variable | Description |
 |----------|-------------|
-| `{{title}}` | File or project title |
+| `{{title}}` | File name as given, without extension |
+| `{{filename}}` | Same as `{{title}}` |
 | `{{author}}` | Author name |
 | `{{email}}` | Author email |
 | `{{affiliation}}` | Author affiliation |
-| `{{date}}` | Current date |
-| `{{github_username}}` | GitHub username |
-| `{{github_email}}` | GitHub email |
+| `{{date}}` | Current date (YYYY-MM-DD) |
+
+Author values come from the project's author settings, then your global settings. Framework accepts both `{{title}}` and `{{ title }}`. The single-brace forms `{filename}` and `{date}` also work.
 
 ## Template types
 
-Framework manages several template types:
+Three templates are used:
 
-- **notebook**: Quarto notebooks (`.qmd`)
-- **script**: R scripts (`.R`)
-- **presentation**: RevealJS slides
-- **gitignore**: `.gitignore` files per project type
-- **ai_canonical**: AI assistant instruction files (CLAUDE.md, etc.)
+| Name | File | Used by |
+|------|------|---------|
+| `notebook` | `notebook-default.qmd` | `make_notebook()` and `make_qmd()` with the default stub |
+| `script` | `script-default.R` | `make_script()` |
+| `presentation` | `notebook-revealjs.qmd` | `make_presentation()` and `make_revealjs()` |
 
-## Template location
+Jupyter notebooks (`.ipynb`) do not use templates. They start with a title cell and a `framework::scaffold()` cell.
 
-Templates are stored in `~/.config/framework/templates/`. Framework copies default templates here on first use, then uses your customized versions.
+## Your templates
 
-```text
-~/.config/framework/
-└── templates/
-    ├── notebook-default.qmd
-    ├── script-default.R
-    ├── presentation-default.qmd
-    ├── gitignore-project
-    ├── gitignore-sensitive
-    ├── gitignore-course
-    ├── gitignore-presentation
-    ├── ai-context.project.md
-    ├── ai-context.project_sensitive.md
-    └── ai-context.course.md
+Read, write, and reset your templates by name:
+
+```r
+read_framework_template("notebook")
+write_framework_template("notebook", contents)
+reset_framework_template("notebook")
+```
+
+They are stored in the `templates/` folder of `fw_config_dir()`. Until you write one, Framework uses its built-in version, so package updates still reach you.
+
+## Project stubs
+
+Copy Framework's stubs into the project's `stubs/` folder to customize them there:
+
+```r
+stubs_publish()             # all stubs
+stubs_publish("notebooks")  # notebook stubs only
+stubs_list()                # available stubs
+```
+
+Stub files are named `notebook-{name}.qmd`, `notebook-{name}.Rmd`, and `script-{name}.R`. Pick one with the `stub` argument:
+
+```r
+make_notebook("report", stub = "minimal")
 ```
 
 ## Customization
 
+Save your version with `write_framework_template()`, or edit the file in the `templates/` folder of `fw_config_dir()`.
+
 ### Notebook template
 
-Edit `~/.config/framework/templates/notebook-default.qmd`:
+`notebook-default.qmd`:
 
 ````qmd
 ---
@@ -92,11 +104,9 @@ scaffold()
 Your analysis starts here.
 ````
 
-Variables like `{{ title }}` and `{{ author }}` are replaced when creating new files. Framework also accepts the compact `{{title}}` style, so either spacing works in custom templates.
-
 ### Script template
 
-Edit `~/.config/framework/templates/script-default.R`:
+`script-default.R`:
 
 ```r
 # {{ title }}
@@ -121,9 +131,7 @@ make_presentation("quarterly-review")
 
 ## Template reset
 
-To restore a template to its default, delete it from `~/.config/framework/templates/`. Framework will recreate it from the default on next use.
-
-You can also use the **Reset to default** button in the GUI.
+`reset_framework_template()` restores a template to Framework's default. Deleting the file from the `templates/` folder has the same effect.
 
 ---
 

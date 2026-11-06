@@ -7,48 +7,69 @@ description: 'The project configuration file'
 ---
 ## Overview
 
-Every Framework project has a `settings.yml` file that controls project-specific settings. You can edit it directly in your project root or through the GUI, by selecting the project after running `framework::gui()`.
+Every Framework project has a `settings.yml` file in its root that controls project-specific settings. Edit it directly.
 
-Settings use the config package's environment format with a `default:` key (and optional environment overrides like `production:`).
+Settings sit under a `default:` key, with optional environment overrides such as `production:`. A file without `default:` also works.
 
 ## Split files
 
-For larger projects, split complex sections into separate files. Replace inline content with a file path:
+Standard and sensitive projects split most sections into files under `settings/`. Presentations and courses keep everything in `settings.yml`. A section in `settings.yml` names its file:
 
 ```yaml
 default:
+  author: settings/author.yml
+  packages: settings/packages.yml
   connections: settings/connections.yml
   data: settings/data.yml
 ```
 
-Then create the referenced files:
+Each file holds its section under the section key:
 
 **settings/connections.yml:**
 ```yaml
-db:
-  driver: postgresql
-  host: env("DB_HOST")
-  database: mydb
+connections:
+  databases:
+    analytics:
+      driver: postgres
+      host: env("DB_HOST")
+      database: analytics
 ```
 
 **settings/data.yml:**
 ```yaml
-raw.survey:
-  path: inputs/raw/survey.csv
-  type: csv
+data:
+  raw:
+    survey:
+      path: inputs/raw/survey.csv
+      type: csv
 ```
 
-**Note:** Root `settings.yml` values win if they conflict with a split file (Framework warns when this happens; `options` are merged).
+You can split any section the same way, or put a split section back inline.
+
+> [!NOTE]
+> Root `settings.yml` values win if they conflict with a split file. Framework warns when this happens. `options` sections are merged.
 
 ## Sections
 
 ### Basics
 
-Project type and author information.
+Project name, type, tools, and privacy.
 
 ```yaml
-project_type: project  # project, project_sensitive, course, or presentation
+project_name: my-analysis
+project_type: project  # project, project_sensitive, course, presentation, or bare
+tools:
+  quarto: true
+  renv: false
+security:
+  sensitive: false
+```
 
+`tools` records the tools the project was created with. `security.sensitive` is true for sensitive projects.
+
+### Author
+
+```yaml
 author:
   name: "Your Name"
   email: "your.email@example.com"
@@ -57,29 +78,30 @@ author:
 
 ### Project structure
 
-Maps logical directory names to paths. All paths are relative to the project root.
+Maps logical directory names to paths. All paths are relative to the project root. A standard project gets:
 
 ```yaml
 directories:
-  # Source code and notebooks
   notebooks: notebooks
   scripts: scripts
   functions: functions
-
-  # Input data (read-only)
   inputs_raw: inputs/raw
   inputs_intermediate: inputs/intermediate
   inputs_final: inputs/final
-  inputs_reference: inputs/reference
-
-  # Derived outputs (write-only)
-  outputs_private: outputs/private
-  outputs_public: outputs/public
-
-  # Cache and scratch space
-  cache: outputs/private/cache
-  scratch: outputs/private/scratch
+  docs: docs
+  outputs_tables: outputs/tables
+  outputs_figures: outputs/figures
+  outputs_models: outputs/models
+  outputs_reports: outputs/reports
+  cache: outputs/cache
+  scratch: scratch
+  logs: logs
+render_dirs:
+  notebooks: outputs/notebooks
+  docs: outputs/docs
 ```
+
+`render_dirs` sets where Quarto writes rendered files for each source folder. Sensitive projects use `inputs_private_raw`, `inputs_public_raw`, `outputs_private_tables`, `outputs_public_tables`, and so on.
 
 Access with `settings("notebooks")` or `settings("directories.notebooks")`.
 
@@ -89,21 +111,26 @@ R packages to install and optionally load with `scaffold()`:
 
 ```yaml
 packages:
-  - name: dplyr
-    auto_attach: true   # Load automatically
-  - name: tidyr
-    auto_attach: true
-  - name: ggplot2
-    auto_attach: true
-  - name: readr
-    auto_attach: false  # Install only, namespace explicitly
+  use_renv: false
+  default_packages:
+    - name: dplyr
+      source: cran
+      auto_attach: true   # Load automatically
+    - name: ggplot2
+      source: cran
+      auto_attach: true
+    - name: readr
+      source: cran
+      auto_attach: false  # Install only, namespace explicitly
 ```
+
+`package_add()` adds an entry and installs the package.
 
 See [Packages](guide:packages) for details on version pinning and GitHub packages.
 
 ### Data catalog
 
-The data catalog maps logical names to file paths. You can use three notation styles:
+The data catalog maps logical names to file paths. You can use two notation styles:
 
 **Hierarchical** (nested structure):
 ```yaml
@@ -133,17 +160,7 @@ data:
     type: rds
 ```
 
-**Flat** (full dot-notation keys):
-```yaml
-data.raw.survey:
-  path: inputs/raw/survey.csv
-  type: csv
-data.final.analysis:
-  path: inputs/final/analysis.rds
-  type: rds
-```
-
-All three styles are accessed the same way:
+Both styles are accessed the same way:
 
 ```r
 data_read("raw.survey")
@@ -158,10 +175,12 @@ Git hook configuration:
 
 ```yaml
 git:
+  enabled: true
   hooks:
-    ai_sync: false        # Sync AI assistant files before commit
-    data_security: false  # Check for secrets before commit
+    data_security: false  # Check for private data and secrets before commit
 ```
+
+The `ai_sync` hook was removed in 2.0. An `ai_sync: true` left in settings is ignored.
 
 See [Git integration](guide:git) for details.
 
@@ -171,10 +190,13 @@ AI assistant configuration:
 
 ```yaml
 ai:
-  canonical_file: "CLAUDE.md"  # CLAUDE.md, AGENTS.md, or .github/copilot-instructions.md
+  enabled: true
+  canonical_file: AGENTS.md
+  assistants:
+    - claude
 ```
 
-The canonical file is the source of truth for AI instructions. Other AI files are synced from it when using git hooks.
+`AGENTS.md` holds the AI instructions. `CLAUDE.md` points to it, so there is nothing to sync. Framework skills live in `.claude/skills/`.
 
 See [AI assistants](guide:ai-assistants) for details.
 
@@ -184,26 +206,36 @@ Database connections use `env()` to read credentials from [environment variables
 
 ```yaml
 connections:
-  db:
-    driver: postgresql
-    host: env("DB_HOST")
-    database: env("DB_NAME")
-    user: env("DB_USER")
-    password: env("DB_PASS")
+  default_database: framework
+  databases:
+    framework:
+      driver: sqlite
+      database: framework.db
+    db:
+      driver: postgres
+      host: env("DB_HOST")
+      database: env("DB_NAME")
+      user: env("DB_USER")
+      password: env("DB_PASS")
+  storage_buckets: {}
 ```
 
 See [Connections](guide:connections) for full documentation.
 
-### Random seeds
+### Scaffold behavior
 
-Control random seed behavior for reproducibility:
+Settings for `scaffold()`:
 
 ```yaml
-seed: 123                 # Default seed value
-seed_on_scaffold: false   # Set seed automatically when scaffold() runs
+scaffold:
+  seed: '123'                   # Default seed value
+  seed_on_scaffold: false       # Set seed automatically when scaffold() runs
+  set_theme_on_scaffold: true   # Set the ggplot2 theme when scaffold() runs
+  ggplot_theme: theme_minimal
+  source_all_functions: true    # Source every .R file in functions/
 ```
 
-When `seed_on_scaffold: true`, Framework calls `set.seed()` during `scaffold()`. This is off by default.
+When `seed_on_scaffold: true`, Framework calls `set.seed()` during `scaffold()`. This is off by default. The project's seed wins over a user-wide `FW_SEED`, and `seed_on_scaffold: false` turns seeding off even when `FW_SEED` is set.
 
 ## Environment variables
 
@@ -211,9 +243,10 @@ Use `env()` to read environment variables in your settings:
 
 ```yaml
 connections:
-  db:
-    host: env("DB_HOST")
-    password: env("DB_PASS", "default_value")  # With default
+  databases:
+    db:
+      host: env("DB_HOST")
+      password: env("DB_PASS", "default_value")  # With default
 ```
 
 Store actual values in `.env` (which is gitignored):
@@ -230,14 +263,18 @@ For different settings per environment, add named environment blocks:
 ```yaml
 default:
   connections:
-    db:
-      database: dev_database
+    databases:
+      db:
+        database: dev_database
 
 production:
   connections:
-    db:
-      database: prod_database
+    databases:
+      db:
+        database: prod_database
 ```
+
+Environment sections replace lists whole.
 
 Activate with:
 
@@ -256,27 +293,15 @@ settings("missing.key", default = "fallback")
 
 ## Complete structure
 
-The full structure of a project's `settings.yml`:
+The `settings.yml` of a new standard project, with its split files:
 
 ```yaml
 default:
+  project_name: my-analysis
   project_type: project
-
-  author:
-    name: "Your Name"
-    email: "your.email@example.com"
-    affiliation: "Your Institution"
-
-  packages:
-    - name: dplyr
-      auto_attach: true
-    - name: tidyr
-      auto_attach: true
-    - name: ggplot2
-      auto_attach: true
-    - name: readr
-      auto_attach: false
-
+  tools:
+    quarto: true
+    renv: false
   directories:
     notebooks: notebooks
     scripts: scripts
@@ -284,28 +309,27 @@ default:
     inputs_raw: inputs/raw
     inputs_intermediate: inputs/intermediate
     inputs_final: inputs/final
-    inputs_reference: inputs/reference
-    outputs_private: outputs/private
-    outputs_public: outputs/public
-    cache: outputs/private/cache
-    scratch: outputs/private/scratch
-
-  seed: 123
-  seed_on_scaffold: false
-
-  ai:
-    canonical_file: "CLAUDE.md"
-
-  git:
-    hooks:
-      ai_sync: false
-      data_security: false
-
-  data:
-    # Data catalog entries
-
-  connections:
-    # Database connections
+    docs: docs
+    outputs_tables: outputs/tables
+    outputs_figures: outputs/figures
+    outputs_models: outputs/models
+    outputs_reports: outputs/reports
+    cache: outputs/cache
+    scratch: scratch
+    logs: logs
+  render_dirs:
+    notebooks: outputs/notebooks
+    docs: outputs/docs
+  author: settings/author.yml
+  packages: settings/packages.yml
+  git: settings/git.yml
+  ai: settings/ai.yml
+  scaffold: settings/scaffold.yml
+  connections: settings/connections.yml
+  quarto: settings/quarto.yml
+  data: settings/data.yml
+  security:
+    sensitive: false
 ```
 
 ---

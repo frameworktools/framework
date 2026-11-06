@@ -2,12 +2,47 @@
 id: publishing
 title: Publishing
 section: features
-position: 15
-description: 'Publishing notebooks, data, and files to Framework Cloud and S3 storage'
+position: 16
+description: 'Publishing notebooks, data, and files to Framework Cloud, GitHub Pages, and S3 storage'
 ---
 ## Overview
 
-Framework provides functions for publishing notebooks, data, and files to S3-compatible storage (AWS S3, MinIO, DigitalOcean Spaces, etc.). Share rendered reports, datasets, and analysis outputs with colleagues or the public.
+Framework publishes notebooks, R objects, data, and files. Publishing is always an explicit call. Nothing is uploaded on its own.
+
+Destinations:
+
+- **Framework Cloud**: framework.pub or a self-hosted server. Versions, share pages, and access controls.
+- **GitHub Pages**: The project's own Pages site, through git.
+- **S3-compatible storage**: AWS S3, MinIO, Cloudflare R2, and similar.
+- **Folders**: A local or shared folder, through a named destination.
+
+Pick one with `to`: `"cloud"`, `"github"`, `"bucket"`, or a named destination. With no `to`, `publish()` and `publish_notebook()` use `publish.default` from settings. Without one, they use a storage bucket when `connection` is given or a bucket is configured. Otherwise, a project set up from Framework Cloud publishes there. With none of these, publishing stops and shows a bucket example.
+
+## Private paths
+
+Before uploading, Framework checks every file's absolute path. A path containing `private`, in any case, may hold restricted data. Framework warns and, in an interactive session, asks before publishing (default No). A non-interactive session stops unless you pass `include_private = TRUE`. The `/private/` macOS adds to `/tmp` and `/var` doesn't count.
+
+## Framework Cloud setup
+
+Publishing to Framework Cloud uses a project token. Create the project on Framework Cloud, then set it up locally with its token:
+
+```r
+framework::setup("fw_...")
+
+# Or
+framework::new_project(key = "fw_...", location = "~/projects/study")
+```
+
+Both write the token and its server to the project's `.env`:
+
+```bash
+FW_PROJECT_TOKEN=...
+FW_CLOUD_URL=https://framework.pub
+```
+
+`.env` is gitignored. Each collaborator runs `setup()` with the project token. For a self-hosted server, pass `url =` to `setup()` or `new_project()`.
+
+Your own sign-in is separate. `cloud_login()` connects this computer to your account for blueprints, settings sync, and skill sync. `cloud_status()` shows the server in use.
 
 ## Framework Cloud artifacts
 
@@ -70,17 +105,65 @@ and JSON for other models and tests. `integer64` columns export as text so
 identifiers stay exact.
 
 `title`, `description`, `kind`, `password`, and `visibility` set Cloud metadata.
-A password requires at least eight characters. Visibility can be `"public"` or
-`"unlisted"`; anyone with an unlisted link can open it unless it is password protected.
+A password requires at least eight characters. Visibility can be `"public"`,
+`"unlisted"`, or `"private"`. Anyone with an unlisted link can open it unless it
+is password protected. Passwords, unlisted links, and collections need Framework Cloud.
 
-Use `to = "bucket"` for an explicit storage upload or `to = "github"` for GitHub
-Pages. With no `to`, existing bucket-first destination selection is preserved.
+### Notebooks on Framework Cloud
+
+`publish_notebook()` renders a Quarto document and publishes the HTML:
+
+```r
+publish_notebook("notebooks/analysis.qmd", to = "cloud", slug = "analysis")
+```
+
+Framework Cloud takes HTML output only. Each publish adds a version.
+
+## GitHub Pages
+
+`to = "github"` publishes to the project's GitHub Pages site:
+
+```r
+publish("outputs/report.html", to = "github", slug = "main-results")
+publish_notebook("notebooks/analysis.qmd", to = "github")
+```
+
+Framework copies the document to `published/<slug>/` at the top of the repository, replacing what was there. It commits only that folder and the site index, then pushes to the branch's upstream, origin, or another GitHub remote. Anything else you staged stays staged. Interactive sessions confirm first.
+
+- The project must be a git repository with a GitHub remote.
+- The default slug is the file name in lowercase, with other characters as `-`. "Final Report (v2).html" becomes `final-report-v2`.
+- A folder needs an `index.html` at its top.
+- `dest`, `connection`, `password`, `collection`, and a `TRUE` or `FALSE` `slug` are errors here.
+- The site is limited to 1 GB.
+
+Turn on **Publish with GitHub Pages** for the project in Framework Cloud. It enables the site and adds the workflow that deploys `published/` from the default branch. Publishing from another branch warns.
+
+> [!WARNING]
+> GitHub Pages sites are public, even from a private repository.
+
+## Named destinations
+
+Name destinations under `publish:` in `settings.yml`. `publish.default` picks the one used when `to` is omitted:
+
+```yaml
+publish:
+  default: site
+  destinations:
+    site:
+      driver: folder
+      path: ~/site
+```
+
+Drivers are `cloud`, `github`, `folder`, and `s3`. A folder destination writes each artifact to `<path>/<slug>/`, keeps each version under `v/<n>/`, and maintains a site index. Folder destinations use `slug` and reject `dest`. Credential fields in a destination must be `env("VARIABLE")` references, with the values in `.env`.
+
+```r
+publish(results_table, to = "site", slug = "estimates")
+```
 
 ## S3 configuration
 
-Define S3 connections in `settings.yml` (either format works):
+Define storage buckets in `settings.yml` (or `settings/connections.yml`):
 
-**Preferred (connections.storage_buckets):**
 ```yaml
 connections:
   storage_buckets:
@@ -106,6 +189,8 @@ S3_ACCESS_KEY=AKIA...
 S3_SECRET_KEY=...
 ```
 
+Uploads need the aws.s3 package. `storage_test()` checks a bucket's credentials. When set, the `S3_*` environment variables take precedence over a bucket's own values. See the [Connections guide](guide:connections#object-storage-connections).
+
 ### Configuration options
 
 | Option | Description |
@@ -114,16 +199,17 @@ S3_SECRET_KEY=...
 | `region` | AWS region (default: us-east-1) |
 | `prefix` | Path prefix for all uploads |
 | `endpoint` | Custom endpoint for S3-compatible services |
-| `access_key` | AWS access key (use `env()`) |
-| `secret_key` | AWS secret key (use `env()`) |
+| `access_key` | AWS access key (use `env()`). `access_key_id` also works. |
+| `secret_key` | AWS secret key (use `env()`). `secret_access_key` also works. |
+| `session_token` | Temporary session token (use `env()`) |
 | `static_hosting` | If true, uploads notebooks as `dest/index.html` |
-| `default` | (connections format) Mark this bucket as the default |
+| `default` | Mark this bucket as the default |
 
 Set a default bucket with `default_storage_bucket` (or `default: true` on a bucket). If no default is set, Framework falls back to the first bucket defined.
 
 ## Notebook publishing
 
-Render and upload Quarto notebooks in one step:
+Render and upload Quarto notebooks to a bucket in one step:
 
 ```r
 # Publish a notebook
@@ -169,7 +255,7 @@ publish_notebook("analysis.qmd", self_contained = FALSE)
 
 ## Data publishing
 
-Upload data frames or existing files:
+`publish_data()` uploads data frames or existing files to a storage bucket. Formats are CSV, RDS, Parquet (needs arrow), and JSON:
 
 ```r
 # Publish a data frame as CSV
@@ -189,7 +275,7 @@ publish_data("outputs/model.rds", "models/v2/model.rds")
 
 ## Directory publishing
 
-Upload entire directories:
+`publish_dir()` uploads entire directories to a storage bucket:
 
 ```r
 # Upload a directory
@@ -204,7 +290,7 @@ publish_dir("outputs/", pattern = "\\.html$")
 
 ## Generic publishing
 
-For any file or directory:
+For any file or directory. With a bucket configured, these go to the bucket:
 
 ```r
 # Single file
@@ -215,6 +301,9 @@ publish("outputs/report.html", dest = "reports/final.html")
 
 # Directory
 publish("outputs/charts/", dest = "visualizations/")
+
+# List what is in the bucket
+publish_list("reports/")
 ```
 
 ## Example workflow
@@ -236,12 +325,13 @@ save_figure(summary_plot, "summary")
 # Render notebook
 save_notebook("notebooks/analysis.qmd")
 
-# Publish to S3
-publish_notebook("notebooks/analysis.qmd", dest = "reports/q4-analysis")
-publish_data(results, "data/q4-results.csv")
+# Publish to Framework Cloud
+publish_notebook("notebooks/analysis.qmd", to = "cloud", slug = "q4-analysis")
+publish(results, to = "cloud", slug = "q4-results")
 
-# Share the URL
-# https://my-bucket.s3.amazonaws.com/reports/q4-analysis/
+# Or to a storage bucket
+publish_notebook("notebooks/analysis.qmd", to = "bucket", dest = "reports/q4-analysis")
+publish_data(results, "data/q4-results.csv")
 ```
 
 ## Best practices
@@ -299,7 +389,19 @@ readers of an unlisted collection requires explicit consent through
 `share_unlisted`.
 If attachment fails after the artifact uploads, publishing returns its URL and
 warns that collection attachment failed. Attach the artifact from the project
-Outputs page; publishing again creates another version.
+Outputs page. Publishing again creates another version.
+
+## Data ledger
+
+`data_save()` records a hash of each saved file in `framework.db`. A project set up from Framework Cloud can share that record:
+
+```r
+ledger_push()                          # Send new entries to the cloud ledger
+ledger_list()                          # List the cloud ledger
+data_verify("inputs.raw.enrollment")   # Compare a file with the records
+```
+
+Only hashes leave the machine. The data stays local. `ledger_push()` is explicit. For an entry on every save, set `FW_LEDGER=live` or `options: cloud_ledger: live` in `settings.yml`.
 
 ---
 

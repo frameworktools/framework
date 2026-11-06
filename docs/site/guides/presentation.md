@@ -13,11 +13,17 @@ The **Presentation** type is a minimal structure for focused, single-output work
 
 ```text
 my-presentation/
+├── cache/               # Cached computations
+├── data/                # Data files
+├── functions/           # Custom R functions (auto-loaded)
+├── outputs/             # Saved outputs
+├── scripts/             # Automation scripts
+├── _quarto.yml          # Quarto configuration (RevealJS)
+├── AGENTS.md            # AI assistant guide
 ├── presentation.qmd     # Main document
+├── scaffold.R           # Project startup code
 └── settings.yml         # Configuration
 ```
-
-Optional directories available in the GUI: `data/`, `functions/`, `outputs/`, `scripts/`
 
 ## Presentation creation
 
@@ -25,7 +31,7 @@ Optional directories available in the GUI: `data/`, `functions/`, `outputs/`, `s
 new_presentation("quarterly-report", "~/presentations/q4")
 ```
 
-This creates a minimal structure with a main `presentation.qmd` file.
+This creates the structure above with a starter `presentation.qmd`. Add more decks with `make_revealjs()`.
 
 ## Configuration
 
@@ -34,25 +40,43 @@ Example `settings.yml`:
 ```yaml
 default:
   project_type: presentation
+  tools:
+    quarto: true
+    renv: false
 
   directories:
+    presentation_source: presentation.qmd
+    rendered_slides: '.'
     data: data
+    cache: cache
+    scripts: scripts
+    functions: functions
+    outputs: outputs
 
   packages:
-    - name: dplyr
-      auto_attach: true
-    - name: ggplot2
-      auto_attach: true
+    use_renv: false
+    default_packages:
+      - name: dplyr
+        auto_attach: true
+      - name: ggplot2
+        auto_attach: true
 ```
 
 ## Workflow
 
 ### 1. Setup
 
-```r
+The starter `presentation.qmd` runs `scaffold()` in a hidden setup chunk:
+
+````qmd
+```{r}
+#| label: setup
+#| include: false
+
 library(framework)
 scaffold()
 ```
+````
 
 ### 2. Editing
 
@@ -81,6 +105,8 @@ sales_plot
 ```bash
 quarto render presentation.qmd
 ```
+
+The rendered file is written next to the source.
 
 Or in R:
 
@@ -120,7 +146,7 @@ The presentation type is for single deliverables. For multi-document projects, u
 
 ### Functions
 
-Even in minimal projects, extract reusable code by enabling the `functions/` directory:
+`scaffold()` loads every `.R` file in `functions/`. Put reusable code there:
 
 ```r
 # functions/plots.R

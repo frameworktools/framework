@@ -24,13 +24,15 @@ save_table(results, "analysis_results", format = "rds")
 save_table(results, "analysis_results", format = "parquet")
 save_table(results, "analysis_results", format = "xlsx")
 
-# Public output (for sensitive projects)
+# Public output (for projects with split outputs)
 save_table(summary_stats, "public_summary", public = TRUE)
 ```
 
+`xlsx` needs the writexl package. `parquet` needs arrow.
+
 ### Figures
 
-Save ggplot2 or base R graphics:
+Save ggplot2 plots, recorded plots, or the current base R plot:
 
 ```r
 # Basic save
@@ -42,19 +44,21 @@ save_figure(my_plot, "revenue_chart", width = 10, height = 6, dpi = 300)
 # Different formats
 save_figure(my_plot, "revenue_chart", format = "pdf")
 save_figure(my_plot, "revenue_chart", format = "svg")
+
+# The current plot on a screen device
+plot(mtcars$mpg, mtcars$hp)
+save_figure(name = "mpg_vs_hp")
 ```
+
+Formats are `png` (the default), `pdf`, `svg`, `jpg`, `jpeg`, and `tiff`. The defaults are 8 by 6 inches at 300 dpi.
 
 ### Models
 
-Save fitted model objects:
+Save fitted model objects as `.rds` files:
 
 ```r
-# Save a model
 model <- lm(y ~ x, data = df)
 save_model(model, "regression_v1")
-
-# Save with specific format
-save_model(model, "regression_v1", format = "rds")
 ```
 
 ### Reports and notebooks
@@ -70,7 +74,14 @@ save_report("outputs/analysis.html", "quarterly_report", move = TRUE)
 
 # Render and save a Quarto notebook
 save_notebook("notebooks/analysis.qmd", "final_analysis")
+
+# Render to PDF or Word
+save_notebook("notebooks/analysis.qmd", format = "pdf")
 ```
+
+`save_notebook()` renders `.qmd`, `.Rmd`, and `.ipynb` files with Quarto. HTML output embeds its resources by default. Quarto renders a Jupyter notebook from the outputs saved in it without running its cells, so run the notebook first.
+
+Every `save_*()` function overwrites an existing file unless you pass `overwrite = FALSE`. Output folders are created on first use.
 
 ## Automatic tracking
 
@@ -78,16 +89,18 @@ Every `save_*` function automatically logs to the `results` table in `framework.
 
 | Field | Description |
 |-------|-------------|
-| `name` | The name you provided |
+| `name` | The file's path from the project root, such as `outputs/tables/summary.csv` |
 | `type` | Output type (table, figure, model, report, notebook) |
-| `public` | Whether saved to public or private directory |
-| `hash` | File integrity hash |
+| `public` | Whether `public = TRUE` was passed |
+| `hash` | SHA-256 hash of the file |
 | `created_at` | When first saved |
 | `updated_at` | When last modified |
 
+Results are tracked from the first save, even before `scaffold()` has run. Saves outside a Framework project are not tracked.
+
 ## Public and private outputs
 
-For Privacy Sensitive projects, the `public` parameter controls output location:
+Outputs split into private and public folders when the project has sensitive data on (`security.sensitive: true`) or lists `outputs_private_*` or `outputs_public_*` directories. This applies to any project type. In a split project, the `public` argument picks the folder:
 
 ```r
 # Private (default) - goes to outputs/private/tables/
@@ -97,9 +110,9 @@ save_table(detailed_results, "patient_outcomes")
 save_table(aggregated_stats, "summary", public = TRUE)
 ```
 
-Private outputs are gitignored. Public outputs can be shared and committed.
+Privacy Sensitive projects gitignore `outputs/private/`. Public outputs can be shared and committed.
 
-For Standard projects, the `public` parameter still works but outputs go to a single `outputs/` directory structure.
+In other projects, outputs go to one folder per type. The `public` flag is still recorded in `framework.db`. Run `project_info()` to see where each `save_*()` function writes.
 
 ## Output directories
 
@@ -127,6 +140,12 @@ outputs/
     ├── figures/
     └── ...
 ```
+
+Folder paths come from the `outputs_*` keys under `directories` in `settings.yml`. For example, `outputs_tables` or `outputs_private_tables`.
+
+## Publishing
+
+`save_*()` writes local files only. To share an output, use `publish()`. It takes a saved file or an R object. Framework Cloud receives data frames, models, and hypothesis tests as structured data that its readers can display. Before uploading a path containing "private", `publish()` warns and asks in interactive sessions. Non-interactive sessions stop unless you pass `include_private = TRUE`. See [Publishing](guide:publishing).
 
 ---
 

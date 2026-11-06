@@ -3,57 +3,81 @@ id: setup
 title: Setup
 section: getting_started
 position: 2
-description: 'Configure Framework defaults using the GUI'
+description: 'Framework Cloud sign-in, project tokens, and user-wide settings'
 ---
-## Setup GUI
+## Framework Cloud sign-in
 
-Framework includes a graphical user interface (GUI) for managing settings and projects. The GUI is a [plumber](https://www.rplumber.io/) server with a [VueJS](https://vuejs.org) web application.
-
-After installing Framework, configure your defaults by running:
+Framework Cloud ([framework.pub](https://framework.pub)) holds your defaults for new projects. Sign in once per computer:
 
 ```r
-framework::setup()
+framework::cloud_login()
 ```
 
-This opens the web interface where you can set **global defaults for new projects**. Any settings you configure here are applied automatically when you create a project in the GUI or with `new_project()`. You can always override them per-project.
+`cloud_login()` lists what connecting shares and asks for confirmation. It then opens the server's approval page in your browser. Sign in, or create a free account, and approve this computer. The token comes back to R and is stored in the macOS Keychain, Windows Credential Manager, or Linux Secret Service. Without a credential store, it goes in a permission-restricted file in the config folder.
 
-In the GUI, open the global settings with **New Project Defaults** in the left sidebar.
+To use a token from the Framework Cloud token page instead:
 
-![Framework Setup GUI](images/setup-gui.png)
+```r
+framework::cloud_login("fw_...")
+```
 
-## Settings sections
+For a self-hosted server, pass its URL. Plain `http` works only for `localhost` and `127.0.0.1`.
 
-- **Basics**: projects directory, editor support, notebook format, author info
-- **Project Structure**: default directories for notebooks, inputs, outputs
-- **Packages**: default R packages and renv settings
-- **Quarto**: HTML and RevealJS rendering defaults
-- **Git & Hooks**: version control and automation
-- **AI Assistants**: Claude and AI tool configuration
-- **Scaffold Behavior**: seed, theme, and function sourcing
-- **Templates**: notebook and script templates
-- **Connections**: database and S3 connection templates
-- **.env Defaults**: environment variable templates
+```r
+framework::cloud_login(url = "https://framework.example.edu")
+```
 
-Click **Save Changes** to persist your defaults.
+The server you last signed in to becomes the default. The `FW_CLOUD_URL` environment variable overrides it. `cloud_status()` shows the server in use and the account. `cloud_logout()` revokes the stored token and removes it from this computer.
+
+Nothing contacts Framework Cloud until you sign in.
+
+## Project defaults
+
+Edit your defaults on Framework Cloud under **Default settings**. Signed in, `new_project()` sends your choices to Framework Cloud and builds the project it resolves. Framework caches your defaults after each online creation. When Framework Cloud can't be reached, a project with no choices beyond its name uses the cached defaults.
+
+`cloud_sync()` mirrors your Cloud settings document to `cloud-settings.yml` in the config folder. Edit that file and run `cloud_sync()` again to push the changes.
+
+Signed out, or with `offline = TRUE`, new projects use Framework's built-in defaults. See [New projects](guide:new-project).
+
+## Project tokens
+
+A project created on Framework Cloud has a project token. Create the project locally from it:
+
+```r
+framework::setup("fw_...")
+```
+
+`setup()` fetches the project's definition and prompts for a location. Pass `location` to skip the prompt, and `url` for a self-hosted server. The token and server are saved in the project's `.env` file as `FW_PROJECT_TOKEN` and `FW_CLOUD_URL`, so publishing and the data ledger go back to that server. `new(key = "fw_...")` does the same.
 
 ## Settings storage
 
-Global default settings are stored in `~/.config/framework/`:
+User-wide settings live in the folder `fw_config_dir()` returns. The default is `tools::R_user_dir("framework", "config")`. Set `FW_CONFIG_HOME` to use another folder.
 
 ```text
-~/.config/framework/
-├── templates/             # Template files are stored here
-├── settings.yml           # Your defaults from setup()
-├── projects.yml           # Registry of your Framework projects
-└── .env                   # Global environment variables
+<config folder>/
+├── settings.yml        # User-wide settings
+├── projects.yml        # Registry of your Framework projects
+├── templates/          # Your notebook, script, and slide templates
+├── cloud.yml           # The saved Framework Cloud server
+├── cloud-settings.yml  # Mirror of your Cloud settings (cloud_sync())
+└── cache/defaults/     # Cached Framework Cloud defaults
 ```
 
-- **templates/**: All default template files
-- **settings.yml**: All default settings
-- **projects.yml**: List of projects you've created, used by `project_open()`
-- **.env**: Environment variable defaults
+- **settings.yml**: read and updated with `configure_global()`.
+- **projects.yml**: projects you've created, listed by `project_list()`.
+- **templates/**: starter files for `make_notebook()`, `make_script()`, and `make_revealjs()`. Edit them with `write_framework_template()`. A project's own `stubs/` folder comes first.
+- **cloud.yml**, **cloud-settings.yml**, and **cache/**: written by the cloud functions.
 
-These files are created automatically when you first run `setup()`. You can edit them directly, but the GUI is the recommended way to manage global settings.
+Framework creates `settings.yml` and `projects.yml` the first time they are needed.
+
+## Settings from Python and fw
+
+The Python package and the `fw` command-line tool keep their settings in `~/.config/framework`. `config_sync()` copies user settings, the saved server, and token files from that folder into R's when they are missing or newer there. R never writes to their folder.
+
+```r
+framework::config_sync(dry_run = TRUE)
+framework::config_sync()
+```
 
 ---
 

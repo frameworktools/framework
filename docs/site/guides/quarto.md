@@ -7,11 +7,13 @@ description: 'Quarto configuration for notebooks and presentations'
 ---
 ## Overview
 
-Framework integrates with [Quarto](https://quarto.org), the open-source scientific publishing system. It configures Quarto automatically, manages render directories, sets defaults for notebooks and presentations, and provides GUI settings for them.
+Framework integrates with [Quarto](https://quarto.org), the open-source scientific publishing system. It writes the project's Quarto configuration, separates sources from rendered output, and sets defaults for notebooks and presentations.
+
+Quarto is a tool you can turn on or off per project (`tools.quarto` in `settings.yml`). With it off, Framework writes no Quarto configuration and `make_notebook()` makes Jupyter notebooks, R Markdown, or scripts instead.
 
 ## Render directories
 
-Framework separates source files from rendered output. When you create a notebook or presentation, the `.qmd` source stays in its directory while rendered HTML/PDF output goes to a dedicated render directory.
+Framework separates source files from rendered output. The `.qmd` source stays in its directory while rendered HTML or PDF output goes to a render directory.
 
 **Rationale:**
 - Keep your working directories clean
@@ -21,65 +23,42 @@ Framework separates source files from rendered output. When you create a noteboo
 
 ### Directories by project type
 
-When you enable notebooks in a project, Framework creates both directories:
-
 | Project Type | Source Directory | Render Directory |
 |--------------|------------------|------------------|
 | Standard Project | `notebooks/` | `outputs/notebooks/` |
 | Privacy Sensitive | `notebooks/` | `outputs/private/notebooks/` |
 | Course/Teaching | `slides/` | `rendered/slides/` |
 
-Each source directory gets a `_quarto.yml` that tells Quarto where to put output:
+Render directories are listed under `render_dirs` in `settings.yml`.
+
+## Quarto configuration
+
+Framework writes one `_quarto.yml` at the project root when it creates the project. Quarto keeps each file's folder under the project's `output-dir`, so `notebooks/analysis.qmd` renders to `outputs/notebooks/analysis.html`:
 
 ```yaml
 project:
-  output-dir: ../outputs/notebooks
+  type: default
+  output-dir: outputs
 
 format:
   html:
     theme: default
-    embed-resources: true
     toc: true
+    toc-depth: 3
+    code-fold: false
+    code-tools: false
+    embed-resources: true
+    highlight-style: github
 ```
 
-![Quarto Settings GUI](images/quarto-settings-gui.png)
-
-## Quarto configuration
-
-Framework generates `_quarto.yml` files with default settings. You can edit these files. Framework creates them once and won't overwrite your changes.
-
-### GUI settings
-
-Configure Quarto defaults through the GUI. Run `setup()` and navigate to **Settings** → **Quarto**:
-
-```r
-framework::setup()
-```
-
-The GUI lets you configure:
-
-**HTML rendering (notebooks, documentation):**
-- Theme selection
-- Embed resources (standalone HTML files)
-- Table of contents and depth
-- Code folding and tools
-- Syntax highlighting style
-
-**Presentations (revealjs):**
-- Theme selection
-- Incremental bullets
-- Slide numbers
-- Transitions
+A folder that needs its own format, such as a course's `slides/`, gets a `_metadata.yml` that inherits from the root.
 
 ### Generated files
 
-Framework generates `_quarto.yml` in each source directory:
-
 ```text
 my-project/
-├── _quarto.yml              # Root project config
+├── _quarto.yml              # Project config
 ├── notebooks/
-│   ├── _quarto.yml          # Notebook-specific config
 │   └── analysis.qmd
 └── outputs/
     └── notebooks/           # Rendered output appears here
@@ -87,12 +66,13 @@ my-project/
 
 ### Customization
 
-Edit any `_quarto.yml` directly. Framework won't change it after creation:
+The generated files are yours. Framework does not change them after creation:
 
 ```yaml
-# notebooks/_quarto.yml
+# _quarto.yml
 project:
-  output-dir: ../outputs/notebooks
+  type: default
+  output-dir: outputs
 
 format:
   html:
@@ -105,6 +85,29 @@ format:
     highlight-style: github
 ```
 
+### Quarto settings
+
+The defaults Framework writes come from the `quarto` section of the project settings (`settings/quarto.yml` in split-settings projects):
+
+```yaml
+quarto:
+  html:
+    theme: default
+    embed_resources: true
+    toc: true
+    toc_depth: 3
+    code_fold: false
+    code_tools: false
+    highlight_style: github
+  revealjs:
+    theme: default
+    incremental: false
+    slide_number: true
+    transition: slide
+```
+
+Changing these settings does not rewrite existing files. Run `quarto_regenerate()` to apply them.
+
 ## New Quarto files
 
 ### Notebooks
@@ -116,7 +119,15 @@ make_notebook("exploration")
 make_notebook("modeling", subdir = "analysis")
 ```
 
-This creates a `.qmd` file from your notebook template in the configured notebooks directory.
+This creates a `.qmd` file from your notebook template in the configured notebooks directory. Use `make_rmd()` or a `.Rmd` name for R Markdown.
+
+For a Jupyter notebook for the R kernel, pass `type = "jupyter"` or a `.ipynb` name:
+
+```r
+make_notebook("exploration.ipynb")
+```
+
+Projects with the Quarto tool off and the Jupyter tool on make Jupyter notebooks by default. Quarto renders an `.ipynb` from the outputs saved in it, so run the notebook before rendering.
 
 ### Presentations
 
@@ -143,7 +154,7 @@ save_notebook("notebooks/analysis.qmd")
 ### From the terminal
 
 ```bash
-# Render in place (uses _quarto.yml settings)
+# Render one file (uses _quarto.yml settings)
 quarto render notebooks/analysis.qmd
 
 # Render entire project
@@ -188,9 +199,13 @@ format:
 
 ## Configuration regeneration
 
-If you need to regenerate `_quarto.yml` files (for example, after changing global defaults), use the GUI's **Regenerate Quarto Configs** button.
+To rewrite the Quarto files from the current settings, run:
 
-**Warning:** This overwrites any manual customizations. Framework backs up existing files to `.quarto_backups/` before regenerating.
+```r
+quarto_regenerate(".")
+```
+
+**Warning:** This overwrites any manual customizations. Framework backs up existing files to `.quarto_backups/` first. Pass `backup = FALSE` to skip the backup. Projects made before the single root config have a `_quarto.yml` in each render folder. `quarto_regenerate()` removes those and writes the root file.
 
 ---
 

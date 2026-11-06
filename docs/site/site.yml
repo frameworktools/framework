@@ -5,7 +5,7 @@ product: r
 title: Framework for R
 tagline: Structured data science projects in R
 repository: https://github.com/frameworktools/framework
-install: install.packages("framework")
+install: remotes::install_github("frameworktools/framework")
 sections:
   - id: getting_started
     title: Getting started

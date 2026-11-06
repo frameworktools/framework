@@ -3,7 +3,7 @@ id: viewing-work
 title: Viewing work
 section: features
 position: 8
-description: 'Interactive views with view() and the GUI'
+description: 'Interactive views with view(), saved results, and project info'
 ---
 ## Overview
 
@@ -11,7 +11,7 @@ Framework provides tools for interactively exploring your data, viewing saved re
 
 ## Interactive viewer
 
-Use `view()` to open objects in an interactive HTML viewer in your browser.
+Use `view()` to open objects in an interactive HTML viewer in your browser. It writes a temporary HTML file and opens it, so it works the same in RStudio, Positron, VS Code, and the terminal. It needs the DT, prismjs, and yaml packages.
 
 ### Data frames
 
@@ -44,17 +44,24 @@ view(x)
 <img src="/images/view-list-r.png" alt="List viewer - R tab" style="max-width: 48%;">
 </div>
 
+### Plots
+
+ggplot2 objects and recorded base plots open as images:
+
+```r
+p <- ggplot(mtcars, aes(mpg, hp)) + geom_point()
+view(p)
+```
+
 ### Options
 
 ```r
 # Custom title
 view(df, title = "Survey Results")
 
-# Limit rows for very large datasets
+# Limit rows for very large datasets (default 5000)
 view(large_df, max_rows = 1000)
 ```
-
-Aliases `view_create()` and `view_detail()` also work.
 
 ## Result list
 
@@ -77,7 +84,7 @@ result_list(public = FALSE)
 result_list(type = "table", public = TRUE)
 ```
 
-Returns a data frame with all tracked results and their metadata.
+Returns a data frame with each result's name, type, public flag, comment, hash, and timestamps, newest first. The name is the file's path from the project root, such as `outputs/tables/summary.csv`.
 
 ## Project info
 
@@ -88,20 +95,10 @@ project_info()
 ```
 
 This displays:
-- Project type and root directory
-- Configured directories
-- Output directory mappings
-- Data catalog summary
-
-## GUI views
-
-The Framework GUI shows project files and results. Run `setup()` and open the **Project** section:
-
-- **Inputs**: Browse files in your input directories
-- **Outputs**: Browse saved output files
-- **Results**: View tracked results from `framework.db`
-
-![Input directory browser with tabs for Raw, Intermediate, Final, and Reference inputs](images/view-inputs-tabs.png)
+- Project name and type
+- Configured directories, and whether each exists yet
+- The cache directory
+- The folder each `save_*()` function writes to
 
 ---
 
