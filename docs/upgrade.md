@@ -83,7 +83,10 @@ The plan covers these parts of a project:
   projects get the Claude Code rules that keep agents out of private folders.
 - **Skills.** A Framework skill whose `SKILL.md` matches any version the
   package has shipped is updated, and missing skills for the type are added
-  to a project that already has a skills folder. Edited skills are kept.
+  to a project that already has a skills folder. Edited skills are kept. A
+  sensitive project with no skills folder gets `framework-sensitive-data`,
+  in the skills folder its assistants read (`.claude/skills` when none is
+  set); `ai_skills_update()` installs the rest.
 - **Quarto.** Missing Quarto files are created. An existing `_quarto.yml` at
   most gains missing keys, and not while per-folder `_quarto.yml` files
   remain. Custom themes, `execute:` options, and comments stay.

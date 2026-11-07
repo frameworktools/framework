@@ -210,6 +210,10 @@ Adopting and upgrading projects:
   without replacing custom Quarto config. Keys outside `default:`, passwords
   written into settings (by key, never by value), edited skills, and
   per-folder Quarto projects are reported, not changed.
+* `upgrade()` on a sensitive project with no Framework skills installs
+  `framework-sensitive-data` in the skills folder its assistants read
+  (`.claude/skills` when none is set). Other projects without skills get a
+  note pointing to `ai_skills_update()`.
 
 # framework 2.0.0
 

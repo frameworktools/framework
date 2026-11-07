@@ -55,7 +55,10 @@ left alone and reported. Sensitive projects get the Claude Code guards
 that keep agents out of private folders.
 \item \strong{Skills}: Framework skills that match a version the package has
 shipped are updated; missing ones for the project type are added;
-locally edited ones are kept and listed.
+locally edited ones are kept and listed. A project with no skills folder
+gets none, except that a sensitive project gets
+\code{framework-sensitive-data} (in its assistants' skills folder, or
+\code{.claude/skills}).
 \item \strong{Quarto}: missing Quarto files are created, and an existing
 \verb{_quarto.yml} at most gains missing keys (see \code{\link[=quarto_regenerate]{quarto_regenerate()}}).
 Custom Quarto configuration is never replaced, and per-folder

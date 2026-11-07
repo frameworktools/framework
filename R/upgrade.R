@@ -34,7 +34,10 @@
 #'   that keep agents out of private folders.
 #' - **Skills**: Framework skills that match a version the package has
 #'   shipped are updated; missing ones for the project type are added;
-#'   locally edited ones are kept and listed.
+#'   locally edited ones are kept and listed. A project with no skills folder
+#'   gets none, except that a sensitive project gets
+#'   `framework-sensitive-data` (in its assistants' skills folder, or
+#'   `.claude/skills`).
 #' - **Quarto**: missing Quarto files are created, and an existing
 #'   `_quarto.yml` at most gains missing keys (see [quarto_regenerate()]).
 #'   Custom Quarto configuration is never replaced, and per-folder
@@ -537,7 +540,9 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
                  paste("keep Claude Code out of", paste(restricted, collapse = ", ")))
 }
 
-# Framework skills: update shipped versions, add missing ones, list edits
+# Framework skills: update shipped versions, add missing ones, list edits.
+# A project with no skills folder gets none, except a sensitive project,
+# which gets framework-sensitive-data.
 #' @keywords internal
 .upgrade_skills <- function(ctx) {
   settings <- .upgrade_settings_raw(ctx)
@@ -548,14 +553,33 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
   dirs <- if (length(assistants) == 0) ".agents/skills" else unique(vapply(table[assistants], `[[`, "", "skills_dir"))
   # A project with no skills folder never used skills; installing them is
   # ai_skills_update()'s job, not an upgrade's
-  dirs <- dirs[dir.exists(file.path(ctx$root, dirs))]
-  if (length(dirs) == 0) {
-    .upgrade_note(ctx, "This project has no Framework skills. framework::ai_skills_update() installs ",
-                  "the ones for its type (", type, ").")
-    return(invisible())
+  skills <- .ai_skills_for_type(type)
+  # A skills folder holding only framework-sensitive-data is the one an
+  # earlier upgrade() made for a sensitive project, so it doesn't count
+  uses_skills <- vapply(dirs, function(d) {
+    length(setdiff(list.dirs(file.path(ctx$root, d), full.names = FALSE, recursive = FALSE),
+                   "framework-sensitive-data")) > 0
+  }, logical(1))
+  existing <- dirs[uses_skills]
+  if (length(existing) == 0) {
+    if (!identical(type, "project_sensitive")) {
+      .upgrade_note(ctx, "This project has no Framework skills. framework::ai_skills_update() installs ",
+                    "the ones for its type (", type, ").")
+      return(invisible())
+    }
+    # A sensitive project gets the sensitive-data skill whatever it had: it
+    # tells agents to stay out of private data. Its folder is the one the
+    # assistants read, .claude/skills when none is set.
+    if (length(assistants) == 0) dirs <- ".claude/skills"
+    skills <- "framework-sensitive-data"
+    .upgrade_note(ctx, "This project has no other Framework skills; upgrade() adds or keeps ",
+                  "framework-sensitive-data. framework::ai_skills_update() installs the others for its ",
+                  "type (", type, ").")
+  } else {
+    dirs <- existing
   }
   edited <- character()
-  for (skill in .ai_skills_for_type(type)) {
+  for (skill in skills) {
     source <- system.file("templates", "skills", skill, package = "framework")
     if (!nzchar(source)) next
     for (dir in dirs) {

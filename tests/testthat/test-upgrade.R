@@ -172,3 +172,34 @@ test_that("upgrade() refreshes a stale spec and keeps its other sections", {
   expect_identical(record$name, "Fresh")
   expect_true(length(record$skills) > 0)
 })
+
+test_that("a sensitive project with no skills gets the sensitive-data skill", {
+  dir <- local_old_project()
+  unlink(file.path(dir, ".claude"), recursive = TRUE)
+  plan <- suppressMessages(upgrade(dir))
+  skills <- plan$actions[plan$actions$step == "skills", ]
+  expect_identical(skills$path, ".claude/skills/framework-sensitive-data")
+  expect_true(any(grepl("adds or keeps framework-sensitive-data", plan$notes)))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  expect_true(file.exists(file.path(dir, ".claude", "skills", "framework-sensitive-data", "SKILL.md")))
+  expect_false(dir.exists(file.path(dir, ".claude", "skills", "framework-data")))
+  expect_identical(nrow(suppressMessages(upgrade(dir))$actions), 0L)
+
+  # No assistants set: .claude/skills all the same
+  dir <- local_old_project()
+  unlink(file.path(dir, ".claude"), recursive = TRUE)
+  writeLines(c("ai:", "  enabled: yes", "  canonical_file: CLAUDE.md"), file.path(dir, "settings", "ai.yml"))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  expect_true(file.exists(file.path(dir, ".claude", "skills", "framework-sensitive-data", "SKILL.md")))
+})
+
+test_that("a project that isn't sensitive and has no skills only gets a note", {
+  dir <- local_old_project(type = "project")
+  unlink(file.path(dir, ".claude"), recursive = TRUE)
+  lines <- readLines(file.path(dir, "settings.yml"))
+  lines <- lines[!grepl("private|public", lines)]
+  writeLines(lines, file.path(dir, "settings.yml"))
+  plan <- suppressMessages(upgrade(dir))
+  expect_false(any(plan$actions$step == "skills"))
+  expect_true(any(grepl("ai_skills_update\\(\\) installs the ones", plan$notes)))
+})
