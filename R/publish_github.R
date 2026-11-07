@@ -89,7 +89,8 @@
 # GitHub remote. Returns name, owner, repo, and whether an upstream is set.
 #' @keywords internal
 .fw_pages_remote <- function(top) {
-  upstream <- .fw_git(top, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+  # Quoted: an MSYS git on Windows expands {u} like a glob and loses the braces
+  upstream <- .fw_git(top, "rev-parse", "--abbrev-ref", "--symbolic-full-name", shQuote("@{u}"))
   has_upstream <- .fw_git_ok(upstream)
   names <- .fw_git(top, "remote")
   names <- if (.fw_git_ok(names)) names[nzchar(names)] else character()

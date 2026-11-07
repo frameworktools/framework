@@ -151,7 +151,7 @@ test_that("git_push() pushes the current branch and sets its upstream", {
   suppressMessages(git_add("a.R"))
   suppressMessages(git_commit("first"))
   expect_true(suppressMessages(git_push()))
-  upstream <- system2("git", c("rev-parse", "--abbrev-ref", "main@{upstream}"), stdout = TRUE)
+  upstream <- system2("git", c("rev-parse", "--abbrev-ref", shQuote("main@{upstream}")), stdout = TRUE)
   expect_identical(upstream, "origin/main")
   # Later pushes need no arguments
   writeLines("y", "a.R")

@@ -115,7 +115,7 @@ test_that("published/ sits at the top of the repository and the upstream is set"
   writeLines("<p>x</p>", "x.html")
   suppressMessages(publish("x.html", to = "github"))
   expect_true(file.exists(file.path(r$dir, "published", "x", "index.html")))
-  expect_identical(r$git("rev-parse", "--abbrev-ref", "@{u}"), "origin/main")
+  expect_identical(r$git("rev-parse", "--abbrev-ref", shQuote("@{u}")), "origin/main")
 })
 
 test_that("publish(to = 'github') warns off the default branch and pushes anyway", {
