@@ -134,3 +134,21 @@ test_that("adopt() offers to register and to save the layout when signed in", {
                             "Save this folder layout as a structure on cloud.test?"))
   expect_identical(registered$type, "bare")
 })
+
+test_that("adopt() writes connections in the layout db_connect() reads", {
+  skip_if_not_installed("RSQLite")
+  dir <- local_folder(c("analysis"))
+  suppressMessages(adopt(dir, yes = TRUE))
+
+  connections <- yaml::read_yaml(file.path(dir, "settings.yml"))$default$connections
+  expect_identical(connections$default_database, "framework")
+  expect_identical(connections$databases$framework$driver, "sqlite")
+  expect_null(connections$connections)
+  expect_null(connections$options)
+
+  withr::with_dir(dir, {
+    con <- db_connect("framework")
+    on.exit(DBI::dbDisconnect(con), add = TRUE)
+    expect_true(DBI::dbIsValid(con))
+  })
+})

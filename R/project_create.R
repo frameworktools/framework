@@ -494,8 +494,9 @@ project_create <- function(
         # Data catalog (inline for course/presentation)
         data = list(),
 
-        # Connections (inline for course/presentation)
-        connections = connections %||% .default_connections_configuration(),
+        # Connections (inline for course/presentation), in the layout
+        # db_connect() reads: default_database plus databases
+        connections = .inline_connections(connections),
 
         security = security,
         data_hooks = if (length(data_hooks) > 0) data_hooks else NULL
@@ -507,6 +508,17 @@ project_create <- function(
     yaml::write_yaml(config, config_path)
     message("  Created: settings.yml")
   }
+}
+
+# Inline connections always use the current layout (default_database,
+# databases, storage_buckets). The older options/connections shape nests
+# under `connections:` as connections$connections, where db_connect() never
+# looks, so convert it.
+.inline_connections <- function(connections) {
+  connections <- .spec_connections_from_settings(
+    connections %||% .default_connections_configuration()
+  )
+  Filter(function(x) !is.null(x) && length(x) > 0, connections)
 }
 
 .default_connections_configuration <- function() {

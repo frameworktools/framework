@@ -54,6 +54,7 @@ adopt <- function(path = ".", yes = FALSE) {
     packages = args$packages, directories = spec$directories,
     extra_directories = args$extra_directories, ai = args$ai, git = spec$git,
     scaffold = spec$scaffold, settings_dir = file.path(path, "settings"),
+    connections = spec$connections,
     security = spec$security, tools = spec$tools, settings_layout = "flat"
   )
   .spec_write_record(path, spec)
