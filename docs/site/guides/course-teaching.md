@@ -149,7 +149,7 @@ assignments/assignment-01/
 
 ### 3. Rendering
 
-Quarto renders into `rendered/`. Slides go to `rendered/slides/`, assignments to `rendered/assignments/`.
+Quarto renders into `rendered/`. Slides go to `rendered/slides/`, assignments to `rendered/assignments/`. The course `.gitignore` ignores `rendered/`; publish rendered files with `publish()` or remove that line to commit them.
 
 ```bash
 quarto render slides/week-01/lecture.qmd
