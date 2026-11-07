@@ -789,18 +789,14 @@ git_security_audit <- function(config_file = NULL,
     NULL  # All history
   }
 
-  # Build git log command
-  # Note: Use system() instead of system2() to avoid shell interpretation issues with git format strings
-  # The %H, %ad, %s placeholders need to be passed directly to git, not interpreted by shell
-  git_cmd <- sprintf(
-    "git log --all '--pretty=format:%%H|%%ad|%%s' --date=iso --name-status%s",
-    if (!is.null(depth_arg)) paste0(" -", depth_arg) else ""
-  )
-
-  # Get git log
+  # git log, one commit line (hash and date separated by the unit separator,
+  # %x1f) followed by its changed files. No shell metacharacters in the
+  # arguments, so it runs the same through cmd on Windows.
+  args <- c("log", "--all", "--pretty=format:%H%x1f%ad", "--date=iso", "--name-status",
+            if (!is.null(depth_arg)) paste0("-", depth_arg))
   log_output <- tryCatch(
     {
-      output <- system(git_cmd, intern = TRUE)
+      output <- suppressWarnings(system2("git", args, stdout = TRUE, stderr = FALSE))
       if (is.null(attr(output, "status"))) output else character()
     },
     error = function(e) character()
@@ -878,8 +874,8 @@ git_security_audit <- function(config_file = NULL,
   hash <- date <- NULL
   rows <- list()
   for (line in log_output) {
-    if (grepl("^[a-f0-9]{40}\\|", line)) {
-      parts <- strsplit(line, "|", fixed = TRUE)[[1]]
+    if (grepl("^[a-f0-9]{40}\x1f", line)) {
+      parts <- strsplit(line, "\x1f", fixed = TRUE)[[1]]
       hash <- parts[1]
       date <- parts[2]
     } else if (!is.null(hash) && grepl("^[AMDTRC][0-9]*\t", line)) {

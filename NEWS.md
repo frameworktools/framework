@@ -135,6 +135,8 @@ Fixes:
   (`https://cloud.r-project.org`) when no CRAN mirror is set, as under
   `Rscript`, instead of stopping with "trying to use CRAN without setting a
   mirror". A mirror you set is kept, and the option is restored afterwards.
+* `git_security_audit()`'s history check works on Windows. Its `git log`
+  format had a `|`, which `cmd` read as a pipe, so it found nothing there.
 
 Adopting and upgrading projects:
 
