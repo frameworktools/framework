@@ -206,7 +206,9 @@ NULL
 #' The directory is created lazily on first use.
 #'
 #' @param data A data frame, tibble, or other tabular data
-#' @param name The name for the output file (without extension)
+#' @param name The name for the output file (without extension). A name
+#'   with `/`, such as `"meeting-2026-10-16/cohort"`, saves into subfolders
+#'   of the output folder, which are created as needed.
 #' @param format Output format: "csv" (default), "rds", "xlsx", or "parquet"
 #' @param public If TRUE, saves to public outputs directory (for project_sensitive type)
 #' @param overwrite If TRUE, overwrites existing files (default: TRUE)
@@ -268,6 +270,8 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
   if (file.exists(file_path) && !overwrite) {
     cli::cli_abort("File already exists: {.path {file_path}}. Use overwrite = TRUE to replace.")
   }
+  # A name with / saves into subfolders
+  dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
 
   # Save based on format
   tryCatch({
@@ -320,7 +324,9 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 #'
 #' @param plot A ggplot2 object, a recorded plot from [grDevices::recordPlot()],
 #'   or NULL to save the current plot
-#' @param name The name for the output file (without extension)
+#' @param name The name for the output file (without extension). A name
+#'   with `/`, such as `"meeting-2026-10-16/cohort"`, saves into subfolders
+#'   of the output folder, which are created as needed.
 #' @param format Output format: "png" (default), "pdf", "svg", or "jpg"
 #' @param width Width in inches (default: 8)
 #' @param height Height in inches (default: 6)
@@ -379,6 +385,8 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
   if (file.exists(file_path) && !overwrite) {
     cli::cli_abort("File already exists: {.path {file_path}}. Use overwrite = TRUE to replace.")
   }
+  # A name with / saves into subfolders
+  dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
 
   # Save the figure
   tryCatch({
@@ -452,7 +460,9 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
 #' The directory is created lazily on first use.
 #'
 #' @param model A fitted model object (lm, glm, tidymodels workflow, etc.)
-#' @param name The name for the output file (without extension)
+#' @param name The name for the output file (without extension). A name
+#'   with `/`, such as `"meeting-2026-10-16/cohort"`, saves into subfolders
+#'   of the output folder, which are created as needed.
 #' @param public If TRUE, saves to public outputs directory (for project_sensitive type)
 #' @param overwrite If TRUE, overwrites existing files (default: TRUE)
 #' @param ... Additional arguments passed to [saveRDS()]
@@ -487,6 +497,8 @@ save_model <- function(model, name, public = FALSE, overwrite = TRUE, ...) {
   if (file.exists(file_path) && !overwrite) {
     cli::cli_abort("File already exists: {.path {file_path}}. Use overwrite = TRUE to replace.")
   }
+  # A name with / saves into subfolders
+  dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
 
   # Save the model
   tryCatch({

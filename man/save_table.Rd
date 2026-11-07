@@ -9,7 +9,9 @@ save_table(data, name, format = "csv", public = FALSE, overwrite = TRUE, ...)
 \arguments{
 \item{data}{A data frame, tibble, or other tabular data}
 
-\item{name}{The name for the output file (without extension)}
+\item{name}{The name for the output file (without extension). A name
+with \code{/}, such as \code{"meeting-2026-10-16/cohort"}, saves into subfolders
+of the output folder, which are created as needed.}
 
 \item{format}{Output format: "csv" (default), "rds", "xlsx", or "parquet"}
 

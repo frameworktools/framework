@@ -30,6 +30,8 @@ save_table(summary_stats, "public_summary", public = TRUE)
 
 `xlsx` needs the writexl package. `parquet` needs arrow.
 
+A name with `/` saves into subfolders of the output folder, which are created as needed: `save_table(df, "meeting-2026-10-16/cohort")` writes `outputs/tables/meeting-2026-10-16/cohort.csv`. The same holds for `save_figure()` and `save_model()`. Each file is listed in `result_list()` by its path from the project root.
+
 ### Figures
 
 Save ggplot2 plots, recorded plots, or the current base R plot:

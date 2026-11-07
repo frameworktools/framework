@@ -9,7 +9,9 @@ save_model(model, name, public = FALSE, overwrite = TRUE, ...)
 \arguments{
 \item{model}{A fitted model object (lm, glm, tidymodels workflow, etc.)}
 
-\item{name}{The name for the output file (without extension)}
+\item{name}{The name for the output file (without extension). A name
+with \code{/}, such as \code{"meeting-2026-10-16/cohort"}, saves into subfolders
+of the output folder, which are created as needed.}
 
 \item{public}{If TRUE, saves to public outputs directory (for project_sensitive type)}
 

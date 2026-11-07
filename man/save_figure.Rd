@@ -20,7 +20,9 @@ save_figure(
 \item{plot}{A ggplot2 object, a recorded plot from \code{\link[grDevices:recordPlot]{grDevices::recordPlot()}},
 or NULL to save the current plot}
 
-\item{name}{The name for the output file (without extension)}
+\item{name}{The name for the output file (without extension). A name
+with \code{/}, such as \code{"meeting-2026-10-16/cohort"}, saves into subfolders
+of the output folder, which are created as needed.}
 
 \item{format}{Output format: "png" (default), "pdf", "svg", or "jpg"}
 
