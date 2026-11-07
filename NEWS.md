@@ -1,3 +1,8 @@
+# framework (development version)
+
+* `package_set_add()` adds a package set to an existing project.
+  `package_sets_list()` lists the sets for R.
+
 # framework 1.9.0.9004
 
 * The guides cover 2.0: install from GitHub until 2.0 reaches CRAN.

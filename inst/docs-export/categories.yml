@@ -53,6 +53,8 @@ Packages:
     - packages_restore
   functions:
     - package_add
+    - package_set_add
+    - package_sets_list
     - packages_install
     - packages_list
     - packages_restore

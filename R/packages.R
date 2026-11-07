@@ -652,6 +652,173 @@ package_add <- function(package, auto_attach = FALSE, install = TRUE) {
   invisible(entry)
 }
 
+#' Add a package set to the project
+#'
+#' Adds a package set's packages to an existing project. Packages the project
+#' already lists are left as they are. The rest are recorded as
+#' [package_add()] records them, with each package's source, repository, and
+#' auto-attach setting from the set. Sets also stack at creation with
+#' `new_project(package_sets = ...)`.
+#'
+#' A set is one of Framework's built-in sets for R, such as
+#' `"tidyverse-analysis"` or `"bayes-r"`. See [package_sets_list()]. When you
+#' are signed in to Framework Cloud, a handle such as `"@yourname/lab-tools"` adds one
+#' of your account's sets.
+#'
+#' @param set Package set id or Framework Cloud handle.
+#' @param install Logical. Install the added packages now. Default TRUE. A
+#'   failed install leaves the package recorded and warns.
+#'
+#' @return Invisibly, a list with `added` and `present`: the names of the
+#'   packages added and those the project already listed.
+#' @export
+#'
+#' @seealso [package_sets_list()], [package_add()]
+#'
+#' @examples
+#' \donttest{
+#' if (FALSE) {
+#' package_set_add("bayes-r")
+#' package_set_add("tidy-omop", install = FALSE)
+#' }
+#' }
+package_set_add <- function(set, install = TRUE) {
+  checkmate::assert_string(set, min.chars = 1)
+  checkmate::assert_flag(install)
+
+  settings_file <- .get_settings_file()
+  if (is.null(settings_file)) {
+    stop("No settings.yml found. Run package_set_add() inside a Framework project.", call. = FALSE)
+  }
+
+  definition <- .fw_package_set(set)
+  wanted <- definition$layer$packages$default_packages %||% list()
+  entries <- lapply(names(wanted), function(name) {
+    pkg <- wanted[[name]]
+    entry <- list(name = name, source = pkg$source %||% "cran")
+    if (!is.null(pkg$version)) entry$version <- pkg$version
+    if (!is.null(pkg$repo)) entry$repo <- pkg$repo
+    if (!is.null(pkg$ref)) entry$ref <- pkg$ref
+    entry$auto_attach <- isTRUE(pkg$auto_attach)
+    entry
+  })
+
+  added <- list()
+  present <- character()
+  .packages_edit(settings_file, function(packages) {
+    listed <- vapply(packages, function(p) {
+      tryCatch(.normalize_package_spec(p)$name %||% "", error = function(e) "")
+    }, character(1))
+    for (entry in entries) {
+      if (entry$name %in% listed) {
+        present <<- c(present, entry$name)
+      } else {
+        packages <- c(packages, list(entry))
+        added <<- c(added, list(entry))
+      }
+    }
+    packages
+  })
+
+  added_names <- vapply(added, `[[`, "", "name")
+  if (length(added_names) > 0) {
+    message("Added ", length(added_names), " package(s) from ", definition$name, ": ",
+            paste(added_names, collapse = ", "))
+  } else {
+    message("The project already lists every package in ", definition$name, ".")
+  }
+  if (length(present) > 0) {
+    message("Already listed: ", paste(present, collapse = ", "))
+  }
+
+  if (install && length(added) > 0) {
+    failed <- character()
+    for (entry in added) {
+      ok <- tryCatch({
+        .install_package(entry)
+        requireNamespace(entry$name, quietly = TRUE)
+      }, error = function(e) FALSE)
+      if (!isTRUE(ok)) failed <- c(failed, entry$name)
+    }
+    if (length(failed) > 0) {
+      warning("Could not install ", paste(failed, collapse = ", "),
+              ". They are recorded; run packages_install() to try again.", call. = FALSE)
+    }
+  }
+
+  invisible(list(added = added_names, present = present))
+}
+
+#' List package sets
+#'
+#' Framework's built-in package sets for R projects. Add one to a project
+#' with [package_set_add()], or at creation with
+#' `new_project(package_sets = ...)`.
+#'
+#' @return A data frame with `id`, `name`, `description`, and `packages` (the
+#'   package names, comma-separated).
+#' @export
+#'
+#' @seealso [package_set_add()]
+#'
+#' @examples
+#' package_sets_list()
+package_sets_list <- function() {
+  sets <- Filter(function(d) "r" %in% unlist(d$language), .fw_package_sets())
+  data.frame(
+    id = vapply(sets, `[[`, "", "id"),
+    name = vapply(sets, `[[`, "", "name"),
+    description = vapply(sets, `[[`, "", "description"),
+    packages = vapply(sets, function(d) {
+      paste(names(d$layer$packages$default_packages), collapse = ", ")
+    }, ""),
+    row.names = NULL,
+    stringsAsFactors = FALSE
+  )
+}
+
+# One package set for an R project: a built-in set by id (or its
+# "framework/" handle), or an account's set by handle, resolved by
+# Framework Cloud as new_project() resolves chosen sets
+#' @keywords internal
+.fw_package_set <- function(set, language = "r") {
+  if (grepl("/", set, fixed = TRUE) && !startsWith(set, "framework/")) {
+    return(.fw_cloud_package_set(set, language))
+  }
+  id <- sub("^framework/", "", set)
+  sets <- .fw_package_sets()
+  available <- names(Filter(function(d) language %in% unlist(d$language), sets))
+  definition <- sets[[id]]
+  if (is.null(definition)) {
+    stop("Unknown package set: ", id, ". Available: ", paste(available, collapse = ", "), call. = FALSE)
+  }
+  if (!language %in% unlist(definition$language)) {
+    stop("The ", definition$name, " package set isn't available for R projects. Available: ",
+         paste(available, collapse = ", "), call. = FALSE)
+  }
+  definition
+}
+
+#' @keywords internal
+.fw_cloud_package_set <- function(handle, language = "r") {
+  token <- .fw_cloud_token()
+  if (is.null(token)) {
+    stop(handle, " is a Framework Cloud package set. Sign in with cloud_login() first.", call. = FALSE)
+  }
+  url <- .fw_cloud_url()
+  res <- .fw_resolve_request(list(language = language, package_sets = list(handle)), token, url)
+  if (!identical(res$status, "ok")) {
+    stop(.fw_cloud_host(url), " can't be reached (", res$reason, "), so ", handle,
+         " can't be looked up.", call. = FALSE)
+  }
+  for (notice in res$notices) message(notice)
+  entry <- Find(function(layer) identical(layer$key, handle), res$envelope$layers %||% list())
+  if (is.null(entry)) {
+    stop("The ", handle, " package set isn't available for R projects.", call. = FALSE)
+  }
+  list(id = handle, name = handle, layer = entry$layer)
+}
+
 # Apply `edit` to the project's package list and write it back where it lives:
 # a split file (settings/packages.yml) or the packages section of the main
 # settings file. Handles both the default_packages structure and the older

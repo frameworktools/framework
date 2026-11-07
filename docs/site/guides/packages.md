@@ -62,6 +62,16 @@ Framework ships package sets for new projects. The `tidyverse-analysis` set adds
 new_project("study", "~/study", package_sets = "tidyverse-analysis")
 ```
 
+Add a set to an existing project with `package_set_add()`. It records the packages the project doesn't list yet and installs them. Packages already listed stay as they are. `package_sets_list()` shows the sets for R.
+
+```r
+package_sets_list()
+package_set_add("bayes-r")
+package_set_add("tidy-omop", install = FALSE)
+```
+
+Signed in to Framework Cloud, you can also add one of your account's sets by its handle, such as `package_set_add("@yourname/lab-tools")`.
+
 ## Installation and loading
 
 When `scaffold()` runs:
