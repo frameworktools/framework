@@ -5,9 +5,12 @@
 #'
 #' 1. Make sure `.gitignore` ignores `.env`.
 #' 2. Create `.env` from `.env.example` when it is missing, and list the
-#'    variables that are still empty.
+#'    empty variables that the project's settings use (through `env("NAME")`,
+#'    `Sys.getenv("NAME")`, or `${NAME}`). Unused examples are not to-dos.
 #' 3. Create the project folders, which git does not carry when they are
-#'    empty or ignored. Absolute paths (shared drives) are left alone.
+#'    empty or ignored. Absolute paths (shared drives) are left alone, and
+#'    so are folders under `outputs/`, which are made when first written to,
+#'    as in a new project.
 #' 4. Create `framework.db`, or add the tables a newer version needs.
 #' 5. Install packages: `renv::restore()` when the project has `renv.lock`,
 #'    otherwise the packages listed in settings.yml.
@@ -20,7 +23,8 @@
 #'
 #' @param path The project folder (default: the current directory).
 #' @param interactive If `TRUE`, ask for the values of empty `.env`
-#'   variables. If `FALSE`, never prompt and list them as to-dos instead.
+#'   variables the settings use. If `FALSE`, never prompt and list them as
+#'   to-dos instead.
 #' @param packages If `FALSE`, skip package installation.
 #'
 #' @return Invisibly, a list with `root`, `done` (the steps that changed
@@ -140,6 +144,10 @@ bootstrap <- function(path = ".", interactive = base::interactive(), packages = 
   pattern <- "^(\\s*(export\\s+)?)([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*$"
   empty_rows <- grep(pattern, lines)
   empty <- sub(pattern, "\\3", lines[empty_rows])
+  # Only variables the settings use need a value; the rest are examples
+  used <- empty %in% .bootstrap_env_references(root)
+  empty_rows <- empty_rows[used]
+  empty <- empty[used]
 
   if (interactive && length(empty) > 0) {
     filled <- character()
@@ -175,6 +183,26 @@ bootstrap <- function(path = ".", interactive = base::interactive(), packages = 
   list(done = done, todo = todo)
 }
 
+# Variable names the project's settings files use: env("NAME"),
+# Sys.getenv("NAME"), and ${NAME}, in settings.yml and settings/*.yml
+#' @keywords internal
+.bootstrap_env_references <- function(root) {
+  files <- file.path(root, c("settings.yml", "settings.yaml", "config.yml"))
+  files <- c(files[file.exists(files)],
+             list.files(file.path(root, "settings"), pattern = "\\.ya?ml$", full.names = TRUE))
+  text <- unlist(lapply(files, readLines, warn = FALSE), use.names = FALSE)
+  text <- sub("(^|\\s)#.*$", "", text)
+  patterns <- c(
+    "(?:\\benv|Sys\\.getenv)\\(\\s*[\"']([A-Za-z_][A-Za-z0-9_]*)[\"']",
+    "\\$\\{([A-Za-z_][A-Za-z0-9_]*)\\}"
+  )
+  names <- unlist(lapply(patterns, function(pattern) {
+    found <- regmatches(text, gregexpr(pattern, text, perl = TRUE))
+    sub(pattern, "\\1", unlist(found), perl = TRUE)
+  }))
+  unique(names)
+}
+
 #' @keywords internal
 .bootstrap_folders <- function(root, config) {
   folders <- unlist(Filter(is.character, config$directories %||% list()), use.names = FALSE)
@@ -189,6 +217,8 @@ bootstrap <- function(path = ".", interactive = base::interactive(), packages = 
     if (grepl("^(/|~|[A-Za-z]:[/\\\\]|\\\\\\\\)", folder)) next
     if (grepl("(^|/)\\.\\.(/|$)", folder)) next
     if (.fw_is_file_entry(folder)) next
+    # Output folders are made when first written to, as in a new project
+    if (grepl("^outputs(/|$)", folder)) next
     path <- file.path(root, folder)
     if (!dir.exists(path)) {
       dir.create(path, recursive = TRUE, showWarnings = FALSE)

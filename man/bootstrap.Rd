@@ -10,7 +10,8 @@ bootstrap(path = ".", interactive = base::interactive(), packages = TRUE)
 \item{path}{The project folder (default: the current directory).}
 
 \item{interactive}{If \code{TRUE}, ask for the values of empty \code{.env}
-variables. If \code{FALSE}, never prompt and list them as to-dos instead.}
+variables the settings use. If \code{FALSE}, never prompt and list them as
+to-dos instead.}
 
 \item{packages}{If \code{FALSE}, skip package installation.}
 }
@@ -26,9 +27,12 @@ cluster. Every step is safe to repeat, and none contacts Framework Cloud:
 \enumerate{
 \item Make sure \code{.gitignore} ignores \code{.env}.
 \item Create \code{.env} from \code{.env.example} when it is missing, and list the
-variables that are still empty.
+empty variables that the project's settings use (through \code{env("NAME")},
+\code{Sys.getenv("NAME")}, or \verb{$\{NAME\}}). Unused examples are not to-dos.
 \item Create the project folders, which git does not carry when they are
-empty or ignored. Absolute paths (shared drives) are left alone.
+empty or ignored. Absolute paths (shared drives) are left alone, and
+so are folders under \verb{outputs/}, which are made when first written to,
+as in a new project.
 \item Create \code{framework.db}, or add the tables a newer version needs.
 \item Install packages: \code{renv::restore()} when the project has \code{renv.lock},
 otherwise the packages listed in settings.yml.

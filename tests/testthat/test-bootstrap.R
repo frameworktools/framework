@@ -6,10 +6,14 @@ local_cloned_project <- function(settings = list(), env = parent.frame()) {
       inputs_raw = "inputs/raw",
       outputs_private = "outputs/private",
       shared = "/Volumes/shared/study"
-    )
+    ),
+    connections = list(databases = list(warehouse = list(
+      driver = "postgres", host = 'env("DB_HOST")', password = 'env("DB_PASSWORD")'
+    ))),
+    publish = list(destinations = list(site = list(driver = "s3", token = "${API_TOKEN}")))
   )
   yaml::write_yaml(list(default = utils::modifyList(base, settings)), file.path(dir, "settings.yml"))
-  writeLines(c("# Database", "DB_HOST=localhost", "DB_PASSWORD=", "export API_TOKEN="),
+  writeLines(c("# Database", "DB_HOST=localhost", "DB_PASSWORD=", "export API_TOKEN=", "UNUSED_EXAMPLE="),
              file.path(dir, ".env.example"))
   writeLines(c("!.env"), file.path(dir, ".gitignore"))
   dir
@@ -23,18 +27,19 @@ test_that("bootstrap() prepares a cloned project without prompting", {
   expect_true(file.exists(file.path(dir, ".env")))
   expect_identical(utils::tail(readLines(file.path(dir, ".gitignore")), 1), ".env")
   expect_true(dir.exists(file.path(dir, "inputs", "raw")))
-  expect_true(dir.exists(file.path(dir, "outputs", "private")))
+  # Output folders are made on first use, as in a new project
+  expect_false(dir.exists(file.path(dir, "outputs")))
   expect_false(dir.exists(file.path(dir, "Volumes")))
   expect_true(file.exists(file.path(dir, "framework.db")))
   expect_true("Created .env from .env.example" %in% result$done)
   expect_identical(result$todo, "Fill in .env: DB_PASSWORD, API_TOKEN")
 
   # Safe to repeat: nothing new to create, .env kept as is
-  writeLines(c("DB_HOST=db", "DB_PASSWORD=x"), file.path(dir, ".env"))
+  writeLines(c("DB_HOST=db", "DB_PASSWORD=x", "API_TOKEN=t", "UNUSED_EXAMPLE="), file.path(dir, ".env"))
   again <- suppressMessages(bootstrap(dir, interactive = FALSE, packages = FALSE))
   expect_identical(again$done, "Updated framework.db")
   expect_identical(again$todo, character())
-  expect_identical(readLines(file.path(dir, ".env")), c("DB_HOST=db", "DB_PASSWORD=x"))
+  expect_identical(readLines(file.path(dir, ".env")), c("DB_HOST=db", "DB_PASSWORD=x", "API_TOKEN=t", "UNUSED_EXAMPLE="))
 })
 
 test_that("bootstrap() fills empty .env values when interactive", {
@@ -91,4 +96,18 @@ test_that("bootstrap() does not make folders out of file entries", {
   dir <- local_cloned_project(list(directories = list(presentation = "presentation.qmd")))
   suppressMessages(bootstrap(dir, interactive = FALSE, packages = FALSE))
   expect_false(dir.exists(file.path(dir, "presentation.qmd")))
+})
+
+test_that("bootstrap() lists only the .env variables the settings use", {
+  dir <- withr::local_tempdir()
+  yaml::write_yaml(list(default = list(project_type = "project", connections = "settings/connections.yml")),
+                   file.path(dir, "settings.yml"))
+  dir.create(file.path(dir, "settings"))
+  writeLines(c("connections:", "  databases:", "    pg:", "      driver: postgres",
+               "      user: !expr Sys.getenv('PG_USER')", "      # password: env(\"COMMENTED_OUT\")"),
+             file.path(dir, "settings", "connections.yml"))
+  writeLines(c("PG_USER=", "COMMENTED_OUT=", "S3_BUCKET="), file.path(dir, ".env"))
+  expect_setequal(framework:::.bootstrap_env_references(dir), "PG_USER")
+  result <- suppressMessages(bootstrap(dir, interactive = FALSE, packages = FALSE))
+  expect_identical(result$todo, "Fill in .env: PG_USER")
 })

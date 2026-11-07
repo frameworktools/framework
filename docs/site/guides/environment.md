@@ -103,7 +103,7 @@ FW_CLOUD_URL=https://framework.pub
 framework::bootstrap()
 ```
 
-It makes sure `.gitignore` ignores `.env`. It creates `.env` from `.env.example` when one exists and lists the variables that are still empty. It never contacts Framework Cloud. Commit a `.env.example` with names and no values to give collaborators the list.
+It makes sure `.gitignore` ignores `.env`. It creates `.env` from `.env.example` when one exists and lists the empty variables that the settings use, through `env("NAME")`, `Sys.getenv("NAME")`, or `${NAME}`. Empty example variables nothing uses are not listed. It never contacts Framework Cloud. Commit a `.env.example` with names and no values to give collaborators the list.
 
 ## R session management
 
