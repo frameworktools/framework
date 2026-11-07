@@ -22,6 +22,13 @@ Pick one with `to`: `"cloud"`, `"github"`, `"bucket"`, or a named destination. W
 
 Before uploading, Framework checks every file's absolute path. A path containing `private`, in any case, may hold restricted data. Framework warns and, in an interactive session, asks before publishing (default No). A non-interactive session stops unless you pass `include_private = TRUE`. The `/private/` macOS adds to `/tmp` and `/var` doesn't count.
 
+The same confirmation covers sources whose path doesn't tell:
+
+- In a project with `security: sensitive: true`, every notebook (`.qmd`, `.Rmd`, `.ipynb`) published with `publish()` or `publish_notebook()`, and every object, such as a data frame or model given to `publish()` or a data frame given to `publish_data()`.
+- In any project, a notebook whose code quotes private data: a string with a part, split on `/`, `\`, or `.`, named like `private`, `confidential`, or `sensitive` (`"inputs/private/raw/ids.csv"`), or a data catalog name whose entry is private (`"inputs.ids"`).
+
+Each reason is a warning, and one question covers them all. This is a quick check of the text, not an analysis: data reached any other way isn't found.
+
 ## Framework Cloud setup
 
 Publishing to Framework Cloud uses a project token. Create the project on Framework Cloud, then set it up locally with its token:

@@ -32,7 +32,9 @@ without its extension, with \code{/} turned into \code{-}, is the slug.}
 absolute path of any file to upload contains "private" in any case
 (apart from the \verb{/private/} macOS adds to \verb{/tmp} and \verb{/var}), Framework
 warns and, in an interactive session, asks before publishing (default No).
-In a non-interactive session it stops unless \code{include_private = TRUE}.}
+In a non-interactive session it stops unless \code{include_private = TRUE}.
+A data frame in a project with \code{security: sensitive: true} is confirmed
+the same way.}
 
 \item{to}{Character or NULL. Named destination from
 \code{publish.destinations}, or a driver name, as in \code{\link[=publish]{publish()}}. Default:

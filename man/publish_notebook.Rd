@@ -42,7 +42,10 @@ under \verb{published/}.}
 absolute path of any file to upload contains "private" in any case
 (apart from the \verb{/private/} macOS adds to \verb{/tmp} and \verb{/var}), Framework
 warns and, in an interactive session, asks before publishing (default No).
-In a non-interactive session it stops unless \code{include_private = TRUE}.}
+In a non-interactive session it stops unless \code{include_private = TRUE}.
+It also asks for every notebook in a project with
+\code{security: sensitive: true}, and for a notebook whose code names private
+data, as \code{\link[=publish]{publish()}} does.}
 
 \item{to}{Character or NULL. \code{"cloud"} selects Framework Cloud and \code{"bucket"}
 selects storage. \code{"github"} publishes the rendered HTML to the

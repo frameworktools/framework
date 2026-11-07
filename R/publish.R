@@ -78,13 +78,18 @@ NULL
 # because macOS resolves /tmp, /var, and /etc there, so tempdir() would
 # always match. Interactive sessions ask, defaulting to No, and scripts stop
 # unless include_private = TRUE. framework-py and fw apply the same rule.
+#
+# `reasons` are other reasons to confirm, as text (see .fw_publish_reasons()):
+# each is a warning, and one question covers them and the paths. Returns
+# TRUE (invisibly) when the user confirmed, so callers don't ask twice, and
+# FALSE when there was nothing to confirm.
 #' @keywords internal
-.fw_confirm_private <- function(source, include_private = FALSE) {
+.fw_confirm_private <- function(source, include_private = FALSE, reasons = character()) {
   if (isTRUE(include_private)) {
     return(invisible(TRUE))
   }
   paths <- source
-  if (dir.exists(source)) {
+  if (length(source) == 1L && dir.exists(source)) {
     paths <- c(source, list.files(source, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
   }
   paths <- normalizePath(paths, winslash = "/", mustWork = FALSE)
@@ -93,30 +98,122 @@ NULL
   # where normalizePath() adds a drive letter.
   system_prefix <- "^([A-Za-z]:)?/private/(?=(tmp|var|etc)/)"
   flagged <- paths[grepl("private", sub(system_prefix, "/", paths, perl = TRUE), ignore.case = TRUE)]
-  if (length(flagged) == 0) {
-    return(invisible(TRUE))
+  if (length(flagged) == 0 && length(reasons) == 0) {
+    return(invisible(FALSE))
   }
-  shown <- utils::head(flagged, 5)
-  if (length(flagged) > 5) {
-    shown <- c(shown, sprintf("... and %d more", length(flagged) - 5))
+  if (length(flagged) > 0) {
+    shown <- utils::head(flagged, 5)
+    if (length(flagged) > 5) {
+      shown <- c(shown, sprintf("... and %d more", length(flagged) - 5))
+    }
+    warning(
+      "These paths have \"private\" in them, so they may hold restricted data:\n",
+      paste0("  ", shown, collapse = "\n"),
+      call. = FALSE, immediate. = TRUE
+    )
   }
-  warning(
-    "These paths have \"private\" in them, so they may hold restricted data:\n",
-    paste0("  ", shown, collapse = "\n"),
-    call. = FALSE, immediate. = TRUE
-  )
+  for (reason in reasons) warning(reason, call. = FALSE, immediate. = TRUE)
   if (rlang::is_interactive()) {
-    answer <- utils::askYesNo("Upload them anyway?", default = FALSE)
+    answer <- utils::askYesNo(if (length(reasons)) "Upload anyway?" else "Upload them anyway?", default = FALSE)
     if (isTRUE(answer)) {
       return(invisible(TRUE))
     }
     stop("Cancelled: nothing was published.", call. = FALSE)
   }
+  if (length(flagged) > 0) {
+    stop(
+      "Not publishing from a non-interactive session. ",
+      "Pass include_private = TRUE to publish these paths.",
+      call. = FALSE
+    )
+  }
   stop(
-    "Not publishing from a non-interactive session. ",
-    "Pass include_private = TRUE to publish these paths.",
+    "Not publishing this from a non-interactive session without confirmation. ",
+    "Review it, then pass include_private = TRUE to publish it.",
     call. = FALSE
   )
+}
+
+# Why publishing `source` needs confirmation beyond its path, as text: in a
+# project with `security: sensitive: true`, every notebook (.qmd, .Rmd,
+# .ipynb) and every object; in any project, a notebook whose code names
+# private data. framework-py's sensitive_reasons() and notebook_reasons()
+# give the same reasons.
+#' @keywords internal
+.fw_publish_reasons <- function(source) {
+  if (is.character(source) && is.null(dim(source))) {
+    if (length(source) != 1L || !file.exists(source) || dir.exists(source) ||
+        !tolower(tools::file_ext(source)) %in% c("qmd", "rmd", "ipynb")) {
+      return(character())
+    }
+    name <- basename(source)
+    reasons <- .fw_sensitive_reasons(paste("the rendered notebook", name))
+    reads <- .fw_notebook_private_reads(source)
+    if (length(reads)) {
+      shown <- paste(utils::head(reads, 3), collapse = ", ")
+      if (length(reads) > 3) shown <- sprintf("%s, and %d more", shown, length(reads) - 3)
+      reasons <- c(reasons, sprintf("%s reads private data: %s.", name, shown))
+    }
+    return(reasons)
+  }
+  what <- if (is.data.frame(source)) "this data frame" else paste("this", class(source)[1])
+  .fw_sensitive_reasons(what)
+}
+
+# The reason to confirm publishing `what` in a sensitive project, or none
+#' @keywords internal
+.fw_sensitive_reasons <- function(what) {
+  settings <- tryCatch(settings_read(), error = function(e) NULL)
+  if (!isTRUE(settings$security$sensitive)) return(character())
+  sprintf(paste(
+    "This project holds sensitive data (security: sensitive: true), and %s can show it.",
+    "Check that it holds only results that may be shared."
+  ), what)
+}
+
+# The quoted strings in a notebook's code that name private data, in order of
+# appearance, once each. A string counts when a part of it, split on /, \, or
+# ., with no whitespace, is named like private, confidential, or sensitive
+# ("inputs/private/raw/ids.csv", "inputs.private.raw.ids"), or when it is a
+# data catalog name whose entry data_info() reports as private. A quick text
+# check, like framework-py's notebook_private_reads(): data reached any other
+# way is not found.
+#' @keywords internal
+.fw_notebook_private_reads <- function(path) {
+  code <- tryCatch(.fw_notebook_code(path), error = function(e) "")
+  if (!nzchar(code)) return(character())
+  pattern <- "\"((?:[^\"\\\\\\n]|\\\\.)*)\"|'((?:[^'\\\\\\n]|\\\\.)*)'"
+  matches <- regmatches(code, gregexpr(pattern, code, perl = TRUE))[[1]]
+  strings <- unique(substring(matches, 2L, nchar(matches) - 1L))
+  strings <- strings[nzchar(strings) & nchar(strings) <= 500L]
+  private_part <- "(^|[/\\\\.])[^/\\\\.\\s]*(private|confidential|sensitive)[^/\\\\.\\s]*([/\\\\.]|$)"
+  settings <- NULL
+  found <- character()
+  for (value in strings) {
+    if (grepl(private_part, value, ignore.case = TRUE, perl = TRUE)) {
+      found <- c(found, value)
+    } else if (grepl("^[A-Za-z0-9_]+(\\.[A-Za-z0-9_-]+)+$", value)) {
+      settings <- settings %||% tryCatch(settings_read(), error = function(e) list())
+      parts <- strsplit(value, ".", fixed = TRUE)[[1]]
+      if (is.null(settings$data) || is.null(.data_catalog_find(settings$data, parts))) next
+      info <- tryCatch(data_info(value), error = function(e) NULL)
+      if (isTRUE(info$private)) found <- c(found, value)
+    }
+  }
+  found
+}
+
+# The code of a .qmd, .Rmd, or .ipynb file. Quarto and R Markdown files are
+# read whole: prose rarely quotes a path, and chunk options can name data.
+# For .ipynb, only code cells.
+#' @keywords internal
+.fw_notebook_code <- function(path) {
+  text <- paste(readLines(path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+  if (tolower(tools::file_ext(path)) != "ipynb") return(text)
+  cells <- tryCatch(jsonlite::fromJSON(text, simplifyVector = FALSE)$cells, error = function(e) NULL)
+  code <- vapply(Filter(function(cell) is.list(cell) && identical(cell$cell_type, "code"), cells %||% list()),
+                 function(cell) paste(unlist(cell$source), collapse = ""), character(1))
+  paste(code, collapse = "\n")
 }
 
 # Arguments that mean something only for buckets or Framework Cloud
@@ -270,6 +367,11 @@ NULL
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
+#'   The same confirmation covers a notebook (`.qmd`, `.Rmd`, `.ipynb`) or an
+#'   object such as a data frame in a project with `security: sensitive: true`,
+#'   and, in any project, a notebook whose code quotes a private path (a part
+#'   named like private, confidential, or sensitive) or a data catalog name
+#'   whose entry is private.
 #' @param to Named destination from `publish.destinations`, or a driver name.
 #'   `publish.default` selects the default destination. `"folder"` needs a named
 #'   destination with a path. `"s3"` and `"bucket"` retain legacy storage uploads.
@@ -347,8 +449,11 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
   if (is.character(source) && is.null(dim(source))) {
     checkmate::assert_string(source, min.chars = 1)
     if (!file.exists(source)) stop("Source not found: ", source, call. = FALSE)
-    .fw_confirm_private(source, include_private)
+    # Asked once: a confirmed publish isn't asked again further down
+    if (isTRUE(.fw_confirm_private(source, include_private, .fw_publish_reasons(source)))) include_private <- TRUE
     title <- title %||% .fw_doc_title(source)
+  } else if (isTRUE(.fw_confirm_private(character(), include_private, .fw_publish_reasons(source)))) {
+    include_private <- TRUE
   }
   if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
   destination <- .fw_publish_destination(to, connection)
@@ -459,6 +564,9 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
+#'   It also asks for every notebook in a project with
+#'   `security: sensitive: true`, and for a notebook whose code names private
+#'   data, as [publish()] does.
 #' @param slug Framework Cloud only: name the document. It does not make
 #'   the document public. See [publish()]. With `to = "github"`, names the folder
 #'   under `published/`.
@@ -506,7 +614,7 @@ publish_notebook <- function(file,
   checkmate::assert_file_exists(file, extension = c("qmd", "Qmd", "QMD"))
   checkmate::assert_string(title, null.ok = TRUE)
   checkmate::assert_string(description, null.ok = TRUE)
-  .fw_confirm_private(file, include_private)
+  if (isTRUE(.fw_confirm_private(file, include_private, .fw_publish_reasons(file)))) include_private <- TRUE
   title <- title %||% .fw_doc_title(file)
   destination <- .fw_publish_destination(to, connection)
   if (!isTRUE(destination$legacy) || destination$driver == "cloud") {
@@ -679,6 +787,8 @@ publish_notebook <- function(file,
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
+#'   A data frame in a project with `security: sensitive: true` is confirmed
+#'   the same way.
 #' @param to Character or NULL. Named destination from
 #'   `publish.destinations`, or a driver name, as in [publish()]. Default:
 #'   `publish.default`.
@@ -713,6 +823,7 @@ publish_data <- function(data,
   checkmate::assert_flag(compress)
   checkmate::assert_flag(include_private)
   if (is.character(data)) .fw_confirm_private(data, include_private)
+  if (is.data.frame(data)) .fw_confirm_private(character(), include_private, .fw_publish_reasons(data))
 
   route <- .fw_publish_route(to, connection)
 
