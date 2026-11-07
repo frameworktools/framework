@@ -77,6 +77,12 @@ Sensitive data:
   `inputs_private_*` or `outputs_private_*` folder also counts. `bootstrap()`
   warns and `status()` says so when the type and the setting disagree;
   `upgrade()` adds the block.
+* `git_security_audit()`'s history check fails on data files (by extension:
+  csv, rds, xlsx, and the rest) committed outside private folders when they
+  sit in an inputs folder (configured, or a folder named `inputs`) or their
+  header has identifier-like columns. It reads renames and copies too, and a
+  new `reason` column says why each file is listed. Patient CSVs committed
+  under `inputs/intermediate` in a standard project passed before.
 
 Fixes:
 

@@ -27,7 +27,9 @@
 #' the key in brackets:
 #' \itemize{
 #'   \item **gitignore_coverage** (`gitignore_issues`): Verifies all private data files are in .gitignore
-#'   \item **git_history** (`git_history_issues`): Scans git history for accidentally committed data files
+#'   \item **git_history** (`git_history_issues`): Scans git history (added, modified, deleted,
+#'     renamed, and copied files) for data files committed in a private folder, in an inputs
+#'     folder, or with identifier-like columns in their header; `reason` says which
 #'   \item **orphaned_files** (`orphaned_files`): Finds data files outside configured directories
 #'   \item **private_data_exposure** (`private_data_exposure`): Checks if private data is tracked by git
 #'   \item **secrets_exposure** (`secrets_exposure`): Checks if `.env` files (which hold passwords and
@@ -127,6 +129,7 @@ git_security_audit <- function(config_file = NULL,
       file = character(),
       action = character(),
       date = character(),
+      reason = character(),
       stringsAsFactors = FALSE
     ),
     orphaned_files = data.frame(
@@ -749,6 +752,7 @@ git_security_audit <- function(config_file = NULL,
     file = character(),
     action = character(),
     date = character(),
+    reason = character(),
     stringsAsFactors = FALSE
   )
 
@@ -787,58 +791,109 @@ git_security_audit <- function(config_file = NULL,
     return(list(issues = issues, recommendations = recommendations))
   }
 
-  # Parse git log output
-  current_commit <- NULL
-  current_date <- NULL
+  # Every data file change: added, modified, deleted, renamed (R100) or
+  # copied (C75) to a new path, or changed type
+  changes <- .parse_history_changes(log_output)
+  changes <- changes[grepl(ext_pattern, changes$file, ignore.case = TRUE), , drop = FALSE]
+  if (nrow(changes) == 0) {
+    return(list(issues = issues, recommendations = recommendations))
+  }
 
   private_dirs <- .identify_private_dirs(data_dirs)
+  input_dirs <- unlist(data_dirs[grepl("^inputs_", names(data_dirs))], use.names = FALSE)
+  under <- function(file, dirs) {
+    dirs <- sub("/+$", "", as.character(dirs))
+    length(dirs) > 0 && any(file == dirs | startsWith(file, paste0(dirs, "/")))
+  }
 
-  for (line in log_output) {
-    # Check if this is a commit line
-    if (grepl("^[a-f0-9]{40}\\|", line)) {
-      parts <- strsplit(line, "\\|")[[1]]
-      current_commit <- substr(parts[1], 1, 8)  # Short hash
-      current_date <- parts[2]
-    } else if (grepl("^[AMD]\t", line) && !is.null(current_commit)) {
-      # This is a file change line
-      parts <- strsplit(line, "\t")[[1]]
-      action <- parts[1]
-      file <- parts[2]
-
-      # Check if it's a data file in a private directory
-      if (grepl(ext_pattern, file, ignore.case = TRUE)) {
-        # Check if file is in any private directory
-        is_private <- any(vapply(names(private_dirs), function(dir_name) {
-          startsWith(file, private_dirs[[dir_name]])
-        }, logical(1)))
-
-        if (is_private || grepl("(private|secret|confidential)", file, ignore.case = TRUE)) {
-          issues <- rbind(issues, data.frame(
-            commit = current_commit,
-            file = file,
-            action = switch(action,
-                          "A" = "added",
-                          "M" = "modified",
-                          "D" = "deleted",
-                          action),
-            date = current_date,
-            stringsAsFactors = FALSE
-          ))
-        }
-      }
+  # Why each path is a leak, checked once per path: a private folder or
+  # name, an inputs folder (configured, or a folder named inputs), or a
+  # header with identifier-like columns in the latest version committed
+  reasons <- list()
+  for (file in unique(changes$file)) {
+    folder <- dirname(file)
+    reason <- if (under(file, private_dirs) ||
+                  grepl("(private|secret|confidential)", file, ignore.case = TRUE)) {
+      "private folder"
+    } else if (under(file, input_dirs) ||
+               any(tolower(strsplit(folder, "/", fixed = TRUE)[[1]]) %in% c("inputs", "input"))) {
+      "inputs folder"
+    } else if (tolower(tools::file_ext(file)) %in% .fw_identifier_header_types) {
+      kept <- changes[changes$file == file & changes$action != "deleted", , drop = FALSE]
+      columns <- if (nrow(kept) > 0) .fw_history_header_columns(kept$hash[1], file) else NULL
+      found <- .fw_identifier_columns(columns %||% character())
+      if (nrow(found) > 0) paste("identifier columns:", paste(found$column, collapse = ", ")) else NULL
     }
+    if (!is.null(reason)) reasons[[file]] <- reason
+  }
+
+  flagged <- changes[changes$file %in% names(reasons), , drop = FALSE]
+  if (nrow(flagged) > 0) {
+    issues <- data.frame(
+      commit = substr(flagged$hash, 1, 8),
+      file = flagged$file,
+      action = flagged$action,
+      date = flagged$date,
+      reason = unlist(reasons[flagged$file], use.names = FALSE),
+      stringsAsFactors = FALSE
+    )
   }
 
   if (nrow(issues) > 0) {
     recommendations <- c(
       recommendations,
-      "CRITICAL: Private data files found in git history!",
+      "CRITICAL: Data files in private or inputs folders, or with identifier-like columns, are in git history!",
       "Consider using git-filter-repo or BFG Repo-Cleaner to remove sensitive data",
       "Consult: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository"
     )
   }
 
   list(issues = issues, recommendations = recommendations)
+}
+
+# The file changes in `git log --name-status` output: one row per changed
+# path with its commit, date, and action. A rename or copy counts for the
+# path it creates.
+#' @keywords internal
+.parse_history_changes <- function(log_output) {
+  hash <- date <- NULL
+  rows <- list()
+  for (line in log_output) {
+    if (grepl("^[a-f0-9]{40}\\|", line)) {
+      parts <- strsplit(line, "|", fixed = TRUE)[[1]]
+      hash <- parts[1]
+      date <- parts[2]
+    } else if (!is.null(hash) && grepl("^[AMDTRC][0-9]*\t", line)) {
+      parts <- strsplit(line, "\t", fixed = TRUE)[[1]]
+      status <- substr(parts[1], 1, 1)
+      file <- parts[length(parts)]
+      action <- switch(status, A = "added", M = "modified", D = "deleted", T = "modified",
+                       R = "renamed", C = "copied")
+      rows[[length(rows) + 1]] <- c(hash, date, action, file)
+    }
+  }
+  if (length(rows) == 0) {
+    return(data.frame(hash = character(), date = character(), action = character(),
+                      file = character(), stringsAsFactors = FALSE))
+  }
+  m <- do.call(rbind, rows)
+  data.frame(hash = m[, 1], date = m[, 2], action = m[, 3], file = m[, 4], stringsAsFactors = FALSE)
+}
+
+# A committed file's column names at `rev`, from its header only (see
+# .fw_header_columns()). The blob goes to a temporary file that is removed
+# right away; files over `max_bytes` are not read.
+#' @keywords internal
+.fw_history_header_columns <- function(rev, path, max_bytes = 50 * 1024^2) {
+  object <- paste0(rev, ":", path)
+  size <- suppressWarnings(system2("git", c("cat-file", "-s", shQuote(object)), stdout = TRUE, stderr = FALSE))
+  size <- suppressWarnings(as.numeric(size[1]))
+  if (length(size) == 0 || is.na(size) || size > max_bytes) return(NULL)
+  tmp <- tempfile(fileext = paste0(".", tools::file_ext(path)))
+  on.exit(unlink(tmp), add = TRUE)
+  status <- suppressWarnings(system2("git", c("cat-file", "blob", shQuote(object)), stdout = tmp, stderr = FALSE))
+  if (!identical(as.integer(status), 0L) || !file.exists(tmp)) return(NULL)
+  .fw_header_columns(tmp)
 }
 
 
@@ -1394,11 +1449,12 @@ git_security_audit <- function(config_file = NULL,
     message("\n--- Git History Leaks ---")
     for (i in seq_len(min(10, nrow(result$findings$git_history_issues)))) {
       issue <- result$findings$git_history_issues[i, ]
-      message(sprintf("  %d. %s (%s in commit %s)",
+      message(sprintf("  %d. %s (%s in commit %s; %s)",
                      i,
                      issue$file,
                      issue$action,
-                     issue$commit))
+                     issue$commit,
+                     issue$reason))
       message(sprintf("     Date: %s\n", issue$date))
     }
     if (nrow(result$findings$git_history_issues) > 10) {

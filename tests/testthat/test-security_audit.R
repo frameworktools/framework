@@ -924,3 +924,38 @@ test_that("data_save warns about identifier columns outside private folders", {
     fixed = TRUE
   )
 })
+
+test_that("the history check fails on data committed in inputs folders or with identifiers", {
+  skip_if(!nzchar(Sys.which("git")))
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  yaml::write_yaml(list(default = list(project_type = "project", directories = list(
+    inputs_intermediate = "inputs/intermediate", outputs_tables = "outputs/tables"
+  ))), "settings.yml")
+  git <- function(...) system2("git", c(...), stdout = FALSE, stderr = FALSE)
+  git("init", "-q")
+  git("config", "user.email", "t@example.com")
+  git("config", "user.name", "T")
+  commit <- function(msg) { git("add", "-A"); git("commit", "-q", "-m", shQuote(msg)) }
+
+  # A standard project: nothing is under a private folder
+  dir.create("inputs/intermediate", recursive = TRUE)
+  dir.create("outputs/tables", recursive = TRUE)
+  dir.create("reference")
+  writeLines(c("center,n", "a,1"), "inputs/intermediate/centers.csv")
+  writeLines(c("group,mean", "a,1"), "outputs/tables/summary.csv")
+  writeLines(c("mrn,dob,zip_code", "1,2000-01-01,21201"), "reference/pts.csv")
+  commit("data")
+  git("mv", "outputs/tables/summary.csv", "inputs/intermediate/summary.csv")
+  commit("move")
+
+  audit <- git_security_audit(check_git_history = TRUE, verbose = FALSE)
+  hist <- audit$findings$git_history_issues
+  expect_identical(audit$summary$status[audit$summary$check == "git_history"], "fail")
+  expect_true("inputs/intermediate/centers.csv" %in% hist$file)
+  # A rename into an inputs folder counts
+  expect_true(any(hist$file == "inputs/intermediate/summary.csv" & hist$action == "renamed"))
+  expect_match(hist$reason[hist$file == "reference/pts.csv"][1], "identifier columns: mrn, dob, zip_code")
+  # Aggregate output without identifiers is not a leak
+  expect_false("outputs/tables/summary.csv" %in% hist$file)
+})
