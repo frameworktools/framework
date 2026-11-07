@@ -623,3 +623,34 @@ test_that("data_add() names files in any configured inputs directory", {
   names <- DBI::dbGetQuery(conn, "SELECT name FROM data")$name
   expect_setequal(names, c("inputs.private.raw.participants", "inputs.public.final.summary", "inputs.raw.visits"))
 })
+
+test_that("data_save() records a path in one clean project-relative form", {
+  test_dir <- create_test_project()
+  withr::defer(cleanup_test_dir(test_dir))
+  withr::local_dir(test_dir)
+
+  df <- data.frame(x = 1:3)
+  suppressMessages(data_save(df, "./outputs/public/bp_preview.csv"))
+  suppressMessages(data_save(df, "outputs//public/./bp_preview.csv"))
+  suppressMessages(data_save(df, "outputs/private/../public/bp_preview.csv"))
+
+  conn <- DBI::dbConnect(RSQLite::SQLite(), "framework.db")
+  on.exit(DBI::dbDisconnect(conn), add = TRUE)
+  names <- DBI::dbGetQuery(conn, "SELECT name FROM data")$name
+  expect_identical(names, "outputs/public/bp_preview.csv")
+
+  expect_message(data_verify("./outputs/public/bp_preview.csv"), "matches local framework.db record")
+  withr::with_dir("notebooks", {
+    expect_message(data_verify("outputs/public/bp_preview.csv"), "matches local framework.db record")
+  })
+})
+
+test_that(".fw_lexical_path() resolves . and .. without the disk", {
+  lexical <- framework:::.fw_lexical_path
+  expect_identical(lexical("./a/b.csv"), "a/b.csv")
+  expect_identical(lexical("a/./b/../c.csv"), "a/c.csv")
+  expect_identical(lexical("a\\b\\c.csv"), "a/b/c.csv")
+  expect_identical(lexical("../x.csv"), "../x.csv")
+  expect_identical(lexical("/a/../../b"), "/b")
+  expect_identical(lexical("C:/a/./b"), "C:/a/b")
+})

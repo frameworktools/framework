@@ -22,7 +22,10 @@ data_save(
 A name may end in the extension: \code{inputs.raw.filename.csv} is the name
 \code{inputs.raw.filename} saved as CSV.
 \item Direct path with a \code{/}: "inputs/raw/filename.csv". A relative path
-starts at the project root, not the working directory.
+starts at the project root, not the working directory. framework.db
+records it relative to the project root with forward slashes, so
+"./inputs/raw/filename.csv" and "inputs/raw/filename.csv" are the
+same record.
 }
 
 A bare file name such as "filename.csv" is an error.

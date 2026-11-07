@@ -7,7 +7,10 @@
 #'     A name may end in the extension: `inputs.raw.filename.csv` is the name
 #'     `inputs.raw.filename` saved as CSV.
 #'   - Direct path with a `/`: "inputs/raw/filename.csv". A relative path
-#'     starts at the project root, not the working directory.
+#'     starts at the project root, not the working directory. framework.db
+#'     records it relative to the project root with forward slashes, so
+#'     "./inputs/raw/filename.csv" and "inputs/raw/filename.csv" are the
+#'     same record.
 #'
 #'   A bare file name such as "filename.csv" is an error.
 #'
@@ -49,6 +52,9 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
     # Direct file path mode, relative to the project root (as catalog paths
     # are), so a notebook in notebooks/ writes where a script in the root would
     file_path <- path
+    # framework.db records the path in one form, so "./x/y.csv" and
+    # "x/y.csv" are the same record
+    data_name <- .fw_clean_data_path(path)
 
     # Auto-detect type from extension if not specified
     if (is.null(type)) {
@@ -374,6 +380,38 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   invisible(spec)
 }
 
+
+# A data path as framework.db records it: relative to the project root, with
+# forward slashes and no ./ or ../ segments. A path outside the project stays
+# absolute.
+#' @keywords internal
+.fw_clean_data_path <- function(path) {
+  path <- gsub("\\\\", "/", path.expand(path))
+  .fw_project_relative_path(.fw_lexical_path(.fw_project_path(path)))
+}
+
+# Resolve . and .. segments and repeated slashes without touching the disk
+#' @keywords internal
+.fw_lexical_path <- function(path) {
+  path <- gsub("\\\\", "/", path)
+  prefix <- regmatches(path, regexpr("^([A-Za-z]:)?/+", path))
+  if (length(prefix) == 0) prefix <- ""
+  parts <- strsplit(substring(path, nchar(prefix) + 1L), "/+")[[1]]
+  out <- character()
+  for (part in parts) {
+    if (part %in% c("", ".")) next
+    if (identical(part, "..")) {
+      if (length(out) > 0 && !identical(out[length(out)], "..")) {
+        out <- out[-length(out)]
+        next
+      }
+      if (nzchar(prefix)) next
+    }
+    out <- c(out, part)
+  }
+  rest <- paste(out, collapse = "/")
+  if (!nzchar(prefix) && !nzchar(rest)) "." else paste0(prefix, rest)
+}
 
 # An absolute path inside the project, made relative to the project root.
 # Paths outside the project stay absolute.

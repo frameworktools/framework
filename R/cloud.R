@@ -1301,13 +1301,16 @@ data_verify <- function(name) {
     }
     entry <- node
   }
+  key <- name
   if (is.null(entry) || is.null(entry$path)) {
-    # data_save() to a plain path records its hash under that path
+    # data_save() to a plain path records its hash under that path, in its
+    # clean project-relative form ("./x.csv" is "x.csv")
     path <- .fw_project_path(name)
     if (!file.exists(path) || dir.exists(path)) {
       stop("No data catalog entry or file named '", name, "'.", call. = FALSE)
     }
     entry <- list(path = name)
+    key <- .fw_clean_data_path(name)
   }
   # Catalog paths are relative to the project root
   entry$path <- .fw_project_path(entry$path)
@@ -1323,14 +1326,12 @@ data_verify <- function(name) {
   message("  file sha256: ", substr(file_hash, 1, 16), "...")
 
   # Local framework.db record
-  record <- tryCatch(.get_data_record(name), error = function(e) NULL)
-  if (is.null(record) || NROW(record) == 0) {
-    # A path given from another folder (notebooks/) may be recorded relative
-    # to the project root
-    relative <- .fw_project_relative_path(entry$path)
-    if (!identical(relative, name)) {
-      record <- tryCatch(.get_data_record(relative), error = function(e) NULL)
-    }
+  # The clean name first, then the name as given (a record made before
+  # names were cleaned), then the file's path from the project root
+  record <- NULL
+  for (candidate in unique(c(key, name, .fw_project_relative_path(entry$path)))) {
+    record <- tryCatch(.get_data_record(candidate), error = function(e) NULL)
+    if (!is.null(record) && NROW(record) > 0) break
   }
   if (!is.null(record) && NROW(record) > 0 && !is.na(record$hash[1])) {
     compared <- c(compared, "framework.db")
@@ -1348,7 +1349,7 @@ data_verify <- function(name) {
   token <- .fw_project_token()
   if (!is.null(token)) {
     entries <- tryCatch(
-      .fw_api(paste0("/api/v1/ledger?name=", utils::URLencode(name, reserved = TRUE)),
+      .fw_api(paste0("/api/v1/ledger?name=", utils::URLencode(key, reserved = TRUE)),
               token = token, url = .fw_project_cloud_url())$entries,
       error = function(e) {
         message("  (cloud ledger unreachable: ", conditionMessage(e), ")")
