@@ -22,3 +22,10 @@ The loaded data, typically a data frame or tibble.
 Supports CSV, TSV, RDS, Excel (.xlsx, .xls), Stata (.dta), SPSS (.sav, .zsav, .por),
 and SAS (.sas7bdat, .xpt) file formats.
 }
+\details{
+CSV and TSV files are read with \code{\link[readr:read_delim]{readr::read_delim()}}. Only \code{""} and \code{"NA"}
+are missing values (pass \verb{na =} to change them), and leading and trailing
+whitespace is trimmed from values and column names (\code{trim_ws = TRUE}), so a
+padded number such as \code{"   1"} reads as a number. Pass \code{trim_ws = FALSE} to
+keep the whitespace.
+}

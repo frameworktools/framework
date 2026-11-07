@@ -7,6 +7,12 @@
 #' @param delim Optional delimiter for CSV files ("comma", "tab", "semicolon", "space")
 #' @param keep_attributes Logical flag to preserve special attributes (e.g., haven labels). Default: FALSE (strips attributes)
 #' @param ... Additional arguments passed to read functions (readr::read_delim, readxl::read_excel, haven::read_*, etc.)
+#' @details
+#' CSV and TSV files are read with [readr::read_delim()]. Only `""` and `"NA"`
+#' are missing values (pass `na =` to change them), and leading and trailing
+#' whitespace is trimmed from values and column names (`trim_ws = TRUE`), so a
+#' padded number such as `"   1"` reads as a number. Pass `trim_ws = FALSE` to
+#' keep the whitespace.
 #' @return The loaded data, typically a data frame or tibble.
 #' @export
 data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
@@ -227,14 +233,27 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
   if (identical(spec$type, "spss") && ext == "por") spec$type <- "spss_por"
   if (identical(spec$type, "sas") && ext == "xpt") spec$type <- "sas_xpt"
 
+  # readr::read_delim() keeps whitespace by default, unlike read_csv(); trim
+  # it so "  1" reads as a number, as in framework-py. trim_ws in ... wins.
+  read_delim_args <- list(...)
+  if (!"trim_ws" %in% names(read_delim_args)) {
+    read_delim_args$trim_ws <- TRUE
+  }
+
   # Load data
   data <- tryCatch(
     switch(spec$type,
       csv = {
-        readr::read_delim(spec$path, show_col_types = FALSE, delim = get_delimiter(delim), ...)
+        do.call(readr::read_delim, c(
+          list(spec$path, show_col_types = FALSE, delim = get_delimiter(delim)),
+          read_delim_args
+        ))
       },
       tsv = {
-        readr::read_delim(spec$path, show_col_types = FALSE, delim = "\t", ...)
+        do.call(readr::read_delim, c(
+          list(spec$path, show_col_types = FALSE, delim = "\t"),
+          read_delim_args
+        ))
       },
       rds = readRDS(spec$path),
       excel = ,

@@ -654,3 +654,27 @@ test_that(".fw_lexical_path() resolves . and .. without the disk", {
   expect_identical(lexical("/a/../../b"), "/b")
   expect_identical(lexical("C:/a/./b"), "C:/a/b")
 })
+
+test_that("data_read() trims whitespace in CSV and TSV files unless trim_ws = FALSE", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  writeLines(c(" id , name ", "    1,  hi ", "2 , NA "), "inputs/raw/padded.csv")
+  writeLines(c("id\tname", "  3\t there "), "inputs/raw/padded.tsv")
+
+  csv <- data_read("inputs/raw/padded.csv")
+  expect_equal(names(csv), c("id", "name"))
+  expect_true(is.numeric(csv$id))
+  expect_equal(csv$id, c(1, 2))
+  expect_equal(csv$name, c("hi", NA))
+
+  tsv <- data_read("inputs/raw/padded.tsv")
+  expect_true(is.numeric(tsv$id))
+  expect_equal(tsv$name, "there")
+
+  kept <- data_read("inputs/raw/padded.csv", trim_ws = FALSE)
+  expect_equal(names(kept), c(" id ", " name "))
+  expect_type(kept[[1]], "character")
+  expect_equal(kept[[2]][1], "  hi ")
+})
