@@ -221,14 +221,31 @@ project_create <- function(
   )
 }
 
+# normalizePath() for a path that may not exist yet: the deepest folder
+# that exists is normalized and the rest appended. normalizePath() alone
+# leaves a missing path as given, so on Windows C:/Users/RUNNER~1/... (a
+# short name, as tempdir() can be) wouldn't match C:/Users/runneradmin/....
+#' @keywords internal
+.fw_normalize_path <- function(path) {
+  path <- path.expand(path)
+  rest <- character()
+  while (!file.exists(path) && !identical(dirname(path), path)) {
+    rest <- c(basename(path), rest)
+    path <- dirname(path)
+  }
+  path <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  if (length(rest) > 0) path <- paste(c(sub("/+$", "", path), rest), collapse = "/")
+  path
+}
+
 # Projects in temporary folders (tests, scratch runs) are left out of the
 # registry, so project_list() doesn't fill with folders that vanish
 #' @keywords internal
 .fw_temp_path <- function(path) {
-  path <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  path <- .fw_normalize_path(path)
   temp <- unique(c(
-    normalizePath(tempdir(), winslash = "/", mustWork = FALSE),
-    normalizePath(dirname(tempdir()), winslash = "/", mustWork = FALSE)
+    .fw_normalize_path(tempdir()),
+    .fw_normalize_path(dirname(tempdir()))
   ))
   # The macOS temporary folders, matched as strings so the check is the same
   # on every platform (normalizePath() adds a drive letter on Windows)
