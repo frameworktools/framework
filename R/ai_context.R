@@ -84,7 +84,7 @@ if (is.null(project_name)) {
 
   # 6. Project-type specific content (static per type)
   sections$type_specific <- .generate_project_type_section(
-    project_type, sensitive = isTRUE(config$security$sensitive)
+    project_type, sensitive = .fw_settings_sensitive(config)
   )
 
   # 7. Project Notes (user-editable, never touched)

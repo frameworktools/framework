@@ -71,6 +71,12 @@ Sensitive data:
   settings), and `identifier_columns` (tracked data with identifier-like
   columns). New projects add their folder publishing destinations to
   `.gitignore`.
+* Projects with `project_type: project_sensitive` count as sensitive even
+  without a `security:` block, as projects made before Framework 2 have. The
+  type wins over `security: sensitive: false`. Without a `security:` block, an
+  `inputs_private_*` or `outputs_private_*` folder also counts. `bootstrap()`
+  warns and `status()` says so when the type and the setting disagree;
+  `upgrade()` adds the block.
 
 Fixes:
 

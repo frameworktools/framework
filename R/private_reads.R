@@ -118,7 +118,40 @@
     return(FALSE)
   }
   settings <- tryCatch(settings_read(), error = function(e) NULL)
-  isTRUE(settings$security$sensitive)
+  .fw_settings_sensitive(settings)
+}
+
+# Whether settings describe a project that holds sensitive data.
+# `project_type: project_sensitive` always counts: projects of that type made
+# before Framework 2 have no `security:` block. Otherwise
+# `security: sensitive:` decides when it is set, and without it the
+# privacy-sensitive layout (an inputs_private_* or outputs_private_* folder)
+# counts. framework-py: _private.settings_sensitive().
+#' @keywords internal
+.fw_settings_sensitive <- function(settings) {
+  if (!is.list(settings)) return(FALSE)
+  if (identical(settings$project_type, "project_sensitive")) return(TRUE)
+  flag <- if (is.list(settings$security)) settings$security$sensitive else NULL
+  if (!is.null(flag)) return(isTRUE(flag))
+  keys <- names(.configured_directories(settings))
+  any(grepl("^(inputs|outputs)_private_", keys))
+}
+
+# Why settings and the project type disagree about sensitive data, or NULL:
+# a project_sensitive project with `security: sensitive: false`, or one with
+# no `security:` block at all, which framework::upgrade() adds.
+#' @keywords internal
+.fw_sensitive_mismatch <- function(settings) {
+  if (!is.list(settings) || !identical(settings$project_type, "project_sensitive")) return(NULL)
+  flag <- if (is.list(settings$security)) settings$security$sensitive else NULL
+  if (isTRUE(flag)) return(NULL)
+  if (is.null(flag)) {
+    return(paste0("project_type is project_sensitive but settings have no security: block. ",
+                  "Framework treats the project as sensitive; run framework::upgrade() to add ",
+                  "security: sensitive: true."))
+  }
+  paste0("project_type is project_sensitive but security: sensitive: is false. ",
+         "Framework treats the project as sensitive because of its type.")
 }
 
 # In a sensitive project that read private data this session, the names

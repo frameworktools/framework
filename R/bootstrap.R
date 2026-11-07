@@ -71,6 +71,11 @@ bootstrap <- function(path = ".", interactive = base::interactive(), packages = 
   done <- character()
   todo <- character()
 
+  mismatch <- .fw_sensitive_mismatch(config)
+  if (!is.null(mismatch)) {
+    warning(mismatch, call. = FALSE)
+  }
+
   if (suppressMessages(.ensure_secrets_ignored(root))) {
     done <- c(done, "Added .env to .gitignore")
   }

@@ -190,7 +190,7 @@ NULL
 .output_dir <- function(kind, public = FALSE) {
   cfg <- tryCatch(settings_read(), error = function(e) NULL)
   dirs <- cfg$directories %||% list()
-  split <- isTRUE(cfg$security$sensitive) ||
+  split <- .fw_settings_sensitive(cfg) ||
     !is.null(dirs[[paste0("outputs_private_", kind)]]) ||
     !is.null(dirs[[paste0("outputs_public_", kind)]])
   if (!split) {

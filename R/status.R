@@ -43,6 +43,11 @@ status <- function() {
     if (!is.null(config$project_type)) {
       message(sprintf("  Type: %s", config$project_type))
     }
+    message(sprintf("  Sensitive data: %s", if (.fw_settings_sensitive(config)) "yes" else "no"))
+    mismatch <- .fw_sensitive_mismatch(config)
+    if (!is.null(mismatch)) {
+      message("  ", cli::col_yellow(paste("Warning:", mismatch)))
+    }
 
     if (!is.null(config$author$name)) {
       message(sprintf("  Author: %s", config$author$name))

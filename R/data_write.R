@@ -166,7 +166,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   # still happens. Names only, never values.
   .fw_warn_identifiers(
     names(data), .fw_project_relative_path(file_path),
-    sensitive = isTRUE(tryCatch(settings_read()$security$sensitive, error = function(e) FALSE))
+    sensitive = isTRUE(tryCatch(.fw_settings_sensitive(settings_read()), error = function(e) FALSE))
   )
 
   # Database name: the catalog name, or the path as given

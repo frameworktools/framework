@@ -1049,7 +1049,7 @@ git_security_audit <- function(config_file = NULL,
 #' @keywords internal
 .folder_destinations <- function(config, root = ".") {
   destinations <- if (is.list(config$publish)) config$publish$destinations else NULL
-  sensitive <- is.list(config$security) && isTRUE(config$security$sensitive)
+  sensitive <- .fw_settings_sensitive(config)
   found <- character()
   for (name in names(destinations)) {
     options <- destinations[[name]]

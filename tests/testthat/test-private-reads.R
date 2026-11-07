@@ -113,3 +113,36 @@ test_that("other projects never warn", {
   expect_length(warnings, 1)
   expect_false(grepl("private data", warnings))
 })
+
+test_that("project_sensitive counts as sensitive without a security block", {
+  sensitive <- framework:::.fw_settings_sensitive
+  expect_true(sensitive(list(project_type = "project_sensitive")))
+  expect_true(sensitive(list(project_type = "project_sensitive", security = list())))
+  # The type is authoritative, even over an explicit false
+  expect_true(sensitive(list(project_type = "project_sensitive", security = list(sensitive = FALSE))))
+  expect_true(sensitive(list(project_type = "project", security = list(sensitive = TRUE))))
+  expect_false(sensitive(list(project_type = "project", security = list(sensitive = FALSE))))
+  expect_false(sensitive(list(project_type = "project")))
+  # Without a security block, the privacy-sensitive layout counts
+  layout <- list(project_type = "project", directories = list(inputs_private_raw = "inputs/private/raw"))
+  expect_true(sensitive(layout))
+  layout$security <- list(sensitive = FALSE)
+  expect_false(sensitive(layout))
+  expect_false(sensitive(NULL))
+})
+
+test_that("an old project_sensitive project turns the sensitive guards on", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  yaml::write_yaml(list(default = list(
+    project_type = "project_sensitive",
+    directories = list(inputs_private_raw = "inputs/private/raw")
+  )), "settings.yml")
+  expect_true(framework:::.fw_project_is_sensitive())
+  expect_match(framework:::.fw_sensitive_mismatch(settings_read()), "no security: block")
+  expect_match(framework:::.fw_sensitive_reasons("this table"), "sensitive data")
+  expect_warning(
+    suppressMessages(bootstrap(".", interactive = FALSE, packages = FALSE)),
+    "project_sensitive"
+  )
+})

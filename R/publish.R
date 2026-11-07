@@ -151,7 +151,7 @@ NULL
 #' @keywords internal
 .fw_sensitive_reasons <- function(what) {
   settings <- tryCatch(settings_read(), error = function(e) NULL)
-  if (!isTRUE(settings$security$sensitive)) return(character())
+  if (!.fw_settings_sensitive(settings)) return(character())
   sprintf(paste(
     "This project holds sensitive data (security: sensitive: true), and %s can show it.",
     "Check that it holds only results that may be shared."
