@@ -135,6 +135,8 @@ Adopting and upgrading projects:
   (and `fw adopt`) can mark a project as holding sensitive data or choose its
   type. Without them, when folders look private, it says how to turn sensitive
   data on. It returns the type with the folders.
+* `adopt()` turns git on in the settings and spec when the folder is a git
+  repository, as framework-py does.
 
 # framework 2.0.0
 

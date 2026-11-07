@@ -285,3 +285,16 @@ test_that("without sensitive = TRUE, adopt() says how to turn it on", {
   )
   expect_true(any(grepl("sensitive = TRUE", msgs)))
 })
+
+test_that("adopt() turns git on when the folder is a git repository", {
+  dir <- local_folder(c("analysis"))
+  dir.create(file.path(dir, ".git"))
+  suppressMessages(adopt(dir, yes = TRUE))
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_true(spec$git$use_git)
+  expect_true(yaml::read_yaml(file.path(dir, "settings.yml"))$default$git$enabled)
+
+  dir <- local_folder(c("analysis"))
+  suppressMessages(adopt(dir, yes = TRUE))
+  expect_false(jsonlite::read_json(file.path(dir, ".framework", "spec.json"))$git$use_git)
+})

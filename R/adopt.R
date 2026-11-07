@@ -74,7 +74,7 @@ adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL) {
   mapping <- .adopt_review(.adopt_map(.adopt_scan(path), type = type), yes = yes,
                            allow_empty = TRUE, sensitive = sensitive)
   name <- basename(normalizePath(path))
-  spec <- .adopt_spec(mapping, name)
+  spec <- .adopt_spec(mapping, name, use_git = file.exists(file.path(path, ".git")))
 
   args <- .spec_to_create_args(spec)
   .create_project_config(
@@ -409,18 +409,20 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 }
 
 # The spec adopt() records: a project of the mapped type with exactly the
-# mapped folders, no tools, no default packages, and no AI files. The type's
+# mapped folders, no tools, no default packages, and no AI files. Git is on
+# when the folder is a git repository (.git is a folder, or a file in a
+# worktree). The type's
 # own folders and render folders are not added: the spec describes the folder
 # as it is.
 #' @keywords internal
-.adopt_spec <- function(mapping, name) {
+.adopt_spec <- function(mapping, name, use_git = FALSE) {
   type <- mapping$type %||% "bare"
   layer <- list(
     type = type, core_files = FALSE, settings_layout = "flat",
     tools = list(quarto = FALSE, renv = FALSE),
     directories = mapping$directories,
     extra_directories = mapping$extra_directories,
-    git = list(use_git = FALSE),
+    git = list(use_git = isTRUE(use_git)),
     ai = list(enabled = FALSE),
     security = list(sensitive = isTRUE(mapping$sensitive) || identical(type, "project_sensitive"))
   )
