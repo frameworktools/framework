@@ -1,7 +1,7 @@
 Package: framework
 Type: Package
 Title: Structured Data Science Project Scaffolding
-Version: 1.9.0.9003
+Version: 1.9.0.9004
 Authors@R:
     person("Erik", "Westlund", , "erik@framework.pub", role = c("aut", "cre", "cph"))
 Maintainer: Erik Westlund <erik@framework.pub>

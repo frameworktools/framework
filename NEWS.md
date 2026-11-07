@@ -1,3 +1,8 @@
+# framework 1.9.0.9004
+
+* The guides cover 2.0: install from GitHub until 2.0 reaches CRAN.
+  Framework 1.1 stays on CRAN.
+
 # framework 1.9.0.9003
 
 * Framework Cloud calls go to `/api/v1` only. The server no longer serves
