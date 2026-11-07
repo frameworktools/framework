@@ -170,20 +170,18 @@ test_that("packages_restore() requires renv to be enabled", {
   )
 })
 
-test_that("packages_status() requires renv to be enabled", {
-  test_dir <- tempdir()
-  orig_wd <- getwd()
-  setwd(test_dir)
-  on.exit(setwd(orig_wd))
+test_that("packages_status() reports installed packages when renv is off", {
+  test_dir <- withr::local_tempdir()
+  withr::local_dir(test_dir)
+  yaml::write_yaml(list(default = list(packages = list(
+    use_renv = FALSE,
+    default_packages = list("yaml", list(name = "notapkgxyz", auto_attach = FALSE))
+  ))), "settings.yml")
 
-  if (file.exists(".framework_renv_enabled")) {
-    file.remove(".framework_renv_enabled")
-  }
-
-  expect_error(
-    packages_status(),
-    "renv is not enabled"
-  )
+  expect_message(status <- packages_status(), "renv is off")
+  expect_identical(status$package, c("yaml", "notapkgxyz"))
+  expect_identical(status$installed, c(TRUE, FALSE))
+  expect_message(packages_status(), "Not installed: notapkgxyz")
 })
 
 test_that("packages_update() requires renv to be enabled", {

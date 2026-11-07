@@ -1046,15 +1046,19 @@ packages_restore <- function(prompt = FALSE) {
   invisible(TRUE)
 }
 
-#' Show renv package status
+#' Show package status
 #'
-#' Wrapper around `renv::status()` that requires Framework's renv integration.
+#' With Framework's renv integration on, a wrapper around `renv::status()`.
+#' With renv off, there is no lockfile to compare with, so it reports which
+#' packages in settings.yml are installed instead of stopping.
 #'
-#' @return The status object returned by `renv::status()`.
+#' @return With renv on, the status object returned by `renv::status()`.
+#'   With renv off, invisibly a data frame with columns `package`,
+#'   `installed`, and `version`, one row per package in settings.yml.
 #' @export
 packages_status <- function() {
   if (!renv_enabled()) {
-    stop("renv is not enabled. Use renv_enable() first.")
+    return(.packages_status_without_renv())
   }
 
   if (!requireNamespace("renv", quietly = TRUE)) {
@@ -1062,4 +1066,34 @@ packages_status <- function() {
   }
 
   renv::status()
+}
+
+# packages_status() with renv off: which configured packages are installed
+.packages_status_without_renv <- function() {
+  config <- tryCatch(settings_read(), error = function(e) list())
+  specs <- lapply(.get_package_list_from_config(config), function(spec) {
+    tryCatch(.parse_package_spec(spec), error = function(e) NULL)
+  })
+  names <- unique(vapply(Filter(Negate(is.null), specs), function(x) x$name, character(1)))
+  versions <- vapply(names, function(name) {
+    if (!nzchar(system.file(package = name))) return(NA_character_)
+    as.character(utils::packageVersion(name))
+  }, character(1), USE.NAMES = FALSE)
+  status <- data.frame(package = names, installed = !is.na(versions), version = versions,
+                       stringsAsFactors = FALSE)
+
+  message("renv is off for this project, so there is no renv.lock to compare with. ",
+          "Turn it on with renv_enable().")
+  if (nrow(status) == 0) {
+    message("No packages in settings.yml.")
+  } else {
+    missing <- status$package[!status$installed]
+    message(sprintf("%d of %d packages in settings.yml are installed.",
+                    sum(status$installed), nrow(status)))
+    if (length(missing) > 0) {
+      message("Not installed: ", paste(missing, collapse = ", "),
+              ". Run packages_install().")
+    }
+  }
+  invisible(status)
 }

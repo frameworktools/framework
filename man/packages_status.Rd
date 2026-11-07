@@ -2,13 +2,17 @@
 % Please edit documentation in R/packages.R
 \name{packages_status}
 \alias{packages_status}
-\title{Show renv package status}
+\title{Show package status}
 \usage{
 packages_status()
 }
 \value{
-The status object returned by \code{renv::status()}.
+With renv on, the status object returned by \code{renv::status()}.
+With renv off, invisibly a data frame with columns \code{package},
+\code{installed}, and \code{version}, one row per package in settings.yml.
 }
 \description{
-Wrapper around \code{renv::status()} that requires Framework's renv integration.
+With Framework's renv integration on, a wrapper around \code{renv::status()}.
+With renv off, there is no lockfile to compare with, so it reports which
+packages in settings.yml are installed instead of stopping.
 }

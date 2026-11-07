@@ -139,7 +139,7 @@ When renv is on:
 | `packages_status()` | Compare the project with `renv.lock` |
 | `packages_update()` | Update packages through renv |
 
-These four functions require renv to be on.
+`packages_snapshot()`, `packages_restore()`, and `packages_update()` require renv to be on. With renv off, `packages_status()` says so and lists which packages in settings.yml are installed.
 
 ---
 
