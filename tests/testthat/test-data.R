@@ -678,3 +678,44 @@ test_that("data_read() trims whitespace in CSV and TSV files unless trim_ws = FA
   expect_type(kept[[1]], "character")
   expect_equal(kept[[2]][1], "  hi ")
 })
+
+test_that("data_read() names a missing file by its path from the project root", {
+  test_dir <- create_test_project()
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+  root <- normalizePath(test_dir, winslash = "/")
+  withr::local_dir(file.path(test_dir, "notebooks"))
+
+  err <- tryCatch(data_read("outputs/tables/incidence.csv"), error = function(e) conditionMessage(e))
+  expect_equal(
+    err,
+    paste0(
+      "File not found: outputs/tables/incidence.csv\nLooked for: ",
+      root, "/outputs/tables/incidence.csv"
+    )
+  )
+  expect_equal(
+    data_info("outputs/tables/incidence.csv")$path,
+    file.path(root, "outputs/tables/incidence.csv")
+  )
+
+  settings <- yaml::read_yaml(file.path(test_dir, "settings.yml"))
+  settings$default$data <- list(gone = "inputs/raw/gone.csv")
+  yaml::write_yaml(settings, file.path(test_dir, "settings.yml"))
+  err <- tryCatch(data_read("gone"), error = function(e) conditionMessage(e))
+  expect_equal(
+    err,
+    paste0("File not found for 'gone': inputs/raw/gone.csv\nLooked for: ", root, "/inputs/raw/gone.csv")
+  )
+})
+
+test_that("data_info() finds a file that is only under the working directory", {
+  test_dir <- create_test_project()
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+  root <- normalizePath(test_dir, winslash = "/")
+  dir.create(file.path(test_dir, "notebooks/local"), recursive = TRUE)
+  writeLines(c("a", "1"), file.path(test_dir, "notebooks/local/x.csv"))
+  withr::local_dir(file.path(test_dir, "notebooks"))
+
+  expect_equal(data_info("local/x.csv")$path, file.path(root, "notebooks/local/x.csv"))
+  expect_equal(data_read("local/x.csv")$a, 1)
+})

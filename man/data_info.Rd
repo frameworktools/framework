@@ -8,7 +8,9 @@ data_info(path)
 }
 \arguments{
 \item{path}{Dot notation path (e.g. "source.private.example"), relative path,
-or absolute path to a data file}
+or absolute path to a data file. A relative path is looked for from the
+project root, then from the working directory; a file found in neither
+place resolves under the project root.}
 }
 \value{
 A list with data specification including:

@@ -79,7 +79,7 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
 
   # Check if file exists
   if (!file.exists(spec$path)) {
-    stop(sprintf("File not found: %s", spec$path))
+    stop(.fw_missing_file_message(path, spec$path, by_name = .fw_is_catalog_name(path)), call. = FALSE)
   }
 
   # Only do hash checking for config-based paths (not direct file paths)
@@ -525,7 +525,9 @@ data_read_or_cache <- function(path, expire_after = NULL, refresh = FALSE) {
 #' defaults for common formats.
 #'
 #' @param path Dot notation path (e.g. "source.private.example"), relative path,
-#'   or absolute path to a data file
+#'   or absolute path to a data file. A relative path is looked for from the
+#'   project root, then from the working directory; a file found in neither
+#'   place resolves under the project root.
 #'
 #' @return A list with data specification including:
 #'   \itemize{
@@ -635,8 +637,7 @@ data_info <- function(path) {
     # Normalize relative paths against config directory
     # (paths from config are relative to config file, not current directory)
     # Check for both Unix absolute (/...) and Windows absolute (C:/... or C:\...)
-    is_absolute <- grepl("^/", path) || grepl("^[A-Za-z]:[/\\\\]", path)
-    if (!is_absolute) {
+    if (!.fw_is_absolute_path(path)) {
       # Relative path - resolve against config directory
       full_path <- file.path(config_dir, path)
       # Normalize to handle .. and . in path
@@ -671,12 +672,19 @@ data_info <- function(path) {
 
   # Get spec based on path type
   get_spec_by_path_type <- function(path, config) {
-    if (grepl("^/", path)) {
+    if (.fw_is_absolute_path(path)) {
       # Handle absolute paths directly
-      create_spec(path)
+      create_spec(path.expand(path))
     } else if (grepl("[/\\\\]", path)) {
-      # Handle relative paths by normalizing them against the working directory
-      full_path <- normalizePath(file.path(getwd(), path), mustWork = FALSE)
+      # A relative path starts at the project root, as data_save() writes it.
+      # The working directory is used only when the file is there and not
+      # under the root, so a missing file resolves under the root.
+      base <- if (!is.null(config_file)) config_dir else getwd()
+      in_wd <- file.exists(file.path(getwd(), path))
+      if (in_wd && !file.exists(file.path(base, path))) {
+        base <- getwd()
+      }
+      full_path <- normalizePath(file.path(base, path), winslash = "/", mustWork = FALSE)
       create_spec(full_path)
     } else {
       spec <- get_dot_notation_spec(strsplit(path, "\\.")[[1]], config)
@@ -859,6 +867,33 @@ data_spec_get <- function(path) {
   TRUE
 }
 
+
+# Whether a path is absolute on any system: /x, ~/x, C:/x, C:\x, \\server
+#' @keywords internal
+.fw_is_absolute_path <- function(path) {
+  grepl("^(/|~|[A-Za-z]:[/\\\\]|\\\\\\\\)", path)
+}
+
+# A catalog name such as "inputs.raw.survey", rather than a file path
+#' @keywords internal
+.fw_is_catalog_name <- function(path) {
+  !.fw_is_absolute_path(path) && !grepl("[/\\\\]", path)
+}
+
+# The error for a missing data file: the path from the project root, then the
+# absolute path looked for. Files outside the project are named by their
+# absolute path alone. Shared with framework-py.
+#' @keywords internal
+.fw_missing_file_message <- function(path, file, by_name = FALSE) {
+  absolute <- normalizePath(file, winslash = "/", mustWork = FALSE)
+  shown <- .fw_project_relative_path(absolute)
+  label <- if (by_name) {
+    sprintf("File not found for '%s': %s", path, shown)
+  } else {
+    sprintf("File not found: %s", shown)
+  }
+  if (identical(shown, absolute)) label else paste0(label, "\nLooked for: ", absolute)
+}
 
 # A file given by path. A relative path is looked for from the project root,
 # then from the working directory, so a notebook in notebooks/ finds the files
