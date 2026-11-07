@@ -112,6 +112,8 @@ Adopting and upgrading projects:
   makes Framework treat the folder as a project.
 * `adopt()` on a folder that is already a Framework project points to
   `upgrade()`.
+* `adopt()` and `structure_import()` no longer follow symbolic links to
+  folders, so the same tree maps the same way in R, Python, and fw.
 
 # framework 2.0.0
 

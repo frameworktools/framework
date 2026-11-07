@@ -184,3 +184,10 @@ test_that("a Framework config.yml still counts, and adopt points to upgrade()", 
   is_fw(c("default:", "  project_type: project"))
   expect_error(adopt(dir, yes = TRUE), "upgrade\\(\\)")
 })
+
+test_that("the scanner doesn't follow symlinked folders", {
+  dir <- local_folder(c("analysis", "real_data/raw"))
+  skip_on_os("windows")
+  file.symlink(file.path(dir, "real_data"), file.path(dir, "linked"))
+  expect_identical(framework:::.adopt_scan(dir), c("analysis", "real_data", "real_data/raw"))
+})

@@ -137,7 +137,8 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 }
 
 # Relative folder paths under `path`, up to the rules' depth, without
-# descending into skipped or hidden folders
+# descending into skipped or hidden folders. Symbolic links to folders are
+# not followed, as in fw and framework-py.
 #' @keywords internal
 .adopt_scan <- function(path) {
   rules <- .adopt_rules()
@@ -149,6 +150,7 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
     children <- list.dirs(full, full.names = FALSE, recursive = FALSE)
     for (child in children) {
       if (startsWith(child, ".") || tolower(child) %in% skip) next
+      if (.adopt_is_link(file.path(full, child))) next
       child_rel <- if (nzchar(rel)) paste(rel, child, sep = "/") else child
       found <<- c(found, child_rel)
       walk(child_rel, depth + 1)
@@ -156,6 +158,13 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   }
   walk("", 1)
   sort(found, method = "radix")
+}
+
+# Whether a folder entry is a symbolic link
+#' @keywords internal
+.adopt_is_link <- function(path) {
+  link <- Sys.readlink(path)
+  !is.na(link) && nzchar(link)
 }
 
 # Map relative folder paths to Framework directory keys. The shared
