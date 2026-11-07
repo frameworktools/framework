@@ -186,7 +186,7 @@
         "center": true,
         "highlight_style": "github"
       },
-      "render_dir": "outputs/public/docs"
+      "render_dir": "outputs/private/notebooks"
     },
     "connections": {
       "default_database": "framework",

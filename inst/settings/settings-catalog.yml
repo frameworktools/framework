@@ -361,7 +361,7 @@ project_types:
     quarto:
       render_dir:
         label: "Quarto render directory"
-        default: "outputs/public/docs"
+        default: "outputs/private/notebooks"
 
     notebook_template:
       default: "notebook"

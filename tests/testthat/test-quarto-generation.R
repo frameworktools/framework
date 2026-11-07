@@ -121,3 +121,11 @@ test_that("save_notebook() finds the render inside the root project's folders", 
   expect_true(file.exists(path))
   expect_identical(path, file.path("outputs", "notebooks", "look.html"))
 })
+
+test_that("a sensitive project's quarto render_dir stays under outputs/private", {
+  render_dirs <- framework:::.default_render_dirs_for_type("project_sensitive")
+  root <- framework:::.default_root_render_dir_for_type("project_sensitive")
+  expect_true(startsWith(root, "outputs/private/"))
+  expect_true(all(startsWith(unlist(render_dirs), "outputs/private/")))
+  expect_identical(root, render_dirs$notebooks)
+})

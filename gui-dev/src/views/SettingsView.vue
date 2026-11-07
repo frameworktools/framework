@@ -555,7 +555,7 @@ const fallbackProjectTypes = {
       cache: 'outputs/private/cache',
       scratch: 'scratch'
     },
-    quarto: { render_dir: 'outputs/public/docs' },
+    quarto: { render_dir: 'outputs/private/notebooks' },
     notebook_template: 'notebook',
     extra_directories: []
   },
