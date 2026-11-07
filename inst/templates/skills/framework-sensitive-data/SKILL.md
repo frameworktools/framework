@@ -17,8 +17,10 @@ doubt, treat data as private.
 2. All raw data with PII goes in `private/` subdirectories
 3. Only de-identified, aggregated data goes in `public/` directories
 4. Review ALL outputs before moving anything to a public directory
-5. Use `data_save(..., private = TRUE)` for sensitive outputs
-6. Run `framework check:sensitive` before commits to scan for data leaks
+5. Save sensitive data into a private directory: `data_save(df, "inputs.private.intermediate.cleaned")`,
+   or a path under `inputs/private/` or `outputs/private/`
+6. Run `git_security_audit()` before commits to scan for data leaks, and keep the
+   `data_security` git hook on (`git_hooks_list()`, `git_hooks_enable("data_security")`)
 7. **NEVER `publish()` anything from a private directory**
 
 ## Data Flow
@@ -30,6 +32,21 @@ Intermediate      -> inputs/private/intermediate/
     | aggregate, anonymize
 Public-safe data  -> inputs/public/final/
 ```
+
+## Learning a File's Layout
+
+To learn what a private or restricted file holds, use
+`data_info(name, columns = TRUE)` instead of reading the file, printing it, or
+calling `head()`, `str()`, `glimpse()`, or `summary()` on it:
+
+```r
+info <- data_info("inputs.private.raw.patients", columns = TRUE)
+info$columns   # name, type, and count of missing values for each column
+info$rows      # number of rows
+```
+
+It never shows values, factor levels, ranges, or examples, and it records
+nothing in framework.db.
 
 ## When Writing Code
 

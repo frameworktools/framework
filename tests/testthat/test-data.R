@@ -768,3 +768,73 @@ test_that("data_save() warns for a locked catalog name too", {
     fixed = TRUE
   )
 })
+
+test_that("data_info(columns = TRUE) summarizes columns without showing values", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  frame <- data.frame(
+    mrn = c("A-1001", "A-1002", NA),
+    age = c(34L, 51L, 47L),
+    bmi = c(22.5, NA, NA),
+    smoker = c(TRUE, FALSE, TRUE),
+    site = factor(c("east", "west", "east")),
+    seen = as.POSIXct(c("2020-01-02 10:00:00", NA, "2020-03-04 11:00:00"), tz = "UTC"),
+    dob = as.Date(c("1990-01-01", "1975-06-30", NA)),
+    stringsAsFactors = FALSE
+  )
+  frame$wait <- as.difftime(c(1, 2, NA), units = "hours")
+  frame$ord <- factor(c("lo", "hi", "lo"), levels = c("lo", "hi"), ordered = TRUE)
+  frame$blob <- I(list(1, "a", NULL))
+  suppressMessages(data_save(frame, "inputs.raw.patients"))
+  before <- DBI::dbGetQuery(
+    con <- .get_db_connection(), "SELECT name, hash, updated_at FROM data ORDER BY name"
+  )
+  DBI::dbDisconnect(con)
+
+  info <- data_info("inputs.raw.patients", columns = TRUE)
+  expect_equal(info$rows, 3L)
+  expect_equal(info$columns, data.frame(
+    name = c("mrn", "age", "bmi", "smoker", "site", "seen", "dob", "wait", "ord", "blob"),
+    type = c("character", "integer", "double", "logical", "factor", "datetime",
+             "date", "duration", "factor", "other"),
+    missing = c(1L, 0L, 2L, 0L, 0L, 1L, 1L, 1L, 0L, 1L),
+    stringsAsFactors = FALSE
+  ))
+  shown <- paste(capture.output(print(info)), collapse = "\n")
+  for (value in c("A-1001", "east", "22.5", "2020-01-02", "1990")) {
+    expect_false(grepl(value, shown, fixed = TRUE))
+  }
+
+  # Summarizing is not a read: framework.db is unchanged
+  after <- DBI::dbGetQuery(
+    con <- .get_db_connection(), "SELECT name, hash, updated_at FROM data ORDER BY name"
+  )
+  DBI::dbDisconnect(con)
+  expect_equal(after, before)
+  expect_null(data_info("inputs.raw.patients")$columns)
+
+  # An hms time of day, built without the hms package
+  expect_equal(.fw_column_type(structure(60, units = "secs", class = c("hms", "difftime"))), "time")
+
+  # CSV files read through readr
+  writeLines(c("id,when", "1,2020-01-02", "2,"), "inputs/raw/visits.csv")
+  info <- data_info("inputs/raw/visits.csv", columns = TRUE)
+  expect_equal(info$columns$type, c("double", "date"))
+  expect_equal(info$columns$missing, c(0L, 1L))
+})
+
+test_that("data_info(columns = TRUE) errors for a missing file", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  expect_error(
+    data_info("inputs/raw/none.csv", columns = TRUE),
+    "File not found: inputs/raw/none.csv",
+    fixed = TRUE
+  )
+  # Without columns it still describes where the file would be
+  expect_equal(data_info("inputs/raw/none.csv")$type, "csv")
+})

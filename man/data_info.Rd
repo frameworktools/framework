@@ -4,13 +4,19 @@
 \alias{data_info}
 \title{Get data specification from config}
 \usage{
-data_info(path)
+data_info(path, columns = FALSE)
 }
 \arguments{
 \item{path}{Dot notation path (e.g. "source.private.example"), relative path,
 or absolute path to a data file. A relative path is looked for from the
 project root, then from the working directory; a file found in neither
 place resolves under the project root.}
+
+\item{columns}{If TRUE, read the file and add a summary of its columns
+that never shows values: each column's name, type, and count of missing
+values, and the number of rows. Use it to learn a restricted file's
+layout without printing its records. The read does not check the file's
+hash and records nothing in framework.db. A missing file is an error.}
 }
 \value{
 A list with data specification including:
@@ -22,6 +28,15 @@ A list with data specification including:
 \item \code{private} - Whether file is in private data directory
 \item \code{description} - Optional description of the dataset (displayed when loading)
 }
+With \code{columns = TRUE}, also:
+\itemize{
+\item \code{columns} - A data frame with one row per column: \code{name},
+\code{type} (one of logical, integer, double, character, factor,
+date, datetime, time, duration, or other), and \code{missing}
+(the count of missing values)
+\item \code{rows} - The number of rows
+}
+Never values, factor levels, ranges, or examples.
 }
 \description{
 Gets the data specification for a given dot notation path from settings.yml.
@@ -37,6 +52,11 @@ info <- data_info("source.private.my_data")
 
 # Get info from file path
 info <- data_info("data/public/example.csv")
+
+# Column names, types, and missing counts, without any values
+info <- data_info("inputs.private.raw.patients", columns = TRUE)
+info$columns
+info$rows
 }
 }
 

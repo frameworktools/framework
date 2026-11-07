@@ -155,6 +155,22 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
     }
   }
 
+  data <- .fw_read_spec(spec, delim = delim, keep_attributes = keep_attributes, ...)
+
+  # Output description if available
+  if (!is.null(spec$description) && nzchar(spec$description)) {
+    message(sprintf("Note: %s: %s", path, spec$description))
+  }
+
+  data
+}
+
+
+# Read the file a data spec describes. No hash check and nothing recorded in
+# framework.db: data_read() does that, and data_info(columns = TRUE) reads
+# through here without either.
+#' @keywords internal
+.fw_read_spec <- function(spec, delim = NULL, keep_attributes = FALSE, ...) {
   # Helper function to get delimiter character
   get_delimiter <- function(delimiter_name) {
     switch(delimiter_name,
@@ -306,11 +322,6 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
     data <- haven::zap_labels(data)
     data <- haven::zap_label(data)
     data <- as.data.frame(data)
-  }
-
-  # Output description if available
-  if (!is.null(spec$description) && nzchar(spec$description)) {
-    message(sprintf("Note: %s: %s", path, spec$description))
   }
 
   data
@@ -528,6 +539,11 @@ data_read_or_cache <- function(path, expire_after = NULL, refresh = FALSE) {
 #'   or absolute path to a data file. A relative path is looked for from the
 #'   project root, then from the working directory; a file found in neither
 #'   place resolves under the project root.
+#' @param columns If TRUE, read the file and add a summary of its columns
+#'   that never shows values: each column's name, type, and count of missing
+#'   values, and the number of rows. Use it to learn a restricted file's
+#'   layout without printing its records. The read does not check the file's
+#'   hash and records nothing in framework.db. A missing file is an error.
 #'
 #' @return A list with data specification including:
 #'   \itemize{
@@ -538,6 +554,15 @@ data_read_or_cache <- function(path, expire_after = NULL, refresh = FALSE) {
 #'     \item \code{private} - Whether file is in private data directory
 #'     \item \code{description} - Optional description of the dataset (displayed when loading)
 #'   }
+#'   With `columns = TRUE`, also:
+#'   \itemize{
+#'     \item \code{columns} - A data frame with one row per column: \code{name},
+#'       \code{type} (one of logical, integer, double, character, factor,
+#'       date, datetime, time, duration, or other), and \code{missing}
+#'       (the count of missing values)
+#'     \item \code{rows} - The number of rows
+#'   }
+#'   Never values, factor levels, ranges, or examples.
 #'
 #' @examples
 #' \donttest{
@@ -547,13 +572,19 @@ data_read_or_cache <- function(path, expire_after = NULL, refresh = FALSE) {
 #'
 #' # Get info from file path
 #' info <- data_info("data/public/example.csv")
+#'
+#' # Column names, types, and missing counts, without any values
+#' info <- data_info("inputs.private.raw.patients", columns = TRUE)
+#' info$columns
+#' info$rows
 #' }
 #' }
 #'
 #' @export
-data_info <- function(path) {
+data_info <- function(path, columns = FALSE) {
   # Validate arguments
   checkmate::assert_string(path, min.chars = 1)
+  checkmate::assert_flag(columns)
 
   # Get config file path to resolve relative paths correctly
   config_file <- .get_settings_file()
@@ -696,7 +727,61 @@ data_info <- function(path) {
     }
   }
 
-  get_spec_by_path_type(path, config)
+  spec <- get_spec_by_path_type(path, config)
+  if (!columns) {
+    return(spec)
+  }
+
+  if (is.null(spec)) {
+    stop(sprintf("No data specification found for path: %s", path), call. = FALSE)
+  }
+  if (!file.exists(spec$path) || dir.exists(spec$path)) {
+    stop(.fw_missing_file_message(path, spec$path, by_name = .fw_is_catalog_name(path)), call. = FALSE)
+  }
+  data <- .fw_read_spec(spec)
+  if (!is.data.frame(data)) {
+    stop(sprintf("'%s' does not hold a data frame, so it has no columns to summarize.", path), call. = FALSE)
+  }
+  spec$columns <- .fw_column_summary(data)
+  spec$rows <- nrow(data)
+  spec
+}
+
+# A column's type in the words data_info(columns = TRUE) uses, shared with
+# framework-py
+#' @keywords internal
+.fw_column_type <- function(x) {
+  if (is.factor(x)) return("factor")
+  if (inherits(x, "Date")) return("date")
+  if (inherits(x, c("POSIXct", "POSIXlt"))) return("datetime")
+  if (inherits(x, "hms")) return("time")
+  if (inherits(x, "difftime")) return("duration")
+  if (is.object(x)) return("other")
+  if (is.logical(x)) return("logical")
+  if (is.integer(x)) return("integer")
+  if (is.double(x)) return("double")
+  if (is.character(x)) return("character")
+  "other"
+}
+
+# Missing values in a column; in a list column, NULL elements count too
+#' @keywords internal
+.fw_count_missing <- function(x) {
+  if (is.list(x) && !is.data.frame(x)) {
+    return(as.integer(sum(vapply(x, function(e) is.null(e) || (length(e) == 1 && is.na(e)), logical(1)))))
+  }
+  as.integer(sum(is.na(x)))
+}
+
+# Each column's name, type, and missing count. Never any values.
+#' @keywords internal
+.fw_column_summary <- function(data) {
+  data.frame(
+    name = as.character(names(data)),
+    type = vapply(data, .fw_column_type, character(1), USE.NAMES = FALSE),
+    missing = vapply(data, .fw_count_missing, integer(1), USE.NAMES = FALSE),
+    stringsAsFactors = FALSE
+  )
 }
 
 # Find a catalog entry by the parts of its dot-notation name. data_list()

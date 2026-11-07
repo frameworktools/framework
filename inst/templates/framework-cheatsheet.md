@@ -45,6 +45,7 @@ stubs_publish()                  # Publish stubs for customization
 data_read("inputs_raw.dataset")           # Load from data catalog
 data_read("inputs_intermediate.cleaned")  # Load intermediate data
 data_info("source.public.example")        # Get data specification
+data_info("inputs.private.raw.x", columns = TRUE)  # Column names, types, missing counts; no values
 
 # Direct file path (bypass catalog)
 data_read("path/to/file.csv")             # Read CSV directly
@@ -304,7 +305,7 @@ capture_output(expr)             # Capture console output
 | `capture_output()` | Capture console output |
 | `config_sync()` | Copy settings and logins from the Python package and fw into R |
 | `data_add()` | Add data to catalog |
-| `data_info()` | Get data specification |
+| `data_info()` | Get data specification; `columns = TRUE` summarizes columns without values |
 | `data_read()` | Load from data catalog or file path |
 | `data_save()` | Save to data catalog |
 | `db_connect()` | Get database connection |
