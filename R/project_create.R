@@ -876,17 +876,6 @@ duplicate its content in this file.
   system2("git", c("init"), stdout = FALSE, stderr = FALSE)
   message("  Initialized git repository")
 
-  # Install git hooks if any are enabled
-  # hooks_install() reads settings from config file, so just call it with force=TRUE
-  if (length(hooks) > 0 && any(unlist(hooks))) {
-    tryCatch({
-      git_hooks_install(force = TRUE, verbose = FALSE)
-      message("  Installed git hooks")
-    }, error = function(e) {
-      warning("Failed to install git hooks: ", e$message)
-    })
-  }
-
   # Never stage secrets, whatever .gitignore content the caller supplied
   .ensure_secrets_ignored(project_dir)
   if (!.secrets_ignored_by_git(project_dir)) {
@@ -921,6 +910,20 @@ duplicate its content in this file.
     if (is.null(status) || identical(status, 0)) {
       message("  Created initial commit")
     }
+  }
+
+  # Install the pre-commit hook when any check is enabled. After the initial
+  # commit, which holds only the files Framework wrote, so that commit
+  # doesn't need a runtime with Framework yet. git_hooks_install() reads the
+  # checks from the settings.
+  if (any(.hooks_enabled(.get_settings_file() %||% "settings.yml"))) {
+    tryCatch({
+      if (isTRUE(git_hooks_install(force = TRUE, verbose = FALSE))) {
+        message("  Installed git hooks")
+      }
+    }, error = function(e) {
+      warning("Failed to install git hooks: ", e$message)
+    })
   }
 }
 

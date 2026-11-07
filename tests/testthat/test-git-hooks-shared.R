@@ -240,3 +240,56 @@ test_that("the hook prints a passing audit's warnings and the commit goes ahead"
   expect_match(out, "⚠ Security audit warnings (the commit goes ahead):", fixed = TRUE)
   expect_match(out, "patients.csv (date_of_birth)", fixed = TRUE)
 })
+
+test_that("a new sensitive project starts with the hooks on, installed after the first commit", {
+  # Ports 2026-11-07 (B14): R set data_security: false for every type
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  cleanup <- setup_isolated_config()
+  withr::defer(cleanup())
+  home <- withr::local_tempdir()
+  writeLines(c("[user]", "  name = Test", "  email = test@example.org"), file.path(home, "gitconfig"))
+  withr::local_envvar(GIT_CONFIG_GLOBAL = file.path(home, "gitconfig"), GIT_CONFIG_NOSYSTEM = "1")
+
+  study <- file.path(home, "study")
+  suppressMessages(new_project("Private Study", study, type = "project_sensitive", browse = FALSE))
+  withr::with_dir(study, {
+    hooks <- suppressMessages(git_hooks_list())
+    expect_identical(stats::setNames(hooks$enabled, hooks$hook), c(
+      data_security = TRUE, check_sensitive_dirs = TRUE, check_notebook_outputs = FALSE
+    ))
+  })
+  expect_true(file.exists(file.path(study, ".git", "hooks", "pre-commit")))
+  log <- system2("git", c("-C", shQuote(study), "log", "--format=%s"), stdout = TRUE)
+  expect_identical(log, "Initial commit from Framework")
+  # The hook wasn't there for the initial commit: it holds the shared script
+  # written after it
+  expect_true(.is_framework_hook(file.path(study, ".git", "hooks", "pre-commit")))
+
+  # The first commit: Framework's skills and its ignored folders aren't flagged
+  expect_true(dir.exists(file.path(study, ".claude", "skills", "framework-sensitive-data")))
+  withr::with_dir(study, {
+    writeLines("# First", "notebooks/first.md")
+    system2("git", c("add", "notebooks/first.md"), stdout = FALSE, stderr = FALSE)
+    msgs <- capture_messages(status <- .hook_run("pre-commit"))
+    expect_identical(status, 0L)
+    out <- paste(msgs, collapse = "")
+    expect_false(grepl("framework-sensitive-data", out, fixed = TRUE))
+    expect_false(grepl("NOT gitignored", out, fixed = TRUE))
+  })
+
+  open <- file.path(home, "open")
+  suppressMessages(new_project("Open Study", open, type = "project", browse = FALSE))
+  expect_false(file.exists(file.path(open, ".git", "hooks", "pre-commit")))
+})
+
+test_that("a sensitive project inside another repository gets no hook", {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  cleanup <- setup_isolated_config()
+  withr::defer(cleanup())
+  outer <- withr::local_tempdir()
+  system2("git", c("init", "-q", shQuote(outer)), stdout = FALSE, stderr = FALSE)
+  study <- file.path(outer, "study")
+  suppressMessages(new_project("Nested Study", study, type = "project_sensitive", browse = FALSE))
+  expect_false(file.exists(file.path(outer, ".git", "hooks", "pre-commit")))
+  expect_false(file.exists(file.path(study, ".git")))
+})

@@ -525,7 +525,7 @@ spec_check <- function(spec) {
     extra_directories = list(),
     render_dirs = .default_render_dirs_for_type(type),
     packages = list(use_renv = isTRUE(defaults$packages$use_renv), default_packages = packages),
-    git = list(use_git = defaults$git$initialize %||% TRUE, hooks = defaults$git$hooks %||% list()),
+    git = list(use_git = defaults$git$initialize %||% TRUE, hooks = .spec_default_hooks(defaults$git$hooks, type)),
     ai = list(enabled = isTRUE(defaults$ai$enabled), assistants = assistants, agents_md = "stub"),
     scaffold = scaffold,
     quarto = .spec_quarto_defaults(defaults$quarto, type),
@@ -536,6 +536,18 @@ spec_check <- function(spec) {
     files = list(),
     skills = skills
   )
+}
+
+# The pre-commit checks a type starts with. A privacy-sensitive project turns
+# on the audit that blocks committing private data and secrets, and the
+# warning about unignored private folders; a layer above can turn them off.
+.spec_default_hooks <- function(hooks, type) {
+  hooks <- hooks %||% list()
+  if (identical(type, "project_sensitive")) {
+    hooks$data_security <- TRUE
+    hooks$check_sensitive_dirs <- TRUE
+  }
+  hooks
 }
 
 .spec_quarto_defaults <- function(quarto, type) {

@@ -66,7 +66,9 @@ The standard project's `.gitignore` does not ignore `inputs/` or `outputs/`:
 keep data that must not be committed in a folder named `private/` (any
 `private/` folder is ignored), or use the **project_sensitive** type, which
 splits inputs and outputs into ignored `private/` and committed `public/`
-folders.
+folders. A project_sensitive project starts with the `data_security` and
+`check_sensitive_dirs` pre-commit checks on, installed after the initial
+commit (turn them off with `git_hooks_disable()`).
 
 ## Skill sync
 

@@ -912,13 +912,17 @@ git_hooks_list <- function(config_file = NULL) {
     return(character())
   }
 
+  # A folder is covered when it, an ancestor, or its contents are ignored. A
+  # path without a trailing slash never matches a folder-only rule such as
+  # "scratch/", and "**/scratch/**" matches only what is inside, so each
+  # folder is also asked about with a slash and with a file inside it.
   ancestors <- function(path) {
     out <- path
     while (dirname(path) != ".") {
       path <- dirname(path)
       out <- c(out, path)
     }
-    out
+    c(out, paste0(out, "/"), paste0(out, "/.framework-ignore-probe"))
   }
   candidates <- unique(unlist(lapply(found, ancestors)))
   ignored <- .fw_git_check_ignore(candidates, root = root, no_index = TRUE)

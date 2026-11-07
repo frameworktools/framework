@@ -379,7 +379,11 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
     packages = list(use_renv = isTRUE(args$packages$use_renv),
                     default_packages = replace(packages, defaults$packages$default_packages)),
     ai = list(enabled = isTRUE(args$ai$enabled), assistants = replace(assistants, defaults$ai$assistants)),
-    git = list(use_git = isTRUE(args$git$use_git), hooks = args$git$hooks %||% list()),
+    # The global settings' hooks only turn checks on. They hold
+    # data_security: false from the shipped defaults for every type, which
+    # would otherwise turn off the checks a privacy-sensitive project starts
+    # with; the package defaults already have every other check off.
+    git = list(use_git = isTRUE(args$git$use_git), hooks = Filter(isTRUE, args$git$hooks %||% list())),
     scaffold = Filter(Negate(is.null), args$scaffold)
   )
   if (length(args$packages$default_packages) == 0) user$packages$default_packages <- NULL
