@@ -1263,13 +1263,15 @@ cloud_settings <- function() {
 
 #' Verify a Dataset Against the Integrity Ledger
 #'
-#' Hashes the file behind a catalog name and compares it against the local
+#' Hashes the file behind a catalog name (or a file path) and compares it
+#' against the local
 #' framework.db record and the project's cloud ledger on Framework Cloud.
 #' Proves "the data I have is bit-identical to what was recorded" without the
 #' data ever leaving the machine.
 #'
-#' @param name Data catalog name (e.g. "inputs.raw.enrollment"), as used with
-#'   [data_read()] / [data_save()].
+#' @param name Data catalog name (e.g. "inputs.raw.enrollment") or a file
+#'   path (e.g. "outputs/public/summary.csv"), as used with [data_read()] /
+#'   [data_save()]. A path is relative to the project root.
 #'
 #' @return Invisibly, TRUE when no available record disagrees with the file.
 #'   It prints which records were compared. With no framework.db record and
@@ -1294,7 +1296,12 @@ data_verify <- function(name) {
     entry <- node
   }
   if (is.null(entry) || is.null(entry$path)) {
-    stop("No data catalog entry named '", name, "'.", call. = FALSE)
+    # data_save() to a plain path records its hash under that path
+    path <- .fw_project_path(name)
+    if (!file.exists(path) || dir.exists(path)) {
+      stop("No data catalog entry or file named '", name, "'.", call. = FALSE)
+    }
+    entry <- list(path = name)
   }
   # Catalog paths are relative to the project root
   entry$path <- .fw_project_path(entry$path)
@@ -1311,6 +1318,14 @@ data_verify <- function(name) {
 
   # Local framework.db record
   record <- tryCatch(.get_data_record(name), error = function(e) NULL)
+  if (is.null(record) || NROW(record) == 0) {
+    # A path given from another folder (notebooks/) may be recorded relative
+    # to the project root
+    relative <- .fw_project_relative_path(entry$path)
+    if (!identical(relative, name)) {
+      record <- tryCatch(.get_data_record(relative), error = function(e) NULL)
+    }
+  }
   if (!is.null(record) && NROW(record) > 0 && !is.na(record$hash[1])) {
     compared <- c(compared, "framework.db")
     if (identical(record$hash[1], file_hash)) {

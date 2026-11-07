@@ -7,8 +7,9 @@
 data_verify(name)
 }
 \arguments{
-\item{name}{Data catalog name (e.g. "inputs.raw.enrollment"), as used with
-\code{\link[=data_read]{data_read()}} / \code{\link[=data_save]{data_save()}}.}
+\item{name}{Data catalog name (e.g. "inputs.raw.enrollment") or a file
+path (e.g. "outputs/public/summary.csv"), as used with \code{\link[=data_read]{data_read()}} /
+\code{\link[=data_save]{data_save()}}. A path is relative to the project root.}
 }
 \value{
 Invisibly, TRUE when no available record disagrees with the file.
@@ -17,7 +18,8 @@ no cloud ledger entry, nothing is compared: it says "Not verified" and
 still returns TRUE, as framework-py does.
 }
 \description{
-Hashes the file behind a catalog name and compares it against the local
+Hashes the file behind a catalog name (or a file path) and compares it
+against the local
 framework.db record and the project's cloud ledger on Framework Cloud.
 Proves "the data I have is bit-identical to what was recorded" without the
 data ever leaving the machine.

@@ -125,3 +125,14 @@ test_that("data_info() finds a bare file name and calls .tsv files tsv", {
   expect_false(is.null(suppressMessages(data_info("iris.csv"))))
   expect_identical(suppressMessages(data_info("inputs/raw/t.tsv"))$type, "tsv")
 })
+
+test_that("data_verify() accepts the path data_save() recorded", {
+  root <- local_data_project()
+  dir.create("outputs/public", recursive = TRUE, showWarnings = FALSE)
+  suppressMessages(data_save(data.frame(a = 1:3), "outputs/public/summary.csv"))
+  expect_message(data_verify("outputs/public/summary.csv"), "Verified against framework.db")
+
+  writeLines("a\n9", "outputs/public/summary.csv")
+  expect_warning(suppressMessages(data_verify("outputs/public/summary.csv")), "Integrity mismatch")
+  expect_error(data_verify("outputs/public/missing.csv"), "No data catalog entry or file")
+})
