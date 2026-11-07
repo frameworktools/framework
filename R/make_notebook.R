@@ -245,7 +245,16 @@ make_notebook <- function(name,
   stub_note <- if (!stub %in% c("default", "revealjs")) sprintf(" (stub: %s)", stub) else ""
   message(sprintf("Created %s: %s%s", kind, .fw_project_relative_path(target_path), stub_note))
 
-  invisible(target_path)
+  invisible(.fw_path_from_wd(target_path))
+}
+
+# A path as seen from the working directory: relative when the file is
+# under it (scripts/x.R from the root), absolute otherwise
+#' @keywords internal
+.fw_path_from_wd <- function(path) {
+  full <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  wd <- paste0(sub("/+$", "", normalizePath(getwd(), winslash = "/", mustWork = FALSE)), "/")
+  if (startsWith(full, wd)) substring(full, nchar(wd) + 1) else full
 }
 
 # The default title for a new notebook. A name with spaces is already a
@@ -377,7 +386,7 @@ make_notebook <- function(name,
   )
   jsonlite::write_json(notebook, path, auto_unbox = TRUE, pretty = TRUE, null = "null")
   message(sprintf("Created Jupyter notebook: %s", .fw_project_relative_path(path)))
-  invisible(path)
+  invisible(.fw_path_from_wd(path))
 }
 
 #' Normalize Notebook Name and Detect Type

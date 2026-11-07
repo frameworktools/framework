@@ -385,6 +385,9 @@ test_that("dir and configured folders start at the project root, not the working
   expect_false(dir.exists(file.path(dir, "notebooks", "notebooks")))
   expect_identical(msgs[length(msgs)], "Created Quarto notebook: notebooks/from-inside.qmd")
 
+  # The returned path works from the working directory
+  returned <- suppressMessages(make_notebook("returned"))
+  expect_identical(returned, "returned.qmd")
   suppressMessages(make_notebook("assignment-01", dir = "assignments"))
   expect_true(file.exists(file.path(dir, "assignments", "assignment-01.qmd")))
   suppressMessages(make_script("clean"))
