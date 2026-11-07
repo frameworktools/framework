@@ -1,43 +1,10 @@
-# Regression tests from the 2026-11-05 audit (R part 1): the GUI request
-# guard, env_clear(), cloud_logout(), bootstrap_project_init(), and schema
+# Regression tests from the 2026-11-05 audit (R part 1): the retired GUI,
+# env_clear(), cloud_logout(), bootstrap_project_init(), and schema
 # helpers.
 
-gui_req <- function(method = "GET", path = "/api/settings", host = "127.0.0.1:8080",
-                    origin = NULL, cookie = NULL) {
-  list(REQUEST_METHOD = method, PATH_INFO = path, HTTP_HOST = host,
-       HTTP_ORIGIN = origin, HTTP_COOKIE = cookie)
-}
-
-test_that("the GUI rejects other websites and DNS-rebound hosts", {
-  check <- framework:::.gui_check_request
-  token <- "abc123"
-  # The GUI page itself
-  expect_null(check(gui_req(), token))
-  expect_null(check(gui_req(origin = "http://127.0.0.1:8080"), token))
-  expect_null(check(gui_req("POST", "/api/settings/save", origin = "http://127.0.0.1:8080",
-                            cookie = "other=1; fw_gui_session=abc123"), token))
-  # Another website
-  expect_identical(check(gui_req(origin = "https://evil.example.org"), token)$status, 403L)
-  expect_identical(check(gui_req("DELETE", "/api/projects/1/delete", origin = "https://evil.example.org",
-                                 cookie = "fw_gui_session=abc123"), token)$status, 403L)
-  # Writes without the session cookie (no Origin, wrong cookie)
-  expect_identical(check(gui_req("POST", "/api/project/1/env"), token)$status, 403L)
-  expect_identical(check(gui_req("POST", "/api/project/1/env", cookie = "fw_gui_session=nope"), token)$status, 403L)
-  # DNS rebinding: a page on another host name that resolves to 127.0.0.1
-  expect_identical(check(gui_req(host = "evil.example.org:8080"), token)$status, 403L)
-  # Bound to all interfaces, other host names are fine but writes still need the cookie
-  expect_null(check(gui_req(host = "lab-server:8080"), token, loopback = FALSE))
-  expect_identical(check(gui_req("PUT", host = "lab-server:8080"), token, loopback = FALSE)$status, 403L)
-  # The dev server origin, when allowed
-  expect_null(check(gui_req("POST", origin = "http://localhost:5175"), token,
-                    allowed_origins = framework:::.gui_allowed_origins(dev = TRUE)))
-  expect_length(framework:::.gui_allowed_origins(dev = FALSE), 0)
-})
-
-test_that("gui() no longer sends a wildcard CORS header", {
-  body <- paste(deparse(gui), collapse = "\n")
-  expect_false(grepl("Access-Control-Allow-Origin\", \"*\"", body, fixed = TRUE))
-  expect_false(grepl("plumber$new", body, fixed = TRUE))
+test_that("gui() is deprecated and points to Framework Cloud", {
+  expect_warning(out <- gui(), "framework.pub")
+  expect_null(out)
 })
 
 test_that("env_clear() closes every graphics device and keeps framework attached", {

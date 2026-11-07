@@ -26,11 +26,9 @@ framework::new_course("stats-101", "~/teaching/stats")
 framework::bootstrap()
 ```
 
-The GUI (`setup()`, `gui()`) needs the optional `plumber` package:
-`install.packages("plumber")`. plumber depends on `sodium`, which needs the
-system libsodium library and can be hard to install on shared servers and HPC
-clusters. Everything else in Framework works without it, so on a cluster you
-can skip the GUI and edit `settings.yml` directly.
+Manage your defaults and blueprints at [framework.pub](https://framework.pub)
+after `framework::cloud_login()`, or edit `settings.yml` directly. The local
+GUI (`gui()`) is retired.
 
 ### Project Types
 

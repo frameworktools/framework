@@ -325,7 +325,6 @@ capture_output(expr)             # Capture console output
 | `git_push()` | Push to remote |
 | `git_security_audit()` | Audit for security issues |
 | `git_status()` | Show repository status |
-| `gui()` | Launch Framework GUI (needs the `plumber` package) |
 | `make_notebook()` | Create notebook from stub |
 | `make_presentation()` | Create presentation (reveal.js) |
 | `make_qmd()` | Create Quarto notebook |

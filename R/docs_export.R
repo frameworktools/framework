@@ -1,8 +1,8 @@
 #' Export Package Documentation to Database
 #'
 #' Parses roxygen2-generated .Rd files and exports structured documentation
-#' to SQLite (for GUI) or other formats. This enables searchable documentation
-#' in the Framework GUI and powers the public documentation website.
+#' to SQLite or other formats. This powers the searchable documentation
+#' website.
 #'
 #' @param output_path Path to SQLite database file. Default: "docs.db"
 #' @param man_dir Directory containing .Rd files. Default: "man"
@@ -36,7 +36,7 @@
 #' docs_export()
 #'
 #' # Export to custom location
-#' docs_export("inst/gui/docs.db")
+#' docs_export(tempfile(fileext = ".db"))
 #'
 #' # Include internal/private functions too
 #' docs_export("all_docs.db", include_internal = TRUE)

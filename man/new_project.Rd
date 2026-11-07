@@ -74,14 +74,13 @@ path, and project_id)
 }
 \description{
 Convenience wrapper for creating Framework projects from the command line.
-Uses global settings configured via \code{setup()} as defaults, prompts for
+Uses your global settings (or your Framework Cloud defaults) as defaults, prompts for
 missing required values (name and location).
 }
 \details{
 This function is designed for the streamlined workflow:
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{remotes::install_github("table1/framework")
-framework::setup()        # One-time global configuration
 framework::new_project()  # Create projects using saved defaults
 }\if{html}{\out{</div>}}
 
@@ -111,5 +110,5 @@ new_project("medical-study", "~/projects/medical", type = "project_sensitive")
 
 }
 \seealso{
-\code{\link[=setup]{setup()}} for initial configuration, \code{\link[=project_create]{project_create()}} for full control
+\code{\link[=cloud_login]{cloud_login()}} to use your Framework Cloud defaults, \code{\link[=project_create]{project_create()}} for full control
 }

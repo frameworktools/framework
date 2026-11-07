@@ -155,7 +155,7 @@ NULL
   default_bucket_name <- s3_sources$default_bucket
 
   if (length(all_s3) == 0) {
-    stop("No S3 connections configured. Add one via the GUI or in settings.yml:\n\n",
+    stop("No S3 connections configured. Add one in settings.yml:\n\n",
          "connections:\n",
          "  storage_buckets:\n",
          "    my_s3:\n",

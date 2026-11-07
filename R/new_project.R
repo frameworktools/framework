@@ -1,7 +1,7 @@
 #' Create a New Framework Project
 #'
 #' Convenience wrapper for creating Framework projects from the command line.
-#' Uses global settings configured via `setup()` as defaults, prompts for
+#' Uses your global settings (or your Framework Cloud defaults) as defaults, prompts for
 #' missing required values (name and location).
 #'
 #' @param name Project name. If NULL (default), prompts interactively.
@@ -46,7 +46,6 @@
 #' This function is designed for the streamlined workflow:
 #' ```r
 #' remotes::install_github("table1/framework")
-#' framework::setup()        # One-time global configuration
 #' framework::new_project()  # Create projects using saved defaults
 #' ```
 #'
@@ -58,7 +57,7 @@
 #' - AI assistant configuration
 #' - Quarto format preferences
 #'
-#' @seealso [setup()] for initial configuration, [project_create()] for full control
+#' @seealso [cloud_login()] to use your Framework Cloud defaults, [project_create()] for full control
 #'
 #' @examples
 #' \donttest{

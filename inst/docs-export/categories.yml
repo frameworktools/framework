@@ -8,7 +8,6 @@ Workflow:
     - setup
     - scaffold
     - settings
-    - gui
   functions:
     - setup
     - spec_resolve

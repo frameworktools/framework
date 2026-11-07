@@ -16,6 +16,10 @@ server). The main changes since 1.1.0:
 * Every project gets an AGENTS.md and agent skills, and `skills_sync()` keeps
   skills in step with Cloud.
 
+The local GUI is retired. `gui()` now only warns and points to Framework
+Cloud, and plumber is no longer a suggested package. `setup()` takes a Cloud
+project token; with none, it creates the global settings file.
+
 Other changes in this release:
 
 * Package sets: 24 more, and `package_set_add()` adds one to an existing

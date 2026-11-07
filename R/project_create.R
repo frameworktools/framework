@@ -1,7 +1,7 @@
 #' Create a new Framework project (internal)
 #'
 #' Low-level function that creates a complete Framework project. This is called
-#' by the GUI and by user-facing functions like [new()] and [new_project()].
+#' by user-facing functions like [new()] and [new_project()].
 #' Users should typically use [new()] instead.
 #'
 #' @param name Project name (used for project title)

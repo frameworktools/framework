@@ -54,7 +54,6 @@ Suggests:
     knitr,
     languageserver,
     odbc,
-    plumber,
     pool,
     prismjs,
     R.utils,

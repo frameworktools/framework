@@ -52,7 +52,7 @@ List with success status, project path, and project ID
 }
 \description{
 Low-level function that creates a complete Framework project. This is called
-by the GUI and by user-facing functions like \code{\link[=new]{new()}} and \code{\link[=new_project]{new_project()}}.
+by user-facing functions like \code{\link[=new]{new()}} and \code{\link[=new_project]{new_project()}}.
 Users should typically use \code{\link[=new]{new()}} instead.
 }
 \keyword{internal}

@@ -4,7 +4,7 @@
 # This file stores your personal preferences that apply to ALL Framework projects.
 # When you create a new project with init(), these settings are used as defaults.
 #
-# You can edit this file manually or through the Framework GUI.
+# Edit this file directly, or manage your defaults at https://framework.pub.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -86,9 +86,9 @@ defaults:
 # Project Registry
 # -----------------------------------------------------------------------------
 # List of Framework projects you've created or imported
-# Managed automatically by the GUI - don't edit manually
+# Managed automatically by Framework - don't edit manually
 # -----------------------------------------------------------------------------
 projects: []
 
-# Currently active project path (set via GUI)
+# Currently active project path
 active_project: null

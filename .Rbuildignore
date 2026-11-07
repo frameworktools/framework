@@ -59,7 +59,6 @@
 ^data-raw$
 
 # GUI development (not needed in package)
-^gui-dev$
 
 # Other non-standard files
 ^content$

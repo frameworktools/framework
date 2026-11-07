@@ -15,14 +15,12 @@ Main changes:
 * `publish()` writes versioned outputs to Framework Cloud, a folder, S3, or
   GitHub Pages.
 * New projects include AGENTS.md and agent skill files.
+* The optional local GUI is retired. `gui()` remains as a deprecated stub, and
+  plumber is no longer in Suggests. This removes about 12 MB of web assets.
 
 ## R CMD check results
 
 0 errors | 0 warnings | 0 notes
-
-On CRAN's machines the installed size may show as a NOTE (16 MB). Most of it is
-the optional local GUI's built web assets in `inst/gui`, the same size as in
-1.1.0. The source tarball is 4.2 MB.
 
 ## Test environments
 
