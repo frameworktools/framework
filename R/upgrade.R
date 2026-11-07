@@ -551,7 +551,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
   dirs <- dirs[dir.exists(file.path(ctx$root, dirs))]
   if (length(dirs) == 0) {
     .upgrade_note(ctx, "This project has no Framework skills. framework::ai_skills_update() installs ",
-                  "them for the ", type, " type.")
+                  "the ones for its type (", type, ").")
     return(invisible())
   }
   edited <- character()
