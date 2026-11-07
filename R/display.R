@@ -11,8 +11,9 @@
 #' shown, so summarize first. Cells follow these rules, in order: a missing
 #' value shows `na`; `TRUE` and `FALSE` show as R prints them; integers get
 #' `big_mark` between groups of three digits; doubles show `Inf` or `-Inf`
-#' when infinite, `digits` decimals when `digits` is given (`1.50`), and
-#' otherwise a whole number without decimals (`1`) and other numbers as
+#' when infinite, `digits` decimals when `digits` is given (`1.50`) and the
+#' column has a number that isn't whole, and otherwise a whole number without
+#' decimals (`1`) and other numbers as
 #' `format(x, digits = 15)` prints them, with `big_mark` grouping the whole
 #' part (a number printed in exponent form, such as `1e-07`, is left as is);
 #' anything else shows its text. Then `|` becomes `\|` and each run of
@@ -28,8 +29,10 @@
 #'   `#| label: tbl-...` on the chunk does the same and adds a
 #'   cross-reference; use one or the other.
 #' @param digits A whole number of at least 0, or NULL. Decimal places for
-#'   doubles, kept even when they are zero (`2` shows `1.50`). Default: whole
-#'   numbers without decimals and other numbers as R prints them.
+#'   doubles, kept even when they are zero (`2` shows `1.50`). A column whose
+#'   numbers are all whole, such as counts stored as doubles, shows them
+#'   without decimals. Default: whole numbers without decimals and other
+#'   numbers as R prints them.
 #' @param big_mark Character. The thousands separator for numbers, such as
 #'   `","`. Default: none.
 #' @param na Character. What a missing value shows. Default: an empty cell.
@@ -104,7 +107,11 @@ repr_markdown.framework_table <- function(obj, ...) {
   } else if (is.integer(column) && !is.factor(column)) {
     text <- vapply(column, function(v) .fw_table_number(as.character(v), big_mark), character(1))
   } else if (is.double(column) && !inherits(column, c("Date", "POSIXt", "difftime"))) {
-    text <- vapply(unclass(column), .fw_table_double, character(1), digits = digits, big_mark = big_mark)
+    # A column of whole numbers stored as doubles (counts) keeps no decimals
+    values <- unclass(column)
+    finite <- values[is.finite(values)]
+    if (!is.null(digits) && all(finite == trunc(finite))) digits <- NULL
+    text <- vapply(values, .fw_table_double, character(1), digits = digits, big_mark = big_mark)
   } else {
     text <- as.character(column)
   }

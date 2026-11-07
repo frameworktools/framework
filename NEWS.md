@@ -30,6 +30,8 @@ New functions and arguments:
 * `load_model()` reads back a model `save_model()` saved. `save_model(public =
   TRUE)` warns when the model holds data rows.
 * `show_table()` prints a data frame as a Markdown table in Quarto and Jupyter.
+  With `digits`, a column of whole numbers stored as doubles, such as
+  counts, keeps no decimals (`12`, not `12.0`).
 * `db_execute_file()` runs a SQL file, `db_copy_from()` loads a CSV into an
   existing table, and `db_connect()` and `db_query()` take `read_only = TRUE`
   to open a SQLite or DuckDB file read-only for one call. A call can add

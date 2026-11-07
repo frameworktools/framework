@@ -42,6 +42,12 @@ test_that("show_table defaults and other inputs", {
   )
   expect_identical(md(show_table(data.frame(f = factor(c("lo", "hi")), z = c(0, 1)), digits = 0)),
                    "| f | z |\n|:---|---:|\n| lo | 0 |\n| hi | 1 |\n")
+  # digits leaves a column of whole doubles (counts) without decimals, and
+  # formats a column with any other number
+  expect_identical(
+    md(show_table(data.frame(n = c(12, 3, NA, Inf), mean = c(1, 2.345, 3, NA)), digits = 1)),
+    "| n | mean |\n|---:|---:|\n| 12 | 1.0 |\n| 3 | 2.3 |\n|  | 3.0 |\n| Inf |  |\n"
+  )
   expect_error(show_table(list(x = 1)), "data frame")
   expect_error(show_table(frame, digits = -1), "digits")
   expect_error(show_table(frame, digits = 1.5), "digits")

@@ -15,8 +15,10 @@ Pandoc's \verb{: caption} line. In Quarto, \verb{#| tbl-cap} with
 cross-reference; use one or the other.}
 
 \item{digits}{A whole number of at least 0, or NULL. Decimal places for
-doubles, kept even when they are zero (\code{2} shows \code{1.50}). Default: whole
-numbers without decimals and other numbers as R prints them.}
+doubles, kept even when they are zero (\code{2} shows \code{1.50}). A column whose
+numbers are all whole, such as counts stored as doubles, shows them
+without decimals. Default: whole numbers without decimals and other
+numbers as R prints them.}
 
 \item{big_mark}{Character. The thousands separator for numbers, such as
 \code{","}. Default: none.}
@@ -41,8 +43,9 @@ Numeric columns are right-aligned and others left-aligned. Every row is
 shown, so summarize first. Cells follow these rules, in order: a missing
 value shows \code{na}; \code{TRUE} and \code{FALSE} show as R prints them; integers get
 \code{big_mark} between groups of three digits; doubles show \code{Inf} or \code{-Inf}
-when infinite, \code{digits} decimals when \code{digits} is given (\code{1.50}), and
-otherwise a whole number without decimals (\code{1}) and other numbers as
+when infinite, \code{digits} decimals when \code{digits} is given (\code{1.50}) and the
+column has a number that isn't whole, and otherwise a whole number without
+decimals (\code{1}) and other numbers as
 \code{format(x, digits = 15)} prints them, with \code{big_mark} grouping the whole
 part (a number printed in exponent form, such as \code{1e-07}, is left as is);
 anything else shows its text. Then \code{|} becomes \verb{\\|} and each run of
