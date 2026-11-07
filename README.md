@@ -158,6 +158,11 @@ Every read is logged with a SHA-256 hash for integrity tracking.
 model <- cache_remember("model_v1", {
   expensive_model_fit(df)
 }, expire_after = "1 day")  # or a number of hours, such as 24
+
+# Recompute when the data, the code, or a parameter changes
+model <- cache_remember("model_v2", {
+  expensive_model_fit(data_read("inputs.final.cohort"), k = 4)
+}, depends_on = list("inputs.final.cohort", "functions/fit.R", list(k = 4)))
 ```
 
 ### 5. Save Results

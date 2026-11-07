@@ -4,7 +4,13 @@
 \alias{.get_cache}
 \title{Get a cache value}
 \usage{
-.get_cache(name, file = NULL, expire_after = NULL)
+.get_cache(
+  name,
+  file = NULL,
+  expire_after = NULL,
+  dependencies = NULL,
+  state = NULL
+)
 }
 \arguments{
 \item{name}{The cache name}
@@ -12,6 +18,15 @@
 \item{file}{Optional file path to store the cache (default: \verb{cache/\{name\}.rds})}
 
 \item{expire_after}{Optional expiration time in hours (default: from config)}
+
+\item{dependencies}{Dependencies from \code{.fw_depends_resolve()}, or NULL.
+With them, an entry recorded with a different key is out of date.
+Without them, the entry's recorded dependencies are hashed again, and a
+change is a miss with a warning.}
+
+\item{state}{Optional environment; \code{state$carried} gets the re-hashed
+dependencies of an entry read without \code{dependencies}, so a recomputed
+value keeps them.}
 }
 \value{
 The cached result, or NULL if not found, expired, or hash mismatch

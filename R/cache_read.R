@@ -192,9 +192,16 @@ cache_list <- function() {
 #' @param name The cache name
 #' @param file Optional file path to store the cache (default: `cache/{name}.rds`)
 #' @param expire_after Optional expiration time in hours (default: from config)
+#' @param dependencies Dependencies from `.fw_depends_resolve()`, or NULL.
+#'   With them, an entry recorded with a different key is out of date.
+#'   Without them, the entry's recorded dependencies are hashed again, and a
+#'   change is a miss with a warning.
+#' @param state Optional environment; `state$carried` gets the re-hashed
+#'   dependencies of an entry read without `dependencies`, so a recomputed
+#'   value keeps them.
 #' @return The cached result, or NULL if not found, expired, or hash mismatch
 #' @keywords internal
-.get_cache <- function(name, file = NULL, expire_after = NULL) {
+.get_cache <- function(name, file = NULL, expire_after = NULL, dependencies = NULL, state = NULL) {
   # Validate arguments
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_string(file, min.chars = 1, null.ok = TRUE)
@@ -287,6 +294,10 @@ cache_list <- function() {
     return(NULL)
   }
 
+  if (!.fw_cache_dependencies_current(name, dependencies, state)) {
+    return(NULL)
+  }
+
   # Update last_read_at
   tryCatch(
     DBI::dbExecute(
@@ -307,7 +318,9 @@ cache_list <- function() {
 #' @param file Optional file path to store the cache (default: `cache/{name}.rds`)
 #' @param expire_after Not used. Expiry is set when the value is stored, with
 #'   [cache()] or [cache_remember()]. Kept so older code still runs.
-#' @return The cached value, or NULL if not found, expired, or hash mismatch
+#' @return The cached value, or NULL if not found, expired, or hash mismatch.
+#'   A value stored with `depends_on` also counts as missing, with a warning,
+#'   when a file, folder, or catalog entry it depends on has changed since.
 #' @export
 cache_get <- function(name, file = NULL, expire_after = NULL) {
   # Validate arguments
@@ -340,6 +353,18 @@ cache_get <- function(name, file = NULL, expire_after = NULL) {
 #' @param refresh Optional boolean or function that returns boolean to force
 #'   refresh. If TRUE or if function returns TRUE, cache is invalidated and
 #'   expression is re-evaluated.
+#' @param depends_on What the value is computed from. Their hashes are part of
+#'   the entry's key, so the value is recomputed when any of them changes. One
+#'   item or a list of items: a catalog name (`"inputs.raw.survey"`, hashed as
+#'   its file), a file or folder path from the project root
+#'   (`"functions/fit.R"`, `"functions"`), or any other value, such as a
+#'   parameter (`list(cutoff = 0)`). A character vector is several references;
+#'   an unnamed list is a list of items; a named list is one value. A string
+#'   must name a catalog entry, file, or folder; wrap a string value in a list
+#'   to hash it (`list(rule = ">= 0")`). An entry stored with dependencies and
+#'   read without them ([cache_get()], or a call that leaves `depends_on` out)
+#'   is checked against its files, folders, and catalog entries, and a change
+#'   is a miss with a warning. Records are shared with framework-py.
 #'
 #' @return The cached value (if cache hit) or the result of evaluating expr
 #'   (if cache miss or refresh requested)
@@ -356,11 +381,17 @@ cache_get <- function(name, file = NULL, expire_after = NULL) {
 #' result <- cache_remember("analysis", {
 #'   run_analysis()
 #' }, refresh = file.mtime("data.csv") > cache_time)
+#'
+#' # Recompute when the data, the code, or a parameter changes
+#' fit <- cache_remember("lpa_fit", {
+#'   fit_lpa(data_read("inputs.final.cohort"), k = 4)
+#' }, depends_on = list("inputs.final.cohort", "functions/lpa.R", list(k = 4)))
 #' }
 #' }
 #'
 #' @export
-cache_remember <- function(name, expr, file = NULL, expire_after = NULL, refresh = FALSE, expire = NULL) {
+cache_remember <- function(name, expr, file = NULL, expire_after = NULL, refresh = FALSE, expire = NULL,
+                           depends_on = NULL) {
   # Validate arguments
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_string(file, min.chars = 1, null.ok = TRUE)
@@ -373,6 +404,11 @@ cache_remember <- function(name, expr, file = NULL, expire_after = NULL, refresh
     checkmate::check_function(refresh)
   )
 
+  # Hashed before evaluating, so the record describes the inputs the value
+  # came from
+  dependencies <- if (!is.null(depends_on)) .fw_depends_resolve(depends_on) else NULL
+  state <- new.env(parent = emptyenv())
+
   # Check if refresh is needed
   if (.validate_refresh(refresh)) {
     message(sprintf("Cache '%s' refresh requested", name))
@@ -381,9 +417,14 @@ cache_remember <- function(name, expr, file = NULL, expire_after = NULL, refresh
 
   # .get_cache() returns NULL on a miss and list(value = ...) on a hit, so a
   # cached NULL counts as a hit
-  hit <- .get_cache(name, file, effective_expire)
+  hit <- .get_cache(name, file, effective_expire, dependencies, state)
   if (!is.null(hit)) {
     return(hit$value)
+  }
+  # A value stored with dependencies keeps them when it is recomputed
+  # without them
+  if (is.null(dependencies) && !is.null(state$carried)) {
+    dependencies <- state$carried
   }
 
   value <- tryCatch(
@@ -394,7 +435,7 @@ cache_remember <- function(name, expr, file = NULL, expire_after = NULL, refresh
   )
 
   tryCatch(
-    cache(name, value, file, effective_expire),
+    .fw_cache_store(name, value, file, effective_expire, dependencies),
     error = function(e) {
       warning(sprintf("Failed to cache value: %s", e$message))
     }

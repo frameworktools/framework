@@ -10,7 +10,8 @@ cache_remember(
   file = NULL,
   expire_after = NULL,
   refresh = FALSE,
-  expire = NULL
+  expire = NULL,
+  depends_on = NULL
 )
 }
 \arguments{
@@ -31,6 +32,19 @@ refresh. If TRUE or if function returns TRUE, cache is invalidated and
 expression is re-evaluated.}
 
 \item{expire}{Optional alias for \code{expire_after} (accepts the same formats)}
+
+\item{depends_on}{What the value is computed from. Their hashes are part of
+the entry's key, so the value is recomputed when any of them changes. One
+item or a list of items: a catalog name (\code{"inputs.raw.survey"}, hashed as
+its file), a file or folder path from the project root
+(\code{"functions/fit.R"}, \code{"functions"}), or any other value, such as a
+parameter (\code{list(cutoff = 0)}). A character vector is several references;
+an unnamed list is a list of items; a named list is one value. A string
+must name a catalog entry, file, or folder; wrap a string value in a list
+to hash it (\code{list(rule = ">= 0")}). An entry stored with dependencies and
+read without them (\code{\link[=cache_get]{cache_get()}}, or a call that leaves \code{depends_on} out)
+is checked against its files, folders, and catalog entries, and a change
+is a miss with a warning. Records are shared with framework-py.}
 }
 \value{
 The cached value (if cache hit) or the result of evaluating expr
@@ -53,6 +67,11 @@ result <- cache_remember("my_analysis", {
 result <- cache_remember("analysis", {
   run_analysis()
 }, refresh = file.mtime("data.csv") > cache_time)
+
+# Recompute when the data, the code, or a parameter changes
+fit <- cache_remember("lpa_fit", {
+  fit_lpa(data_read("inputs.final.cohort"), k = 4)
+}, depends_on = list("inputs.final.cohort", "functions/lpa.R", list(k = 4)))
 }
 }
 

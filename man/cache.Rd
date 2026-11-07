@@ -4,7 +4,7 @@
 \alias{cache}
 \title{Cache a value}
 \usage{
-cache(name, value, file = NULL, expire_after = NULL)
+cache(name, value, file = NULL, expire_after = NULL, depends_on = NULL)
 }
 \arguments{
 \item{name}{The cache name}
@@ -14,6 +14,10 @@ cache(name, value, file = NULL, expire_after = NULL)
 \item{file}{Optional file path to store the cache (default: \verb{cache/\{name\}.rds})}
 
 \item{expire_after}{Optional expiration time in hours (default: from config)}
+
+\item{depends_on}{What the value was computed from, recorded with it: a
+catalog name, a file or folder path, any other value, or a list of these.
+See \code{\link[=cache_remember]{cache_remember()}}. Without it, any recorded dependencies are removed.}
 }
 \value{
 The cached value

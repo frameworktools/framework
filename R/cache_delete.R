@@ -37,6 +37,7 @@
       }
     )
   }
+  .fw_depends_forget(name)
 }
 
 #' Remove a cached value
@@ -99,6 +100,7 @@ cache_flush <- function() {
       }
     )
   }
+  .fw_depends_forget()
 
   invisible(NULL)
 }

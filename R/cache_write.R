@@ -129,13 +129,25 @@
 #' @param value The value to cache
 #' @param file Optional file path to store the cache (default: `cache/{name}.rds`)
 #' @param expire_after Optional expiration time in hours (default: from config)
+#' @param depends_on What the value was computed from, recorded with it: a
+#'   catalog name, a file or folder path, any other value, or a list of these.
+#'   See [cache_remember()]. Without it, any recorded dependencies are removed.
 #' @return The cached value
 #' @export
-cache <- function(name, value, file = NULL, expire_after = NULL) {
+cache <- function(name, value, file = NULL, expire_after = NULL, depends_on = NULL) {
   # Validate arguments
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_string(file, min.chars = 1, null.ok = TRUE)
 
   expire_after <- .normalize_expire_after(expire_after)
-  .set_cache(name, value, file, expire_after)
+  dependencies <- if (!is.null(depends_on)) .fw_depends_resolve(depends_on) else NULL
+  .fw_cache_store(name, value, file, expire_after, dependencies)
+}
+
+# Store a value and record its dependencies (NULL removes them)
+#' @keywords internal
+.fw_cache_store <- function(name, value, file, expire_after, dependencies) {
+  result <- .set_cache(name, value, file, expire_after)
+  .fw_depends_record(name, dependencies)
+  result
 }

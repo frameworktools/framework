@@ -15,7 +15,9 @@ cache_get(name, file = NULL, expire_after = NULL)
 \code{\link[=cache]{cache()}} or \code{\link[=cache_remember]{cache_remember()}}. Kept so older code still runs.}
 }
 \value{
-The cached value, or NULL if not found, expired, or hash mismatch
+The cached value, or NULL if not found, expired, or hash mismatch.
+A value stored with \code{depends_on} also counts as missing, with a warning,
+when a file, folder, or catalog entry it depends on has changed since.
 }
 \description{
 Get a cached value
