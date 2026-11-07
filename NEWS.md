@@ -116,6 +116,9 @@ Adopting and upgrading projects:
   folders, so the same tree maps the same way in R, Python, and fw.
 * Setting a folder to "(other folder)" in `adopt()`'s review numbers its key
   (`_2`, `_3`) when another folder has it, rather than replacing that folder.
+* `adopt()` adopts a folder with no subfolders, such as a single
+  `analysis.qmd`, with no folders in `settings.yml`, rather than stopping with
+  "No folders found to map".
 
 # framework 2.0.0
 

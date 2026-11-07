@@ -46,7 +46,7 @@ adopt <- function(path = ".", yes = FALSE) {
          call. = FALSE)
   }
 
-  mapping <- .adopt_review(.adopt_map(.adopt_scan(path)), yes = yes)
+  mapping <- .adopt_review(.adopt_map(.adopt_scan(path)), yes = yes, allow_empty = TRUE)
   name <- basename(normalizePath(path))
   spec <- .adopt_spec(mapping, name)
 
@@ -241,10 +241,14 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 # leave a folder out. With private-looking folders, an interactive review
 # also asks whether the project holds sensitive data; yes = TRUE never sets it.
 #' @keywords internal
-.adopt_review <- function(mapping, yes = FALSE, ask_sensitive = TRUE) {
+.adopt_review <- function(mapping, yes = FALSE, ask_sensitive = TRUE, allow_empty = FALSE) {
   mapping$sensitive <- FALSE
   if (length(mapping$directories) + length(mapping$extra_directories) == 0) {
-    stop("No folders found to map. Nothing was changed.", call. = FALSE)
+    if (!allow_empty) stop("No folders found to map. Nothing was changed.", call. = FALSE)
+    # A project of loose files (one analysis.qmd) is still a project: its
+    # settings list no folders, and folders are added as they are made
+    message("No folders to map: settings.yml will list none. Add folders to it as you make them.")
+    return(mapping)
   }
   for (w in mapping$warnings) {
     warning("'", w$path, "' looks private. Keep it out of git and away from AI assistants.",

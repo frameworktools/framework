@@ -206,3 +206,15 @@ test_that("a folder set to (other folder) by hand gets a key no other folder has
   mapping <- framework:::.adopt_set_role(mapping, "Scripts", "(other folder)")
   expect_identical(mapping$extra_directories$scripts_2$path, "Scripts")
 })
+
+test_that("a folder with no subfolders can be adopted", {
+  dir <- withr::local_tempdir()
+  writeLines(c("```{r}", "1", "```"), file.path(dir, "analysis.qmd"))
+  expect_message(adopt(dir, yes = TRUE), "No folders to map")
+  settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
+  expect_length(settings$directories, 0)
+  expect_true(file.exists(file.path(dir, ".framework", "spec.json")))
+  # Saving an empty layout as a structure still makes no sense
+  local_mocked_bindings(.fw_require_token = function(url = NULL) "fw_test")
+  expect_error(structure_import(withr::local_tempdir(), yes = TRUE), "No folders found")
+})
