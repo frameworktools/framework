@@ -13,7 +13,8 @@ A project's type is a label for the blueprint it came from. Framework builds eac
 - **Tools**: Quarto, renv, targets, Jupyter, and others.
 - **Sets**: package sets and AI skill sets.
 
-Framework ships five structures:
+Framework ships five structures with the package, and two R app structures
+on Framework Cloud:
 
 | Type | Best For |
 |------|----------|
@@ -21,7 +22,11 @@ Framework ships five structures:
 | **Privacy Sensitive Project** (`project_sensitive`) | Research with private/public data separation |
 | **Course/Teaching** (`course`) | Academic courses with lectures and assignments |
 | **Presentation** (`presentation`) | Slides and presentations |
+| **Shiny app** (`shiny`) | Shiny apps. See [Shiny app](guide:shiny-app). |
+| **Plumber API** (`plumber`) | Web APIs. See [Plumber API](guide:plumber-api). |
 | **Bare** (`bare`) | Your own structure |
+
+The app types come from Framework Cloud, so they need `cloud_login()` first.
 
 Any lowercase id works as `type`. A Framework Cloud blueprint can use its own label. Offline, an unknown label builds the default layout and warns.
 
