@@ -156,6 +156,13 @@ test_that("quarto_regenerate() keeps a customized config and adds only missing k
   dir.create(file.path(tmp, "notebooks"))
   writeLines("project:\n  output-dir: ../outputs/notebooks", file.path(tmp, "notebooks", "_quarto.yml"))
 
+  # While notebooks/ keeps its own Quarto project, the root keeps the old
+  # layout: an output-dir would move where root documents render
+  kept <- suppressMessages(quarto_regenerate(tmp, dry_run = TRUE))
+  expect_identical(kept$kept, "notebooks/_quarto.yml")
+  expect_true("_quarto.yml" %in% kept$unchanged)
+  unlink(file.path(tmp, "notebooks", "_quarto.yml"))
+
   dry <- suppressMessages(quarto_regenerate(tmp, dry_run = TRUE))
   expect_identical(readLines(file.path(tmp, "_quarto.yml")), custom)
   # The root gains a key, and notebooks/ (HTML in a revealjs project) gets
@@ -170,9 +177,6 @@ test_that("quarto_regenerate() keeps a customized config and adds only missing k
   parsed <- yaml::read_yaml(file.path(tmp, "_quarto.yml"))
   expect_identical(parsed$format$revealjs$theme, c("default", "assets/jhu.scss"))
   expect_false(parsed$execute$eval)
-  # The per-folder project stays, and is reported
-  expect_true(file.exists(file.path(tmp, "notebooks", "_quarto.yml")))
-  expect_identical(result$kept, "notebooks/_quarto.yml")
   expect_identical(result$backed_up, "_quarto.yml")
 
   # Run again: nothing to do

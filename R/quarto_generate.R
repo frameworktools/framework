@@ -425,18 +425,6 @@ quarto_regenerate <- function(project_path, backup = TRUE, overwrite = FALSE, dr
                             overwrite = FALSE, remove_legacy = FALSE) {
   plan <- .quarto_plan(project_type, render_dirs, quarto_settings, directories)
   planned <- vapply(plan, `[[`, "", "path")
-  write <- list()
-  unchanged <- character()
-  for (file in plan) {
-    path <- file.path(project_path, file$path)
-    if (!file.exists(path)) {
-      write[[file$path]] <- file$lines
-      next
-    }
-    current <- readLines(path, warn = FALSE)
-    new <- if (overwrite) file$lines else .quarto_add_missing_keys(current, file$lines)
-    if (identical(new, current)) unchanged <- c(unchanged, file$path) else write[[file$path]] <- new
-  }
 
   # Projects made before one root config have a _quarto.yml in each render
   # folder. Each is a separate Quarto project that ignores the root.
@@ -448,6 +436,22 @@ quarto_regenerate <- function(project_path, backup = TRUE, overwrite = FALSE, dr
       rel <- file.path(source, name)
       if (file.exists(file.path(project_path, rel)) && !rel %in% planned) legacy <- c(legacy, rel)
     }
+  }
+  # While those stay, the existing files keep the old layout as it is: an
+  # output-dir added to the root would move where root documents render
+  keep_layout <- length(legacy) > 0 && !remove_legacy
+
+  write <- list()
+  unchanged <- character()
+  for (file in plan) {
+    path <- file.path(project_path, file$path)
+    if (!file.exists(path)) {
+      write[[file$path]] <- file$lines
+      next
+    }
+    current <- readLines(path, warn = FALSE)
+    new <- if (overwrite) file$lines else if (keep_layout) current else .quarto_add_missing_keys(current, file$lines)
+    if (identical(new, current)) unchanged <- c(unchanged, file$path) else write[[file$path]] <- new
   }
   list(
     write = write,
