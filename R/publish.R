@@ -699,18 +699,13 @@ publish_notebook <- function(file,
     stop("Quarto render failed:\n", paste(result, collapse = "\n"), call. = FALSE)
   }
 
-  # Find the output file. Inside a Quarto project, Quarto keeps the source
-  # folder under --output-dir (notebooks/x.qmd -> <tmp>/notebooks/x.html).
-  expected <- paste0(tools::file_path_sans_ext(basename(file)), ".html")
-  output_files <- list.files(temp_dir, pattern = "\\.html$", full.names = TRUE, recursive = TRUE)
-  output_files <- output_files[!grepl("_files/", output_files, fixed = TRUE)]
-  if (length(output_files) == 0) {
-    stop("No HTML output found after rendering", call. = FALSE)
-  }
-
-  named <- output_files[basename(output_files) == expected]
-  main_output <- if (length(named)) named[1] else output_files[1]
-  output_root <- dirname(main_output)
+  # Keep only the page and its _files folder. Inside a Quarto project,
+  # Quarto keeps the source folder under --output-dir (notebooks/x.qmd ->
+  # <tmp>/notebooks/x.html) and mirrors resources such as outputs/ there.
+  output_root <- tempfile("publish_page_")
+  dir.create(output_root)
+  on.exit(unlink(output_root, recursive = TRUE), add = TRUE)
+  main_output <- .fw_stage_rendered_page(temp_dir, file, output_root)
 
   # Determine base destination (without extension)
   if (is.null(dest)) {

@@ -176,3 +176,32 @@ test_that("the Pages URL comes from /api/v1/me with the project token", {
   expect_true(res$known)
   expect_identical(res$pages_url, "https://ada.github.io/study/")
 })
+
+test_that("only the rendered page and its _files folder are staged", {
+  rendered <- withr::local_tempdir()
+  stage <- withr::local_tempdir()
+  dir.create(file.path(rendered, "notebooks", "report_files", "libs"), recursive = TRUE)
+  dir.create(file.path(rendered, "outputs", "figures"), recursive = TRUE)
+  writeLines("<p>r</p>", file.path(rendered, "notebooks", "report.html"))
+  writeLines("css", file.path(rendered, "notebooks", "report_files", "libs", "a.css"))
+  writeLines("png", file.path(rendered, "outputs", "figures", "p.png"))
+  writeLines("<p>o</p>", file.path(rendered, "notebooks", "other.html"))
+  framework:::.fw_stage_rendered_page(rendered, "notebooks/report.qmd", stage)
+  expect_setequal(list.files(stage, recursive = TRUE), c("report.html", "report_files/libs/a.css"))
+  expect_error(framework:::.fw_stage_rendered_page(rendered, "missing.qmd", withr::local_tempdir()),
+               "No HTML output found after rendering missing.qmd")
+})
+
+test_that("a rendered notebook leaves out the folders Quarto mirrors", {
+  skip_on_cran()
+  skip_if(!nzchar(Sys.which("quarto")), "quarto not installed")
+  dir <- withr::local_tempdir()
+  dir.create(file.path(dir, "notebooks"))
+  dir.create(file.path(dir, "outputs"))
+  writeLines(c("project:", "  type: default", "  output-dir: outputs"), file.path(dir, "_quarto.yml"))
+  writeBin(as.raw(c(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)), file.path(dir, "outputs", "p.png"))
+  writeLines(c("---", "title: R", "---", "", "![p](../outputs/p.png)"), file.path(dir, "notebooks", "report.qmd"))
+  stage <- suppressMessages(framework:::.fw_github_stage(file.path(dir, "notebooks", "report.qmd"), TRUE))
+  on.exit(unlink(stage, recursive = TRUE), add = TRUE)
+  expect_identical(list.files(stage, recursive = TRUE, all.files = TRUE), "index.html")
+})

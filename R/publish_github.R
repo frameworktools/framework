@@ -107,6 +107,26 @@
   NULL
 }
 
+# Copy only the rendered page for `source` from a render folder into `stage`:
+# <name>.html, and its <name>_files/ folder when there is one (a
+# self-contained render has none). Other files the render left there, such
+# as folders Quarto mirrors from the project, stay behind.
+#' @keywords internal
+.fw_stage_rendered_page <- function(rendered, source, stage) {
+  main <- paste0(tools::file_path_sans_ext(basename(source)), ".html")
+  found <- list.files(rendered, recursive = TRUE, full.names = TRUE, all.files = TRUE)
+  found <- found[basename(found) == main]
+  if (length(found) == 0) {
+    stop("No HTML output found after rendering ", basename(source), call. = FALSE)
+  }
+  # The shallowest match is the page (a _files folder can't hold its own name)
+  page <- found[order(nchar(found))][1]
+  file.copy(page, stage)
+  assets <- file.path(dirname(page), paste0(tools::file_path_sans_ext(main), "_files"))
+  if (dir.exists(assets)) file.copy(assets, stage, recursive = TRUE)
+  invisible(file.path(stage, main))
+}
+
 # Stage `source` as a folder whose front page is index.html. Takes rendered
 # HTML (with its <name>_files/ folder), a render output folder, or a .qmd or
 # .Rmd to render.
@@ -131,27 +151,20 @@
     if (!nzchar(quarto)) {
       stop("Rendering requires the quarto CLI on your PATH.", call. = FALSE)
     }
-    args <- c("render", shQuote(normalizePath(source)), "--output-dir", shQuote(stage), "--to", "html")
+    # Render to a folder of its own: inside a Quarto project, Quarto mirrors
+    # the project's folders there (notebooks/x.html, and resources such as
+    # outputs/), and only the page and its own _files folder are published
+    rendered <- tempfile("fw_render_")
+    dir.create(rendered)
+    on.exit(unlink(rendered, recursive = TRUE), add = TRUE)
+    args <- c("render", shQuote(normalizePath(source)), "--output-dir", shQuote(rendered), "--to", "html")
     if (self_contained) args <- c(args, "--embed-resources")
     message("Rendering ", basename(source), "...")
     result <- system2(quarto, args, stdout = TRUE, stderr = TRUE)
     if (!is.null(attr(result, "status")) && attr(result, "status") != 0) {
       stop("Quarto render failed:\n", paste(result, collapse = "\n"), call. = FALSE)
     }
-    # Inside a Quarto project the output keeps the file's folder
-    # (notebooks/x.qmd renders to <stage>/notebooks/x.html): move it up
-    main <- paste0(tools::file_path_sans_ext(basename(source)), ".html")
-    found <- list.files(stage, pattern = paste0("^", gsub(".", "\\.", main, fixed = TRUE), "$"),
-                        recursive = TRUE, full.names = TRUE)
-    if (length(found) > 0 && !identical(normalizePath(dirname(found[1])), normalizePath(stage))) {
-      inner <- dirname(found[1])
-      rel <- substring(normalizePath(inner), nchar(normalizePath(stage)) + 2)
-      top <- file.path(stage, strsplit(rel, "/", fixed = TRUE)[[1]][1])
-      for (item in list.files(inner, full.names = TRUE, all.files = TRUE, no.. = TRUE)) {
-        file.rename(item, file.path(stage, basename(item)))
-      }
-      unlink(top, recursive = TRUE)
-    }
+    .fw_stage_rendered_page(rendered, source, stage)
   } else if (ext == "rmd") {
     if (!requireNamespace("rmarkdown", quietly = TRUE)) {
       stop("Rendering .Rmd requires the rmarkdown package.", call. = FALSE)

@@ -82,6 +82,10 @@ Fixes:
   `name` with `/` names.
 * `publish_data()`'s message shows the normalized slug, and `publish_dir()`
   keeps the folder part of `dest` in the slug.
+* `publish_notebook()` publishes only the rendered page: the HTML and its
+  own `_files` folder, or the HTML alone for a self-contained render. It no
+  longer copies folders such as `outputs/` that Quarto mirrors into the
+  render folder.
 * `db_execute()`, `db_transaction()`, `db_execute_file()`, and
   `db_copy_from()` refuse a read-only connection with one message that says
   whether the mode came from its settings or from `read_only = TRUE` in the
