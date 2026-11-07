@@ -600,7 +600,11 @@ add_project_to_config <- function(project_dir, project_name = NULL, project_type
 
 #' List all projects in global configuration
 #'
-#' @return Data frame with project information
+#' Lists the projects in the registry. A project whose folder no longer
+#' exists (such as one made in a temporary folder) is marked `exists = FALSE`
+#' and a message names it; remove it with [remove_project_from_config()].
+#'
+#' @return Data frame with columns `id`, `path`, `created`, and `exists`
 #' @export
 project_list <- function() {
   config <- read_frameworkrc()
@@ -610,12 +614,13 @@ project_list <- function() {
       id = integer(0),
       path = character(0),
       created = character(0),
+      exists = logical(0),
       stringsAsFactors = FALSE
     ))
   }
 
   # Convert to data frame and ensure IDs are integers
-  do.call(rbind, lapply(config$projects, function(p) {
+  projects <- do.call(rbind, lapply(config$projects, function(p) {
     data.frame(
       id = as.integer(p$id),
       path = as.character(p$path),
@@ -623,6 +628,18 @@ project_list <- function() {
       stringsAsFactors = FALSE
     )
   }))
+  projects$exists <- dir.exists(path.expand(projects$path))
+
+  missing <- projects[!projects$exists, , drop = FALSE]
+  if (nrow(missing) > 0) {
+    message(sprintf(
+      "%d registered project folder%s no longer exist%s: %s. Remove %s with remove_project_from_config(id).",
+      nrow(missing), if (nrow(missing) == 1) "" else "s", if (nrow(missing) == 1) "s" else "",
+      paste0(missing$path, " (id ", missing$id, ")", collapse = ", "),
+      if (nrow(missing) == 1) "it" else "them"
+    ))
+  }
+  projects
 }
 
 #' Remove project from global configuration

@@ -169,7 +169,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     if (isTRUE(spec$git$use_git)) {
       .init_git_repo(project_dir, spec$git$hooks)
     }
-    if (!grepl("^/tmp/|^/var/folders/", project_dir)) {
+    if (!.fw_temp_path(project_dir)) {
       project_id <- add_project_to_config(project_dir)
     }
   }

@@ -4,7 +4,10 @@
 #
 # FW_PROJECT_TOKEN is cleared too, and FW_CLOUD_URL points at a closed local
 # port, so a token that slips through never reaches framework.pub.
+# FW_CONFIG_HOME points at a folder of the run's own, so no test reads or
+# writes the user's global settings or adds projects to their registry.
 withr::local_envvar(
+  FW_CONFIG_HOME = file.path(tempdir(), "fw-test-config-home"),
   FW_CLOUD_TOKEN = "",
   FW_PROJECT_TOKEN = "",
   FW_CLOUD_URL = "http://127.0.0.1:9",

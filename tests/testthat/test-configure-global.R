@@ -693,3 +693,26 @@ test_that("configure_global preserves directories_enabled when updating other fi
   expect_equal(saved$project_types$project$directories_enabled$outputs_tables, FALSE)
   expect_equal(saved$author$name, "New Author")
 })
+
+test_that("tests never use the real global config folder", {
+  expect_true(startsWith(fw_config_dir(), tempdir()))
+})
+
+test_that("project_list() marks projects whose folders are gone", {
+  cleanup <- setup_isolated_config()
+  on.exit(cleanup(), add = TRUE)
+  here <- withr::local_tempdir()
+  suppressWarnings(add_project_to_config(here))
+  suppressWarnings(add_project_to_config(file.path(tempdir(), "gone-project-xyz")))
+  expect_message(projects <- project_list(), "1 registered project folder no longer exists")
+  expect_identical(projects$exists, c(TRUE, FALSE))
+  remove_project_from_config(projects$id[!projects$exists])
+  expect_silent(projects <- project_list())
+  expect_identical(nrow(projects), 1L)
+})
+
+test_that("projects made in temporary folders are not registered", {
+  expect_true(framework:::.fw_temp_path(file.path(tempdir(), "p")))
+  expect_true(framework:::.fw_temp_path("/private/var/folders/ab/T/p"))
+  expect_false(framework:::.fw_temp_path("/Users/someone/Projects/p"))
+})

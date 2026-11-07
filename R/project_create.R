@@ -208,7 +208,7 @@ project_create <- function(
 
   # Add to project registry (skip for temp directories used in tests)
   project_id <- NULL
-  if (!grepl("^/tmp/|^/var/folders/", project_dir)) {
+  if (!.fw_temp_path(project_dir)) {
     project_id <- add_project_to_config(project_dir)
   }
 
@@ -219,6 +219,19 @@ project_create <- function(
     path = project_dir,
     id = project_id
   )
+}
+
+# Projects in temporary folders (tests, scratch runs) are left out of the
+# registry, so project_list() doesn't fill with folders that vanish
+#' @keywords internal
+.fw_temp_path <- function(path) {
+  path <- normalizePath(path, winslash = "/", mustWork = FALSE)
+  temp <- unique(c(
+    normalizePath(tempdir(), winslash = "/", mustWork = FALSE),
+    normalizePath(dirname(tempdir()), winslash = "/", mustWork = FALSE)
+  ))
+  grepl("^(/private)?(/tmp|/var/folders)/", path) ||
+    any(startsWith(path, paste0(temp, "/")))
 }
 
 # Directory entries that name a file (presentation: presentation.qmd), which

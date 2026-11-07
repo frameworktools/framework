@@ -7,8 +7,10 @@
 project_list()
 }
 \value{
-Data frame with project information
+Data frame with columns \code{id}, \code{path}, \code{created}, and \code{exists}
 }
 \description{
-List all projects in global configuration
+Lists the projects in the registry. A project whose folder no longer
+exists (such as one made in a temporary folder) is marked \code{exists = FALSE}
+and a message names it; remove it with \code{\link[=remove_project_from_config]{remove_project_from_config()}}.
 }
