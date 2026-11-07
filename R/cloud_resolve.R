@@ -72,8 +72,8 @@
   }
   if (code %in% c(401L, 403L)) {
     stop(
-      host, " refused your token (HTTP ", code, "). Sign in again with framework::cloud_login(), ",
-      "or pass offline = TRUE to create the project without Framework Cloud.",
+      host, " refused your token (HTTP ", code, "). Sign in again. ", .fw_login_hint(url),
+      " Or pass offline = TRUE to create the project without Framework Cloud.",
       call. = FALSE
     )
   }

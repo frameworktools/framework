@@ -374,3 +374,28 @@ test_that("collection preflight and attachment preserve a successful publication
   expect_error(publish("figure.png", to = "cloud", slug = FALSE, collection = 7L), "share_unlisted")
   expect_identical(uploads, 2L)
 })
+
+test_that("cloud_status() and token errors give the same login advice", {
+  hint <- framework:::.fw_login_hint("https://framework.pub")
+  expect_identical(hint, paste0(
+    "Run framework::cloud_login() to approve this computer in your browser, or create a token at ",
+    "https://framework.pub/tokens and run framework::cloud_login(\"fw_...\")."
+  ))
+  other <- framework:::.fw_login_hint("https://cloud.example.org")
+  expect_match(other, 'framework::cloud_login(url = "https://cloud.example.org")', fixed = TRUE)
+  expect_match(other, 'framework::cloud_login("fw_...", url = "https://cloud.example.org")', fixed = TRUE)
+
+  testthat::local_mocked_bindings(.fw_cloud_token = function(...) NULL)
+  err <- tryCatch(framework:::.fw_require_token("https://framework.pub"), error = conditionMessage)
+  expect_true(grepl(hint, err, fixed = TRUE))
+  expect_true(grepl("cloud_login() to approve", err, fixed = TRUE))
+})
+
+test_that("cloud_status() gives the shared login hint when not connected", {
+  testthat::local_mocked_bindings(.fw_cloud_token = function(...) NULL)
+  withr::local_envvar(FW_CLOUD_URL = "https://cloud.example.org")
+  withr::local_dir(withr::local_tempdir())
+  msgs <- capture.output(connected <- cloud_status(), type = "message")
+  expect_false(connected)
+  expect_true(any(grepl(framework:::.fw_login_hint("https://cloud.example.org"), msgs, fixed = TRUE)))
+})

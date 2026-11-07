@@ -385,18 +385,29 @@
   httr2::resp_body_json(httr2::req_perform(req))
 }
 
+# How to connect to a server: browser login first, a pasted token for
+# scripts, with url = for servers other than framework.pub. cloud_status()
+# and every call that needs a token give the same advice, as framework-py
+# does.
+#' @keywords internal
+.fw_login_hint <- function(url) {
+  where <- if (.fw_is_default_cloud(url)) "" else sprintf('url = "%s"', url)
+  browser <- sprintf("framework::cloud_login(%s)", where)
+  token <- if (nzchar(where)) {
+    sprintf('framework::cloud_login("fw_...", %s)', where)
+  } else {
+    'framework::cloud_login("fw_...")'
+  }
+  paste0("Run ", browser, " to approve this computer in your browser, or create a token at ",
+         url, "/tokens and run ", token, ".")
+}
+
 #' @keywords internal
 .fw_require_token <- function(url = .fw_cloud_url()) {
   token <- .fw_cloud_token(url)
   if (is.null(token)) {
-    login <- if (.fw_is_default_cloud(url)) {
-      'framework::cloud_login("fw_...")'
-    } else {
-      sprintf('framework::cloud_login("fw_...", url = "%s")', url)
-    }
     stop(
-      "No cloud token found for ", .fw_cloud_host(url), ". Create one at ",
-      url, "/tokens and run:\n  ", login,
+      "No cloud token found for ", .fw_cloud_host(url), ". ", .fw_login_hint(url),
       call. = FALSE
     )
   }
@@ -764,12 +775,7 @@ cloud_status <- function(url = NULL) {
   token <- .fw_cloud_token(server$url)
 
   if (is.null(token)) {
-    login <- if (.fw_is_default_cloud(server$url)) {
-      "cloud_login()"
-    } else {
-      sprintf('cloud_login(token, url = "%s")', server$url)
-    }
-    message("Not connected. Run ", login, " to connect.")
+    message("Not connected. ", .fw_login_hint(server$url))
     return(invisible(FALSE))
   }
 
