@@ -33,6 +33,14 @@ With \code{public = TRUE}, a model that holds data rows is saved with a
 warning, since the rows go to the public folder with it. Refit with
 \code{model = FALSE} (and without \code{y = TRUE} or \code{x = TRUE}), or save the
 estimates with \code{\link[=save_table]{save_table()}}. \code{\link[=load_model]{load_model()}} reads a saved model back.
+
+In a project with \code{security: sensitive: true}, \code{\link[=save_table]{save_table()}},
+\code{\link[=save_figure]{save_figure()}}, and \code{save_model()} with \code{public = TRUE} warn after
+saving when this session has read private data with \code{\link[=data_read]{data_read()}} (a
+catalog entry that is private, or a file in a folder named like private,
+confidential, or sensitive). The save still happens; check that the
+output holds only aggregated or de-identified results before sharing it.
+A model that also holds data rows gives one warning naming both.
 }
 \examples{
 \donttest{

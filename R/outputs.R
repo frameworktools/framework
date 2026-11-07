@@ -302,6 +302,7 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
   }, error = function(e) {
     cli::cli_abort("Failed to save table: {e$message}")
   })
+  .fw_warn_public_save(file_path, public)
 
   invisible(file_path)
 }
@@ -417,6 +418,7 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
     }, error = function(e) {
       cli::cli_abort("Failed to save figure: {e$message}")
     })
+    .fw_warn_public_save(file_path, public)
   }
 
   invisible(file_paths)
@@ -524,6 +526,14 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
 #'   `model = FALSE` (and without `y = TRUE` or `x = TRUE`), or save the
 #'   estimates with [save_table()]. [load_model()] reads a saved model back.
 #'
+#'   In a project with `security: sensitive: true`, [save_table()],
+#'   [save_figure()], and `save_model()` with `public = TRUE` warn after
+#'   saving when this session has read private data with [data_read()] (a
+#'   catalog entry that is private, or a file in a folder named like private,
+#'   confidential, or sensitive). The save still happens; check that the
+#'   output holds only aggregated or de-identified results before sharing it.
+#'   A model that also holds data rows gives one warning naming both.
+#'
 #' @examples
 #' \donttest{
 #' if (FALSE) {
@@ -539,7 +549,7 @@ save_model <- function(model, name, public = FALSE, overwrite = TRUE, ...) {
   checkmate::assert_flag(public)
   checkmate::assert_flag(overwrite)
   # A public model that holds data rows warns before saving
-  .fw_warn_model_rows(model, name, public)
+  rows_warned <- .fw_warn_model_rows(model, name, public, .fw_private_read_note())
 
   # Get the appropriate models directory
   models_dir <- .output_dir("models", public)
@@ -571,6 +581,8 @@ save_model <- function(model, name, public = FALSE, overwrite = TRUE, ...) {
   }, error = function(e) {
     cli::cli_abort("Failed to save model: {e$message}")
   })
+  # One warning per save: the data rows warning names the private reads
+  if (!rows_warned) .fw_warn_public_save(file_path, public)
 
   invisible(file_path)
 }

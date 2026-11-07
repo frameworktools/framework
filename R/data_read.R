@@ -14,12 +14,19 @@
 #' padded number such as `"   1"` reads as a number. Pass `trim_ws = FALSE` to
 #' keep the whitespace.
 #' @return The loaded data, typically a data frame or tibble.
+#' @details A read of private data (a catalog entry that [data_info()] marks
+#'   private, or a file in a folder named like private, confidential, or
+#'   sensitive) is remembered for the session. In a project with
+#'   `security: sensitive: true`, public saves with [save_table()],
+#'   [save_figure()], and [save_model()] then warn.
 #' @export
 data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
   # Validate arguments
   checkmate::assert_string(path, min.chars = 1)
   checkmate::assert_choice(delim, c("comma", "tab", "semicolon", "space", ",", "\t", ";", " "), null.ok = TRUE)
   checkmate::assert_flag(keep_attributes)
+  # The name as the caller gave it, for the session's list of private reads
+  given <- path
 
   # Check if path is a direct file path: a relative path is looked for
   # from the project root, then from the working directory
@@ -162,6 +169,7 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
     message(sprintf("Note: %s: %s", path, spec$description))
   }
 
+  .fw_note_private_read(given, spec)
   data
 }
 
@@ -503,12 +511,13 @@ data_read_or_cache <- function(path, expire_after = NULL, refresh = FALSE) {
 #' @keywords internal
 .get_data_record <- function(name) {
   con <- .get_db_connection()
+  # Closed on error too (a framework.db without a data table)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
   result <- DBI::dbGetQuery(
     con,
     "SELECT hash FROM data WHERE name = ?",
     list(name)
   )
-  DBI::dbDisconnect(con)
 
   if (nrow(result) == 0) {
     return(NULL)
