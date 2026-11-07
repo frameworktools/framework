@@ -1,0 +1,27 @@
+{
+  "description": "Two or more course folders at the top level make a course: course rules apply first, data/ covers its subfolders, and modules/ is the notebooks folder.",
+  "folders": [
+    "slides",
+    "modules",
+    "modules/01_intro",
+    "assignments",
+    "data",
+    "data/raw",
+    "readings",
+    "scripts"
+  ],
+  "expected": {
+    "type": "course",
+    "directories": {
+      "data": "data",
+      "slides": "slides",
+      "assignments": "assignments",
+      "readings": "readings",
+      "notebooks": "modules",
+      "scripts": "scripts"
+    },
+    "extra_directories": {},
+    "render_dirs": {},
+    "warnings": []
+  }
+}

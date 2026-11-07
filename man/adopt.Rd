@@ -26,6 +26,13 @@ folder out. It then writes \code{settings.yml} (a single file) and
 created, moved, or overwritten, and \code{scaffold()} works afterwards.
 }
 \details{
+The project type follows from the folders: \code{course} when there are course
+folders such as \verb{slides/} and \verb{modules/}, \code{project_sensitive} when private
+and public folders such as \verb{inputs/private/raw/} match the Privacy Sensitive
+layout, \code{project} when any folder matches a Framework directory, and \code{bare}
+otherwise. Framework's \verb{settings/} folder and Quarto's \verb{*_files/} render
+folders are never proposed, and \verb{outputs/notebooks/} becomes a render folder.
+
 Folders whose path contains "private" are flagged: consider the Privacy
 Sensitive structure for that project, and keep those folders out of git.
 

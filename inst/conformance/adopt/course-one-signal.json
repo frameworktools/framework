@@ -1,0 +1,24 @@
+{
+  "description": "One course-like folder is not enough for a course; modules/ stays an extra directory and data/raw is inputs_raw.",
+  "folders": [
+    "modules",
+    "data",
+    "data/raw",
+    "scripts"
+  ],
+  "expected": {
+    "type": "project",
+    "directories": {
+      "inputs_raw": "data/raw",
+      "scripts": "scripts"
+    },
+    "extra_directories": {
+      "modules": {
+        "label": "modules",
+        "path": "modules"
+      }
+    },
+    "render_dirs": {},
+    "warnings": []
+  }
+}

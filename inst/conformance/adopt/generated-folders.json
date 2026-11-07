@@ -13,6 +13,7 @@
     "scripts"
   ],
   "expected": {
+    "type": "project",
     "directories": {
       "scripts": "scripts",
       "notebooks": "notebooks"

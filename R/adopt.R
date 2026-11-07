@@ -8,6 +8,13 @@
 #' `.framework/spec.json` describing the folders as they are. Nothing else is
 #' created, moved, or overwritten, and `scaffold()` works afterwards.
 #'
+#' The project type follows from the folders: `course` when there are course
+#' folders such as `slides/` and `modules/`, `project_sensitive` when private
+#' and public folders such as `inputs/private/raw/` match the Privacy Sensitive
+#' layout, `project` when any folder matches a Framework directory, and `bare`
+#' otherwise. Framework's `settings/` folder and Quarto's `*_files/` render
+#' folders are never proposed, and `outputs/notebooks/` becomes a render folder.
+#'
 #' Folders whose path contains "private" are flagged: consider the Privacy
 #' Sensitive structure for that project, and keep those folders out of git.
 #'
@@ -182,16 +189,21 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 # Map relative folder paths to Framework directory keys. The shared
 # algorithm, documented in inst/conformance/README.md (adopt/):
 # 1. Drop folders deeper than max_depth, or with a skipped or hidden segment.
-# 2. For each rule in order, the first of its paths (in order) that matches
-#    an unassigned folder, ignoring case, gets the rule's key.
-# 3. Folders inside an assigned folder are covered by it.
-# 4. Of the rest, a folder with no assigned folder inside it becomes an
+# 2. The type: the one given, or course when enough top-level folders are
+#    course signals.
+# 3. For each rule that applies to the language and type, in order, and
+#    whose key is still free, the first of its paths (in order) that matches
+#    a folder neither assigned nor inside an assigned folder, ignoring case,
+#    gets the rule's key. render_dirs rules follow, the same way.
+# 4. Folders inside an assigned folder are covered by it.
+# 5. Of the rest, a folder with no assigned folder inside it becomes an
 #    extra directory, unless its parent is one too.
-# 5. Any kept path containing "private" (any case) is a warning.
+# 6. Any kept path containing "private" (any case) is a warning.
+# 7. Without a given type: course, project_sensitive when a private or public
+#    key matched, project when any key matched, and bare otherwise.
 #' @keywords internal
-.adopt_map <- function(folders, language = "r") {
+.adopt_map <- function(folders, language = "r", type = NULL) {
   rules <- .adopt_rules()
-  rules$rules <- Filter(function(r) is.null(r$languages) || language %in% unlist(r$languages), rules$rules)
   skip <- unlist(rules$skip)
   folders <- unique(sub("/+$", "", unlist(folders)))
   folders <- folders[nzchar(folders)]
@@ -200,10 +212,26 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   }, logical(1))
   folders <- sort(folders[keep], method = "radix")
 
+  course <- rules$types$course
+  top <- tolower(folders[!grepl("/", folders, fixed = TRUE)])
+  is_course <- sum(tolower(unlist(course$signals)) %in% top) >= (course$min %||% 2)
+  rule_type <- type %||% if (is_course) "course" else "project"
+  rules$rules <- Filter(function(r) {
+    (is.null(r$languages) || language %in% unlist(r$languages)) &&
+      (is.null(r$types) || rule_type %in% unlist(r$types))
+  }, rules$rules)
+
+  # A folder inside an assigned folder is covered by it and gets no key
+  free <- function(assigned) {
+    assigned <- as.character(unlist(assigned, use.names = FALSE))
+    !folders %in% assigned &
+      !vapply(folders, function(f) any(startsWith(f, paste0(assigned, "/"))), logical(1), USE.NAMES = FALSE)
+  }
   directories <- list()
   for (rule in rules$rules) {
+    if (!is.null(directories[[rule$key]])) next
     for (pattern in unlist(rule$patterns)) {
-      hit <- folders[tolower(folders) == tolower(pattern) & !folders %in% unlist(directories)]
+      hit <- folders[tolower(folders) == tolower(pattern) & free(directories)]
       if (length(hit) > 0) {
         directories[[rule$key]] <- hit[1]
         break
@@ -215,7 +243,7 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   render_dirs <- list()
   for (rule in rules$render_dirs) {
     for (pattern in unlist(rule$patterns)) {
-      hit <- folders[tolower(folders) == tolower(pattern) & !folders %in% unlist(directories)]
+      hit <- folders[tolower(folders) == tolower(pattern) & free(c(directories, render_dirs))]
       if (length(hit) > 0) {
         render_dirs[[rule$key]] <- hit[1]
         break
@@ -238,7 +266,19 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   }
 
   private <- folders[grepl("private", folders, ignore.case = TRUE)]
+  if (is.null(type)) {
+    type <- if (is_course) {
+      "course"
+    } else if (any(grepl(rules$types$project_sensitive$key_pattern, names(directories)))) {
+      "project_sensitive"
+    } else if (length(directories) > 0) {
+      "project"
+    } else {
+      "bare"
+    }
+  }
   list(
+    type = type,
     directories = directories,
     extra_directories = extra_directories,
     render_dirs = render_dirs,
@@ -343,25 +383,36 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   mapping
 }
 
-# The spec adopt() records: a bare project with exactly the mapped folders,
-# no tools, no default packages, and no AI files
+# The spec adopt() records: a project of the mapped type with exactly the
+# mapped folders, no tools, no default packages, and no AI files. The type's
+# own folders and render folders are not added: the spec describes the folder
+# as it is.
 #' @keywords internal
 .adopt_spec <- function(mapping, name) {
+  type <- mapping$type %||% "bare"
   layer <- list(
-    type = "bare", core_files = FALSE, settings_layout = "flat",
+    type = type, core_files = FALSE, settings_layout = "flat",
     tools = list(quarto = FALSE, renv = FALSE),
     directories = mapping$directories,
     extra_directories = mapping$extra_directories,
-    render_dirs = mapping$render_dirs,
     git = list(use_git = FALSE),
     ai = list(enabled = FALSE),
-    security = list(sensitive = isTRUE(mapping$sensitive))
+    security = list(sensitive = isTRUE(mapping$sensitive) || identical(type, "project_sensitive"))
   )
   spec <- spec_resolve(list(list(kind = "project", key = "adopted", layer = layer)), name = name)
+  spec$directories <- .adopt_named(mapping$directories)
+  spec$extra_directories <- .adopt_named(mapping$extra_directories)
+  spec$render_dirs <- .adopt_named(mapping$render_dirs)
   spec$packages$default_packages <- stats::setNames(list(), character())
   spec$skills <- stats::setNames(list(), character())
   spec$source <- list(origin = "r", adopted = TRUE)
   spec
+}
+
+# An empty list that serializes as a JSON object
+#' @keywords internal
+.adopt_named <- function(x) {
+  if (length(x) == 0) stats::setNames(list(), character()) else x
 }
 
 # Prompts, wrapped so tests can answer them

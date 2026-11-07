@@ -8,6 +8,7 @@
     "Docs"
   ],
   "expected": {
+    "type": "project",
     "directories": {
       "inputs_raw": "Data/Raw",
       "scripts": "Scripts",

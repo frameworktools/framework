@@ -1,5 +1,5 @@
 {
-  "description": "Any path containing 'private', in any case, is a warning.",
+  "description": "Any path containing private, in any case, is a warning. data/Private/raw also matches the sensitive layout (inputs_private_raw), which makes the type project_sensitive.",
   "folders": [
     "data",
     "data/Private",
@@ -10,13 +10,15 @@
     "scripts"
   ],
   "expected": {
+    "type": "project_sensitive",
     "directories": {
+      "inputs_private_raw": "data/Private/raw",
       "scripts": "scripts"
     },
     "extra_directories": {
-      "data": {
-        "label": "data",
-        "path": "data"
+      "data_public": {
+        "label": "public",
+        "path": "data/public"
       },
       "outputs": {
         "label": "outputs",

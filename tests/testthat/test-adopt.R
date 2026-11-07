@@ -23,8 +23,12 @@ test_that("adopt() writes settings.yml and the spec record, and nothing else", {
   expect_length(settings$packages$default_packages, 0)
 
   spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
-  expect_identical(spec$type, "bare")
+  expect_identical(spec$type, "project")
   expect_false(spec$security$sensitive)
+  expect_identical(settings$project_type, "project")
+  # Only the mapped folders: none of the type's own folders or render folders
+  expect_setequal(names(spec$directories), c("functions", "scripts", "inputs_raw", "outputs_figures"))
+  expect_length(spec$render_dirs, 0)
   expect_identical(spec$source$origin, "r")
   expect_true(spec$source$adopted)
   withr::with_dir(dir, expect_identical(config("functions"), "R"))
@@ -132,7 +136,7 @@ test_that("adopt() offers to register and to save the layout when signed in", {
   suppressMessages(adopt(dir))
   expect_identical(asked, c("Register this project on cloud.test?",
                             "Save this folder layout as a structure on cloud.test?"))
-  expect_identical(registered$type, "bare")
+  expect_identical(registered$type, "project")
 })
 
 test_that("adopt() writes connections in the layout db_connect() reads", {
@@ -228,4 +232,22 @@ test_that("adopt() leaves settings/ and Quarto's render folders out", {
   expect_null(settings$extra_directories)
   spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
   expect_identical(spec$render_dirs, list(notebooks = "outputs/notebooks"))
+})
+
+test_that("adopt() infers course and privacy-sensitive types from the folders", {
+  dir <- local_folder(c("analysis", "slides", "modules/01", "data/raw"))
+  suppressMessages(adopt(dir, yes = TRUE))
+  settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
+  expect_identical(settings$project_type, "course")
+  expect_identical(settings$directories$data, "data")
+  expect_identical(settings$directories$notebooks, "modules")
+
+  dir <- local_folder(c("analysis", "inputs/private/raw", "inputs/public/raw", "outputs/private/tables"))
+  suppressWarnings(suppressMessages(adopt(dir, yes = TRUE)))
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$type, "project_sensitive")
+  expect_true(spec$security$sensitive)
+  expect_identical(spec$directories$inputs_private_raw, "inputs/private/raw")
+  expect_identical(spec$directories$outputs_private_tables, "outputs/private/tables")
+  expect_length(spec$skills, 0)
 })

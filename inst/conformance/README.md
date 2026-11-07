@@ -55,6 +55,7 @@ directory keys, as `adopt()` and `structure_import()` do. The rules are in
 
 - `folders` is the input: relative folder paths, as a scanner would list
   them. `language` is optional and defaults to `r`.
+- `expected.type` is the inferred project type.
 - `expected.directories` maps Framework keys to folder paths.
 - `expected.extra_directories` maps keys to `{label, path}` for folders no
   rule matched.
@@ -70,27 +71,35 @@ The algorithm:
    A `skip` entry with `*` is a glob: `*` matches any characters within one
    folder name, so `*_files` skips Quarto's `report_files/`. Sort the folders
    by byte value.
-2. Rules apply in file order, skipping rules whose `languages` leave out the
-   project's language (a rule without `languages` applies to every
-   language). For each rule, the first of its `patterns`, in order, that
-   equals an unassigned folder's whole relative path, ignoring case, gives
-   that folder the rule's key. Patterns have no wildcards, so `raw` matches
-   only a top-level `raw/`. A key gets at most one folder.
-3. Then each `render_dirs` rule, in order, gives the first of its patterns
-   that equals a folder not yet assigned the rule's key in `render_dirs`. A
-   folder inside an assigned folder or render folder is covered by it and
-   not listed.
-4. Each remaining folder with no assigned folder inside it becomes an extra
+2. The project is a course when at least `types.course.min` (2) of
+   `types.course.signals` are top-level folders, ignoring case. A type given
+   by the caller (`adopt(type =)`, `fw adopt --type`) replaces this.
+3. Rules apply in file order, skipping rules whose `languages` leave out the
+   project's language and rules whose `types` leave out the type from step 2
+   (`project` unless it is a course). A rule without `languages` or `types`
+   always applies, and a rule whose key already has a folder is skipped. For
+   each rule, the first of its `patterns`, in order, that equals the whole
+   relative path of a folder that is neither assigned nor inside an assigned
+   folder, ignoring case, gives that folder the rule's key. Patterns have no
+   wildcards, so `raw` matches only a top-level `raw/`. A key gets at most
+   one folder.
+4. Then each `render_dirs` rule gives the first of its patterns that matches
+   a folder the same way, under its key in `render_dirs`. A folder inside an
+   assigned folder or render folder is covered by it and not listed.
+5. Each remaining folder with no assigned folder inside it becomes an extra
    directory, unless its parent also qualifies. So `data/` holding only
    matched folders isn't listed, and `archive/` is listed once for
    `archive/2019/` and `archive/2020/`.
-5. An extra directory's key is its path lowercased, with each run of
+6. An extra directory's key is its path lowercased, with each run of
    characters other than `a-z0-9` turned into `_` and leading or trailing
    `_` removed. `dir_` goes in front when the key doesn't start with a
-   letter. A key already used by a rule that applies to the language
-   (assigned or not) or by an earlier extra directory (in byte order of
-   path) gets `_2`, `_3`, and so on. Scanners don't follow links. The label is the folder's
-   own name.
+   letter. A key already used by a rule that applies to the language and
+   type (assigned or not) or by an earlier extra directory (in byte order of
+   path) gets `_2`, `_3`, and so on. Scanners don't follow links. The label
+   is the folder's own name.
+7. Without a given type, the type is `course` from step 2, else
+   `project_sensitive` when a key matching `types.project_sensitive.key_pattern`
+   has a folder, else `project` when any key has a folder, else `bare`.
 
 Only paths relative to the project folder are checked for "private", so a
 parent folder such as macOS's `/private/tmp` never warns.

@@ -8,6 +8,7 @@
     "IRB"
   ],
   "expected": {
+    "type": "bare",
     "directories": {},
     "extra_directories": {
       "dir_01_admin": {

@@ -17,6 +17,7 @@
     "notebooks/.ipynb_checkpoints"
   ],
   "expected": {
+    "type": "project",
     "directories": {
       "notebooks": "notebooks"
     },

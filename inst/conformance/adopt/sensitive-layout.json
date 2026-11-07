@@ -1,0 +1,46 @@
+{
+  "description": "The privacy-sensitive layout maps to the private and public keys and makes the project project_sensitive.",
+  "folders": [
+    "inputs",
+    "inputs/private",
+    "inputs/private/raw",
+    "inputs/public",
+    "inputs/public/raw",
+    "outputs",
+    "outputs/private",
+    "outputs/private/tables",
+    "outputs/public",
+    "outputs/public/figures",
+    "functions"
+  ],
+  "expected": {
+    "type": "project_sensitive",
+    "directories": {
+      "inputs_private_raw": "inputs/private/raw",
+      "inputs_public_raw": "inputs/public/raw",
+      "outputs_private_tables": "outputs/private/tables",
+      "outputs_public_figures": "outputs/public/figures",
+      "functions": "functions"
+    },
+    "extra_directories": {},
+    "render_dirs": {},
+    "warnings": [
+      {
+        "code": "private_path",
+        "path": "inputs/private"
+      },
+      {
+        "code": "private_path",
+        "path": "inputs/private/raw"
+      },
+      {
+        "code": "private_path",
+        "path": "outputs/private"
+      },
+      {
+        "code": "private_path",
+        "path": "outputs/private/tables"
+      }
+    ]
+  }
+}

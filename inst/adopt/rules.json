@@ -1,5 +1,5 @@
 {
-  "description": "How adopt() and structure_import() map an existing project's folders to Framework directory keys. Each rule's patterns are relative folder paths, matched exactly but ignoring case; a rule without languages applies to every language. A skip entry with * matches any characters within one folder name. render_dirs rules mark folders that hold rendered notebooks. Shared with framework-py and fw; see inst/conformance/README.md (adopt/).",
+  "description": "How adopt() and structure_import() map an existing project's folders to Framework directory keys. Each rule's patterns are relative folder paths, matched exactly but ignoring case; a rule without languages applies to every language, and a rule without types applies to every project type. A skip entry with * matches any characters within one folder name. render_dirs rules mark folders that hold rendered notebooks. types says how the project type is inferred. Shared with framework-py and fw; see inst/conformance/README.md (adopt/).",
   "max_depth": 3,
   "skip": [
     ".git",
@@ -25,7 +25,213 @@
     "*_files",
     "*_cache"
   ],
+  "types": {
+    "course": {
+      "description": "At least min of these top-level folders, ignoring case",
+      "signals": [
+        "slides",
+        "lectures",
+        "assignments",
+        "homework",
+        "modules",
+        "readings",
+        "syllabus",
+        "course_docs"
+      ],
+      "min": 2
+    },
+    "project_sensitive": {
+      "description": "A folder mapped to a key matching this pattern",
+      "key_pattern": "^(inputs|outputs)_(private|public)_"
+    },
+    "project": {
+      "description": "Any folder mapped to a Framework key; otherwise bare"
+    }
+  },
   "rules": [
+    {
+      "key": "data",
+      "patterns": [
+        "data"
+      ],
+      "types": [
+        "course"
+      ]
+    },
+    {
+      "key": "slides",
+      "patterns": [
+        "slides",
+        "lectures"
+      ],
+      "types": [
+        "course"
+      ]
+    },
+    {
+      "key": "assignments",
+      "patterns": [
+        "assignments",
+        "homework",
+        "problem_sets",
+        "problem-sets"
+      ],
+      "types": [
+        "course"
+      ]
+    },
+    {
+      "key": "course_docs",
+      "patterns": [
+        "course_docs",
+        "syllabus"
+      ],
+      "types": [
+        "course"
+      ]
+    },
+    {
+      "key": "readings",
+      "patterns": [
+        "readings"
+      ],
+      "types": [
+        "course"
+      ]
+    },
+    {
+      "key": "notebooks",
+      "patterns": [
+        "modules"
+      ],
+      "types": [
+        "course"
+      ]
+    },
+    {
+      "key": "inputs_private_raw",
+      "patterns": [
+        "inputs/private/raw",
+        "inputs/raw/private",
+        "data/private/raw",
+        "data/raw/private"
+      ]
+    },
+    {
+      "key": "inputs_public_raw",
+      "patterns": [
+        "inputs/public/raw",
+        "inputs/raw/public",
+        "data/public/raw",
+        "data/raw/public"
+      ]
+    },
+    {
+      "key": "inputs_private_intermediate",
+      "patterns": [
+        "inputs/private/intermediate",
+        "inputs/intermediate/private",
+        "data/private/intermediate",
+        "data/intermediate/private"
+      ]
+    },
+    {
+      "key": "inputs_public_intermediate",
+      "patterns": [
+        "inputs/public/intermediate",
+        "inputs/intermediate/public",
+        "data/public/intermediate",
+        "data/intermediate/public"
+      ]
+    },
+    {
+      "key": "inputs_private_final",
+      "patterns": [
+        "inputs/private/final",
+        "inputs/final/private",
+        "data/private/final",
+        "data/final/private"
+      ]
+    },
+    {
+      "key": "inputs_public_final",
+      "patterns": [
+        "inputs/public/final",
+        "inputs/final/public",
+        "data/public/final",
+        "data/final/public"
+      ]
+    },
+    {
+      "key": "outputs_private_notebooks",
+      "patterns": [
+        "outputs/private/notebooks",
+        "output/private/notebooks"
+      ]
+    },
+    {
+      "key": "outputs_public_notebooks",
+      "patterns": [
+        "outputs/public/notebooks",
+        "output/public/notebooks"
+      ]
+    },
+    {
+      "key": "outputs_private_tables",
+      "patterns": [
+        "outputs/private/tables",
+        "output/private/tables"
+      ]
+    },
+    {
+      "key": "outputs_public_tables",
+      "patterns": [
+        "outputs/public/tables",
+        "output/public/tables"
+      ]
+    },
+    {
+      "key": "outputs_private_figures",
+      "patterns": [
+        "outputs/private/figures",
+        "output/private/figures"
+      ]
+    },
+    {
+      "key": "outputs_public_figures",
+      "patterns": [
+        "outputs/public/figures",
+        "output/public/figures"
+      ]
+    },
+    {
+      "key": "outputs_private_models",
+      "patterns": [
+        "outputs/private/models",
+        "output/private/models"
+      ]
+    },
+    {
+      "key": "outputs_public_models",
+      "patterns": [
+        "outputs/public/models",
+        "output/public/models"
+      ]
+    },
+    {
+      "key": "outputs_private_reports",
+      "patterns": [
+        "outputs/private/reports",
+        "output/private/reports"
+      ]
+    },
+    {
+      "key": "outputs_public_reports",
+      "patterns": [
+        "outputs/public/reports",
+        "output/public/reports"
+      ]
+    },
     {
       "key": "inputs_raw",
       "patterns": [

@@ -123,6 +123,14 @@ Adopting and upgrading projects:
   `*_files/` and `*_cache/` render folders, `_site/`, or `_book/` as project
   folders, and maps `outputs/notebooks` and `outputs/docs` to `render_dirs`.
   Skip entries in `inst/adopt/rules.json` take `*` globs.
+* `adopt()` infers the project type instead of always writing `bare`: `course`
+  when the folder has course folders (`slides/`, `modules/`, `assignments/`,
+  `readings/`), `project_sensitive` when it has the private and public layout
+  (`inputs/private/raw/`, `outputs/public/figures/`), `project` when any
+  folder maps to a Framework directory, and `bare` otherwise. The shared rules
+  map the private and public input and output folders and the course folders
+  (`data`, `slides`, `assignments`, `course_docs`, `readings`, and `modules`
+  as notebooks), and a folder inside a mapped folder gets no key of its own.
 
 # framework 2.0.0
 
