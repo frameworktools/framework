@@ -257,17 +257,20 @@ make_notebook <- function(name,
   if (startsWith(full, wd)) substring(full, nchar(wd) + 1) else full
 }
 
-# The default title for a new notebook. A name with spaces is already a
-# title and is kept as typed ("My Cool Analysis"). A file-style name has its
-# - and _ turned into spaces and each word capitalized ("bp-summary" ->
-# "Bp Summary", "01_load_data" -> "01 Load Data"). Shared with framework-py.
+# The default title for a new notebook, in sentence case. A name with spaces
+# or capitals is already a title and is kept as typed ("My cool analysis",
+# "BP-summary"). A file-style name has its - and _ turned into spaces and its
+# first character capitalized, with the rest left as typed
+# ("setup-and-settings" -> "Setup and settings", "01_load_data" ->
+# "01 load data"). Shared with framework-py.
 #' @keywords internal
 .notebook_title <- function(name) {
-  if (grepl("[[:space:]]", trimws(name))) return(trimws(name))
-  words <- strsplit(trimws(gsub("[-_[:space:]]+", " ", name)), " ", fixed = TRUE)[[1]]
-  words <- words[nzchar(words)]
-  if (length(words) == 0) return(name)
-  paste0(toupper(substring(words, 1, 1)), substring(words, 2), collapse = " ")
+  stripped <- trimws(name)
+  if (grepl("[[:space:]]|[A-Z]", stripped)) return(stripped)
+  words <- strsplit(stripped, "[-_]+")[[1]]
+  title <- paste(words[nzchar(words)], collapse = " ")
+  if (!nzchar(title)) return(name)
+  paste0(toupper(substring(title, 1, 1)), substring(title, 2))
 }
 
 
