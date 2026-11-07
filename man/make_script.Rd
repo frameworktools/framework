@@ -11,7 +11,8 @@ make_script(name, dir = NULL, stub = "default", overwrite = FALSE)
 Examples: "process-data", "process-data.R"}
 
 \item{dir}{Character. Directory to create the script in. Uses your project's
-configured \code{directories$scripts} setting. Default: "scripts/".}
+configured \code{directories$scripts} setting. Default: "scripts/". A relative path
+starts at the project root, not the working directory.}
 
 \item{stub}{Character. Name of the stub template to use. Defaults to
 "default", the only script stub Framework ships. Create custom stubs in

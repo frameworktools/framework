@@ -6,7 +6,8 @@
 #' @param name Character. The script name (with or without .R extension).
 #'   Examples: "process-data", "process-data.R"
 #' @param dir Character. Directory to create the script in. Uses your project's
-#'   configured `directories$scripts` setting. Default: "scripts/".
+#'   configured `directories$scripts` setting. Default: "scripts/". A relative path
+#'   starts at the project root, not the working directory.
 #' @param stub Character. Name of the stub template to use. Defaults to
 #'   "default", the only script stub Framework ships. Create custom stubs in
 #'   `stubs/script-{stub}.R`, or save your default with

@@ -23,7 +23,8 @@
 #'      off: then "jupyter" when the Jupyter tool is on, "rmarkdown" when
 #'      rmarkdown is installed, and "script" otherwise
 #' @param dir Character. Directory to create the file in. Uses your project's
-#'   configured `directories$notebooks` setting. Default: "notebooks/".
+#'   configured `directories$notebooks` setting. Default: "notebooks/". A relative
+#'   path starts at the project root, not the working directory.
 #' @param stub Character. Name of the stub template to use. Defaults to
 #'   "default". User can create custom stubs in `stubs/notebook-{stub}.qmd`,
 #'   `stubs/notebook-{stub}.Rmd`, or `stubs/script-{stub}.R`.
@@ -143,11 +144,14 @@ make_notebook <- function(name,
   if (!is.null(subdir)) {
     dir <- file.path(dir, subdir)
   }
+  # Relative folders, given or configured, start at the project root, so
+  # make_notebook() from notebooks/ doesn't nest notebooks/notebooks/
+  dir <- .fw_project_path(dir)
 
   # Ensure directory exists
   if (!dir.exists(dir)) {
     dir.create(dir, recursive = TRUE)
-    message(sprintf("Created directory: %s", dir))
+    message(sprintf("Created directory: %s", .fw_project_relative_path(dir)))
   }
 
   # Full path to target file
@@ -239,7 +243,7 @@ make_notebook <- function(name,
   }
   # The revealjs stub is implied by "presentation"; name any other stub
   stub_note <- if (!stub %in% c("default", "revealjs")) sprintf(" (stub: %s)", stub) else ""
-  message(sprintf("Created %s: %s%s", kind, target_path, stub_note))
+  message(sprintf("Created %s: %s%s", kind, .fw_project_relative_path(target_path), stub_note))
 
   invisible(target_path)
 }
@@ -344,6 +348,7 @@ make_notebook <- function(name,
   base <- .slugify(sub("\\.ipynb$", "", name, ignore.case = TRUE))
   dir <- dir %||% .get_notebook_dir_from_config()
   if (!is.null(subdir)) dir <- file.path(dir, subdir)
+  dir <- .fw_project_path(dir)
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
   path <- file.path(dir, paste0(base, ".ipynb"))
   if (file.exists(path) && !overwrite) {
@@ -371,7 +376,7 @@ make_notebook <- function(name,
     nbformat_minor = 5L
   )
   jsonlite::write_json(notebook, path, auto_unbox = TRUE, pretty = TRUE, null = "null")
-  message(sprintf("Created Jupyter notebook: %s", path))
+  message(sprintf("Created Jupyter notebook: %s", .fw_project_relative_path(path)))
   invisible(path)
 }
 
@@ -685,7 +690,8 @@ stubs_list <- function(type = NULL) {
 #' @param name Character. The file name (with or without .qmd extension).
 #'   Another extension wins: `"x.Rmd"` creates a .Rmd file.
 #' @param dir Character. Directory to create the file in. Uses your project's
-#'   configured `directories$notebooks` setting. Default: "notebooks/".
+#'   configured `directories$notebooks` setting. Default: "notebooks/". A relative
+#'   path starts at the project root, not the working directory.
 #' @param subdir Optional subdirectory under `dir` (e.g., "slides/week-01").
 #' @param stub Character. Name of the stub template to use. Default "default".
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
@@ -721,7 +727,8 @@ make_qmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subd
 #' @param name Character. The file name (with or without .Rmd extension).
 #'   Another extension wins: `"x.qmd"` creates a .qmd file.
 #' @param dir Character. Directory to create the file in. Uses your project's
-#'   configured `directories$notebooks` setting. Default: "notebooks/".
+#'   configured `directories$notebooks` setting. Default: "notebooks/". A relative
+#'   path starts at the project root, not the working directory.
 #' @param stub Character. Name of the stub template to use. Default "default".
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #' @param subdir Optional subdirectory under `dir` (e.g., "analyses/exploratory").
@@ -756,7 +763,8 @@ make_rmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subd
 #'
 #' @param name Character. The presentation name (with or without .qmd extension)
 #' @param dir Character. Directory to create the file in. Uses your project's
-#'   configured `directories$notebooks` setting. Default: "notebooks/".
+#'   configured `directories$notebooks` setting. Default: "notebooks/". A relative
+#'   path starts at the project root, not the working directory.
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #' @param subdir Optional subdirectory under `dir` (e.g., "slides/week-01").
 #'
@@ -786,7 +794,8 @@ make_revealjs <- function(name, dir = NULL, overwrite = FALSE, subdir = NULL) {
 #'
 #' @param name Character. The presentation name (with or without .qmd extension)
 #' @param dir Character. Directory to create the file in. Uses your project's
-#'   configured `directories$notebooks` setting. Default: "notebooks/".
+#'   configured `directories$notebooks` setting. Default: "notebooks/". A relative
+#'   path starts at the project root, not the working directory.
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #' @param subdir Optional subdirectory under `dir` (e.g., "slides/week-01").
 #'

@@ -11,7 +11,8 @@ make_rmd(name, dir = NULL, stub = "default", overwrite = FALSE, subdir = NULL)
 Another extension wins: \code{"x.qmd"} creates a .qmd file.}
 
 \item{dir}{Character. Directory to create the file in. Uses your project's
-configured \code{directories$notebooks} setting. Default: "notebooks/".}
+configured \code{directories$notebooks} setting. Default: "notebooks/". A relative
+path starts at the project root, not the working directory.}
 
 \item{stub}{Character. Name of the stub template to use. Default "default".}
 

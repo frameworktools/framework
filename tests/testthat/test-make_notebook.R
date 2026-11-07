@@ -372,3 +372,25 @@ test_that("new notebooks get a readable title and accurate messages", {
   msgs <- capture.output(make_notebook("quick", stub = "minimal"), type = "message")
   expect_identical(msgs, "Created Quarto notebook: notebooks/quick.qmd (stub: minimal)")
 })
+
+test_that("dir and configured folders start at the project root, not the working directory", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  writeLines("default:\n  directories:\n    notebooks: notebooks\n    scripts: scripts", "settings.yml")
+  dir.create("notebooks")
+  withr::local_dir("notebooks")
+
+  msgs <- capture.output(make_notebook("from-inside"), type = "message")
+  expect_true(file.exists(file.path(dir, "notebooks", "from-inside.qmd")))
+  expect_false(dir.exists(file.path(dir, "notebooks", "notebooks")))
+  expect_identical(msgs[length(msgs)], "Created Quarto notebook: notebooks/from-inside.qmd")
+
+  suppressMessages(make_notebook("assignment-01", dir = "assignments"))
+  expect_true(file.exists(file.path(dir, "assignments", "assignment-01.qmd")))
+  suppressMessages(make_script("clean"))
+  expect_true(file.exists(file.path(dir, "scripts", "clean.R")))
+
+  elsewhere <- withr::local_tempdir()
+  suppressMessages(make_notebook("abs", dir = elsewhere))
+  expect_true(file.exists(file.path(elsewhere, "abs.qmd")))
+})

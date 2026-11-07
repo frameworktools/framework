@@ -57,6 +57,8 @@ Create syllabi and schedules:
 make_notebook("syllabus", dir = "course_docs")
 ```
 
+A relative `dir` starts at the project root, so these calls work the same from any folder in the project.
+
 ### Modules
 
 `make_notebook()` without `dir` writes to `modules/`:
