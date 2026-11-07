@@ -631,3 +631,37 @@ test_that("private folders are the ones the gitignore templates ignore", {
     c("inputs_private_raw", "outputs_private", "exports", "cache", "logs")
   )
 })
+
+test_that("the orphaned-file scan skips gitignored files and nested _files/_cache folders", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  dir.create("notebooks/report_files/libs", recursive = TRUE)
+  dir.create("notebooks/report_cache/html", recursive = TRUE)
+  dir.create("local-site/a", recursive = TRUE)
+  dir.create("analysis", recursive = TRUE)
+  writeLines("x", "notebooks/report_files/libs/data.json")
+  writeLines("x", "notebooks/report_cache/html/chunk.rds")
+  writeLines("x", "local-site/a/data.csv")
+  writeLines("x", "analysis/scratch.csv")
+  writeLines("x", "analysis/kept.csv")
+  writeLines(c("/local-site/", "scratch.csv"), ".gitignore")
+
+  found <- function() {
+    framework:::.scan_for_orphaned_files(list(), c("csv", "rds", "json"), FALSE)$files$path
+  }
+  # Without git: the .gitignore patterns
+  expect_identical(found(), "analysis/kept.csv")
+
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  system2("git", c("init", "-q"), stdout = FALSE, stderr = FALSE)
+  writeLines("/local-site/", ".gitignore")
+  writeLines("scratch.csv", ".git/info/exclude")
+  expect_identical(found(), "analysis/kept.csv")
+})
+
+test_that(".check_path_ignored() matches slashless patterns at any depth", {
+  expect_true(framework:::.check_path_ignored("a/b/x.csv", "*.csv"))
+  expect_true(framework:::.check_path_ignored("a/renv/lib/x.rds", "renv/"))
+  expect_false(framework:::.check_path_ignored("a/outputs/private/x.csv", "/outputs/private/"))
+  expect_true(framework:::.check_path_ignored("outputs/private/x.csv", "outputs/private"))
+})

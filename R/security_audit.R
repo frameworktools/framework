@@ -689,10 +689,15 @@ git_security_audit <- function(config_file = NULL,
   # Build pattern for data files
   ext_pattern <- paste0("\\.(", paste(extensions, collapse = "|"), ")$")
 
-  # Directories to exclude from scan
+  # Folders to skip at any depth: tool folders, plus the *_files and *_cache
+  # folders Quarto and knitr write next to a rendered document
   exclude_dirs <- c(
     ".git", ".Rproj.user", "renv", "packrat",
-    ".framework_cache", ".quarto", "_cache", "_files", "node_modules"
+    ".framework_cache", ".quarto", "node_modules"
+  )
+  exclude_pattern <- paste0(
+    "(^|/)(", paste(gsub(".", "\\.", exclude_dirs, fixed = TRUE), collapse = "|"),
+    "|[^/]*_cache|[^/]*_files)/"
   )
 
   # Framework internal files to exclude (these are managed by Framework)
@@ -708,13 +713,12 @@ git_security_audit <- function(config_file = NULL,
 
   # Scan project root
   all_files <- list.files(".", recursive = TRUE, full.names = TRUE, include.dirs = FALSE)
+  all_files <- all_files[!grepl(exclude_pattern, sub("^\\./", "", all_files))]
+  all_files <- all_files[grepl(ext_pattern, all_files, ignore.case = TRUE)]
+  # Files git ignores never reach the repository
+  all_files <- all_files[!.fw_gitignored(sub("^\\./", "", all_files))]
 
   for (file in all_files) {
-    # Skip excluded directories
-    if (any(sapply(exclude_dirs, function(d) grepl(paste0("^\\./", d), file)))) {
-      next
-    }
-
     # Skip Framework internal files
     file_name <- sub("^\\./", "", file)
     if (file_name %in% exclude_files) {
@@ -754,7 +758,38 @@ git_security_audit <- function(config_file = NULL,
 }
 
 
+#' Which paths git ignores
+#'
+#' In a git work tree, asks `git check-ignore` (which reads every .gitignore,
+#' .git/info/exclude, and the global excludes file; tracked files are never
+#' ignored). Elsewhere, matches the project's .gitignore patterns.
+#'
+#' @param paths Paths relative to the working directory
+#' @return Logical vector, TRUE where the path is ignored
+#' @keywords internal
+.fw_gitignored <- function(paths) {
+  if (length(paths) == 0) return(logical())
+  git <- Sys.which("git")
+  if (nzchar(git)) {
+    inside <- suppressWarnings(system2(git, c("rev-parse", "--is-inside-work-tree"),
+                                       stdout = TRUE, stderr = FALSE))
+    if (identical(inside, "true")) {
+      # Exit status 1 means nothing is ignored, so no warning
+      ignored <- suppressWarnings(system2(git, c("check-ignore", "--stdin"),
+                                          input = paths, stdout = TRUE, stderr = FALSE))
+      return(paths %in% ignored)
+    }
+  }
+  if (!file.exists(".gitignore")) return(rep(FALSE, length(paths)))
+  patterns <- readLines(".gitignore", warn = FALSE)
+  vapply(paths, .check_path_ignored, logical(1), gitignore_patterns = patterns, USE.NAMES = FALSE)
+}
+
 #' Check if path is ignored by .gitignore patterns
+#'
+#' Follows the gitignore rules that matter here: a pattern without a slash
+#' (apart from a trailing one) matches at any depth, and a matched folder
+#' ignores everything inside it.
 #' @keywords internal
 .check_path_ignored <- function(path, gitignore_patterns) {
   # Normalize path
@@ -775,8 +810,13 @@ git_security_audit <- function(config_file = NULL,
       pattern <- substring(pattern, 2)
     }
 
+    pattern <- trimws(pattern, which = "right")
+
     # Store original pattern for directory matching
     orig_pattern <- pattern
+
+    # A pattern with no slash but a trailing one matches at any depth
+    anywhere <- !grepl("/", sub("/$", "", pattern))
 
     # Strip leading / (anchors to root, but paths are already root-relative)
     pattern <- sub("^/", "", pattern)
@@ -792,13 +832,10 @@ git_security_audit <- function(config_file = NULL,
     pattern <- gsub("\002", "/.*", pattern)           # restore /** → everything inside
     pattern <- gsub("\003", ".*", pattern)            # restore ** → anything
 
-    # Handle trailing slash (directory pattern)
-    if (grepl("/$", orig_pattern)) {
-      # Remove trailing / and match the directory path or anything under it
-      dir_pattern <- sub("/$", "", pattern)
-      # Match: exact directory name, or directory/ or directory/anything
-      pattern <- paste0(dir_pattern, "(/.*)?")
-    }
+    # A matched folder ignores everything inside it. Remove a trailing /
+    # and match the path itself or anything under it.
+    pattern <- paste0(sub("/$", "", pattern), "(/.*)?")
+    if (anywhere) pattern <- paste0("(.*/)?", pattern)
 
     # Check if path matches
     if (grepl(paste0("^", pattern, "$"), path)) {

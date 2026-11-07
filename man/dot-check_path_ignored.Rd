@@ -7,6 +7,8 @@
 .check_path_ignored(path, gitignore_patterns)
 }
 \description{
-Check if path is ignored by .gitignore patterns
+Follows the gitignore rules that matter here: a pattern without a slash
+(apart from a trailing one) matches at any depth, and a matched folder
+ignores everything inside it.
 }
 \keyword{internal}
