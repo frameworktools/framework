@@ -31,8 +31,12 @@ anything. \code{adopt()} looks at the folder names (never file names or
 contents, and at most three levels deep), proposes which Framework
 directory each one is, and lets you accept, change a role, or leave a
 folder out. It then writes \code{settings.yml} (a single file) and
-\code{.framework/spec.json} describing the folders as they are. Nothing else is
-created, moved, or overwritten, and \code{scaffold()} works afterwards.
+\code{.framework/spec.json} describing the folders as they are, and adds the
+rules of the type's \code{.gitignore} template that the folder's \code{.gitignore}
+lacks (\code{.env}, \code{framework.db}, private folders, Quarto's lines), in one
+block at the end. It never removes a \code{.gitignore} line, and leaves out a
+rule that would ignore files git tracks. Nothing else is created, moved,
+or overwritten, and \code{scaffold()} works afterwards.
 }
 \details{
 The project type follows from the folders: \code{course} when there are course

@@ -137,6 +137,13 @@ Adopting and upgrading projects:
   data on. It returns the type with the folders.
 * `adopt()` turns git on in the settings and spec when the folder is a git
   repository, as framework-py does.
+* `adopt()` merges the `.gitignore` rules its spec records into the folder's
+  `.gitignore`: `.env`, `framework.db`, private folders, and Quarto's
+  `/.quarto/` and `**/*.quarto_ipynb` lines, plus each folder that looks
+  private. It appends missing rules in one block and never removes a line,
+  leaves out a rule that would ignore files git tracks, and records the
+  resulting `.gitignore` in `spec.json`. Before, `framework.db` from
+  `scaffold()` showed up as untracked.
 
 # framework 2.0.0
 

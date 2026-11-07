@@ -5,8 +5,12 @@
 #' contents, and at most three levels deep), proposes which Framework
 #' directory each one is, and lets you accept, change a role, or leave a
 #' folder out. It then writes `settings.yml` (a single file) and
-#' `.framework/spec.json` describing the folders as they are. Nothing else is
-#' created, moved, or overwritten, and `scaffold()` works afterwards.
+#' `.framework/spec.json` describing the folders as they are, and adds the
+#' rules of the type's `.gitignore` template that the folder's `.gitignore`
+#' lacks (`.env`, `framework.db`, private folders, Quarto's lines), in one
+#' block at the end. It never removes a `.gitignore` line, and leaves out a
+#' rule that would ignore files git tracks. Nothing else is created, moved,
+#' or overwritten, and `scaffold()` works afterwards.
 #'
 #' The project type follows from the folders: `course` when there are course
 #' folders such as `slides/` and `modules/`, `project_sensitive` when private
@@ -85,6 +89,10 @@ adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL) {
     connections = spec$connections, render_dirs = spec$render_dirs,
     security = spec$security, tools = spec$tools, settings_layout = "flat"
   )
+  # Merge the spec's .gitignore into the folder's, adding lines only, and
+  # record the .gitignore the project now has
+  gitignore <- .adopt_gitignore(path, spec, mapping)
+  spec$git$gitignore_content <- paste(gitignore, collapse = "\n")
   .spec_write_record(path, spec)
 
   message("\n[ok] ", name, " is a Framework project. Run framework::scaffold() in it to start.")
@@ -440,6 +448,28 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 #' @keywords internal
 .adopt_named <- function(x) {
   if (length(x) == 0) stats::setNames(list(), character()) else x
+}
+
+# Append the rules the spec's .gitignore template has and the folder's
+# .gitignore lacks, plus each folder whose path looks private. Returns the .gitignore's lines afterwards.
+#' @keywords internal
+.adopt_gitignore <- function(path, spec, mapping) {
+  private <- vapply(mapping$warnings, `[[`, "", "path")
+  wanted <- c(
+    .fw_gitignore_rules(spec$git$gitignore_content),
+    if (length(private) > 0) paste0("/", private, "/")
+  )
+  plan <- .fw_gitignore_missing(path, wanted)
+  .fw_gitignore_append(path, plan$add, "# Added by framework::adopt()")
+  if (length(plan$add) > 0) {
+    message("  Added to .gitignore (", length(plan$add), " rules): ", .fw_rules_summary(plan$add))
+  }
+  if (length(plan$skipped) > 0) {
+    message("  Left out of .gitignore because git tracks files they match: ",
+            paste(sprintf("%s (%s)", names(plan$skipped), plan$skipped), collapse = ", "))
+  }
+  file <- file.path(path, ".gitignore")
+  if (file.exists(file)) readLines(file, warn = FALSE) else character()
 }
 
 # Prompts, wrapped so tests can answer them

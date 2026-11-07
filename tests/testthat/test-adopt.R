@@ -8,13 +8,13 @@ local_folder <- function(folders, env = parent.frame()) {
   dir
 }
 
-test_that("adopt() writes settings.yml and the spec record, and nothing else", {
+test_that("adopt() writes settings.yml, the spec record, and .gitignore, and nothing else", {
   dir <- local_folder(c("R", "analysis", "data/raw", "figures", "renv/library", "archive/2020"))
   before <- sort(list.files(dir, recursive = TRUE, all.files = TRUE, include.dirs = TRUE))
 
   suppressMessages(adopt(dir, yes = TRUE))
   after <- sort(list.files(dir, recursive = TRUE, all.files = TRUE, include.dirs = TRUE))
-  expect_setequal(setdiff(after, before), c("settings.yml", ".framework", ".framework/spec.json"))
+  expect_setequal(setdiff(after, before), c("settings.yml", ".framework", ".framework/spec.json", ".gitignore"))
 
   settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
   expect_identical(settings$directories$functions, "R")
@@ -297,4 +297,36 @@ test_that("adopt() turns git on when the folder is a git repository", {
   dir <- local_folder(c("analysis"))
   suppressMessages(adopt(dir, yes = TRUE))
   expect_false(jsonlite::read_json(file.path(dir, ".framework", "spec.json"))$git$use_git)
+})
+
+test_that("adopt() merges the spec's .gitignore rules and never removes a line", {
+  dir <- local_folder(c("analysis", "data/private"))
+  writeLines(c("# mine", "*.csv", "", "notes.txt", ".env"), file.path(dir, ".gitignore"))
+  suppressWarnings(suppressMessages(adopt(dir, yes = TRUE)))
+  lines <- readLines(file.path(dir, ".gitignore"))
+  expect_identical(lines[1:5], c("# mine", "*.csv", "", "notes.txt", ".env"))
+  expect_true("# Added by framework::adopt()" %in% lines)
+  for (rule in c("framework.db", "**/private/**", "/.quarto/", "**/*.quarto_ipynb", "/data/private/")) {
+    expect_true(rule %in% lines, info = rule)
+  }
+  expect_identical(sum(lines == ".env"), 1L)
+  # The spec records the .gitignore the project has
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$git$gitignore_content, paste(lines, collapse = "\n"))
+})
+
+test_that("adopt() leaves out a .gitignore rule that would hide tracked files", {
+  skip_if(!nzchar(Sys.which("git")))
+  dir <- local_folder(c("analysis"))
+  writeLines("source('renv/activate.R')", file.path(dir, ".Rprofile"))
+  git <- function(...) suppressWarnings(system2("git", c("-C", shQuote(dir), ...), stdout = FALSE, stderr = FALSE))
+  git("init", "-q")
+  git("add", ".Rprofile")
+  msgs <- character()
+  withCallingHandlers(adopt(dir, yes = TRUE),
+                      message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") })
+  lines <- readLines(file.path(dir, ".gitignore"))
+  expect_false(".Rprofile" %in% lines)
+  expect_true(".env" %in% lines)
+  expect_true(any(grepl("Left out of .gitignore.*\\.Rprofile", msgs)))
 })
