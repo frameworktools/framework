@@ -315,13 +315,15 @@ test_that("adopt() turns git on when the folder is a git repository", {
 })
 
 test_that("adopt() merges the spec's .gitignore rules and never removes a line", {
-  dir <- local_folder(c("analysis", "data/private"))
+  dir <- local_folder(c("analysis", "data/private", "notes/private-2024"))
   writeLines(c("# mine", "*.csv", "", "notes.txt", ".env"), file.path(dir, ".gitignore"))
   suppressWarnings(suppressMessages(adopt(dir, yes = TRUE)))
   lines <- readLines(file.path(dir, ".gitignore"))
   expect_identical(lines[1:5], c("# mine", "*.csv", "", "notes.txt", ".env"))
   expect_true("# Added by framework::adopt()" %in% lines)
-  for (rule in c("framework.db", "**/private/**", "/.quarto/", "**/*.quarto_ipynb", "/data/private/")) {
+  # data/private/ is covered by **/private/**; notes/private-2024/ needs its own rule
+  expect_false("/data/private/" %in% readLines(file.path(dir, ".gitignore")))
+  for (rule in c("framework.db", "**/private/**", "/.quarto/", "**/*.quarto_ipynb", "/notes/private-2024/")) {
     expect_true(rule %in% lines, info = rule)
   }
   expect_identical(sum(lines == ".env"), 1L)

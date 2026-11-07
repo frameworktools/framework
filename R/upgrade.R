@@ -1,0 +1,811 @@
+#' Bring an Older Framework Project Up to the Current Layout
+#'
+#' `upgrade()` updates a project made by an earlier version of Framework so it
+#' works like a new one, without touching your code, data, or notes. It first
+#' prints a plan; with `dry_run = FALSE` it backs up every file it rewrites to
+#' `.framework/backups/<timestamp>/` (which git ignores) and applies the plan.
+#' Running it again changes nothing.
+#'
+#' The plan covers:
+#'
+#' - **Settings**: a 1.x `config.yml` becomes `settings.yml`. Missing current
+#'   sections are added: `tools:` (Quarto and renv, from the files present)
+#'   and `security:`. A `project_sensitive` project, or one with the private
+#'   folder layout, gets `security: sensitive: true`. Keys outside `default:`,
+#'   which Framework ignores, are reported, not moved.
+#' - **Connections**: the old layouts (`options: default_connection:` with
+#'   connections listed flat, or the empty hybrid of both) are rewritten as
+#'   `connections:` with `default_database`, `databases`, and
+#'   `storage_buckets`. A password written into the settings is reported (by
+#'   key, never by value) and left where it is.
+#' - **Spec**: `.framework/spec.json` is written from the settings when it is
+#'   missing, and refreshed when its folders, type, security, tools, or
+#'   connections no longer match, so `fw project push-spec` and
+#'   [cloud_register()] work.
+#' - **.gitignore**: the rules of the current template for the project's type
+#'   that it lacks (Quarto's `/.quarto/` and `**/*.quarto_ipynb`,
+#'   `framework.db`, private folders) and folder publishing destinations are
+#'   appended in one block. No line is ever removed, and a rule that would
+#'   ignore files git tracks is left out and reported.
+#' - **AI files**: AGENTS.md becomes the canonical context file, with
+#'   CLAUDE.md a one-line `@AGENTS.md` pointer, when CLAUDE.md held the full
+#'   guide; the marked sections are regenerated. A hand-written AGENTS.md is
+#'   left alone and reported. Sensitive projects get the Claude Code guards
+#'   that keep agents out of private folders.
+#' - **Skills**: Framework skills that match a version the package has
+#'   shipped are updated; missing ones for the project type are added;
+#'   locally edited ones are kept and listed.
+#' - **Quarto**: missing Quarto files are created, and an existing
+#'   `_quarto.yml` at most gains missing keys (see [quarto_regenerate()]).
+#'   Custom Quarto configuration is never replaced, and per-folder
+#'   `_quarto.yml` files are kept and listed.
+#'
+#' @param path The project folder (default: the working directory).
+#' @param dry_run If TRUE (default), print the plan and change nothing.
+#' @param backup If TRUE (default), copy every file before it is rewritten or
+#'   removed. Skills replaced by an update are always backed up, to
+#'   `.framework/skills-backups/`.
+#'
+#' @return Invisibly, a list with `actions` (a data frame: `step`, `path`,
+#'   `change`), `notes`, `applied`, and `backup_location`.
+#'
+#' @seealso [adopt()] for a folder that isn't a Framework project yet, and
+#'   [cloud_register()] to link a project to Framework Cloud.
+#'
+#' @examples
+#' \donttest{
+#' if (FALSE) {
+#' upgrade("~/projects/old-study")                  # print the plan
+#' upgrade("~/projects/old-study", dry_run = FALSE) # apply it
+#' }
+#' }
+#'
+#' @export
+upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
+  checkmate::assert_directory_exists(path)
+  checkmate::assert_flag(dry_run)
+  checkmate::assert_flag(backup)
+  root <- normalizePath(path, winslash = "/", mustWork = TRUE)
+
+  found <- .fw_settings_files(root)
+  if (length(found) == 0) {
+    stop("Not a Framework project (no settings.yml or Framework config.yml): ", root,
+         ". To make it one, use framework::adopt().", call. = FALSE)
+  }
+
+  ctx <- new.env(parent = emptyenv())
+  ctx$root <- root
+  ctx$pending <- list()
+  ctx$actions <- list()
+  ctx$skills <- list()
+  ctx$notes <- character()
+  ctx$main <- basename(found[1])
+
+  .upgrade_settings_file(ctx)
+  .upgrade_settings(ctx)
+  .upgrade_connections(ctx)
+  .upgrade_gitignore(ctx)
+  .upgrade_ai(ctx)
+  .upgrade_skills(ctx)
+  .upgrade_quarto(ctx)
+  .upgrade_spec(ctx)
+
+  actions <- .upgrade_action_table(ctx)
+  .upgrade_print(ctx, actions, dry_run, path)
+
+  result <- list(actions = actions, notes = ctx$notes, applied = FALSE, backup_location = NULL)
+  if (dry_run || nrow(actions) == 0) return(invisible(result))
+
+  rewritten <- names(ctx$pending)
+  if (backup) {
+    rel <- .fw_backup_dir(root)
+    copied <- .fw_backup_files(root, rewritten, rel)
+    if (length(copied) > 0) result$backup_location <- file.path(root, rel)
+  }
+  for (file in rewritten) {
+    target <- file.path(root, file)
+    lines <- ctx$pending[[file]]
+    if (is.null(lines)) {
+      unlink(target)
+    } else {
+      dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
+      .fw_write_text(paste0(paste(lines, collapse = "\n"), "\n"), target)
+    }
+  }
+  for (skill in ctx$skills) skill$run()
+
+  result$applied <- TRUE
+  message("[ok] Upgraded ", root, if (!is.null(result$backup_location)) {
+    paste0(". Backups: ", sub(paste0(root, "/"), "", result$backup_location, fixed = TRUE))
+  })
+  message("Review the changes (git diff), then commit them.")
+  invisible(result)
+}
+
+# --- The virtual project: planned writes over the files on disk -----------
+
+# A file's lines as planned, else as on disk, else NULL
+#' @keywords internal
+.upgrade_read <- function(ctx, file) {
+  if (file %in% names(ctx$pending)) return(ctx$pending[[file]])
+  path <- file.path(ctx$root, file)
+  if (file.exists(path) && !dir.exists(path)) readLines(path, warn = FALSE, encoding = "UTF-8") else NULL
+}
+
+# Plan writing `lines` to `file` (NULL removes it), with what changes
+#' @keywords internal
+.upgrade_write <- function(ctx, step, file, lines, change) {
+  current <- .upgrade_read(ctx, file)
+  if (!is.null(lines) && identical(current, lines)) return(invisible(FALSE))
+  ctx$pending[file] <- list(lines)
+  ctx$actions[[length(ctx$actions) + 1]] <- list(step = step, path = file, change = change)
+  invisible(TRUE)
+}
+
+#' @keywords internal
+.upgrade_note <- function(ctx, ...) {
+  ctx$notes <- c(ctx$notes, paste0(...))
+}
+
+# A YAML file's content, keeping !expr tags, or NULL
+#' @keywords internal
+.upgrade_yaml <- function(ctx, file) {
+  lines <- .upgrade_read(ctx, file)
+  if (is.null(lines)) return(NULL)
+  tryCatch(yaml::yaml.load(paste(lines, collapse = "\n"), handlers = .fw_yaml_read_handlers()),
+           error = function(e) NULL)
+}
+
+# The main settings file's section that holds the settings: default:, or
+# the whole file when it has no environment sections
+#' @keywords internal
+.upgrade_section <- function(raw) {
+  if (is.list(raw) && .has_environment_sections(raw)) raw$default %||% list() else raw %||% list()
+}
+
+# The split file that holds `key`, or NULL when the key is inline
+#' @keywords internal
+.upgrade_split_file <- function(ctx, key) {
+  section <- .upgrade_section(.upgrade_yaml(ctx, ctx$main))
+  value <- section[[key]]
+  if (is.character(value) && length(value) == 1 && grepl("\\.ya?ml$", value, ignore.case = TRUE)) {
+    sub("^\\./", "", value)
+  }
+}
+
+# The settings as written (env() and !expr unevaluated): the main section
+# with split files read in and stray connection keys lifted
+#' @keywords internal
+.upgrade_settings_raw <- function(ctx) {
+  section <- .upgrade_section(.upgrade_yaml(ctx, ctx$main))
+  for (key in names(section)) {
+    value <- section[[key]]
+    if (!is.character(value) || length(value) != 1 || !grepl("\\.ya?ml$", value, ignore.case = TRUE)) next
+    split <- .upgrade_yaml(ctx, sub("^\\./", "", value))
+    if (is.null(split)) {
+      section[[key]] <- NULL
+      next
+    }
+    if (is.list(split) && key %in% names(split)) {
+      extra <- split[setdiff(names(split), key)]
+      section[key] <- list(split[[key]])
+      for (k in names(extra)) if (is.null(section[[k]])) section[k] <- list(extra[[k]])
+    } else {
+      section[key] <- list(split)
+    }
+  }
+  .fw_lift_connections(section)
+}
+
+# --- Steps -------------------------------------------------------------------
+
+# A 1.x config.yml becomes settings.yml
+#' @keywords internal
+.upgrade_settings_file <- function(ctx) {
+  if (!identical(ctx$main, "config.yml")) return(invisible())
+  lines <- .upgrade_read(ctx, "config.yml")
+  .upgrade_write(ctx, "settings", "settings.yml", lines, "create from config.yml (same content)")
+  .upgrade_write(ctx, "settings", "config.yml", NULL, "remove (now settings.yml)")
+  ctx$main <- "settings.yml"
+}
+
+# Missing current sections: tools and security
+#' @keywords internal
+.upgrade_settings <- function(ctx) {
+  raw <- .upgrade_yaml(ctx, ctx$main)
+  if (!is.list(raw)) {
+    .upgrade_note(ctx, ctx$main, " couldn't be read as YAML, so the settings were not upgraded.")
+    return(invisible())
+  }
+  scoped <- .has_environment_sections(raw)
+  if (scoped) {
+    ignored <- .fw_ignored_settings_keys(raw, "default")
+    if (length(ignored) > 0) {
+      .upgrade_note(ctx, ctx$main, " has keys outside default: (", paste(ignored, collapse = ", "),
+                    "). Framework ignores them; move them under default: to use them.")
+    }
+  }
+  section <- .upgrade_section(raw)
+  settings <- .upgrade_settings_raw(ctx)
+  keys <- function(key) if (scoped) c("default", key) else key
+  text <- paste(.upgrade_read(ctx, ctx$main), collapse = "\n")
+  changes <- character()
+
+  if (is.null(section$tools)) {
+    tools <- list(
+      quarto = file.exists(file.path(ctx$root, "_quarto.yml")) || length(settings$render_dirs) > 0,
+      renv = file.exists(file.path(ctx$root, "renv.lock")) || isTRUE(settings$packages$use_renv)
+    )
+    text <- .fw_yaml_set_text(text, keys("tools"), tools)
+    changes <- c(changes, sprintf("add tools (quarto: %s, renv: %s)",
+                                  tolower(tools$quarto), tolower(tools$renv)))
+  }
+
+  sensitive <- .fw_settings_sensitive(settings)
+  flag <- if (is.list(section$security)) section$security$sensitive else NULL
+  if (is.null(section$security) || (is.list(section$security) && is.null(flag))) {
+    security <- if (is.list(section$security)) section$security else list()
+    security$sensitive <- sensitive
+    text <- .fw_yaml_set_text(text, keys("security"), security)
+    why <- if (identical(settings$project_type, "project_sensitive")) {
+      "; project_type is project_sensitive"
+    } else if (sensitive) {
+      "; the folders use the private layout"
+    } else {
+      ""
+    }
+    changes <- c(changes, sprintf("add security (sensitive: %s%s)", tolower(sensitive), why))
+  } else if (sensitive && isFALSE(flag)) {
+    .upgrade_note(ctx, "project_type is project_sensitive but security: sensitive: is false. ",
+                  "Framework treats the project as sensitive; set it to true to match.")
+  }
+
+  if (length(changes) > 0) {
+    lines <- strsplit(sub("\n$", "", text), "\n", fixed = TRUE)[[1]]
+    .upgrade_write(ctx, "settings", ctx$main, lines, paste(changes, collapse = "; "))
+  }
+  invisible()
+}
+
+# Old connection layouts become connections: {default_database, databases,
+# storage_buckets}
+#' @keywords internal
+.upgrade_connections <- function(ctx) {
+  file <- .upgrade_split_file(ctx, "connections")
+  if (is.null(file)) {
+    connections <- .upgrade_section(.upgrade_yaml(ctx, ctx$main))$connections
+    if (is.list(connections) && .upgrade_legacy_connections(list(connections = connections))) {
+      .upgrade_note(ctx, "The connections in ", ctx$main, " use the old layout. Move them under ",
+                    "connections: databases:, with default_database for the default.")
+    }
+    .upgrade_secret_note(ctx, list(connections = connections), ctx$main)
+    return(invisible())
+  }
+  raw <- .upgrade_yaml(ctx, file)
+  if (is.null(raw)) return(invisible())
+  if (!.upgrade_legacy_connections(raw)) {
+    .upgrade_secret_note(ctx, raw, file)
+    return(invisible())
+  }
+
+  migrated <- .upgrade_migrate_connections(raw)
+  text <- .fw_as_yaml(list(connections = migrated))
+  lines <- strsplit(sub("\n$", "", text), "\n", fixed = TRUE)[[1]]
+  default <- migrated$default_database
+  change <- sprintf("rewrite in the current layout: %d database(s)%s",
+                    length(migrated$databases),
+                    if (!is.null(default)) paste0(", default_database: ", default) else "")
+  .upgrade_write(ctx, "connections", file, lines, change)
+  .upgrade_secret_note(ctx, list(connections = migrated), file)
+  invisible()
+}
+
+# Whether a connections file (or list(connections = ...)) uses an old layout
+#' @keywords internal
+.upgrade_legacy_connections <- function(raw) {
+  if (!is.list(raw)) return(FALSE)
+  top <- names(raw)
+  if (any(c("options", "databases", "storage_buckets", "default_database", "default_storage_bucket") %in% top)) {
+    return(TRUE)
+  }
+  connections <- raw$connections
+  if (!is.list(connections) || length(connections) == 0) return(!is.null(connections) && !is.list(connections))
+  current <- c("databases", "storage_buckets", "default_database", "default_storage_bucket")
+  any(!names(connections) %in% current)
+}
+
+# The current connections block from any older layout
+#' @keywords internal
+.upgrade_migrate_connections <- function(raw) {
+  connections <- if (is.list(raw$connections)) raw$connections else list()
+  options <- if (is.list(raw$options)) raw$options else list()
+  current <- c("databases", "storage_buckets", "default_database", "default_storage_bucket")
+  flat <- connections[!names(connections) %in% current]
+  flat <- Filter(function(x) is.list(x) && !is.null(names(x)), flat)
+  is_bucket <- function(x) identical(tolower(x$driver %||% ""), "s3") || !is.null(x$bucket)
+
+  databases <- c(
+    if (is.list(connections$databases)) connections$databases,
+    if (is.list(raw$databases)) raw$databases,
+    Filter(Negate(is_bucket), flat)
+  )
+  buckets <- c(
+    if (is.list(connections$storage_buckets)) connections$storage_buckets,
+    if (is.list(raw$storage_buckets)) raw$storage_buckets,
+    Filter(is_bucket, flat)
+  )
+  pick <- function(...) {
+    for (v in list(...)) if (is.character(v) && length(v) == 1 && !is.na(v) && nzchar(v)) return(v)
+    NULL
+  }
+  out <- list()
+  out["default_database"] <- list(pick(connections$default_database, raw$default_database,
+                                       options$default_connection, options$default_database))
+  bucket <- pick(connections$default_storage_bucket, raw$default_storage_bucket,
+                 options$default_s3_connection, options$default_storage_bucket)
+  if (!is.null(bucket)) out$default_storage_bucket <- bucket
+  out$databases <- if (length(databases) > 0) databases[!duplicated(names(databases))] else .adopt_named(list())
+  out$storage_buckets <- if (length(buckets) > 0) buckets[!duplicated(names(buckets))] else .adopt_named(list())
+  out
+}
+
+#' @keywords internal
+.upgrade_secret_note <- function(ctx, raw, file) {
+  plain <- .upgrade_untag(raw)
+  keys <- .fw_secret_keys(plain)
+  if (length(keys) > 0) {
+    .upgrade_note(ctx, file, " has a password or token written in (", paste(keys, collapse = ", "),
+                  "). Move the value to .env and write env(\"NAME\") instead; upgrade() leaves it as it is.")
+  }
+}
+
+# Values with !expr tags as "!expr ..." strings, as settings_read() sees them
+#' @keywords internal
+.upgrade_untag <- function(x) {
+  if (is.list(x)) {
+    nms <- names(x)
+    x <- lapply(x, .upgrade_untag)
+    names(x) <- nms
+    return(x)
+  }
+  if (identical(attr(x, "tag"), "!expr")) return(paste("!expr", as.character(x)))
+  x
+}
+
+# Append the current template's missing rules to .gitignore
+#' @keywords internal
+.upgrade_gitignore <- function(ctx) {
+  settings <- .upgrade_settings_raw(ctx)
+  type <- settings$project_type %||% "project"
+  sensitive <- .fw_settings_sensitive(settings)
+  template <- .spec_gitignore(type, sensitive, list())
+  dirs <- .configured_directories(settings)
+  private <- dirs[grepl("private", names(dirs)) & !grepl("public", names(dirs))]
+  private <- private[!vapply(private, function(p) .fw_outside_root(ctx$root, p), logical(1))]
+  published <- tryCatch(.folder_destinations(settings, ctx$root), error = function(e) character())
+  folders <- .fw_unignored_folders(ctx$root, c(unname(unlist(private)), unname(published)))
+  wanted <- c(.fw_gitignore_rules(template), if (length(folders) > 0) paste0("/", folders, "/"))
+
+  plan <- .fw_gitignore_missing(ctx$root, wanted)
+  if (length(plan$skipped) > 0) {
+    .upgrade_note(ctx, ".gitignore: left out ", paste(sprintf("%s (git tracks %s)", names(plan$skipped),
+                                                             plan$skipped), collapse = ", "),
+                  " so no tracked file is hidden.")
+  }
+  if (length(plan$add) == 0) return(invisible())
+  lines <- .upgrade_read(ctx, ".gitignore") %||% character()
+  if (length(lines) > 0 && nzchar(trimws(lines[length(lines)]))) lines <- c(lines, "")
+  lines <- c(lines, "# Added by framework::upgrade()", plan$add)
+  .upgrade_write(ctx, "gitignore", ".gitignore", lines,
+                 sprintf("add %d rule(s): %s", length(plan$add), .fw_rules_summary(plan$add)))
+  invisible()
+}
+
+# AGENTS.md canonical, CLAUDE.md a pointer, marked sections regenerated, and
+# the Claude Code guards for sensitive projects
+#' @keywords internal
+.upgrade_ai <- function(ctx) {
+  settings <- .upgrade_settings_raw(ctx)
+  agents <- .upgrade_read(ctx, "AGENTS.md")
+  claude <- .upgrade_read(ctx, "CLAUDE.md")
+  if (!isTRUE(settings$ai$enabled) && is.null(agents) && is.null(claude)) return(invisible())
+  if (!isTRUE(settings$ai$enabled)) return(invisible())
+
+  marked <- function(lines) any(grepl("<!-- @framework:regenerate -->", lines, fixed = TRUE))
+  pointer <- function(lines) {
+    !is.null(lines) && length(lines) <= 10 && any(grepl("@AGENTS.md", lines, fixed = TRUE))
+  }
+  canonical <- settings$ai$canonical_file %||% "AGENTS.md"
+  target <- NULL
+
+  if (!is.null(claude) && !pointer(claude) && marked(claude)) {
+    if (is.null(agents) || (marked(agents) && identical(canonical, "CLAUDE.md"))) {
+      .upgrade_write(ctx, "ai", "AGENTS.md", claude,
+                     if (is.null(agents)) "create from CLAUDE.md (AGENTS.md becomes the canonical file)"
+                     else "replace with CLAUDE.md, the canonical copy (AGENTS.md becomes canonical)")
+      .upgrade_write(ctx, "ai", "CLAUDE.md", "@AGENTS.md", "replace with a pointer to AGENTS.md")
+      target <- "AGENTS.md"
+    } else if (marked(agents)) {
+      .upgrade_write(ctx, "ai", "CLAUDE.md", "@AGENTS.md",
+                     "replace with a pointer to AGENTS.md (a stale copy of it)")
+      target <- "AGENTS.md"
+    } else {
+      .upgrade_note(ctx, "AGENTS.md is your own file and CLAUDE.md holds Framework's guide, so both were ",
+                    "kept and CLAUDE.md stays canonical. To switch, move your notes into CLAUDE.md, rename ",
+                    "it AGENTS.md, and run upgrade() again.")
+      target <- "CLAUDE.md"
+      canonical <- "CLAUDE.md"
+    }
+  } else if (!is.null(agents) && marked(agents)) {
+    target <- "AGENTS.md"
+  }
+  if (identical(target, "AGENTS.md") && !identical(canonical, "AGENTS.md")) {
+    .upgrade_set_setting(ctx, "ai", "canonical_file", "AGENTS.md", "ai")
+  }
+
+  if (!is.null(target)) {
+    config <- tryCatch(suppressWarnings(suppressMessages(
+      .upgrade_in_dir(ctx$root, settings_read(file.path(ctx$root, .upgrade_on_disk_settings(ctx))))
+    )), error = function(e) NULL)
+    if (!is.null(config)) {
+      lines <- .upgrade_read(ctx, target)
+      regenerated <- suppressMessages(.ai_regenerate_content(paste(lines, collapse = "\n"), config,
+                                                             ai_file = target))
+      new <- strsplit(regenerated$content, "\n", fixed = TRUE)[[1]]
+      # Blank lines alone (the generator spaces sections its own way) are
+      # no reason to rewrite the file
+      if (!identical(new[nzchar(trimws(new))], lines[nzchar(trimws(lines))])) {
+        .upgrade_write(ctx, "ai", target, new,
+                       paste0("regenerate marked sections (", paste(regenerated$done, collapse = ", "), ")"))
+      }
+    }
+  }
+
+  assistants <- unlist(settings$ai$assistants)
+  if (.fw_settings_sensitive(settings) && "claude" %in% assistants) {
+    .upgrade_agent_guards(ctx, settings)
+  }
+  invisible()
+}
+
+# The settings file on disk to read for regenerating (the renamed config.yml
+# isn't on disk yet in a dry run)
+#' @keywords internal
+.upgrade_on_disk_settings <- function(ctx) {
+  if (file.exists(file.path(ctx$root, ctx$main))) ctx$main else basename(.fw_settings_files(ctx$root)[1])
+}
+
+#' @keywords internal
+.upgrade_in_dir <- function(dir, code) {
+  old <- setwd(dir)
+  on.exit(setwd(old), add = TRUE)
+  force(code)
+}
+
+# Set `section.key` where the section lives: its split file, or inline
+#' @keywords internal
+.upgrade_set_setting <- function(ctx, section, key, value, step) {
+  file <- .upgrade_split_file(ctx, section)
+  if (!is.null(file)) {
+    text <- paste(.upgrade_read(ctx, file), collapse = "\n")
+    raw <- .upgrade_yaml(ctx, file)
+    keys <- if (is.list(raw) && section %in% names(raw)) c(section, key) else key
+  } else {
+    file <- ctx$main
+    text <- paste(.upgrade_read(ctx, file), collapse = "\n")
+    raw <- .upgrade_yaml(ctx, file)
+    scoped <- .has_environment_sections(raw)
+    current <- .upgrade_section(raw)[[section]]
+    if (!is.list(current)) current <- list()
+    current[[key]] <- value
+    keys <- if (scoped) c("default", section) else section
+    value <- current
+  }
+  new <- .fw_yaml_set_text(text, keys, value)
+  lines <- strsplit(sub("\n$", "", new), "\n", fixed = TRUE)[[1]]
+  .upgrade_write(ctx, step, file, lines, sprintf("set %s.%s: %s", section, key, format(value)[1]))
+}
+
+# Claude Code deny rules for the private folders of a sensitive project
+#' @keywords internal
+.upgrade_agent_guards <- function(ctx, settings) {
+  dirs <- unlist(.configured_directories(settings), use.names = FALSE)
+  spec <- list(directories = as.list(dirs), extra_directories = list())
+  restricted <- sub("/$", "", .spec_restricted_paths(spec))
+  if (length(restricted) == 0) return(invisible())
+  deny <- c(unlist(lapply(restricted, function(p) c(sprintf("Read(/%s/**)", p), sprintf("Edit(/%s/**)", p)))),
+            "Read(/.env)")
+  sandbox_deny <- c(paste0("./", restricted), "./.env")
+  lines <- .upgrade_read(ctx, ".claude/settings.json")
+  current <- if (!is.null(lines)) {
+    tryCatch(jsonlite::fromJSON(paste(lines, collapse = "\n"), simplifyVector = FALSE), error = function(e) NULL)
+  } else {
+    list()
+  }
+  if (is.null(current)) {
+    .upgrade_note(ctx, ".claude/settings.json isn't valid JSON, so the guards for private folders weren't added.")
+    return(invisible())
+  }
+  new <- current
+  new$permissions$deny <- as.list(unique(c(unlist(current$permissions$deny), deny)))
+  new$sandbox$enabled <- TRUE
+  new$sandbox$failIfUnavailable <- TRUE
+  new$sandbox$filesystem$denyRead <- as.list(unique(c(unlist(current$sandbox$filesystem$denyRead), sandbox_deny)))
+  if (identical(new, current)) return(invisible())
+  json <- strsplit(as.character(jsonlite::toJSON(new, auto_unbox = TRUE, pretty = 2)), "\n", fixed = TRUE)[[1]]
+  .upgrade_write(ctx, "ai", ".claude/settings.json", json,
+                 paste("keep Claude Code out of", paste(restricted, collapse = ", ")))
+}
+
+# Framework skills: update shipped versions, add missing ones, list edits
+#' @keywords internal
+.upgrade_skills <- function(ctx) {
+  settings <- .upgrade_settings_raw(ctx)
+  if (!isTRUE(settings$ai$enabled)) return(invisible())
+  type <- if (.fw_settings_sensitive(settings)) "project_sensitive" else settings$project_type %||% "project"
+  table <- .ai_assistant_table()
+  assistants <- intersect(unlist(settings$ai$assistants), names(table))
+  dirs <- if (length(assistants) == 0) ".agents/skills" else unique(vapply(table[assistants], `[[`, "", "skills_dir"))
+  # A project with no skills folder never used skills; installing them is
+  # ai_skills_update()'s job, not an upgrade's
+  dirs <- dirs[dir.exists(file.path(ctx$root, dirs))]
+  if (length(dirs) == 0) {
+    .upgrade_note(ctx, "This project has no Framework skills. framework::ai_skills_update() installs ",
+                  "them for the ", type, " type.")
+    return(invisible())
+  }
+  edited <- character()
+  for (skill in .ai_skills_for_type(type)) {
+    source <- system.file("templates", "skills", skill, package = "framework")
+    if (!nzchar(source)) next
+    for (dir in dirs) {
+      relative <- file.path(dir, skill)
+      status <- tryCatch(.skill_package_status(source, ctx$root, relative, skill), error = function(e) "edited")
+      if (status %in% c("create", "update")) {
+        change <- if (identical(status, "create")) "add" else "update (an unedited older version)"
+        ctx$actions[[length(ctx$actions) + 1]] <- list(step = "skills", path = relative, change = change)
+        local({
+          src <- source; rel <- relative; name <- skill; root <- ctx$root
+          ctx$skills[[length(ctx$skills) + 1]] <- list(run = function() .skill_package_install(src, root, rel, name))
+        })
+      } else if (status %in% c("edited", "account")) {
+        edited <- c(edited, relative)
+      }
+    }
+  }
+  if (length(edited) > 0) {
+    .upgrade_note(ctx, "Skills kept because they were edited (or come from your account): ",
+                  paste(edited, collapse = ", "), ". ai_skills_update() leaves them too.")
+  }
+  invisible()
+}
+
+# Missing Quarto files and keys, never replacing custom configuration
+#' @keywords internal
+.upgrade_quarto <- function(ctx) {
+  settings <- .upgrade_settings_raw(ctx)
+  has_root <- file.exists(file.path(ctx$root, "_quarto.yml"))
+  if (!has_root && (length(settings$render_dirs) == 0 || isFALSE(settings$tools$quarto))) return(invisible())
+  changes <- .quarto_changes(ctx$root, settings$project_type %||% "project", settings$render_dirs,
+                             settings$quarto, settings$directories)
+  for (file in names(changes$write)) {
+    exists <- file.exists(file.path(ctx$root, file))
+    .upgrade_write(ctx, "quarto", file, changes$write[[file]],
+                   if (exists) "add missing keys (your other keys and comments stay)" else "create")
+  }
+  for (file in changes$kept) {
+    .upgrade_note(ctx, file, " makes ", dirname(file), "/ a separate Quarto project and was kept. ",
+                  "quarto_regenerate(overwrite = TRUE) folds it into the root _quarto.yml.")
+  }
+  invisible()
+}
+
+# .framework/spec.json from the upgraded settings
+#' @keywords internal
+.upgrade_spec <- function(ctx) {
+  settings <- .upgrade_settings_raw(ctx)
+  built <- tryCatch(.upgrade_spec_from_settings(ctx, settings), error = function(e) e)
+  if (inherits(built, "error")) {
+    .upgrade_note(ctx, ".framework/spec.json was not written: ", conditionMessage(built))
+    return(invisible())
+  }
+  file <- ".framework/spec.json"
+  existing <- .upgrade_read(ctx, file)
+  if (is.null(existing)) {
+    spec <- built
+    change <- "create from the settings"
+  } else {
+    old <- tryCatch(jsonlite::fromJSON(paste(existing, collapse = "\n"), simplifyVector = FALSE),
+                    error = function(e) NULL)
+    if (is.null(old)) {
+      .upgrade_note(ctx, ".framework/spec.json isn't valid JSON; fix or remove it, then run upgrade() again.")
+      return(invisible())
+    }
+    # Refresh what the settings decide; keep the rest (files, skills, env)
+    spec <- old
+    derived <- c("name", "type", "tools", "directories", "extra_directories", "render_dirs",
+                 "security", "connections")
+    stale <- derived[!vapply(derived, function(k) .upgrade_same_json(old[[k]], built[[k]]), logical(1))]
+    if (length(stale) == 0) return(invisible())
+    for (k in stale) spec[k] <- list(built[[k]])
+    change <- paste("refresh", paste(stale, collapse = ", "), "from the settings")
+  }
+  .upgrade_write(ctx, "spec", file, .spec_record_lines(spec), change)
+  invisible()
+}
+
+#' @keywords internal
+.upgrade_same_json <- function(a, b) {
+  norm <- function(x) {
+    if (is.null(x) || length(x) == 0) return("{}")
+    as.character(jsonlite::toJSON(x, auto_unbox = TRUE, null = "null"))
+  }
+  identical(norm(a), norm(b))
+}
+
+# A spec built from settings as written, without secrets
+#' @keywords internal
+.upgrade_spec_from_settings <- function(ctx, settings) {
+  type <- settings$project_type %||% "project"
+  name <- settings$project_name %||% basename(ctx$root)
+  sensitive <- .fw_settings_sensitive(settings)
+  table <- .ai_assistant_table()
+  assistants <- intersect(unlist(settings$ai$assistants), names(table))
+  layer <- list(
+    type = type,
+    core_files = TRUE,
+    settings_layout = if (dir.exists(file.path(ctx$root, "settings"))) "split" else "flat",
+    tools = Filter(function(v) isTRUE(v) || isFALSE(v), settings$tools %||% list()),
+    security = list(sensitive = sensitive),
+    git = list(use_git = file.exists(file.path(ctx$root, ".git"))),
+    ai = list(enabled = isTRUE(settings$ai$enabled),
+              assistants = stats::setNames(as.list(rep(TRUE, length(assistants))), assistants))
+  )
+  spec <- spec_resolve(list(list(kind = "project", key = "upgraded", layer = layer)), name = name, check = FALSE)
+
+  dirs <- .configured_directories(settings)
+  dirs <- dirs[vapply(dirs, .spec_is_safe_path, logical(1))]
+  spec$directories <- .adopt_named(dirs)
+  extra <- list()
+  for (e in settings$extra_directories %||% list()) {
+    if (is.list(e) && is.character(e$path) && .spec_is_safe_path(e$path)) {
+      key <- e$key %||% .adopt_extra_key(e$path, names(extra))
+      extra[[key]] <- list(label = e$label %||% basename(e$path), path = e$path)
+    }
+  }
+  if (!is.null(names(settings$extra_directories))) {
+    for (key in names(settings$extra_directories)) {
+      e <- settings$extra_directories[[key]]
+      if (is.list(e) && is.character(e$path)) extra[[key]] <- list(label = e$label %||% key, path = e$path)
+    }
+  }
+  spec$extra_directories <- .adopt_named(extra)
+  render <- Filter(function(p) is.character(p) && length(p) == 1 && .spec_is_safe_path(p),
+                   settings$render_dirs %||% list())
+  spec$render_dirs <- .adopt_named(render)
+
+  packages <- list()
+  for (pkg in settings$packages$default_packages %||% list()) {
+    if (is.character(pkg)) pkg <- list(name = pkg)
+    if (!is.list(pkg) || is.null(pkg$name)) next
+    packages[[pkg$name]] <- list(source = pkg$source %||% "cran", auto_attach = isTRUE(pkg$auto_attach))
+  }
+  spec$packages <- list(use_renv = isTRUE(settings$packages$use_renv), default_packages = .adopt_named(packages))
+  spec$connections <- .upgrade_spec_connections(settings$connections)
+  if (is.list(settings$scaffold)) {
+    spec$scaffold <- utils::modifyList(spec$scaffold %||% list(),
+                                       settings$scaffold[setdiff(names(settings$scaffold), "workflow")])
+    if (!is.null(spec$scaffold$notebook_format)) spec$scaffold$workflow <- NULL
+  }
+  if (is.list(settings$quarto)) spec$quarto <- settings$quarto
+  if (is.list(settings$author)) spec$author <- utils::modifyList(spec$author, Filter(Negate(is.null), settings$author))
+  spec$skills <- .upgrade_spec_skills(ctx, assistants)
+  spec$env <- .adopt_named(list())
+  spec$files <- .adopt_named(list())
+  gitignore <- .upgrade_read(ctx, ".gitignore")
+  spec$git$gitignore_content <- paste(gitignore %||% character(), collapse = "\n")
+  spec$source <- list(origin = "r", upgraded_from = .upgrade_detected_version(ctx))
+  problems <- spec_check(spec)
+  if (length(problems) > 0) stop(paste(problems, collapse = "; "), call. = FALSE)
+  spec
+}
+
+# Connections for the spec: env() and !expr stay as written; a password or
+# token written in becomes env("<NAME>_<KEY>"), since specs travel to Cloud
+#' @keywords internal
+.upgrade_spec_connections <- function(connections) {
+  connections <- .upgrade_untag(connections %||% list())
+  if (.upgrade_legacy_connections(list(connections = connections))) {
+    connections <- .upgrade_migrate_connections(list(connections = connections))
+  }
+  scrub <- function(conns) {
+    for (name in names(conns)) {
+      conn <- conns[[name]]
+      if (!is.list(conn)) next
+      for (key in names(conn)) {
+        if (grepl("password|passwd|pwd|secret|token|api_?key|access_key", key, ignore.case = TRUE) &&
+            .fw_literal_secret(conn[[key]])) {
+          conn[[key]] <- sprintf('env("%s")', toupper(gsub("[^A-Za-z0-9]+", "_", paste(name, key, sep = "_"))))
+        }
+      }
+      conns[[name]] <- conn
+    }
+    conns
+  }
+  out <- list(
+    default_database = connections$default_database,
+    default_storage_bucket = connections$default_storage_bucket,
+    databases = .adopt_named(scrub(connections$databases %||% list())),
+    storage_buckets = .adopt_named(scrub(connections$storage_buckets %||% list()))
+  )
+  Filter(Negate(is.null), out)
+}
+
+# Package skills present in the project, for the spec
+#' @keywords internal
+.upgrade_spec_skills <- function(ctx, assistants) {
+  table <- .ai_assistant_table()
+  dirs <- unique(c(".claude/skills", ".agents/skills",
+                   vapply(table[assistants], `[[`, "", "skills_dir")))
+  shipped <- list.dirs(system.file("templates", "skills", package = "framework"), full.names = FALSE,
+                       recursive = FALSE)
+  skills <- list()
+  for (skill in shipped) {
+    present <- any(dir.exists(file.path(ctx$root, dirs, skill))) ||
+      any(vapply(ctx$actions, function(a) identical(a$step, "skills") && identical(basename(a$path), skill),
+                 logical(1)))
+    if (present) skills[[skill]] <- list(package = TRUE)
+  }
+  .adopt_named(skills)
+}
+
+# What made the project, for source.upgraded_from
+#' @keywords internal
+.upgrade_detected_version <- function(ctx) {
+  existing <- .upgrade_read(ctx, ".framework/spec.json")
+  if (!is.null(existing)) {
+    old <- tryCatch(jsonlite::fromJSON(paste(existing, collapse = "\n"), simplifyVector = FALSE),
+                    error = function(e) NULL)
+    if (!is.null(old$source$framework_version)) return(paste("framework", old$source$framework_version))
+  }
+  if (file.exists(file.path(ctx$root, "config.yml")) && !file.exists(file.path(ctx$root, "settings.yml"))) {
+    return("framework 1.x (config.yml)")
+  }
+  "framework before 2.0 (no spec.json)"
+}
+
+# --- Output --------------------------------------------------------------------
+
+#' @keywords internal
+.upgrade_action_table <- function(ctx) {
+  if (length(ctx$actions) == 0) {
+    return(data.frame(step = character(), path = character(), change = character(), stringsAsFactors = FALSE))
+  }
+  data.frame(
+    step = vapply(ctx$actions, `[[`, "", "step"),
+    path = vapply(ctx$actions, `[[`, "", "path"),
+    change = vapply(ctx$actions, `[[`, "", "change"),
+    stringsAsFactors = FALSE
+  )
+}
+
+#' @keywords internal
+.upgrade_print <- function(ctx, actions, dry_run, path) {
+  message("Upgrade plan for ", ctx$root)
+  if (nrow(actions) == 0) {
+    message("  Nothing to change: the project is up to date.")
+  } else {
+    width <- max(nchar(actions$path))
+    for (i in seq_len(nrow(actions))) {
+      message(sprintf("  %-11s %-*s  %s", actions$step[i], width, actions$path[i], actions$change[i]))
+    }
+  }
+  if (length(ctx$notes) > 0) {
+    message("Notes:")
+    for (note in ctx$notes) message("  - ", note)
+  }
+  if (dry_run && nrow(actions) > 0) {
+    message("Dry run: nothing was changed. Apply with framework::upgrade(\"", path,
+            "\", dry_run = FALSE); every file it rewrites is backed up to .framework/backups/ first.")
+  }
+}

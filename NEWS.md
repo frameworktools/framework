@@ -190,6 +190,21 @@ Adopting and upgrading projects:
   version the package has shipped (recorded in
   `inst/templates/skill-history.json`), instead of keeping it as "locally
   edited" forever. A skill with real local edits is still kept.
+* New `upgrade()` brings a project made by an older Framework to the current
+  layout. It prints a plan by default; `dry_run = FALSE` backs up every file
+  it rewrites to `.framework/backups/<timestamp>/` (which git ignores) and
+  applies it, and running it again changes nothing. It renames a 1.x
+  `config.yml` to `settings.yml`, adds `tools:` and `security:` (`sensitive:
+  true` for `project_sensitive` projects and the private layout), rewrites the
+  old connection layouts as `default_database` and `databases`, writes or
+  refreshes `.framework/spec.json` (so `fw project push-spec` and
+  `cloud_register()` work), appends missing `.gitignore` rules without
+  removing any, makes AGENTS.md canonical with CLAUDE.md a pointer and
+  regenerates its marked sections, adds the Claude Code guards to sensitive
+  projects, updates skills from older releases, and adds missing Quarto files
+  without replacing custom Quarto config. Keys outside `default:`, passwords
+  written into settings (by key, never by value), edited skills, and
+  per-folder Quarto projects are reported, not changed.
 
 # framework 2.0.0
 

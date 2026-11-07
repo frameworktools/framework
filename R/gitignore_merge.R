@@ -79,6 +79,22 @@
   out[nzchar(out)]
 }
 
+# The folders (paths from the root) that .gitignore doesn't ignore yet, and
+# that the templates' **/private/** and **/*_private/** rules don't cover
+#' @keywords internal
+.fw_unignored_folders <- function(root, folders) {
+  folders <- unique(sub("/+$", "", sub("^\\./", "", folders[nzchar(folders)])))
+  if (length(folders) == 0) return(character())
+  covered <- vapply(strsplit(folders, "/", fixed = TRUE), function(parts) {
+    any(.fw_is_private_folder_name(parts))
+  }, logical(1))
+  folders <- folders[!covered]
+  if (length(folders) == 0) return(character())
+  ignored <- tryCatch(.fw_gitignored(paste0(folders, "/.framework-probe"), root),
+                      error = function(e) rep(FALSE, length(folders)))
+  folders[!ignored]
+}
+
 # A short list of rules for messages: the first few, then "and N more"
 #' @keywords internal
 .fw_rules_summary <- function(rules, n = 6) {

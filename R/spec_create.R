@@ -368,14 +368,19 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
 # Record how the project was made. The generating package version goes in
 # source.framework_version.
 .spec_write_record <- function(project_dir, spec) {
+  .spec_write_text(project_dir, ".framework/spec.json", .spec_record_lines(spec))
+  message("  Created: .framework/spec.json")
+}
+
+# The lines of .framework/spec.json for a spec
+.spec_record_lines <- function(spec) {
   record <- spec
   attr(record, "conflicts") <- NULL
   record$source <- record$source %||% list(origin = "r")
   record$source$framework_version <- as.character(utils::packageVersion("framework"))
   record <- .spec_mark_maps(record)
   json <- jsonlite::toJSON(record, auto_unbox = TRUE, pretty = 2, null = "null")
-  .spec_write_text(project_dir, ".framework/spec.json", json)
-  message("  Created: .framework/spec.json")
+  strsplit(as.character(json), "\n", fixed = TRUE)[[1]]
 }
 
 # Keep AI agents out of restricted directories (sensitive projects only).

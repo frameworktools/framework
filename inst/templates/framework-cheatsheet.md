@@ -19,6 +19,8 @@ new_project(key = "1|fw_...")              # Project defined on Framework Cloud
 bootstrap()                      # Prepare a cloned project (.env, folders, packages, hooks)
 adopt("~/projects/old-study")    # Make an existing folder a Framework project, in place
 adopt(yes = TRUE, sensitive = TRUE)  # Non-interactive, for a project with sensitive data
+upgrade()                        # Plan the update of an older Framework project
+upgrade(dry_run = FALSE)         # Apply it (files it rewrites are backed up)
 cloud_register()                 # Create its Cloud project, link it, and send its spec
 structure_import(name = "Lab layout")  # Save this folder's layout as a cloud structure
 scaffold()                       # Load project environment (use in notebooks)
@@ -310,6 +312,7 @@ capture_output(expr)             # Capture console output
 | `bootstrap()` | Prepare a cloned project |
 | `adopt()` | Make an existing folder a Framework project |
 | `cloud_register()` | Create a local project's Cloud project and link it |
+| `upgrade()` | Bring an older Framework project to the current layout |
 | `structure_import()` | Save a folder's layout as a cloud structure |
 | `cache()` | Store value in cache |
 | `cache_flush()` | Clear all cache |

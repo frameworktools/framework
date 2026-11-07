@@ -168,7 +168,26 @@ ai_regenerate_context <- function(project_path = ".",
 
   # Read existing content
   content <- paste(readLines(ai_path, warn = FALSE), collapse = "\n")
+  result <- .ai_regenerate_content(content, config, sections, ai_file)
+  content <- result$content
+  done <- result$done
 
+  # Write updated content
+  writeLines(content, ai_path)
+  if (length(done) > 0) {
+    message("\u2713 Regenerated AI context: ", ai_file, " (", paste(done, collapse = ", "), ")")
+  } else {
+    message("No sections regenerated in ", ai_file)
+  }
+
+  invisible(TRUE)
+}
+
+
+# The context file's text with its marked sections regenerated from
+# `config`. Returns `content` and `done` (the sections regenerated).
+#' @keywords internal
+.ai_regenerate_content <- function(content, config, sections = NULL, ai_file = "AGENTS.md") {
   project_type <- config$project_type %||% "project"
 
   # Define section generators
@@ -211,15 +230,7 @@ ai_regenerate_context <- function(project_path = ".",
     done <- c(done, section)
   }
 
-  # Write updated content
-  writeLines(content, ai_path)
-  if (length(done) > 0) {
-    message("\u2713 Regenerated AI context: ", ai_file, " (", paste(done, collapse = ", "), ")")
-  } else {
-    message("No sections regenerated in ", ai_file)
-  }
-
-  invisible(TRUE)
+  list(content = content, done = done)
 }
 
 

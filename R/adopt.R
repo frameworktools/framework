@@ -459,7 +459,7 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   private <- vapply(mapping$warnings, `[[`, "", "path")
   wanted <- c(
     .fw_gitignore_rules(spec$git$gitignore_content),
-    if (length(private) > 0) paste0("/", private, "/")
+    if (length(private) > 0) paste0("/", .fw_unignored_folders(path, private), "/")
   )
   plan <- .fw_gitignore_missing(path, wanted)
   .fw_gitignore_append(path, plan$add, "# Added by framework::adopt()")

@@ -109,9 +109,19 @@
 #' @return Invisibly returns `file`.
 #' @keywords internal
 .fw_yaml_set <- function(file, keys, value) {
+  original <- if (file.exists(file)) readChar(file, file.info(file)$size, useBytes = TRUE) else NULL
+  .fw_write_text(.fw_yaml_set_text(original, keys, value), file)
+  invisible(file)
+}
+
+# .fw_yaml_set() on text: the YAML `text` (NULL for a new file) with the
+# value at `keys` replaced, changing only that block when it can, or
+# rewritten whole otherwise
+#' @keywords internal
+.fw_yaml_set_text <- function(text, keys, value) {
   stopifnot(is.character(keys), length(keys) %in% c(1, 2))
 
-  full <- if (file.exists(file)) .fw_read_yaml(file) else NULL
+  full <- if (!is.null(text)) yaml::yaml.load(text, handlers = .fw_yaml_read_handlers()) else NULL
   if (!is.list(full)) full <- list()
   if (length(keys) == 2) {
     parent <- full[[keys[1]]]
@@ -125,8 +135,8 @@
   }
 
   rewritten <- .fw_as_yaml(full)
-  if (file.exists(file)) {
-    original <- readChar(file, file.info(file)$size, useBytes = TRUE)
+  if (!is.null(text)) {
+    original <- text
     candidate <- tryCatch(.fw_yaml_replace_block(original, keys, value), error = function(e) NULL)
     if (!is.null(candidate)) {
       # The edit is right when the file reads as before with only that key
@@ -149,15 +159,10 @@
         }
         identical(yaml::yaml.load(candidate), expected)
       }, error = function(e) FALSE)
-      if (same) {
-        .fw_write_text(candidate, file)
-        return(invisible(file))
-      }
+      if (same) return(candidate)
     }
   }
-
-  .fw_write_text(rewritten, file)
-  invisible(file)
+  rewritten
 }
 
 # Replace the block for `keys` in YAML `text`, returning the new text, or
