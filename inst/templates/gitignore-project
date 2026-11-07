@@ -77,6 +77,10 @@ framework.db-shm
 # QUARTO / RMARKDOWN ARTIFACTS
 # ============================================================================
 
+# Quarto adds these two lines, in this form, unless they are here already
+/.quarto/
+**/*.quarto_ipynb
+# A folder with its own _quarto.yml gets its own .quarto/
 .quarto/
 _freeze/
 *_cache/
