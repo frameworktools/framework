@@ -71,7 +71,7 @@
     "extra_directories": {},
     "files": {},
     "git": {
-      "gitignore_content": "# Framework Stata project\n# Data files stay out of git. Do-files, settings.do, and documentation are\n# committed; data and logs are not.\n\n# Stata data and session files\n*.dta\n*.log\n*.smcl\n*.stswp\n\n# Private data, anywhere in the project\n**/private/**\n**/*_private/**\n\n# Secrets and credentials\n.env\n.env.*\n!.env.example\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n\n# Logs, cache, and scratch work\n**/logs/**\n**/cache/**\n**/scratch/**\n**/tmp/**\nslurm-*.out\n\n# System files\n.DS_Store\nThumbs.db\n*~\n*.tmp\n*.bak\n",
+      "gitignore_content": "# Framework Stata project\n# As in R and Python projects, git ignores data by folder, not by file type:\n# everything under a private/ folder stays out of git, and so do logs, cache,\n# scratch, and tmp folders. Data in other folders, such as a public .dta,\n# can be committed. Put data that must stay on this machine under private/.\n#\n# In this project, data in inputs/ and outputs/ is committable, as in R and\n# Python projects. To keep it out of git, add its folder below (for example\n# /inputs/raw/), or add *.dta to ignore every Stata dataset.\n\n# Stata logs and session files\n*.log\n*.smcl\n*.stswp\n\n# Private data, anywhere in the project\n**/private/**\n**/*_private/**\n\n# Secrets and credentials\n.env\n.env.*\n!.env.example\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n\n# Logs, cache, and scratch work\n**/logs/**\n**/cache/**\n**/scratch/**\n**/tmp/**\nslurm-*.out\n\n# System files\n.DS_Store\nThumbs.db\n*~\n*.tmp\n*.bak\n",
       "hooks": {},
       "use_git": false
     },
@@ -133,7 +133,8 @@
       "outputs/tables/.gitkeep",
       "scratch/",
       "scratch/.gitkeep",
-      "settings.do"
+      "settings.do",
+      "settings.yml"
     ]
   }
 }

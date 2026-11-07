@@ -55,6 +55,8 @@
       "inputs_private_intermediate": "inputs/private/intermediate",
       "inputs_private_raw": "inputs/private/raw",
       "inputs_public_final": "inputs/public/final",
+      "inputs_public_intermediate": "inputs/public/intermediate",
+      "inputs_public_raw": "inputs/public/raw",
       "logs": "logs",
       "outputs_private_figures": "outputs/private/figures",
       "outputs_private_tables": "outputs/private/tables",
@@ -66,7 +68,7 @@
     "extra_directories": {},
     "files": {},
     "git": {
-      "gitignore_content": "# Framework Stata project\n# Data files stay out of git. Do-files, settings.do, and documentation are\n# committed; data and logs are not.\n#\n# This project holds restricted data. Everything under a private/ folder stays\n# on the machine that may hold it. Only reviewed, de-identified files go in\n# public/ folders.\n\n# Stata data and session files\n*.dta\n*.log\n*.smcl\n*.stswp\n\n# Restricted data\n/inputs/private/\n/outputs/private/\n**/private/**\n**/*_private/**\n**/sensitive/**\n\n# Keep the folder structure and its documentation\n!/inputs/**/README.md\n!/inputs/**/.gitkeep\n!/outputs/**/README.md\n!/outputs/**/.gitkeep\n\n# Secrets and credentials\n.env\n.env.*\n!.env.example\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n*.p12\n*.pfx\n\n# Logs, cache, and scratch work\n**/logs/**\n**/cache/**\n**/scratch/**\n**/tmp/**\nslurm-*.out\n\n# System files\n.DS_Store\nThumbs.db\n*~\n*.tmp\n*.bak\n",
+      "gitignore_content": "# Framework Stata project\n# As in R and Python projects, git ignores data by folder, not by file type:\n# everything under a private/ folder stays out of git, and so do logs, cache,\n# scratch, and tmp folders. Data in other folders, such as a public .dta,\n# can be committed. Put data that must stay on this machine under private/.\n#\n# This project holds restricted data. Everything under a private/ folder stays\n# on the machine that may hold it. Only reviewed, de-identified files go in\n# public/ folders.\n\n# Stata logs and session files\n*.log\n*.smcl\n*.stswp\n\n# Restricted data\n/inputs/private/\n/outputs/private/\n**/private/**\n**/*_private/**\n**/sensitive/**\n\n# Keep the folder structure and its documentation\n!/inputs/**/README.md\n!/inputs/**/.gitkeep\n!/outputs/**/README.md\n!/outputs/**/.gitkeep\n\n# Secrets and credentials\n.env\n.env.*\n!.env.example\n**/credentials/**\n**/secrets/**\n*.key\n*.pem\n*.p12\n*.pfx\n\n# Logs, cache, and scratch work\n**/logs/**\n**/cache/**\n**/scratch/**\n**/tmp/**\nslurm-*.out\n\n# System files\n.DS_Store\nThumbs.db\n*~\n*.tmp\n*.bak\n",
       "hooks": {},
       "use_git": false
     },
@@ -127,6 +129,10 @@
       "inputs/public/",
       "inputs/public/final/",
       "inputs/public/final/.gitkeep",
+      "inputs/public/intermediate/",
+      "inputs/public/intermediate/.gitkeep",
+      "inputs/public/raw/",
+      "inputs/public/raw/.gitkeep",
       "logs/",
       "logs/.gitkeep",
       "master.do",
@@ -143,7 +149,8 @@
       "outputs/public/tables/.gitkeep",
       "scratch/",
       "scratch/.gitkeep",
-      "settings.do"
+      "settings.do",
+      "settings.yml"
     ]
   }
 }
