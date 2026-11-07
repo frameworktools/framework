@@ -82,9 +82,15 @@ config_sync <- function(from = NULL, dry_run = FALSE) {
   # Each tool keeps its own cloud settings mirror and sync state (the hashes
   # differ between languages), so those never cross over
   files <- setdiff(files, basename(unlist(.fw_sync_paths())))
+  # A file R already has, byte for byte, is never copied again. Comparing
+  # times alone isn't enough: Windows keeps a copied file's time to a coarser
+  # precision than the original's, so the copy would always look older.
   newer <- vapply(files, function(f) {
+    src <- file.path(from, f)
     dest <- file.path(to, f)
-    !file.exists(dest) || file.mtime(file.path(from, f)) > file.mtime(dest)
+    if (!file.exists(dest)) return(TRUE)
+    if (identical(unname(tools::md5sum(src)), unname(tools::md5sum(dest)))) return(FALSE)
+    file.mtime(src) > file.mtime(dest)
   }, logical(1))
   files <- files[newer]
 
