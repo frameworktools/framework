@@ -72,6 +72,15 @@ status <- function() {
       system("git rev-parse HEAD", ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
     }, error = function(e) FALSE)
 
+    # A project inside another repository: say so, and count only this
+    # project's folder
+    project_root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+    outer_top <- .fw_outer_repository(project_root)
+    scope <- if (!is.null(outer_top)) paste("--", shQuote(project_root)) else ""
+    if (!is.null(outer_top)) {
+      message(sprintf("  Inside the repository at %s (counts are for this project)", outer_top))
+    }
+
     if (has_commits) {
       # Get current branch
       branch <- tryCatch({
@@ -80,12 +89,12 @@ status <- function() {
 
       # Get commit count
       commit_count <- tryCatch({
-        as.integer(system("git rev-list --count HEAD", intern = TRUE, ignore.stderr = TRUE))
+        as.integer(system(paste("git rev-list --count HEAD", scope), intern = TRUE, ignore.stderr = TRUE))
       }, error = function(e) 0)
 
       # Get uncommitted changes count
       status_result <- tryCatch({
-        system("git status --porcelain", intern = TRUE, ignore.stderr = TRUE)
+        system(paste("git status --porcelain", scope), intern = TRUE, ignore.stderr = TRUE)
       }, error = function(e) character(0))
 
       uncommitted <- length(status_result)

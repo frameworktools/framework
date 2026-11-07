@@ -160,3 +160,29 @@ test_that("git_hooks_enable knows check_notebook_outputs", {
   df <- suppressMessages(git_hooks_list())
   expect_true(df$enabled[df$hook == "check_notebook_outputs"])
 })
+
+test_that("git hooks refuse a project nested inside another repository", {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  outer <- withr::local_tempdir()
+  system2("git", c("-C", shQuote(outer), "init", "-q"), stdout = FALSE, stderr = FALSE)
+  outer_hook <- file.path(outer, ".git", "hooks", "pre-commit")
+  writeLines(c("#!/bin/sh", "# Framework pre-commit hook", "exit 0"), outer_hook)
+
+  project <- file.path(outer, "examples", "study")
+  dir.create(project, recursive = TRUE)
+  writeLines(c("default:", "  git:", "    hooks:", "      data_security: true"), file.path(project, "settings.yml"))
+  withr::local_dir(project)
+
+  expect_error(git_hooks_install(verbose = FALSE), "inside the git repository at")
+  expect_message(git_hooks_uninstall(), "inside the repository at")
+  expect_true(file.exists(outer_hook))
+  expect_message(git_hooks_list(), "inside the repository at")
+  expect_message(git_status(), "status of that enclosing repository")
+  expect_true(file.exists(outer_hook))
+
+  # A project at the top of its own repository is unaffected
+  system2("git", c("-C", shQuote(project), "init", "-q"), stdout = FALSE, stderr = FALSE)
+  expect_null(framework:::.fw_outer_repository(project))
+  expect_true(suppressMessages(git_hooks_install()))
+  expect_true(file.exists(file.path(project, ".git", "hooks", "pre-commit")))
+})

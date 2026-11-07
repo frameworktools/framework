@@ -23,4 +23,8 @@ git_status(short = TRUE)
 }
 }
 
+For a project inside another git repository (the project folder is not
+the repository's top folder), it says so: the status is the enclosing
+repository's.
+
 }

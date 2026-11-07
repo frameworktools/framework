@@ -67,6 +67,8 @@ git_hooks_uninstall()
 
 `git_hooks_install()` writes the hook where git looks for it, including worktrees and `core.hooksPath`. It replaces a hook Framework wrote earlier. It keeps any other pre-commit hook unless you pass `force = TRUE`. The hook reads `settings.yml` on every commit, so enabling or disabling a check needs no reinstall.
 
+The hook belongs to a project at the top of its own repository. A project inside another repository, such as a folder of example projects, would get the outer repository's hook, which runs from the outer top folder. `git_hooks_install()` refuses that with an error: run `git init` in the project first. `git_hooks_uninstall()` and `git_hooks_list()` leave the outer repository's hook alone, `git_status()` says it is reporting the enclosing repository, and `status()` counts commits and changes for the project's folder only.
+
 After cloning a project, `bootstrap()` installs the enabled hooks along with the rest of the project setup.
 
 ## Security audit

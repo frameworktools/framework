@@ -16,9 +16,22 @@
 #' }
 #' }
 #'
+#' For a project inside another git repository (the project folder is not
+#' the repository's top folder), it says so: the status is the enclosing
+#' repository's.
+#'
 #' @export
 git_status <- function(short = FALSE) {
   .require_git_repo()
+
+  # A project inside another repository has no repository of its own; say
+  # whose status this is
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  top <- .fw_outer_repository(root)
+  if (!is.null(top)) {
+    message("This project is inside the git repository at ", top,
+            ", so this is the status of that enclosing repository.")
+  }
 
   args <- "status"
   if (short) args <- c(args, "--short")
@@ -345,6 +358,15 @@ git_log <- function(n = 10, oneline = TRUE) {
 git_hooks_install <- function(config_file = NULL,
                               force = FALSE,
                               verbose = TRUE) {
+  # A project nested in another repository would get that repository's
+  # hook, which runs from the outer top folder
+  root <- if (!is.null(config_file) && file.exists(config_file)) {
+    dirname(normalizePath(config_file, mustWork = TRUE))
+  } else {
+    tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  }
+  top <- .fw_outer_repository(root)
+  if (!is.null(top)) .fw_nested_repository_error(root, top)
 
   # Check if git repo
   if (!.is_git_repo()) {
@@ -385,7 +407,7 @@ git_hooks_install <- function(config_file = NULL,
     return(invisible(FALSE))
   }
 
-  hook_path <- .hook_path()
+  hook_path <- .hook_path(root %||% ".")
   if (is.null(hook_path)) {
     if (verbose) {
       message("\u2717 Not a git repository")
@@ -442,7 +464,16 @@ git_hooks_install <- function(config_file = NULL,
 #'
 #' @export
 git_hooks_uninstall <- function(verbose = TRUE) {
-  hook_path <- .hook_path()
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  top <- .fw_outer_repository(root)
+  if (!is.null(top)) {
+    if (verbose) {
+      message("\u2139 No pre-commit hook of this project: it is inside the repository at ",
+              top, ", whose hook was left alone")
+    }
+    return(invisible(FALSE))
+  }
+  hook_path <- .hook_path(root %||% ".")
 
   if (is.null(hook_path) || !file.exists(hook_path)) {
     if (verbose) {
@@ -600,8 +631,11 @@ git_hooks_list <- function(config_file = NULL) {
 
   enabled <- .hooks_enabled(config_file)
 
-  hook_path <- .hook_path()
-  hook_installed <- !is.null(hook_path) && file.exists(hook_path)
+  # The enclosing repository's hook is not this project's
+  root <- dirname(normalizePath(config_file, mustWork = TRUE))
+  top <- .fw_outer_repository(root)
+  hook_path <- if (is.null(top)) .hook_path(root) else NULL
+  hook_installed <- !is.null(hook_path) && file.exists(hook_path) && .is_framework_hook(hook_path)
 
   df <- data.frame(
     hook = names(enabled),
@@ -611,7 +645,11 @@ git_hooks_list <- function(config_file = NULL) {
   )
 
   message("=== Framework Git Hooks ===\n")
-  message("Pre-commit hook: ", if (hook_installed) "installed" else "not installed")
+  if (!is.null(top)) {
+    message("Pre-commit hook: none (this project is inside the repository at ", top, ")")
+  } else {
+    message("Pre-commit hook: ", if (hook_installed) "installed" else "not installed")
+  }
   message("")
 
   for (i in seq_len(nrow(df))) {
@@ -710,6 +748,26 @@ git_hooks_list <- function(config_file = NULL) {
       error = function(e) FALSE
     ))
   }, logical(1))
+}
+
+# The top folder of the git repository holding a project, when that is a
+# folder above the project, else NULL. Such a project has no hooks of its
+# own: git runs the outer repository's hooks from the outer top folder.
+#' @keywords internal
+.fw_outer_repository <- function(root) {
+  if (is.null(root) || !dir.exists(root) || !.git_available()) return(NULL)
+  top <- .fw_git(root, "rev-parse", "--show-toplevel")
+  if (!.fw_git_ok(top) || length(top) == 0 || !nzchar(top[1])) return(NULL)
+  top <- normalizePath(top[1], winslash = "/", mustWork = FALSE)
+  if (identical(top, normalizePath(root, winslash = "/", mustWork = FALSE))) NULL else top
+}
+
+#' @keywords internal
+.fw_nested_repository_error <- function(root, top) {
+  stop("The project at ", root, " is inside the git repository at ", top,
+       ", so its hooks would be that repository's hooks and run from its top folder. ",
+       "Framework installs hooks only for a project at the top of its own repository. ",
+       "Run git init in the project to give it one.", call. = FALSE)
 }
 
 # Where git looks for the pre-commit hook (worktrees and core.hooksPath
