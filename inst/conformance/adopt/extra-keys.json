@@ -27,6 +27,7 @@
         "path": "grant_docs"
       }
     },
+    "render_dirs": {},
     "warnings": []
   }
 }

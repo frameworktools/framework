@@ -1,5 +1,5 @@
 {
-  "description": "How adopt() and structure_import() map an existing project's folders to Framework directory keys. Each rule's patterns are relative folder paths, matched exactly but ignoring case; a rule without languages applies to every language. Shared with framework-py and fw; see inst/conformance/README.md (adopt/).",
+  "description": "How adopt() and structure_import() map an existing project's folders to Framework directory keys. Each rule's patterns are relative folder paths, matched exactly but ignoring case; a rule without languages applies to every language. A skip entry with * matches any characters within one folder name. render_dirs rules mark folders that hold rendered notebooks. Shared with framework-py and fw; see inst/conformance/README.md (adopt/).",
   "max_depth": 3,
   "skip": [
     ".git",
@@ -18,7 +18,12 @@
     ".cache",
     ".pytest_cache",
     ".mypy_cache",
-    ".framework"
+    ".framework",
+    "settings",
+    "_site",
+    "_book",
+    "*_files",
+    "*_cache"
   ],
   "rules": [
     {
@@ -155,6 +160,22 @@
         "scratch",
         "tmp",
         "sandbox"
+      ]
+    }
+  ],
+  "render_dirs": [
+    {
+      "key": "notebooks",
+      "patterns": [
+        "outputs/notebooks",
+        "output/notebooks"
+      ]
+    },
+    {
+      "key": "docs",
+      "patterns": [
+        "outputs/docs",
+        "output/docs"
       ]
     }
   ]

@@ -119,6 +119,10 @@ Adopting and upgrading projects:
 * `adopt()` adopts a folder with no subfolders, such as a single
   `analysis.qmd`, with no folders in `settings.yml`, rather than stopping with
   "No folders found to map".
+* `adopt()` no longer proposes Framework's `settings/` folder, Quarto's
+  `*_files/` and `*_cache/` render folders, `_site/`, or `_book/` as project
+  folders, and maps `outputs/notebooks` and `outputs/docs` to `render_dirs`.
+  Skip entries in `inst/adopt/rules.json` take `*` globs.
 
 # framework 2.0.0
 

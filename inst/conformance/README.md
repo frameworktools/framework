@@ -58,6 +58,8 @@ directory keys, as `adopt()` and `structure_import()` do. The rules are in
 - `expected.directories` maps Framework keys to folder paths.
 - `expected.extra_directories` maps keys to `{label, path}` for folders no
   rule matched.
+- `expected.render_dirs` maps render keys to folders that hold rendered
+  notebooks (`render_dirs` in the rules).
 - `expected.warnings` lists `{code: "private_path", path}` for each kept
   folder whose path contains "private" in any case, in byte order of path.
 
@@ -65,14 +67,19 @@ The algorithm:
 
 1. Keep only folders at most `max_depth` (3) levels deep in which no
    segment is listed in `skip` (compared ignoring case) or starts with `.`.
-   Sort them by byte value.
+   A `skip` entry with `*` is a glob: `*` matches any characters within one
+   folder name, so `*_files` skips Quarto's `report_files/`. Sort the folders
+   by byte value.
 2. Rules apply in file order, skipping rules whose `languages` leave out the
    project's language (a rule without `languages` applies to every
    language). For each rule, the first of its `patterns`, in order, that
    equals an unassigned folder's whole relative path, ignoring case, gives
    that folder the rule's key. Patterns have no wildcards, so `raw` matches
    only a top-level `raw/`. A key gets at most one folder.
-3. A folder inside an assigned folder is covered by it and not listed.
+3. Then each `render_dirs` rule, in order, gives the first of its patterns
+   that equals a folder not yet assigned the rule's key in `render_dirs`. A
+   folder inside an assigned folder or render folder is covered by it and
+   not listed.
 4. Each remaining folder with no assigned folder inside it becomes an extra
    directory, unless its parent also qualifies. So `data/` holding only
    matched folders isn't listed, and `archive/` is listed once for

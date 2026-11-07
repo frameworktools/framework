@@ -1,0 +1,27 @@
+{
+  "description": "Framework's split settings folder, Quarto's *_files and *_cache render folders, and _site are never project folders. Rendered-notebook folders become render_dirs.",
+  "folders": [
+    "settings",
+    "report_files",
+    "notebooks",
+    "notebooks/02-summary_files",
+    "notebooks/fit_cache",
+    "outputs",
+    "outputs/notebooks",
+    "outputs/docs",
+    "_site",
+    "scripts"
+  ],
+  "expected": {
+    "directories": {
+      "scripts": "scripts",
+      "notebooks": "notebooks"
+    },
+    "extra_directories": {},
+    "render_dirs": {
+      "notebooks": "outputs/notebooks",
+      "docs": "outputs/docs"
+    },
+    "warnings": []
+  }
+}

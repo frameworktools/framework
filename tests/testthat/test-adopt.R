@@ -218,3 +218,14 @@ test_that("a folder with no subfolders can be adopted", {
   local_mocked_bindings(.fw_require_token = function(url = NULL) "fw_test")
   expect_error(structure_import(withr::local_tempdir(), yes = TRUE), "No folders found")
 })
+
+test_that("adopt() leaves settings/ and Quarto's render folders out", {
+  dir <- local_folder(c("analysis", "settings", "report_files", "notebooks/fit_cache", "outputs/notebooks"))
+  expect_identical(framework:::.adopt_scan(dir), c("analysis", "notebooks", "outputs", "outputs/notebooks"))
+  suppressMessages(adopt(dir, yes = TRUE))
+  settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
+  expect_identical(settings$render_dirs, list(notebooks = "outputs/notebooks"))
+  expect_null(settings$extra_directories)
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$render_dirs, list(notebooks = "outputs/notebooks"))
+})

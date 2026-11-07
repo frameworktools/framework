@@ -56,7 +56,7 @@ adopt <- function(path = ".", yes = FALSE) {
     packages = args$packages, directories = spec$directories,
     extra_directories = args$extra_directories, ai = args$ai, git = spec$git,
     scaffold = spec$scaffold, settings_dir = file.path(path, "settings"),
-    connections = spec$connections,
+    connections = spec$connections, render_dirs = spec$render_dirs,
     security = spec$security, tools = spec$tools, settings_layout = "flat"
   )
   .spec_write_record(path, spec)
@@ -142,14 +142,14 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 #' @keywords internal
 .adopt_scan <- function(path) {
   rules <- .adopt_rules()
-  skip <- tolower(unlist(rules$skip))
+  skip <- unlist(rules$skip)
   found <- character()
   walk <- function(rel, depth) {
     if (depth > rules$max_depth) return()
     full <- if (nzchar(rel)) file.path(path, rel) else path
     children <- list.dirs(full, full.names = FALSE, recursive = FALSE)
     for (child in children) {
-      if (startsWith(child, ".") || tolower(child) %in% skip) next
+      if (startsWith(child, ".") || .adopt_skipped(child, skip)) next
       if (.adopt_is_link(file.path(full, child))) next
       child_rel <- if (nzchar(rel)) paste(rel, child, sep = "/") else child
       found <<- c(found, child_rel)
@@ -158,6 +158,18 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   }
   walk("", 1)
   sort(found, method = "radix")
+}
+
+# Whether a folder name is in the rules' skip list, ignoring case. A skip
+# entry with * matches any characters within the name (*_files).
+#' @keywords internal
+.adopt_skipped <- function(name, skip) {
+  name <- tolower(name)
+  skip <- tolower(skip)
+  literal <- !grepl("*", skip, fixed = TRUE)
+  out <- name %in% skip[literal]
+  for (glob in skip[!literal]) out <- out | grepl(utils::glob2rx(glob), name)
+  out
 }
 
 # Whether a folder entry is a symbolic link
@@ -180,11 +192,11 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 .adopt_map <- function(folders, language = "r") {
   rules <- .adopt_rules()
   rules$rules <- Filter(function(r) is.null(r$languages) || language %in% unlist(r$languages), rules$rules)
-  skip <- tolower(unlist(rules$skip))
+  skip <- unlist(rules$skip)
   folders <- unique(sub("/+$", "", unlist(folders)))
   folders <- folders[nzchar(folders)]
   keep <- vapply(strsplit(folders, "/", fixed = TRUE), function(parts) {
-    length(parts) <= rules$max_depth && !any(startsWith(parts, ".")) && !any(tolower(parts) %in% skip)
+    length(parts) <= rules$max_depth && !any(startsWith(parts, ".")) && !any(.adopt_skipped(parts, skip))
   }, logical(1))
   folders <- sort(folders[keep], method = "radix")
 
@@ -199,7 +211,19 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
     }
   }
 
-  assigned <- as.character(unlist(directories, use.names = FALSE))
+  # Folders that hold rendered notebooks are render targets, not folders
+  render_dirs <- list()
+  for (rule in rules$render_dirs) {
+    for (pattern in unlist(rule$patterns)) {
+      hit <- folders[tolower(folders) == tolower(pattern) & !folders %in% unlist(directories)]
+      if (length(hit) > 0) {
+        render_dirs[[rule$key]] <- hit[1]
+        break
+      }
+    }
+  }
+
+  assigned <- as.character(unlist(c(directories, render_dirs), use.names = FALSE))
   under <- function(f, roots) any(startsWith(f, paste0(roots, "/")))
   rest <- folders[!folders %in% assigned & !vapply(folders, under, logical(1), roots = assigned)]
   pure <- rest[!vapply(rest, function(f) any(startsWith(assigned, paste0(f, "/"))), logical(1))]
@@ -217,6 +241,7 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   list(
     directories = directories,
     extra_directories = extra_directories,
+    render_dirs = render_dirs,
     warnings = lapply(private, function(f) list(code = "private_path", path = f))
   )
 }
@@ -289,8 +314,10 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 .adopt_print <- function(mapping) {
   rows <- data.frame(
     path = c(unlist(mapping$directories, use.names = FALSE),
-             vapply(mapping$extra_directories, `[[`, "", "path", USE.NAMES = FALSE)),
-    role = c(names(mapping$directories), rep("(other folder)", length(mapping$extra_directories))),
+             vapply(mapping$extra_directories, `[[`, "", "path", USE.NAMES = FALSE),
+             unlist(mapping$render_dirs, use.names = FALSE)),
+    role = c(names(mapping$directories), rep("(other folder)", length(mapping$extra_directories)),
+             sprintf("(rendered %s)", names(mapping$render_dirs))),
     stringsAsFactors = FALSE
   )
   message("Proposed mapping:")
@@ -301,6 +328,7 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 #' @keywords internal
 .adopt_set_role <- function(mapping, path, role) {
   mapping$directories <- mapping$directories[unlist(mapping$directories) != path]
+  mapping$render_dirs <- mapping$render_dirs[unlist(mapping$render_dirs) != path]
   extra <- vapply(mapping$extra_directories, `[[`, "", "path")
   mapping$extra_directories <- mapping$extra_directories[extra != path]
   if (identical(role, "(leave out)")) return(mapping)
@@ -324,6 +352,7 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
     tools = list(quarto = FALSE, renv = FALSE),
     directories = mapping$directories,
     extra_directories = mapping$extra_directories,
+    render_dirs = mapping$render_dirs,
     git = list(use_git = FALSE),
     ai = list(enabled = FALSE),
     security = list(sensitive = isTRUE(mapping$sensitive))

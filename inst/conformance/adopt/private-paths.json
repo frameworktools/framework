@@ -23,6 +23,7 @@
         "path": "outputs"
       }
     },
+    "render_dirs": {},
     "warnings": [
       {
         "code": "private_path",

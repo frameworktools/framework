@@ -23,6 +23,7 @@
       "scratch": "scratch"
     },
     "extra_directories": {},
+    "render_dirs": {},
     "warnings": []
   }
 }

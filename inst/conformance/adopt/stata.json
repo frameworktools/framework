@@ -21,6 +21,7 @@
       "logs": "logs"
     },
     "extra_directories": {},
+    "render_dirs": {},
     "warnings": []
   }
 }

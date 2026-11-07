@@ -15,6 +15,7 @@
       "docs": "Docs"
     },
     "extra_directories": {},
+    "render_dirs": {},
     "warnings": []
   }
 }
