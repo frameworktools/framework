@@ -27,7 +27,10 @@ enabled in settings.yml, so enabling or disabling a hook later needs no
 reinstall. A pre-commit hook Framework wrote earlier is replaced; any other
 hook is kept unless \code{force = TRUE}. The enabled hooks:
 \itemize{
-\item \strong{data_security}: Run security audit to catch data leaks
+\item \strong{data_security}: Run security audit to catch data leaks. A failing
+audit blocks the commit. When it passes, the findings of
+\code{published_outputs}, \code{connection_secrets}, and \code{identifier_columns} are
+printed and the commit goes ahead.
 \item \strong{check_sensitive_dirs}: Warn about unignored sensitive directories
 \item \strong{check_notebook_outputs}: Block staged Jupyter notebooks that
 still hold cell outputs, which can contain data

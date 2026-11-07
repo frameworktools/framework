@@ -296,7 +296,9 @@ ai_skills_update()        # Update the Framework skills after upgrading
 - **Locked data**: Flag files as read-only, errors on modification
 - **Gitignore by default**: Any `private/` folder, `.env`, caches, scratch,
   and logs are ignored
-- **Security audits**: `git_security_audit()` detects data leaks
+- **Security audits**: `git_security_audit()` detects data leaks, publishing
+  folders git would commit, passwords written into connection settings, and
+  tracked data with identifier-like columns (`data_save()` warns about those too)
 
 Framework does not encrypt data files. Keep sensitive data in ignored
 `private/` folders, on encrypted storage, or both.

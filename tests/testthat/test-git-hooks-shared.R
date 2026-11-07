@@ -228,3 +228,15 @@ test_that("check_sensitive_dirs leaves out Framework's own skills and .framework
   expect_identical(.hook_unignored_sensitive_dirs(), character())
   expect_identical(.hook_run("pre-commit"), 0L)
 })
+
+test_that("the hook prints a passing audit's warnings and the commit goes ahead", {
+  # Ports 2026-11-07 (D8): identifier-like columns in tracked data should be flagged
+  local_git_project()
+  writeLines(c("id,date_of_birth", "1,2020-01-01"), "patients.csv")
+  system2("git", c("add", "patients.csv"), stdout = FALSE, stderr = FALSE)
+  msgs <- capture_messages(status <- .hook_run("pre-commit"))
+  expect_identical(status, 0L)
+  out <- paste(msgs, collapse = "")
+  expect_match(out, "⚠ Security audit warnings (the commit goes ahead):", fixed = TRUE)
+  expect_match(out, "patients.csv (date_of_birth)", fixed = TRUE)
+})

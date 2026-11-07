@@ -50,3 +50,11 @@ Invisibly returns the saved data.
 \description{
 Save data using dot notation or file path
 }
+\details{
+After writing, \code{data_save()} warns when the file's folder (from the
+project root) has no segment named like private, confidential, or
+sensitive and the data has columns whose names look like direct
+identifiers: dates of birth, ZIP codes, SSNs, medical record numbers, and
+names alongside a date of birth. Only column names are checked, never
+values. The save still happens.
+}

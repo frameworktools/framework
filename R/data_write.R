@@ -24,6 +24,13 @@
 #'   `locked = FALSE` for data a pipeline rebuilds.
 #' @param force If TRUE, creates missing directories. If FALSE (default), errors if directory doesn't exist.
 #' @return Invisibly returns the saved data.
+#' @details
+#' After writing, `data_save()` warns when the file's folder (from the
+#' project root) has no segment named like private, confidential, or
+#' sensitive and the data has columns whose names look like direct
+#' identifiers: dates of birth, ZIP codes, SSNs, medical record numbers, and
+#' names alongside a date of birth. Only column names are checked, never
+#' values. The save still happens.
 #' @export
 data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRUE, force = FALSE) {
   # Validate arguments
@@ -154,6 +161,13 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   )
 
   message(sprintf("Data saved to: %s", .fw_project_relative_path(file_path)))
+
+  # Identifier-like column names outside a private folder: warn, the save
+  # still happens. Names only, never values.
+  .fw_warn_identifiers(
+    names(data), .fw_project_relative_path(file_path),
+    sensitive = isTRUE(tryCatch(settings_read()$security$sensitive, error = function(e) FALSE))
+  )
 
   # Database name: the catalog name, or the path as given
 

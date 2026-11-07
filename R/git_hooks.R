@@ -333,7 +333,10 @@ git_log <- function(n = 10, oneline = TRUE) {
 #' reinstall. A pre-commit hook Framework wrote earlier is replaced; any other
 #' hook is kept unless `force = TRUE`. The enabled hooks:
 #' \itemize{
-#'   \item **data_security**: Run security audit to catch data leaks
+#'   \item **data_security**: Run security audit to catch data leaks. A failing
+#'     audit blocks the commit. When it passes, the findings of
+#'     `published_outputs`, `connection_secrets`, and `identifier_columns` are
+#'     printed and the commit goes ahead.
 #'   \item **check_sensitive_dirs**: Warn about unignored sensitive directories
 #'   \item **check_notebook_outputs**: Block staged Jupyter notebooks that
 #'     still hold cell outputs, which can contain data
@@ -885,6 +888,9 @@ git_hooks_list <- function(config_file = NULL) {
       message("Run framework::git_security_audit() for details")
       return(1L)
     }
+    # A passing audit's warnings are shown, and the commit goes ahead
+    warnings <- .audit_hook_warnings(result)
+    if (length(warnings) > 0) message(paste(warnings, collapse = "\n"))
   }
 
   0L

@@ -756,7 +756,7 @@ test_that("publishing folders git doesn't ignore warn", {
   msgs <- capture_messages(audit <- git_security_audit(check_git_history = FALSE))
   expect_identical(audit$summary$check, c(
     "gitignore_coverage", "private_data_exposure", "git_history", "orphaned_files",
-    "secrets_exposure", "published_outputs", "connection_secrets"
+    "secrets_exposure", "published_outputs", "connection_secrets", "identifier_columns"
   ))
   published <- audit$findings$published_outputs
   expect_identical(published$destination, "local") # docs is public, share is outside
@@ -834,4 +834,93 @@ test_that("connection secrets written into the settings are flagged, never shown
   system2("git", c("add", "settings"), stdout = FALSE, stderr = FALSE)
   audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
   expect_identical(audit$summary$status[audit$summary$check == "connection_secrets"], "fail")
+})
+
+test_that("identifier-like column names follow the shared rule", {
+  # Test vectors from framework-py tests/test_security.py::test_identifier_names
+  columns <- c(
+    "patientDOB", "date_of_birth", "BirthDate", "birth_dt", "birth_year", "ZIP", "zip5",
+    "postal_code", "zip3", "SSN", "mrn", "MedicalRecordNumber", "last_name", "site_name",
+    "zipper", "dobutamine"
+  )
+  found <- .fw_identifier_columns(columns)
+  expect_identical(found$column, c(
+    "patientDOB", "date_of_birth", "BirthDate", "birth_dt", "ZIP", "zip5", "postal_code",
+    "SSN", "mrn", "MedicalRecordNumber", "last_name"
+  ))
+  expect_identical(found$kind, c(
+    "dob", "dob", "dob", "dob", "zip", "zip", "zip", "ssn", "mrn", "mrn", "name"
+  ))
+  expect_identical(nrow(.fw_identifier_columns(c("first_name", "last_name", "site"))), 0L)
+  expect_identical(.fw_identifier_tokens("MedicalRecordNumber"), c("medical", "record", "number"))
+  expect_identical(.fw_identifier_tokens("patientDOB"), c("patient", "dob"))
+})
+
+test_that("tracked data with identifier-like columns warns, never fails", {
+  # Ports 2026-11-07 (D8): real patient rows (DOB, ZIP) were committed in a standard project
+  local_audit_repo()
+  writeLines(c("default:", "  directories:", "    inputs_intermediate: inputs/intermediate"), "settings.yml")
+  dir.create("inputs/intermediate", recursive = TRUE)
+  dir.create("outputs/public/tables", recursive = TRUE)
+  dir.create("inputs/private", recursive = TRUE)
+  writeLines(c("patient_id,DOB,zip_code,los", "1,2020-01-01,21205,3"), "inputs/intermediate/patients.csv")
+  writeLines(c("site_name;n;x", "a;1;2"), "inputs/intermediate/sites.csv")
+  writeLines(c("id\tbirth_date\tssn", "1\t2\t3"), "inputs/intermediate/people.txt")
+  writeLines(c("zip3,n", "212,4"), "outputs/public/tables/summary.csv")
+  writeLines(c("dob,zip", "1,2"), "inputs/private/people.csv")
+  files <- c("inputs/intermediate", "outputs", "inputs/private")
+  if (requireNamespace("arrow", quietly = TRUE)) {
+    arrow::write_parquet(data.frame(firstName = "a", birth_date = "2020-01-01"),
+                         "inputs/intermediate/names.parquet")
+  }
+  if (requireNamespace("haven", quietly = TRUE)) {
+    haven::write_dta(data.frame(mrn = 1, n = 2), "inputs/intermediate/stata.dta")
+  }
+  system2("git", c("add", "-f", files), stdout = FALSE, stderr = FALSE)
+  msgs <- capture_messages(audit <- git_security_audit(check_git_history = FALSE))
+  found <- audit$findings$identifier_columns
+  expect_identical(names(found), c("file", "columns", "kinds"))
+  expect_identical(audit$summary$check[8], "identifier_columns")
+  rownames(found) <- found$file
+  expect_identical(found["inputs/intermediate/patients.csv", "columns"], "DOB, zip_code")
+  expect_identical(found["inputs/intermediate/patients.csv", "kinds"], "dob, zip")
+  expect_identical(found["inputs/intermediate/people.txt", "columns"], "birth_date, ssn")
+  expect_false("inputs/intermediate/sites.csv" %in% found$file)
+  expect_false("outputs/public/tables/summary.csv" %in% found$file)
+  expect_false("inputs/private/people.csv" %in% found$file)
+  if (requireNamespace("arrow", quietly = TRUE)) {
+    expect_identical(found["inputs/intermediate/names.parquet", "kinds"], "name, dob")
+  }
+  if (requireNamespace("haven", quietly = TRUE)) {
+    expect_identical(found["inputs/intermediate/stata.dta", "columns"], "mrn")
+  }
+  expect_identical(audit$summary$status[8], "warning")
+  report <- paste(msgs, collapse = "")
+  expect_match(report, "--- Tracked Data With Identifier-Like Columns ---", fixed = TRUE)
+  expect_match(report, "inputs/intermediate/patients.csv (DOB, zip_code)", fixed = TRUE)
+})
+
+test_that("data_save warns about identifier columns outside private folders", {
+  # Ports 2026-11-07 (D8): a standard project saved and committed real patient rows
+  dir <- create_test_project()
+  withr::defer(cleanup_test_dir(dir))
+  withr::local_dir(dir)
+  people <- data.frame(id = 1, dob = "2020-01-01", zip = "21205")
+  expect_warning(
+    suppressMessages(data_save(people, "inputs/intermediate/people.csv", force = TRUE)),
+    "inputs/intermediate/people.csv has columns that look like direct identifiers (dob, zip), and it isn't in a private folder. If this is real data about people, save it in a private folder, which git ignores, and consider a privacy-sensitive project (type project_sensitive).",
+    fixed = TRUE
+  )
+  expect_true(file.exists("inputs/intermediate/people.csv"))
+  expect_no_warning(suppressMessages(data_save(people, "inputs/private/people.csv", force = TRUE)))
+  expect_no_warning(suppressMessages(data_save(data.frame(site_name = "a"), "inputs/raw/sites.csv", force = TRUE)))
+
+  many <- data.frame(dob = 1, zip = 1, ssn = 1, mrn = 1, first_name = 1, last_name = 1, zipcode = 1)
+  settings <- readLines("settings.yml")
+  writeLines(c(settings[1], "  security:", "    sensitive: true", settings[-1]), "settings.yml")
+  expect_warning(
+    suppressMessages(data_save(many, "inputs/raw/many.csv", force = TRUE)),
+    "(dob, zip, ssn, mrn, first_name, and 2 more), and it isn't in a private folder. If this is real data about people, save it in a private folder instead.",
+    fixed = TRUE
+  )
 })

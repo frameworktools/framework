@@ -46,6 +46,14 @@
 #'     path such as `connections.databases.omop.password`), and `tracked`.
 #'     Values are never stored or printed. Fails when git tracks the file,
 #'     else warns.
+#'   \item **identifier_columns** (`identifier_columns`): Data files git tracks
+#'     (`.csv`, `.tsv`, `.txt`, `.parquet`, `.dta`, `.sav`) outside private
+#'     folders whose header has columns that look like direct identifiers
+#'     (dates of birth, ZIP codes, SSNs, medical record numbers, names with a
+#'     date of birth). Columns `file`, `columns`, and `kinds`. Only the header
+#'     is read (Parquet needs arrow, Stata and SPSS need haven; files are
+#'     skipped without them). A warning, never a failure: a header can't tell
+#'     real data from synthetic.
 #' }
 #'
 #' The audit watches the settings' `directories` whose key starts with
@@ -151,6 +159,12 @@ git_security_audit <- function(config_file = NULL,
       key = character(),
       tracked = logical(),
       stringsAsFactors = FALSE
+    ),
+    identifier_columns = data.frame(
+      file = character(),
+      columns = character(),
+      kinds = character(),
+      stringsAsFactors = FALSE
     )
   )
 
@@ -244,10 +258,17 @@ git_security_audit <- function(config_file = NULL,
   findings$connection_secrets <- connection_findings$issues
   recommendations <- c(recommendations, connection_findings$recommendations)
 
+  # Check 7: Tracked data files whose header has identifier-like columns
+  if (verbose) message("Checking tracked data files for identifier-like columns...")
+  identifier_findings <- .check_identifier_columns(root, tracked_files)
+  findings$identifier_columns <- identifier_findings$issues
+  recommendations <- c(recommendations, identifier_findings$recommendations)
+
   # Build summary
   summary <- data.frame(
     check = c("gitignore_coverage", "private_data_exposure", "git_history", "orphaned_files",
-              "secrets_exposure", "published_outputs", "connection_secrets"),
+              "secrets_exposure", "published_outputs", "connection_secrets",
+              "identifier_columns"),
     status = c(
       if (nrow(findings$gitignore_issues) == 0) "pass" else if (any(findings$gitignore_issues$severity == "critical")) "fail" else "warning",
       if (nrow(findings$private_data_exposure) == 0) "pass" else "fail",
@@ -256,7 +277,8 @@ git_security_audit <- function(config_file = NULL,
       if (!git_available) "skipped" else if (nrow(findings$secrets_exposure) == 0) "pass" else "fail",
       if (nrow(findings$published_outputs) == 0) "pass" else "warning",
       if (nrow(findings$connection_secrets) == 0) "pass"
-      else if (any(findings$connection_secrets$tracked)) "fail" else "warning"
+      else if (any(findings$connection_secrets$tracked)) "fail" else "warning",
+      if (nrow(findings$identifier_columns) == 0) "pass" else "warning"
     ),
     count = c(
       nrow(findings$gitignore_issues),
@@ -265,7 +287,8 @@ git_security_audit <- function(config_file = NULL,
       nrow(findings$orphaned_files),
       nrow(findings$secrets_exposure),
       nrow(findings$published_outputs),
-      nrow(findings$connection_secrets)
+      nrow(findings$connection_secrets),
+      nrow(findings$identifier_columns)
     ),
     stringsAsFactors = FALSE
   )
@@ -1179,6 +1202,42 @@ git_security_audit <- function(config_file = NULL,
 }
 
 
+#' Check tracked data files for identifier-like columns
+#'
+#' For each file git tracks (staged files included) with extension `.csv`,
+#' `.tsv`, `.txt`, `.parquet`, `.dta`, or `.sav`, outside folders named like
+#' private, reads the header only and matches the column names. Never reads
+#' values.
+#' @keywords internal
+.check_identifier_columns <- function(root = ".", tracked = character()) {
+  issues <- data.frame(file = character(), columns = character(), kinds = character(),
+                       stringsAsFactors = FALSE)
+  for (name in tracked) {
+    if (!tolower(tools::file_ext(name)) %in% .fw_identifier_header_types) next
+    if (.fw_private_segment(dirname(name))) next
+    path <- file.path(root, name)
+    columns <- if (file.exists(path) && !dir.exists(path)) .fw_header_columns(path) else NULL
+    found <- .fw_identifier_columns(columns %||% character())
+    if (nrow(found) > 0) {
+      issues <- rbind(issues, data.frame(
+        file = name,
+        columns = paste(found$column, collapse = ", "),
+        kinds = paste(unique(found$kind), collapse = ", "),
+        stringsAsFactors = FALSE
+      ))
+    }
+  }
+  recommendations <- if (nrow(issues) > 0) {
+    paste0("Data files tracked by git have columns that look like direct identifiers. If ",
+           "they hold real data about people, remove them from git (and its history) and ",
+           "keep them in a private folder; consider a privacy-sensitive project")
+  } else {
+    character()
+  }
+  list(issues = issues, recommendations = recommendations)
+}
+
+
 #' Check if file is a data file based on extension
 #' @keywords internal
 .is_data_file <- function(file, extensions) {
@@ -1379,6 +1438,12 @@ git_security_audit <- function(config_file = NULL,
     message(paste(.audit_finding_lines(result, "connection_secrets"), collapse = "\n"))
   }
 
+  if (nrow(result$findings$identifier_columns %||% data.frame()) > 0) {
+    has_issues <- TRUE
+    message("\n--- Tracked Data With Identifier-Like Columns ---")
+    message(paste(.audit_finding_lines(result, "identifier_columns"), collapse = "\n"))
+  }
+
   skipped <- result$audit_metadata$skipped_directories
   if (length(skipped) > 0) {
     message("\n--- Skipped: Folders Outside the Project ---")
@@ -1419,6 +1484,24 @@ git_security_audit <- function(config_file = NULL,
 }
 
 
+# What the pre-commit hook prints about a passing audit's warnings, or
+# character() when there are none
+#' @keywords internal
+.audit_hook_warnings <- function(result) {
+  titles <- c(
+    published_outputs = "Publishing Folders Not Ignored by Git",
+    connection_secrets = "Secrets Written in Connection Settings",
+    identifier_columns = "Tracked Data With Identifier-Like Columns"
+  )
+  lines <- character()
+  for (check in names(titles)) {
+    found <- .audit_finding_lines(result, check)
+    if (length(found) > 0) lines <- c(lines, "", sprintf("--- %s ---", titles[[check]]), found)
+  }
+  if (length(lines) == 0) return(character())
+  c("\u26a0 Security audit warnings (the commit goes ahead):", lines, "")
+}
+
 # The numbered report lines for one check's findings (at most ten, then a
 # count of the rest)
 #' @keywords internal
@@ -1433,7 +1516,8 @@ git_security_audit <- function(config_file = NULL,
                                   i, row$path, row$destination, as.integer(row$files),
                                   as.integer(row$tracked)),
       connection_secrets = sprintf("  %d. %s: %s (%s)", i, row$file, row$key,
-                                   if (isTRUE(row$tracked)) "tracked in git" else "not tracked")
+                                   if (isTRUE(row$tracked)) "tracked in git" else "not tracked"),
+      identifier_columns = sprintf("  %d. %s (%s)", i, row$file, row$columns)
     ))
   }
   if (nrow(frame) > 10) {

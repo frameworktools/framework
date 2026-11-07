@@ -787,7 +787,8 @@ test_that("data_info(columns = TRUE) summarizes columns without showing values",
   frame$wait <- as.difftime(c(1, 2, NA), units = "hours")
   frame$ord <- factor(c("lo", "hi", "lo"), levels = c("lo", "hi"), ordered = TRUE)
   frame$blob <- I(list(1, "a", NULL))
-  suppressMessages(data_save(frame, "inputs.raw.patients"))
+  # Synthetic identifiers: data_save() warns about them outside private/
+  suppressWarnings(suppressMessages(data_save(frame, "inputs.raw.patients")))
   before <- DBI::dbGetQuery(
     con <- .get_db_connection(), "SELECT name, hash, updated_at FROM data ORDER BY name"
   )

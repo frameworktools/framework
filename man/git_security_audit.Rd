@@ -69,6 +69,14 @@ from the environment with \code{env("VAR")}. Columns \code{file}, \code{key} (a 
 path such as \code{connections.databases.omop.password}), and \code{tracked}.
 Values are never stored or printed. Fails when git tracks the file,
 else warns.
+\item \strong{identifier_columns} (\code{identifier_columns}): Data files git tracks
+(\code{.csv}, \code{.tsv}, \code{.txt}, \code{.parquet}, \code{.dta}, \code{.sav}) outside private
+folders whose header has columns that look like direct identifiers
+(dates of birth, ZIP codes, SSNs, medical record numbers, names with a
+date of birth). Columns \code{file}, \code{columns}, and \code{kinds}. Only the header
+is read (Parquet needs arrow, Stata and SPSS need haven; files are
+skipped without them). A warning, never a failure: a header can't tell
+real data from synthetic.
 }
 
 The audit watches the settings' \code{directories} whose key starts with
