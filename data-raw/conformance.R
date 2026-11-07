@@ -101,7 +101,7 @@ adopt_cases <- list(
     folders = c("inputs", "inputs/raw", "inputs/raw/2024", "inputs/raw/2025", "archive", "archive/2019", "archive/2020")
   ),
   "private-paths" = list(
-    description = "Any path containing 'private', in any case, is a warning.",
+    description = "Any path containing private, in any case, is a warning. data/Private/raw also matches the sensitive layout (inputs_private_raw), which makes the type project_sensitive.",
     folders = c("data", "data/Private", "data/Private/raw", "data/public", "outputs", "outputs/private", "scripts")
   ),
   "extra-keys" = list(
@@ -126,6 +126,24 @@ adopt_cases <- list(
     description = "The same folders in an R project: do/ is a Stata key, so it becomes an extra directory.",
     language = "r",
     folders = c("do", "logs", "data", "data/raw", "data/clean", "output", "output/tables", "output/figures")
+  ),
+  "generated-folders" = list(
+    description = "Framework's split settings folder, Quarto's *_files and *_cache render folders, and _site are never project folders. Rendered-notebook folders become render_dirs.",
+    folders = c("settings", "report_files", "notebooks", "notebooks/02-summary_files", "notebooks/fit_cache",
+                "outputs", "outputs/notebooks", "outputs/docs", "_site", "scripts")
+  ),
+  "sensitive-layout" = list(
+    description = "The privacy-sensitive layout maps to the private and public keys and makes the project project_sensitive.",
+    folders = c("inputs", "inputs/private", "inputs/private/raw", "inputs/public", "inputs/public/raw", "outputs",
+                "outputs/private", "outputs/private/tables", "outputs/public", "outputs/public/figures", "functions")
+  ),
+  "course" = list(
+    description = "Two or more course folders at the top level make a course: course rules apply first, data/ covers its subfolders, and modules/ is the notebooks folder.",
+    folders = c("slides", "modules", "modules/01_intro", "assignments", "data", "data/raw", "readings", "scripts")
+  ),
+  "course-one-signal" = list(
+    description = "One course-like folder is not enough for a course; modules/ stays an extra directory and data/raw is inputs_raw.",
+    folders = c("modules", "data", "data/raw", "scripts")
   )
 )
 
@@ -136,9 +154,10 @@ for (id in names(adopt_cases)) {
   case <- adopt_cases[[id]]
   language <- case$language %||% "r"
   case$folders <- as.list(case$folders)
-  case$expected <- framework:::.adopt_map(unlist(case$folders), language)
+  mapped <- framework:::.adopt_map(unlist(case$folders), language)
+  case$expected <- mapped[c("type", "directories", "extra_directories", "render_dirs", "warnings")]
   # Empty maps serialize as {}
-  for (k in c("directories", "extra_directories")) {
+  for (k in c("directories", "extra_directories", "render_dirs")) {
     if (length(case$expected[[k]]) == 0) case$expected[[k]] <- stats::setNames(list(), character())
   }
   write_case(case, file.path(dir, paste0(id, ".json")))
