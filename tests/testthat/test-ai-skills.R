@@ -147,3 +147,9 @@ test_that("a skill from an older release without a lock entry is updated, not ke
   expect_true(any(vapply(lock$skills, function(e) ".claude/skills/framework-data" %in% unlist(e$paths), logical(1))))
   expect_length(list.files(file.path(test_dir, ".framework", "skills-backups")), 1)
 })
+
+test_that("ai_regenerate_context() without a context file says how to create one", {
+  dir <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project"), file.path(dir, "settings.yml"))
+  expect_error(ai_regenerate_context(dir), "ai_generate_context")
+})

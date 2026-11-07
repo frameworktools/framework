@@ -161,7 +161,9 @@ ai_regenerate_context <- function(project_path = ".",
   ai_path <- file.path(project_path, ai_file)
 
   if (!file.exists(ai_path)) {
-    stop("AI context file not found: ", ai_path)
+    stop("AI context file not found: ", ai_path, ". Create it with\n  writeLines(framework::ai_generate_context(\"",
+         project_path, "\"), \"", ai_path, "\")\nThis function only refreshes the marked sections of an existing file.",
+         call. = FALSE)
   }
 
   # Read existing content

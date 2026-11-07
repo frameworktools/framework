@@ -128,6 +128,9 @@ Fixes:
 * Registering a new bare project on Framework Cloud writes its project token
   to `.env`, as for every other type, so the folder is linked to the Cloud
   project.
+* `ai_regenerate_context()` in a project without an AI context file (an
+  adopted project with AI off) says how to create one with
+  `ai_generate_context()`.
 
 Adopting and upgrading projects:
 
