@@ -701,23 +701,26 @@ final datasets, export with `save_table()`, `save_figure()`, or `save_model()`.
   # Escape special regex characters in heading
   escaped_heading <- gsub("([.|()\\^{}+$*?\\[\\]])", "\\\\\\1", heading)
 
-  # Build pattern to find section - use [\s\S]*? for multiline matching
-  # (?s) enables DOTALL mode where . matches newlines
+  # The section runs from its marked heading to the newlines before the next
+  # "## " heading, or to the end. (?s) lets . match newlines.
   pattern <- sprintf(
-    "(?s)(## %s <!-- @framework:regenerate -->)(.*?)((?=\n## )|$)",
+    "(?s)## %s <!-- @framework:regenerate -->.*?(?:\n+(?=## )|(?=\n*\\z))",
     escaped_heading
   )
 
   # Check if section exists with marker
-  if (!grepl(pattern, content, perl = TRUE)) {
+  match <- regexpr(pattern, content, perl = TRUE)
+  if (match == -1) {
     # Section doesn't exist or doesn't have marker - don't modify
     return(content)
   }
 
-  # Build replacement (keep heading, replace content)
+  # Keep the heading, replace the content, and leave one blank line before
+  # the next heading
+  end <- match + attr(match, "match.length")
   replacement <- sprintf("## %s <!-- @framework:regenerate -->\n\n%s",
-                        heading, trimws(new_content))
-
-  # Replace using perl regex for non-greedy matching
-  gsub(pattern, replacement, content, perl = TRUE)
+                         heading, trimws(new_content))
+  rest <- substring(content, end)
+  if (!grepl("^\n*$", rest)) replacement <- paste0(replacement, "\n\n")
+  paste0(substring(content, 1, match - 1), replacement, rest)
 }

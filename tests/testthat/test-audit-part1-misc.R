@@ -225,3 +225,24 @@ test_that("data_list() shows no [NA] badge for shorthand entries", {
   expect_false(any(grepl("[NA]", msgs, fixed = TRUE)))
   expect_null(rownames(result) |> setdiff(as.character(seq_len(nrow(result)))) |> (\(x) if (length(x)) x else NULL)())
 })
+
+test_that("ai_regenerate_context() keeps the blank line before the next heading", {
+  dir <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project", "  packages:", "    default_packages:", "      - name: dplyr"),
+             file.path(dir, "settings.yml"))
+  agents <- c("# Study", "", "## Installed Packages <!-- @framework:regenerate -->", "", "- old", "",
+              "## Notes", "", "Keep this.")
+  writeLines(agents, file.path(dir, "AGENTS.md"))
+  suppressMessages(ai_regenerate_context(dir, sections = "packages"))
+  once <- readLines(file.path(dir, "AGENTS.md"))
+  notes <- which(once == "## Notes")
+  expect_identical(once[notes - 1L], "")
+  expect_true(nzchar(once[notes - 2L]))
+  suppressMessages(ai_regenerate_context(dir, sections = "packages"))
+  expect_identical(readLines(file.path(dir, "AGENTS.md")), once)
+
+  # A section that already lost its blank line gets it back
+  text <- "## A <!-- @framework:regenerate -->\n\nold\n## B\n\nb\n"
+  expect_identical(framework:::.replace_section(text, "A", "new"),
+                   "## A <!-- @framework:regenerate -->\n\nnew\n\n## B\n\nb\n")
+})
