@@ -629,6 +629,26 @@ project_create <- function(
   identical(as.integer(status), 0L)
 }
 
+# Add each folder publishing destination inside the project to .gitignore,
+# as the security audit expects: rendered notebooks there can show private
+# results. A public destination (meant to be committed, such as a GitHub
+# Pages docs/) is left alone, except in a sensitive project. The lines go
+# after the type's template and the .env rule.
+#' @keywords internal
+.ignore_publish_folders <- function(project_dir, publish, security = NULL) {
+  folders <- .folder_destinations(list(publish = publish, security = security), project_dir)
+  if (length(folders) == 0) return(invisible(character()))
+  path <- file.path(project_dir, ".gitignore")
+  lines <- if (file.exists(path)) readLines(path, warn = FALSE) else character()
+  added <- unique(paste0("/", folders, "/"))
+  added <- added[!added %in% trimws(lines)]
+  if (length(added) == 0) return(invisible(character()))
+  .ensure_secrets_ignored(project_dir)
+  lines <- if (file.exists(path)) readLines(path, warn = FALSE) else character()
+  writeLines(c(lines, "", "# Folder publishing destinations", added), path)
+  invisible(added)
+}
+
 #' Create .gitignore file
 #' @keywords internal
 .create_gitignore <- function(project_dir, content) {

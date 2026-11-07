@@ -665,3 +665,118 @@ test_that(".check_path_ignored() matches slashless patterns at any depth", {
   expect_false(framework:::.check_path_ignored("a/outputs/private/x.csv", "/outputs/private/"))
   expect_true(framework:::.check_path_ignored("outputs/private/x.csv", "outputs/private"))
 })
+
+
+# Ports 2026-11-07 (B3) -------------------------------------------------------
+
+local_audit_repo <- function(env = parent.frame()) {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  dir <- withr::local_tempdir(.local_envir = env)
+  withr::local_dir(dir, .local_envir = env)
+  system2("git", c("init", "-q"), stdout = FALSE, stderr = FALSE)
+  writeLines(c(".env", "/inputs/"), ".gitignore")
+  normalizePath(dir, winslash = "/")
+}
+
+test_that("each private file is reported once, under the deepest folder", {
+  # A staged private table was listed three times, under
+  # outputs_private_tables, outputs_private, and the outputs_tables fallback
+  local_audit_repo()
+  writeLines(c(
+    "default:",
+    "  directories:",
+    "    outputs_private: outputs/private",
+    "    outputs_private_tables: outputs/private/tables",
+    "    outputs_tables: outputs/private/tables"
+  ), "settings.yml")
+  dir.create("outputs/private/tables", recursive = TRUE)
+  writeLines(c("id", "1"), "outputs/private/tables/detail.csv")
+  system2("git", c("add", "-f", "outputs/private/tables/detail.csv"), stdout = FALSE, stderr = FALSE)
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
+  exposure <- audit$findings$private_data_exposure
+  expect_identical(exposure$file, "outputs/private/tables/detail.csv")
+  expect_identical(exposure$directory, "outputs_private_tables")
+  coverage <- audit$findings$gitignore_issues
+  expect_false(anyDuplicated(coverage$file) > 0)
+  expect_identical(sum(coverage$file == "outputs/private/tables/detail.csv"), 1L)
+})
+
+test_that("folders outside the project are skipped and reported", {
+  # Folders in another project were skipped without a word, and a private
+  # folder under a key without inputs_ or outputs_ wasn't watched
+  local_audit_repo()
+  elsewhere <- file.path(withr::local_tempdir(), "other", "outputs", "private", "tables")
+  dir.create(elsewhere, recursive = TRUE)
+  writeLines("a", file.path(elsewhere, "t.csv"))
+  inside_abs <- file.path(normalizePath(".", winslash = "/"), "inputs", "private", "raw")
+  writeLines(c(
+    "default:",
+    "  directories:",
+    "    inputs_private_raw: inputs/private/raw",
+    paste0("    inputs_private_elsewhere: ", elsewhere),
+    paste0("    original_private_tables: ", elsewhere),
+    paste0("    inputs_private_abs: ", inside_abs),
+    "    review_confidential: review/confidential"
+  ), "settings.yml")
+  dir.create("review/confidential", recursive = TRUE)
+  writeLines("a", "review/confidential/notes.csv")
+  msgs <- capture_messages(audit <- git_security_audit(check_git_history = FALSE))
+  expect_identical(audit$audit_metadata$skipped_directories, list(
+    inputs_private_elsewhere = elsewhere,
+    original_private_tables = elsewhere
+  ))
+  expect_identical(audit$audit_metadata$config_directories$inputs_private_abs, "inputs/private/raw")
+  expect_true("review/confidential" %in% audit$findings$gitignore_issues$file)
+  report <- paste(msgs, collapse = "")
+  expect_match(report, "--- Skipped: Folders Outside the Project ---", fixed = TRUE)
+  expect_match(report, paste0("  original_private_tables: ", elsewhere), fixed = TRUE)
+  expect_match(report, "     Git can't commit them from this project, so they weren't checked.", fixed = TRUE)
+})
+
+with_destinations <- function(sensitive) {
+  writeLines(c(
+    "default:",
+    if (sensitive) c("  security:", "    sensitive: true"),
+    "  publish:",
+    "    destinations:",
+    "      local: {driver: folder, path: published}",
+    "      pages: {driver: folder, path: docs, visibility: public}",
+    "      share: {driver: folder, path: /Volumes/share/published}"
+  ), "settings.yml")
+  for (folder in c("published/report", "docs/deck")) {
+    dir.create(folder, recursive = TRUE)
+    writeLines("<p>", file.path(folder, "index.html"))
+  }
+}
+
+test_that("publishing folders git doesn't ignore warn", {
+  # A rendered private notebook in published/ passed the audit
+  local_audit_repo()
+  with_destinations(sensitive = FALSE)
+  msgs <- capture_messages(audit <- git_security_audit(check_git_history = FALSE))
+  expect_identical(audit$summary$check, c(
+    "gitignore_coverage", "private_data_exposure", "git_history", "orphaned_files",
+    "secrets_exposure", "published_outputs"
+  ))
+  published <- audit$findings$published_outputs
+  expect_identical(published$destination, "local") # docs is public, share is outside
+  expect_identical(published$files, 1L)
+  expect_identical(audit$summary$status[audit$summary$check == "published_outputs"], "warning")
+  report <- paste(msgs, collapse = "")
+  expect_match(report, "--- Publishing Folders Not Ignored by Git ---", fixed = TRUE)
+  expect_match(report, "  1. published/ (destination local: 1 file(s) not ignored, 0 tracked)", fixed = TRUE)
+  expect_match(report, "Add folder publishing destinations to .gitignore (for example /published/), or set visibility: public on a destination meant to be committed", fixed = TRUE)
+
+  writeLines(c(".env", "/inputs/", "/published/"), ".gitignore")
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
+  expect_true(all(audit$summary$status %in% c("pass", "skipped")))
+})
+
+test_that("sensitive projects check public publishing folders too", {
+  local_audit_repo()
+  with_destinations(sensitive = TRUE)
+  system2("git", c("add", "docs"), stdout = FALSE, stderr = FALSE)
+  published <- git_security_audit(check_git_history = FALSE, verbose = FALSE)$findings$published_outputs
+  expect_identical(published$destination, c("local", "pages"))
+  expect_identical(published$tracked, c(0L, 1L))
+})

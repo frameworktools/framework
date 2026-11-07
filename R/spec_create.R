@@ -124,6 +124,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     .create_env_file(project_dir, list(variables = spec$env))
   }
   .create_gitignore(project_dir, spec$git$gitignore_content)
+  .ignore_publish_folders(project_dir, spec$publish, spec$security)
 
   if (!is_bare && isTRUE(spec$ai$enabled)) {
     .spec_write_ai(project_dir, spec)

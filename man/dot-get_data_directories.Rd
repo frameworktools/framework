@@ -4,9 +4,14 @@
 \alias{.get_data_directories}
 \title{Get data directories from config}
 \usage{
-.get_data_directories(config, verbose)
+.get_data_directories(config, verbose, root = ".")
 }
 \description{
-Get data directories from config
+A settings folder counts when its key starts with \code{inputs_} or \code{outputs_},
+is \code{cache}, \code{scratch}, or \code{logs}, or when its key or path is named like
+private, confidential, or sensitive (\code{original_private_tables}). Folders
+outside the project are left out (see \code{.outside_directories()}): git can't
+commit them from here. An absolute path inside the project becomes the
+path from the root.
 }
 \keyword{internal}

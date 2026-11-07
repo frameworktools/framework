@@ -4,10 +4,12 @@
 \alias{.fw_gitignored}
 \title{Which paths git ignores}
 \usage{
-.fw_gitignored(paths)
+.fw_gitignored(paths, root = ".")
 }
 \arguments{
-\item{paths}{Paths relative to the working directory}
+\item{paths}{Paths relative to \code{root}}
+
+\item{root}{The folder the paths are relative to (default: the working directory)}
 }
 \value{
 Logical vector, TRUE where the path is ignored

@@ -35,7 +35,8 @@ A structured list containing:
 \item{summary}{Data frame with check names, status (pass/warning/fail), and counts}
 \item{findings}{List of data frames with detailed findings for each check}
 \item{recommendations}{Character vector of actionable recommendations}
-\item{audit_metadata}{List with audit timestamp, Framework version, and config info}
+\item{audit_metadata}{List with audit timestamp, Framework version, config info,
+and \code{skipped_directories} (key -> path of folders outside the project)}
 }
 }
 \description{
@@ -54,7 +55,21 @@ the key in brackets:
 \item \strong{private_data_exposure} (\code{private_data_exposure}): Checks if private data is tracked by git
 \item \strong{secrets_exposure} (\code{secrets_exposure}): Checks if \code{.env} files (which hold passwords and
 tokens) are tracked by git
+\item \strong{published_outputs} (\code{published_outputs}): Folder publishing destinations
+(\code{publish.destinations} entries with \code{driver: folder}) inside the project
+whose folder holds files git doesn't ignore. Columns \code{destination},
+\code{path}, \code{files} (count not ignored), and \code{tracked} (count of those git
+tracks). In a project that isn't \code{security: sensitive: true}, a
+destination with \code{visibility: public} (or \code{private: false}) is left out,
+since it is meant to be committed. A warning, never a failure.
 }
+
+The audit watches the settings' \code{directories} whose key starts with
+\code{inputs_} or \code{outputs_}, \code{cache}, \code{scratch}, \code{logs}, and any key or path
+named like private, confidential, or sensitive. Each file is reported once,
+under the deepest folder that holds it. A folder outside the project is not
+checked, since git can't commit it from here; it is listed in
+\code{audit_metadata$skipped_directories} and in the printed report.
 
 Status levels:
 \itemize{

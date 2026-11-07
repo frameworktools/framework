@@ -310,3 +310,30 @@ test_that("scaffold.source_all_functions reaches the project's settings", {
   scaffold <- yaml::read_yaml(file.path(dir, "settings", "scaffold.yml"))$scaffold
   expect_false(scaffold$source_all_functions)
 })
+
+test_that("folder publishing destinations are ignored in new projects", {
+  # Ports 2026-11-07: published/ held a rendered private notebook that git would commit
+  layers <- list(
+    list(kind = "base", key = "project", version = 1, layer = list(type = "project")),
+    list(kind = "project", key = "choices", layer = list(
+      git = list(use_git = FALSE),
+      publish = list(
+        default = "local",
+        destinations = list(
+          local = list(driver = "folder", path = "published"),
+          pages = list(driver = "folder", path = "docs", visibility = "public"),
+          share = list(driver = "folder", path = "/Volumes/share"),
+          cloud = list(driver = "cloud")
+        )
+      )
+    ))
+  )
+  spec <- spec_resolve(layers, name = "Publishing")
+  location <- file.path(withr::local_tempdir(), "publishing")
+  suppressMessages(project_create(spec, location))
+  lines <- readLines(file.path(location, ".gitignore"))
+  expect_true("/published/" %in% lines)
+  expect_identical(lines[which(lines == "/published/") - 1L], "# Folder publishing destinations")
+  expect_false("/docs/" %in% lines)
+  expect_false(any(grepl("Volumes", lines)))
+})

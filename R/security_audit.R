@@ -17,7 +17,8 @@
 #'     \item{summary}{Data frame with check names, status (pass/warning/fail), and counts}
 #'     \item{findings}{List of data frames with detailed findings for each check}
 #'     \item{recommendations}{Character vector of actionable recommendations}
-#'     \item{audit_metadata}{List with audit timestamp, Framework version, and config info}
+#'     \item{audit_metadata}{List with audit timestamp, Framework version, config info,
+#'       and `skipped_directories` (key -> path of folders outside the project)}
 #'   }
 #'
 #' @details
@@ -31,7 +32,21 @@
 #'   \item **private_data_exposure** (`private_data_exposure`): Checks if private data is tracked by git
 #'   \item **secrets_exposure** (`secrets_exposure`): Checks if `.env` files (which hold passwords and
 #'     tokens) are tracked by git
+#'   \item **published_outputs** (`published_outputs`): Folder publishing destinations
+#'     (`publish.destinations` entries with `driver: folder`) inside the project
+#'     whose folder holds files git doesn't ignore. Columns `destination`,
+#'     `path`, `files` (count not ignored), and `tracked` (count of those git
+#'     tracks). In a project that isn't `security: sensitive: true`, a
+#'     destination with `visibility: public` (or `private: false`) is left out,
+#'     since it is meant to be committed. A warning, never a failure.
 #' }
+#'
+#' The audit watches the settings' `directories` whose key starts with
+#' `inputs_` or `outputs_`, `cache`, `scratch`, `logs`, and any key or path
+#' named like private, confidential, or sensitive. Each file is reported once,
+#' under the deepest folder that holds it. A folder outside the project is not
+#' checked, since git can't commit it from here; it is listed in
+#' `audit_metadata$skipped_directories` and in the printed report.
 #'
 #' Status levels:
 #' \itemize{
@@ -116,6 +131,13 @@ git_security_audit <- function(config_file = NULL,
       file = character(),
       git_status = character(),
       stringsAsFactors = FALSE
+    ),
+    published_outputs = data.frame(
+      destination = character(),
+      path = character(),
+      files = integer(),
+      tracked = integer(),
+      stringsAsFactors = FALSE
     )
   )
 
@@ -148,8 +170,12 @@ git_security_audit <- function(config_file = NULL,
     }
   )
 
-  # Get data directories from config
-  data_dirs <- .get_data_directories(config, verbose)
+  # Get data directories from config. Folders outside the project are
+  # skipped: git can't commit them from here.
+  root <- dirname(normalizePath(config_file, winslash = "/", mustWork = TRUE))
+  data_dirs <- .get_data_directories(config, verbose, root = root)
+  skipped_dirs <- .outside_directories(config, root)
+  tracked_files <- if (git_available) .fw_tracked_files(root) else character()
 
   # Check 1: gitignore coverage
   if (verbose) message("Checking .gitignore coverage...")
@@ -193,22 +219,31 @@ git_security_audit <- function(config_file = NULL,
     recommendations <- c(recommendations, orphan_findings$recommendations)
   }
 
+  # Check 5: Folder publishing destinations git doesn't ignore
+  if (verbose) message("Checking folder publishing destinations...")
+  published_findings <- .check_published_outputs(config, root, tracked_files)
+  findings$published_outputs <- published_findings$issues
+  recommendations <- c(recommendations, published_findings$recommendations)
+
   # Build summary
   summary <- data.frame(
-    check = c("gitignore_coverage", "private_data_exposure", "git_history", "orphaned_files", "secrets_exposure"),
+    check = c("gitignore_coverage", "private_data_exposure", "git_history", "orphaned_files",
+              "secrets_exposure", "published_outputs"),
     status = c(
       if (nrow(findings$gitignore_issues) == 0) "pass" else if (any(findings$gitignore_issues$severity == "critical")) "fail" else "warning",
       if (nrow(findings$private_data_exposure) == 0) "pass" else "fail",
       if (!check_git_history || !git_available) "skipped" else if (nrow(findings$git_history_issues) == 0) "pass" else "fail",
       if (nrow(findings$orphaned_files) == 0) "pass" else "warning",
-      if (!git_available) "skipped" else if (nrow(findings$secrets_exposure) == 0) "pass" else "fail"
+      if (!git_available) "skipped" else if (nrow(findings$secrets_exposure) == 0) "pass" else "fail",
+      if (nrow(findings$published_outputs) == 0) "pass" else "warning"
     ),
     count = c(
       nrow(findings$gitignore_issues),
       nrow(findings$private_data_exposure),
       nrow(findings$git_history_issues),
       nrow(findings$orphaned_files),
-      nrow(findings$secrets_exposure)
+      nrow(findings$secrets_exposure),
+      nrow(findings$published_outputs)
     ),
     stringsAsFactors = FALSE
   )
@@ -229,6 +264,7 @@ git_security_audit <- function(config_file = NULL,
       timestamp = Sys.time(),
       framework_version = as.character(packageVersion("framework")),
       config_directories = data_dirs,
+      skipped_directories = skipped_dirs,
       git_available = git_available,
       auto_fix_applied = auto_fix
     )
@@ -283,20 +319,27 @@ git_security_audit <- function(config_file = NULL,
 
 
 #' Get data directories from config
+#'
+#' A settings folder counts when its key starts with `inputs_` or `outputs_`,
+#' is `cache`, `scratch`, or `logs`, or when its key or path is named like
+#' private, confidential, or sensitive (`original_private_tables`). Folders
+#' outside the project are left out (see `.outside_directories()`): git can't
+#' commit them from here. An absolute path inside the project becomes the
+#' path from the root.
 #' @keywords internal
-.get_data_directories <- function(config, verbose) {
+.get_data_directories <- function(config, verbose, root = ".") {
   dirs <- list()
-  config_dirs <- config$directories %||% list()
+  config_dirs <- .configured_directories(config)
 
-  # Include any configured directories that represent inputs/outputs/cache/scratch
   for (key in names(config_dirs)) {
     dir_path <- config_dirs[[key]]
-    if (is.null(dir_path) || !nzchar(dir_path)) {
+    if (.fw_outside_root(root, dir_path)) {
       next
     }
-
-    if (grepl("^(inputs|outputs)_", key) || key %in% c("cache", "scratch", "logs")) {
-      dirs[[key]] <- dir_path
+    if (grepl("^(inputs|outputs)_", key) || key %in% c("cache", "scratch", "logs") ||
+        grepl("private|confidential|sensitive", key, ignore.case = TRUE) ||
+        .fw_private_segment(dir_path)) {
+      dirs[[key]] <- .fw_relative_folder(root, dir_path)
     }
   }
 
@@ -353,6 +396,79 @@ git_security_audit <- function(config_file = NULL,
 }
 
 
+# The settings' directories as strings, without a leading ./ or trailing /
+#' @keywords internal
+.configured_directories <- function(config) {
+  config_dirs <- config$directories
+  if (!is.list(config_dirs)) return(list())
+  out <- list()
+  for (key in names(config_dirs)) {
+    value <- config_dirs[[key]]
+    if (!is.character(value) || length(value) != 1 || is.na(value) || !nzchar(value)) next
+    out[[key]] <- sub("/+$", "", sub("^\\./", "", value))
+  }
+  out
+}
+
+# A folder path with a segment named like private, confidential, or sensitive
+#' @keywords internal
+.fw_private_segment <- function(path) {
+  grepl("(^|/)[^/]*(private|confidential|sensitive)[^/]*(/|$)",
+        gsub("\\\\", "/", path), ignore.case = TRUE)
+}
+
+# The folder as an absolute, normalized path (relative to root unless
+# absolute, ~ expanded)
+#' @keywords internal
+.fw_folder_abs <- function(root, folder) {
+  path <- path.expand(folder)
+  if (!grepl("^(/|[A-Za-z]:|\\\\)", path)) path <- file.path(root, path)
+  .fw_normalize_path(path)
+}
+
+# Whether a settings folder (relative to root unless absolute) is outside it
+#' @keywords internal
+.fw_outside_root <- function(root, folder) {
+  base <- sub("/+$", "", .fw_normalize_path(root))
+  path <- sub("/+$", "", .fw_folder_abs(root, folder))
+  if (.Platform$OS.type == "windows") {
+    base <- tolower(base)
+    path <- tolower(path)
+  }
+  !(identical(path, base) || startsWith(path, paste0(base, "/")))
+}
+
+# A folder inside the project, as the path from the root ("." for the root)
+#' @keywords internal
+.fw_relative_folder <- function(root, folder) {
+  if (!grepl("^(/|[A-Za-z]:|\\\\|~)", folder)) return(folder)
+  base <- sub("/+$", "", .fw_normalize_path(root))
+  path <- sub("/+$", "", .fw_folder_abs(root, folder))
+  if (nchar(path) <= nchar(base)) return(".")
+  substring(path, nchar(base) + 2)
+}
+
+# Settings folders outside the project, which the audit skips and reports:
+# key -> path as configured
+#' @keywords internal
+.outside_directories <- function(config, root = ".") {
+  config_dirs <- .configured_directories(config)
+  config_dirs[vapply(config_dirs, function(path) .fw_outside_root(root, path), logical(1))]
+}
+
+# Folders with the deepest first (most path segments), keeping settings order
+# among equals
+#' @keywords internal
+.deepest_first <- function(dirs) {
+  if (length(dirs) == 0) return(dirs)
+  depth <- vapply(dirs, function(path) {
+    parts <- strsplit(sub("^\\./", "", as.character(path[1])), "[/\\\\]+")[[1]]
+    length(parts[nzchar(parts) & parts != "."])
+  }, numeric(1))
+  dirs[order(-depth)]
+}
+
+
 #' Identify directories that should be treated as private/sensitive
 #' @keywords internal
 .identify_private_dirs <- function(data_dirs) {
@@ -400,15 +516,19 @@ git_security_audit <- function(config_file = NULL,
 
   gitignore_patterns <- readLines(".gitignore", warn = FALSE)
 
-  # Check each private data directory
-  private_dirs <- .identify_private_dirs(data_dirs)
+  # Check each private data directory, deepest first, reporting each folder
+  # and file once under the deepest key: settings keys and the fallbacks can
+  # name the same folder twice (outputs_private_tables and outputs_tables)
+  private_dirs <- .deepest_first(.identify_private_dirs(data_dirs))
+  reported <- character()
 
   for (dir_name in names(private_dirs)) {
     dir_path <- private_dirs[[dir_name]]
 
-    if (!dir.exists(dir_path)) {
+    if (!dir.exists(dir_path) || dir_path %in% reported) {
       next
     }
+    reported <- c(reported, dir_path)
 
     # Check if directory itself is ignored. A pattern such as
     # `**/scratch/**` ignores only what is inside the folder, which git
@@ -428,6 +548,8 @@ git_security_audit <- function(config_file = NULL,
 
     # Check files within directory
     files <- list.files(dir_path, recursive = TRUE, full.names = TRUE)
+    files <- files[!files %in% reported]
+    reported <- c(reported, files[vapply(files, .is_data_file, logical(1), extensions = extensions)])
     for (file in files) {
       if (.is_data_file(file, extensions)) {
         if (!.check_path_ignored(file, gitignore_patterns)) {
@@ -481,8 +603,9 @@ git_security_audit <- function(config_file = NULL,
     return(list(issues = issues, recommendations = recommendations))
   }
 
-  # Check each private directory
-  private_dirs <- .identify_private_dirs(data_dirs)
+  # Check each private directory, deepest first, so each file is reported
+  # once under the deepest folder that holds it
+  private_dirs <- .deepest_first(.identify_private_dirs(data_dirs))
 
   for (dir_name in names(private_dirs)) {
     dir_path <- private_dirs[[dir_name]]
@@ -494,6 +617,7 @@ git_security_audit <- function(config_file = NULL,
     # Check if any tracked files are in this private directory
     dir_prefix <- paste0(sub("/+$", "", sub("^\\./", "", dir_path)), "/")
     exposed_files <- tracked_files[startsWith(tracked_files, dir_prefix)]
+    exposed_files <- exposed_files[!exposed_files %in% issues$file]
 
     for (file in exposed_files) {
       issues <- rbind(issues, data.frame(
@@ -764,23 +888,25 @@ git_security_audit <- function(config_file = NULL,
 #' .git/info/exclude, and the global excludes file; tracked files are never
 #' ignored). Elsewhere, matches the project's .gitignore patterns.
 #'
-#' @param paths Paths relative to the working directory
+#' @param paths Paths relative to `root`
+#' @param root The folder the paths are relative to (default: the working directory)
 #' @return Logical vector, TRUE where the path is ignored
 #' @keywords internal
-.fw_gitignored <- function(paths) {
+.fw_gitignored <- function(paths, root = ".") {
   if (length(paths) == 0) return(logical())
   git <- Sys.which("git")
   if (nzchar(git)) {
-    inside <- suppressWarnings(system2(git, c("rev-parse", "--is-inside-work-tree"),
+    inside <- suppressWarnings(system2(git, c("-C", shQuote(root), "rev-parse", "--is-inside-work-tree"),
                                        stdout = TRUE, stderr = FALSE))
     if (identical(inside, "true")) {
       # Exit status 1 means nothing is ignored, so no warning
-      ignored <- .fw_git_check_ignore(paths)
+      ignored <- .fw_git_check_ignore(paths, root = root)
       return(paths %in% ignored)
     }
   }
-  if (!file.exists(".gitignore")) return(rep(FALSE, length(paths)))
-  patterns <- readLines(".gitignore", warn = FALSE)
+  gitignore <- file.path(root, ".gitignore")
+  if (!file.exists(gitignore)) return(rep(FALSE, length(paths)))
+  patterns <- readLines(gitignore, warn = FALSE)
   vapply(paths, .check_path_ignored, logical(1), gitignore_patterns = patterns, USE.NAMES = FALSE)
 }
 
@@ -847,6 +973,92 @@ git_security_audit <- function(config_file = NULL,
   }
 
   is_ignored
+}
+
+
+# Files git tracks, staged ones included, as paths from root
+#' @keywords internal
+.fw_tracked_files <- function(root = ".") {
+  out <- tryCatch(
+    suppressWarnings(system2("git", c("-C", shQuote(root), "-c", "core.quotepath=off", "ls-files"),
+                             stdout = TRUE, stderr = FALSE)),
+    error = function(e) character()
+  )
+  if (!is.null(attr(out, "status"))) return(character())
+  sub("\r$", "", as.character(out))
+}
+
+#' Folder publishing destinations git should ignore
+#'
+#' The `publish.destinations` entries with `driver: folder` whose `path`
+#' (relative to the project root unless absolute, `~` expanded) is inside the
+#' project and isn't the root itself. In a project with
+#' `security: sensitive: true` every one counts; in other projects one with
+#' `visibility: public` or `private: false` is left out, since it is meant to
+#' be committed (a GitHub Pages `docs/`).
+#'
+#' @param config The settings, as from [settings_read()], or a list with
+#'   `publish` and `security`.
+#' @param root The project root.
+#' @return Named character vector: destination name -> path from the root.
+#' @keywords internal
+.folder_destinations <- function(config, root = ".") {
+  destinations <- if (is.list(config$publish)) config$publish$destinations else NULL
+  sensitive <- is.list(config$security) && isTRUE(config$security$sensitive)
+  found <- character()
+  for (name in names(destinations)) {
+    options <- destinations[[name]]
+    if (!is.list(options) || !identical(options$driver, "folder")) next
+    path <- options$path
+    if (!is.character(path) || length(path) != 1 || is.na(path) || !nzchar(path)) next
+    path <- sub("/+$", "", sub("^\\./", "", path))
+    if (!nzchar(path) || .fw_outside_root(root, path)) next
+    public <- identical(options$visibility, "public") || identical(options$private, FALSE)
+    if (public && !sensitive) next
+    relative <- .fw_relative_folder(root, path)
+    if (!identical(relative, ".")) found[[name]] <- relative
+  }
+  found
+}
+
+#' Check folder publishing destinations that git doesn't ignore
+#'
+#' Rendered notebooks and exported tables in a folder destination can be
+#' committed. A destination is a finding when its folder holds files that git
+#' doesn't ignore.
+#' @keywords internal
+.check_published_outputs <- function(config, root = ".", tracked = character()) {
+  issues <- data.frame(
+    destination = character(),
+    path = character(),
+    files = integer(),
+    tracked = integer(),
+    stringsAsFactors = FALSE
+  )
+  folders <- .folder_destinations(config, root)
+  for (name in names(folders)) {
+    folder <- folders[[name]]
+    if (!dir.exists(file.path(root, folder))) next
+    files <- list.files(file.path(root, folder), recursive = TRUE, all.files = TRUE, no.. = TRUE)
+    files <- sort(file.path(folder, files), method = "radix")
+    exposed <- files[!.fw_gitignored(files, root = root)]
+    if (length(exposed) > 0) {
+      issues <- rbind(issues, data.frame(
+        destination = name,
+        path = folder,
+        files = length(exposed),
+        tracked = sum(exposed %in% tracked),
+        stringsAsFactors = FALSE
+      ))
+    }
+  }
+  recommendations <- if (nrow(issues) > 0) {
+    paste0("Add folder publishing destinations to .gitignore (for example /published/), ",
+           "or set visibility: public on a destination meant to be committed")
+  } else {
+    character()
+  }
+  list(issues = issues, recommendations = recommendations)
 }
 
 
@@ -1038,6 +1250,21 @@ git_security_audit <- function(config_file = NULL,
     message("")
   }
 
+  if (nrow(result$findings$published_outputs %||% data.frame()) > 0) {
+    has_issues <- TRUE
+    message("\n--- Publishing Folders Not Ignored by Git ---")
+    message(paste(.audit_finding_lines(result, "published_outputs"), collapse = "\n"))
+  }
+
+  skipped <- result$audit_metadata$skipped_directories
+  if (length(skipped) > 0) {
+    message("\n--- Skipped: Folders Outside the Project ---")
+    for (key in names(skipped)) {
+      message(sprintf("  %s: %s", key, skipped[[key]]))
+    }
+    message("     Git can't commit them from this project, so they weren't checked.")
+  }
+
   # Show recommendations
   if (length(result$recommendations) > 0) {
     message("\n=== Recommendations ===\n")
@@ -1066,6 +1293,28 @@ git_security_audit <- function(config_file = NULL,
     message("\u2713 AUDIT PASSED - No security issues found")
   }
   message("")
+}
+
+
+# The numbered report lines for one check's findings (at most ten, then a
+# count of the rest)
+#' @keywords internal
+.audit_finding_lines <- function(result, check) {
+  frame <- result$findings[[check]]
+  if (is.null(frame) || nrow(frame) == 0) return(character())
+  lines <- character()
+  for (i in seq_len(min(10, nrow(frame)))) {
+    row <- frame[i, , drop = FALSE]
+    lines <- c(lines, switch(check,
+      published_outputs = sprintf("  %d. %s/ (destination %s: %d file(s) not ignored, %d tracked)",
+                                  i, row$path, row$destination, as.integer(row$files),
+                                  as.integer(row$tracked))
+    ))
+  }
+  if (nrow(frame) > 10) {
+    lines <- c(lines, sprintf("     ... and %d more", nrow(frame) - 10))
+  }
+  lines
 }
 
 

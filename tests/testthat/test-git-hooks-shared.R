@@ -213,3 +213,18 @@ test_that("status() labels a nested project's commit count as its own", {
   expect_true(any(grepl("Commits touching this project: 0", msgs, fixed = TRUE)))
   expect_false(any(grepl("^  Commits:", msgs)))
 })
+
+test_that("check_sensitive_dirs leaves out Framework's own skills and .framework", {
+  # Every commit in a new sensitive project warned about
+  # .claude/skills/framework-sensitive-data
+  local_git_project(hooks = list(check_sensitive_dirs = TRUE))
+  for (skills in c(".claude/skills", ".agents/skills")) {
+    dir.create(file.path(skills, "framework-sensitive-data", "private"), recursive = TRUE)
+  }
+  dir.create(".framework/private", recursive = TRUE)
+  dir.create("skills/mine-sensitive", recursive = TRUE)
+  expect_identical(.hook_unignored_sensitive_dirs(), "skills/mine-sensitive")
+  unlink("skills", recursive = TRUE)
+  expect_identical(.hook_unignored_sensitive_dirs(), character())
+  expect_identical(.hook_run("pre-commit"), 0L)
+})

@@ -891,12 +891,16 @@ git_hooks_list <- function(config_file = NULL) {
 }
 
 # Folders named like private, confidential, sensitive, cache, or scratch
-# that git does not ignore (the folder or an ancestor)
+# that git does not ignore (the folder or an ancestor). Framework's own
+# folders are left out: `.framework/`, and the skills it installs (a folder
+# named `framework-*` inside one named `skills`, such as
+# `.claude/skills/framework-sensitive-data`), which hold instructions, not data.
 #' @keywords internal
 .hook_unignored_sensitive_dirs <- function(root = ".") {
   dirs <- list.dirs(root, full.names = FALSE, recursive = TRUE)
   dirs <- dirs[nzchar(dirs)]
-  dirs <- dirs[!grepl("(^|/)(\\.git|\\.venv|node_modules|renv)(/|$)", dirs)]
+  dirs <- dirs[!grepl("(^|/)(\\.git|\\.venv|node_modules|renv|\\.framework)(/|$)", dirs)]
+  dirs <- dirs[!grepl("(^|/)skills/framework-[^/]*(/|$)", dirs)]
   found <- dirs[grepl("private|confidential|sensitive|cache|scratch", basename(dirs), ignore.case = TRUE)]
   if (length(found) == 0) {
     return(character())
