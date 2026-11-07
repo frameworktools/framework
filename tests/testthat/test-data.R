@@ -719,3 +719,52 @@ test_that("data_info() finds a file that is only under the working directory", {
   expect_equal(data_info("local/x.csv")$path, file.path(root, "notebooks/local/x.csv"))
   expect_equal(data_read("local/x.csv")$a, 1)
 })
+
+test_that("data_save() warns when it replaces locked data with different contents", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  df <- data.frame(x = 1:3)
+  suppressMessages(data_save(df, "inputs/intermediate/cohort.csv"))
+  first <- .calculate_file_hash("inputs/intermediate/cohort.csv")
+
+  # The same contents save silently
+  expect_no_warning(suppressMessages(data_save(df, "inputs/intermediate/cohort.csv")))
+
+  expect_warning(
+    suppressMessages(data_save(data.frame(x = 4:6), "inputs/intermediate/cohort.csv")),
+    "data_save() replaced locked data 'inputs/intermediate/cohort.csv' with different contents.",
+    fixed = TRUE
+  )
+  second <- .calculate_file_hash("inputs/intermediate/cohort.csv")
+  w <- tryCatch(
+    suppressMessages(data_save(df, "inputs/intermediate/cohort.csv")),
+    warning = function(w) conditionMessage(w)
+  )
+  expect_equal(w, paste0(
+    "data_save() replaced locked data 'inputs/intermediate/cohort.csv' with different contents.\n",
+    "Previous hash: ", substr(second, 1, 12), "\n",
+    "Current hash:  ", substr(first, 1, 12), "\n",
+    "Pass locked = FALSE for data a pipeline rebuilds."
+  ))
+
+  # Unlocked data is replaced silently
+  suppressMessages(data_save(df, "inputs/intermediate/scratch.csv", locked = FALSE))
+  expect_no_warning(suppressMessages(
+    data_save(data.frame(x = 7:9), "inputs/intermediate/scratch.csv", locked = FALSE)
+  ))
+})
+
+test_that("data_save() warns for a locked catalog name too", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  suppressMessages(data_save(data.frame(x = 1:3), "inputs.intermediate.cohort"))
+  expect_warning(
+    suppressMessages(data_save(data.frame(x = 4:6), "inputs.intermediate.cohort")),
+    "replaced locked data 'inputs.intermediate.cohort'",
+    fixed = TRUE
+  )
+})

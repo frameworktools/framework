@@ -35,11 +35,11 @@ If you see code using these functions, replace it with `data_read()`.
 **ALWAYS use `data_save()`:**
 
 ```r
-# Save to intermediate (tracked, integrity-checked)
-data_save(cleaned_df, "inputs/intermediate/cleaned.csv")
+# Save to final (locked by default: reads error if the file changes)
+data_save(final_df, "inputs/final/analysis_ready.csv")
 
-# Save to final (locked, prevents accidental overwrites)
-data_save(final_df, "inputs/final/analysis_ready.csv", locked = TRUE)
+# Data a pipeline rebuilds on every run: unlocked, so a rebuild doesn't warn
+data_save(cleaned_df, "inputs/intermediate/cleaned.csv", locked = FALSE)
 ```
 
 **NEVER use** `write.csv()`, `write_csv()`, or `saveRDS()` — no tracking.

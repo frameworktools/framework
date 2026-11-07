@@ -37,7 +37,10 @@ Dot notation uses your configured directories
 
 \item{delimiter}{Delimiter for CSV files ("comma", "tab", "semicolon", "space")}
 
-\item{locked}{Whether the file should be locked after saving}
+\item{locked}{Whether later reads must find the file unchanged. Default:
+TRUE. Saving again over locked data with different contents replaces it
+with a warning naming both hashes; the same contents save silently. Pass
+\code{locked = FALSE} for data a pipeline rebuilds.}
 
 \item{force}{If TRUE, creates missing directories. If FALSE (default), errors if directory doesn't exist.}
 }

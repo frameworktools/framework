@@ -53,8 +53,8 @@ data_read("data/results.rds")             # Read RDS directly
 
 ### Saving Data
 ```r
-data_save(df, "outputs_private.output")   # Save to catalog
-data_save(df, "outputs_private.secret", encrypted=TRUE)  # Encrypted save
+data_save(df, "inputs.final.analysis")    # Save to catalog (locked by default)
+data_save(df, "inputs.intermediate.clean", locked = FALSE)  # Rebuilt by a pipeline
 ```
 
 ### Data Cache

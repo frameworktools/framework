@@ -18,7 +18,10 @@
 #'   (e.g., `inputs.raw`, `inputs.intermediate`, `outputs.private`).
 #' @param type Type of data file ("csv" or "rds"). Auto-detected from extension if path includes one.
 #' @param delimiter Delimiter for CSV files ("comma", "tab", "semicolon", "space")
-#' @param locked Whether the file should be locked after saving
+#' @param locked Whether later reads must find the file unchanged. Default:
+#'   TRUE. Saving again over locked data with different contents replaces it
+#'   with a warning naming both hashes; the same contents save silently. Pass
+#'   `locked = FALSE` for data a pipeline rebuilds.
 #' @param force If TRUE, creates missing directories. If FALSE (default), errors if directory doesn't exist.
 #' @return Invisibly returns the saved data.
 #' @export
@@ -161,6 +164,22 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
       stop(sprintf("Failed to calculate file hash for '%s': %s", file_path, e$message))
     }
   )
+
+  # Saving over locked data still replaces it (data_save() is how locked
+  # data is rebuilt), but says so when the contents changed, since reads
+  # expect locked data unchanged. Identical contents save silently.
+  previous <- tryCatch(.get_data_lock_record(data_name), error = function(e) NULL)
+  if (!is.null(previous) && isTRUE(previous$locked) && !is.na(previous$hash) &&
+      nzchar(previous$hash) && !identical(previous$hash, as.vector(unclass(current_hash)))) {
+    warning(sprintf(
+      paste0(
+        "data_save() replaced locked data '%s' with different contents.\n",
+        "Previous hash: %s\nCurrent hash:  %s\n",
+        "Pass locked = FALSE for data a pipeline rebuilds."
+      ),
+      data_name, substr(previous$hash, 1, 12), substr(current_hash, 1, 12)
+    ), call. = FALSE)
+  }
 
   tryCatch(
     .set_data(
@@ -503,6 +522,20 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   }
 
   invisible(NULL)
+}
+
+#' Get a data record's hash and lock
+#' @param name The data name
+#' @return A list with `hash` and `locked`, or NULL if there is no record
+#' @keywords internal
+.get_data_lock_record <- function(name) {
+  con <- .get_db_connection()
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  result <- DBI::dbGetQuery(con, "SELECT hash, locked FROM data WHERE name = ?", list(name))
+  if (nrow(result) == 0) {
+    return(NULL)
+  }
+  list(hash = as.character(result$hash[1]), locked = isTRUE(as.logical(result$locked[1])))
 }
 
 #' Remove a data value
