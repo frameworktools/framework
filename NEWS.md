@@ -28,7 +28,11 @@ New functions and arguments:
   database uses a second connection entry for the same file.
 * `cache_remember()` and `cache()` take `depends_on`: catalog names, files,
   folders, or values. The entry is recomputed when any of them changes, and
-  the record is shared with framework-py.
+  the record is shared with framework-py. In a list of items, a named
+  element is a value, so `list("inputs.final.bp_long", formula = f)` tracks
+  the data and the formula. The out-of-date message names what changed:
+  "inputs.final.bp_long and formula changed", or "dependency 3 (a value)
+  changed" for a value without a name.
 * `data_info(columns = TRUE)` summarizes column names, types, and missing
   counts without showing any values.
 * `save_figure()` takes several formats at once, and adds `eps` and `emf`

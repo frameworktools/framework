@@ -65,7 +65,7 @@ data_save(df, "inputs.intermediate.clean", locked = FALSE)  # Rebuilt by a pipel
 ### Data Cache
 ```r
 cache_remember("key", expr)      # Cache expensive computation
-cache_remember("key", expr, depends_on = list("inputs.raw.x", "functions/fit.R", list(k = 4)))
+cache_remember("key", expr, depends_on = list("inputs.raw.x", "functions/fit.R", k = 4))
                                  # Recompute when data, code, or parameters change
 cache_get("key")                 # Retrieve from cache
 cache("key", value)              # Store in cache

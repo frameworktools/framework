@@ -111,30 +111,39 @@
   .fw_depends_error(ref)
 }
 
-# The items of depends_on: a character vector is one reference per element,
-# an unnamed list is a list of items, and anything else (a named list, a
-# data frame, a number) is one value
+# The items of depends_on: a character vector is one reference per element;
+# a list with unnamed elements is a list of items, where a named element
+# `name = value` is the value list(name = value); a fully named list, a data
+# frame, or anything else is one value
 #' @keywords internal
 .fw_depends_items <- function(depends_on) {
   if (is.character(depends_on)) {
     return(as.list(depends_on))
   }
-  if (is.list(depends_on) && !is.data.frame(depends_on) && !is.object(depends_on) &&
-      (is.null(names(depends_on)) || !any(nzchar(names(depends_on))))) {
-    items <- list()
-    for (item in depends_on) {
-      if (is.character(item) && length(item) > 1) {
-        items <- c(items, as.list(item))
-      } else {
-        items <- c(items, list(item))
+  if (is.list(depends_on) && !is.data.frame(depends_on) && !is.object(depends_on)) {
+    names <- names(depends_on) %||% rep("", length(depends_on))
+    names[is.na(names)] <- ""
+    if (length(depends_on) == 0 || !all(nzchar(names))) {
+      items <- list()
+      for (i in seq_along(depends_on)) {
+        item <- depends_on[[i]]
+        if (nzchar(names[i])) {
+          items <- c(items, list(stats::setNames(list(item), names[i])))
+        } else if (is.character(item) && length(item) > 1) {
+          items <- c(items, as.list(item))
+        } else {
+          items <- c(items, list(item))
+        }
       }
+      return(items)
     }
-    return(items)
   }
   list(depends_on)
 }
 
-# The dependencies of depends_on
+# The dependencies of depends_on. A value's ref is "value <n>", its position;
+# its label, for messages only, is its key when it is a list with one named
+# element (list(cutoff = 0), or `cutoff = 0` in a list of items)
 #' @keywords internal
 .fw_depends_resolve <- function(depends_on) {
   items <- .fw_depends_items(depends_on)
@@ -143,9 +152,31 @@
     if (is.character(item) && length(item) == 1 && !is.na(item)) {
       .fw_depends_reference(item)
     } else {
-      .fw_dependency("value", sprintf("value %d", position), .fw_value_hash(item))
+      dependency <- .fw_dependency("value", sprintf("value %d", position), .fw_value_hash(item))
+      if (is.list(item) && !is.data.frame(item) && !is.object(item) && length(item) == 1 &&
+          !is.null(names(item)) && !is.na(names(item)) && nzchar(names(item))) {
+        dependency$label <- names(item)
+      }
+      dependency
     }
   })
+}
+
+# How a message names a dependency: its catalog name or path, a value's key,
+# or "dependency <n> (a value)"
+#' @keywords internal
+.fw_depends_label <- function(dependency) {
+  if (!identical(dependency$kind, "value")) return(dependency$ref)
+  if (!is.null(dependency$label)) return(dependency$label)
+  sprintf("dependency %s (a value)", sub("^value ", "", dependency$ref))
+}
+
+# "a", "a and b", "a, b and c"
+#' @keywords internal
+.fw_depends_and <- function(labels) {
+  n <- length(labels)
+  if (n <= 1) return(paste(labels, collapse = ""))
+  paste(paste(labels[-n], collapse = ", "), labels[n], sep = " and ")
 }
 
 #' @keywords internal
@@ -303,11 +334,11 @@
   for (i in seq_along(new)) {
     previous <- before[after_ids[i]]
     if (is.na(previous) || !identical(unname(previous), new[[i]]$hash)) {
-      names <- c(names, new[[i]]$ref)
+      names <- c(names, .fw_depends_label(new[[i]]))
     }
   }
   for (i in seq_along(old)) {
-    if (!id(old[[i]]) %in% after_ids) names <- c(names, old[[i]]$ref)
+    if (!id(old[[i]]) %in% after_ids) names <- c(names, .fw_depends_label(old[[i]]))
   }
   names <- unique(names)
   if (length(names) == 0) "the dependency list" else names
@@ -322,7 +353,7 @@
   if (!is.null(dependencies)) {
     if (is.null(stored) || !identical(stored$key, .fw_depends_key(dependencies))) {
       changed <- .fw_depends_changed_between(stored$dependencies %||% list(), dependencies)
-      message(sprintf("Cache '%s' is out of date: %s changed", name, paste(changed, collapse = ", ")))
+      message(sprintf("Cache '%s' is out of date: %s changed", name, .fw_depends_and(changed)))
       return(FALSE)
     }
     return(TRUE)
@@ -338,7 +369,7 @@
     warning(sprintf(paste0(
       "Cache '%s' is older than its dependencies: %s changed since it was stored, so it is ",
       "treated as a miss. Pass depends_on= to cache_remember() to recompute it without this warning."
-    ), name, paste(checked$changed, collapse = ", ")), call. = FALSE)
+    ), name, .fw_depends_and(unique(checked$changed))), call. = FALSE)
     return(FALSE)
   }
   TRUE

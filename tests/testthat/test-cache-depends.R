@@ -97,6 +97,36 @@ test_that("depends_on recomputes when a dependency changes", {
   })
 })
 
+test_that("out-of-date messages name the entries that changed", {
+  with_deps_project({
+    run <- function(d) cache_remember("fit", 1, depends_on = d)
+    suppressMessages(run(list("inputs.raw.survey", formula = "y ~ x", 3)))
+    expect_message(run(list("inputs.raw.survey", formula = "y ~ x + z", 3)),
+                   "Cache 'fit' is out of date: formula changed", fixed = TRUE)
+    expect_message(run(list("inputs.raw.survey", formula = "y ~ x + z", 4)),
+                   "Cache 'fit' is out of date: dependency 3 (a value) changed", fixed = TRUE)
+    writeLines(c("a", "9"), "inputs/raw/survey.csv")
+    expect_message(run(list("inputs.raw.survey", formula = "y ~ x", 4)),
+                   "Cache 'fit' is out of date: inputs.raw.survey and formula changed", fixed = TRUE)
+    writeLines(c("a", "8"), "inputs/raw/survey.csv")
+    expect_message(run(list("inputs.raw.survey", formula = "y ~ x + z", 5, "functions/fit.R")),
+                   paste("Cache 'fit' is out of date: inputs.raw.survey, formula,",
+                         "dependency 3 (a value) and functions/fit.R changed"), fixed = TRUE)
+    # The catalog name in a list with named elements is a reference
+    writeLines(c("a", "7"), "inputs/raw/survey.csv")
+    expect_message(run(list("inputs.raw.survey", formula = "y ~ x + z", 5, "functions/fit.R")),
+                   "Cache 'fit' is out of date: inputs.raw.survey changed", fixed = TRUE)
+    # A list with one named element is named by it; a fully named list with
+    # more is one value
+    suppressMessages(run(list("functions/fit.R", list(cutoff = 0))))
+    expect_message(run(list("functions/fit.R", list(cutoff = 1))),
+                   "Cache 'fit' is out of date: cutoff changed", fixed = TRUE)
+    suppressMessages(run(list(cutoff = 0, k = 4)))
+    expect_message(run(list(cutoff = 1, k = 4)),
+                   "Cache 'fit' is out of date: dependency 1 (a value) changed", fixed = TRUE)
+  })
+})
+
 test_that("an entry without dependencies is out of date once they are given", {
   with_deps_project({
     suppressMessages(cache_remember("plain", "old"))
@@ -154,9 +184,21 @@ test_that("dependencies go with their entry", {
       lapply(record$dependencies, function(d) c(d$kind, d$ref)),
       list(c("folder", "functions"), c("value", "value 2"))
     )
-    # A named list is one value
+    # A named list is one value, and a named element in a list of items is
+    # the value list(name = value); refs stay "value <n>"
     suppressMessages(cache("v", 2, depends_on = list(rule = ">= 0")))
     expect_equal(.fw_depends_recorded("v")$dependencies[[1]]$ref, "value 1")
+    suppressMessages(cache("w", 2, depends_on = list("inputs.raw.survey", k = 4, 5)))
+    recorded <- .fw_depends_recorded("w")$dependencies
+    expect_equal(
+      lapply(recorded, function(d) c(d$kind, d$ref)),
+      list(c("data", "inputs.raw.survey"), c("value", "value 2"), c("value", "value 3"))
+    )
+    expect_identical(recorded[[2]]$hash, .fw_value_hash(list(k = 4)))
+    expect_identical(
+      .fw_depends_key(.fw_depends_resolve(list("inputs.raw.survey", k = 4, 5))),
+      .fw_depends_key(.fw_depends_resolve(list("inputs.raw.survey", list(k = 4), 5)))
+    )
 
     suppressMessages(cache("a", 3))
     expect_null(.fw_depends_recorded("a"))
