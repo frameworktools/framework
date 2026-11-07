@@ -6,6 +6,11 @@
 #' @param query SQL query to execute
 #' @param connection_name Name of the connection in settings.yml
 #' @param ... Additional arguments passed to DBI::dbGetQuery
+#' @param read_only Open the connection read-only (`TRUE`) or writable
+#'   (`FALSE`) for this query, as [db_connect()] does. Default (`NULL`): the
+#'   connection's setting. A read-only DuckDB file can be open in several
+#'   processes at once, so `read_only = TRUE` lets a notebook query a database
+#'   another job holds open read-only too.
 #' @return A data frame with the query results
 #'
 #' @examples
@@ -16,12 +21,12 @@
 #' }
 #'
 #' @export
-db_query <- function(query, connection_name, ...) {
+db_query <- function(query, connection_name, ..., read_only = NULL) {
   # Validate arguments
   checkmate::assert_string(query, min.chars = 1)
   checkmate::assert_string(connection_name, min.chars = 1)
 
-  con <- db_connect(connection_name)
+  con <- db_connect(connection_name, read_only = read_only)
   on.exit(DBI::dbDisconnect(con))
 
   tryCatch(

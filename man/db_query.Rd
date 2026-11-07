@@ -4,7 +4,7 @@
 \alias{db_query}
 \title{Get data from a database query}
 \usage{
-db_query(query, connection_name, ...)
+db_query(query, connection_name, ..., read_only = NULL)
 }
 \arguments{
 \item{query}{SQL query to execute}
@@ -12,6 +12,12 @@ db_query(query, connection_name, ...)
 \item{connection_name}{Name of the connection in settings.yml}
 
 \item{...}{Additional arguments passed to DBI::dbGetQuery}
+
+\item{read_only}{Open the connection read-only (\code{TRUE}) or writable
+(\code{FALSE}) for this query, as \code{\link[=db_connect]{db_connect()}} does. Default (\code{NULL}): the
+connection's setting. A read-only DuckDB file can be open in several
+processes at once, so \code{read_only = TRUE} lets a notebook query a database
+another job holds open read-only too.}
 }
 \value{
 A data frame with the query results

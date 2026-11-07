@@ -4,10 +4,18 @@
 \alias{db_connect}
 \title{Get a database connection}
 \usage{
-db_connect(name)
+db_connect(name, read_only = NULL)
 }
 \arguments{
 \item{name}{Character. Name of the connection in settings (e.g., "postgres")}
+
+\item{read_only}{Open a sqlite or duckdb file read-only (\code{TRUE}) or
+writable (\code{FALSE}) for this call, whatever the connection's \code{read_only}
+setting says. A job that builds a database other code reads with
+\code{read_only: true} opens it with \code{read_only = FALSE}. Default (\code{NULL}): the
+setting. Server databases (postgres, mysql, sqlserver) control writes with
+the database user's permissions, so \code{TRUE} is an error for them and
+\code{FALSE} changes nothing.}
 }
 \value{
 A database connection object (DBIConnection)

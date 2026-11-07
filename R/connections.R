@@ -7,6 +7,13 @@
 #' connection lifecycle automatically.
 #'
 #' @param name Character. Name of the connection in settings (e.g., "postgres")
+#' @param read_only Open a sqlite or duckdb file read-only (`TRUE`) or
+#'   writable (`FALSE`) for this call, whatever the connection's `read_only`
+#'   setting says. A job that builds a database other code reads with
+#'   `read_only: true` opens it with `read_only = FALSE`. Default (`NULL`): the
+#'   setting. Server databases (postgres, mysql, sqlserver) control writes with
+#'   the database user's permissions, so `TRUE` is an error for them and
+#'   `FALSE` changes nothing.
 #' @return A database connection object (DBIConnection)
 #'
 #' @examples
@@ -23,9 +30,10 @@
 #' }
 #'
 #' @export
-db_connect <- function(name) {
+db_connect <- function(name, read_only = NULL) {
   # Validate arguments
   checkmate::assert_string(name, min.chars = 1)
+  checkmate::assert_flag(read_only, null.ok = TRUE)
 
   config <- tryCatch(
     settings_read(),
@@ -46,14 +54,28 @@ db_connect <- function(name) {
     stop(sprintf("No driver specified for connection '%s'", name))
   }
 
+  # read_only per call: file databases only
+  driver <- .fw_sql_dialect(conn_config$driver)
+  if (!is.null(read_only)) {
+    if (!driver %in% c("sqlite", "duckdb")) {
+      if (read_only) {
+        stop(sprintf(paste0(
+          "read_only = TRUE applies to sqlite and duckdb files, and '%s' is %s. ",
+          "Connect as a database user without write access instead."
+        ), name, driver), call. = FALSE)
+      }
+    } else {
+      conn_config$read_only <- read_only
+    }
+  }
+
   # File databases are relative to the project root, not the working
   # directory, so notebooks/ opens the project's database
   if (conn_config$driver %in% c("sqlite", "duckdb")) {
     conn_config$database <- .fw_project_path(conn_config$database)
   }
 
-  # Return connection
-  tryCatch(
+  con <- tryCatch(
     switch(conn_config$driver,
       postgres = .connect_postgres(conn_config),
       postgresql = .connect_postgres(conn_config),
@@ -69,6 +91,10 @@ db_connect <- function(name) {
       stop(sprintf("Failed to connect to '%s': %s", name, e$message))
     }
   )
+  # The name and driver, for messages from the helpers that take a connection
+  attr(con, "framework_name") <- name
+  attr(con, "framework_driver") <- driver
+  con
 }
 
 

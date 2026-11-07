@@ -183,6 +183,8 @@ Database:
     - db_connect
     - db_query
     - db_execute
+    - db_execute_file
+    - db_copy_from
     - db_list
     - db_with
     - db_transaction

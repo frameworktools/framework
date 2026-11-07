@@ -205,6 +205,10 @@ connections:
 
 ```r
 df <- db_query("SELECT * FROM users WHERE active = true", "db")
+
+# Build a database from SQL and CSV files, in one transaction each
+db_execute_file("db", "sql/schema.sql")
+db_copy_from("db", "cdm.concept", "inputs/raw/concept.csv")
 ```
 
 ## Enhanced Data Viewing
@@ -275,6 +279,7 @@ ai_skills_update()        # Update the Framework skills after upgrading
 | `project_path()` | A path from the project root, like `here::here()` |
 | `db_query()` | Execute SQL query, return data |
 | `db_execute()` | Execute SQL command |
+| `db_execute_file()`, `db_copy_from()` | Run a .sql file; load a CSV into a table |
 | `cache_remember()` | Lazy evaluation with caching |
 | `save_table()`, `save_figure()`, `save_model()` | Save analysis outputs (`load_model()` reads a model back) |
 | `result_list()` | List saved outputs |

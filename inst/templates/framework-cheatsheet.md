@@ -93,6 +93,9 @@ connections:
 db_connect("db")                 # Get database connection
 db_query("SELECT * FROM users", "db")  # Run query
 db_execute("UPDATE ...", "db")   # Execute non-query
+db_execute_file("db", "sql/schema.sql")       # Run a .sql file in one transaction
+db_copy_from("db", "people", "inputs/raw/people.csv")  # Load a CSV into a table
+db_connect("db", read_only = FALSE)           # Override the read_only setting
 db_list()                        # List configured connections
 ```
 
@@ -319,6 +322,8 @@ capture_output(expr)             # Capture console output
 | `data_save()` | Save to data catalog |
 | `db_connect()` | Get database connection |
 | `db_execute()` | Execute non-query SQL |
+| `db_execute_file()` | Run every statement in a .sql file |
+| `db_copy_from()` | Load a CSV file into a table |
 | `db_query()` | Execute query and return results |
 | `db_list()` | List configured database connections |
 | `db_transaction()` | Run code in a database transaction |
