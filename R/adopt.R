@@ -209,14 +209,7 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   extra_directories <- list()
   taken <- c(names(directories), unlist(lapply(rules$rules, `[[`, "key")))
   for (f in extras_paths) {
-    key <- gsub("^_+|_+$", "", gsub("[^a-z0-9]+", "_", tolower(f)))
-    if (!grepl("^[a-z]", key)) key <- paste0("dir_", key)
-    base <- key
-    i <- 2
-    while (key %in% c(taken, names(extra_directories))) {
-      key <- paste0(base, "_", i)
-      i <- i + 1
-    }
+    key <- .adopt_extra_key(f, c(taken, names(extra_directories)))
     extra_directories[[key]] <- list(label = basename(f), path = f)
   }
 
@@ -226,6 +219,22 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
     extra_directories = extra_directories,
     warnings = lapply(private, function(f) list(code = "private_path", path = f))
   )
+}
+
+# An extra directory's key: the path lowercased, runs of other characters
+# turned into "_", "dir_" in front when it doesn't start with a letter, and
+# "_2", "_3", ... when the key is taken
+#' @keywords internal
+.adopt_extra_key <- function(path, taken) {
+  key <- gsub("^_+|_+$", "", gsub("[^a-z0-9]+", "_", tolower(path)))
+  if (!grepl("^[a-z]", key)) key <- paste0("dir_", key)
+  base <- key
+  i <- 2
+  while (key %in% taken) {
+    key <- paste0(base, "_", i)
+    i <- i + 1
+  }
+  key
 }
 
 # Show the mapping and let the person accept it, change a folder's role, or
@@ -292,8 +301,9 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   mapping$extra_directories <- mapping$extra_directories[extra != path]
   if (identical(role, "(leave out)")) return(mapping)
   if (identical(role, "(other folder)")) {
-    key <- gsub("^_+|_+$", "", gsub("[^a-z0-9]+", "_", tolower(path)))
-    if (!grepl("^[a-z]", key)) key <- paste0("dir_", key)
+    taken <- c(names(mapping$directories), unlist(lapply(.adopt_rules()$rules, `[[`, "key")),
+               names(mapping$extra_directories))
+    key <- .adopt_extra_key(path, taken)
     mapping$extra_directories[[key]] <- list(label = basename(path), path = path)
   } else {
     mapping$directories[[role]] <- path

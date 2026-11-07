@@ -114,6 +114,8 @@ Adopting and upgrading projects:
   `upgrade()`.
 * `adopt()` and `structure_import()` no longer follow symbolic links to
   folders, so the same tree maps the same way in R, Python, and fw.
+* Setting a folder to "(other folder)" in `adopt()`'s review numbers its key
+  (`_2`, `_3`) when another folder has it, rather than replacing that folder.
 
 # framework 2.0.0
 

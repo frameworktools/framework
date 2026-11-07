@@ -191,3 +191,18 @@ test_that("the scanner doesn't follow symlinked folders", {
   file.symlink(file.path(dir, "real_data"), file.path(dir, "linked"))
   expect_identical(framework:::.adopt_scan(dir), c("analysis", "real_data", "real_data/raw"))
 })
+
+test_that("a folder set to (other folder) by hand gets a key no other folder has", {
+  mapping <- list(
+    directories = list(scripts = "analysis"),
+    extra_directories = list(a_b = list(label = "a-b", path = "a-b"))
+  )
+  mapping <- framework:::.adopt_set_role(mapping, "a_b", "(other folder)")
+  expect_identical(mapping$extra_directories$a_b$path, "a-b")
+  expect_identical(mapping$extra_directories$a_b_2$path, "a_b")
+  # A Framework key is never used for an extra directory
+  mapping <- framework:::.adopt_set_role(mapping, "analysis", "(other folder)")
+  expect_identical(mapping$extra_directories$analysis$path, "analysis")
+  mapping <- framework:::.adopt_set_role(mapping, "Scripts", "(other folder)")
+  expect_identical(mapping$extra_directories$scripts_2$path, "Scripts")
+})
