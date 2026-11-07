@@ -4,17 +4,26 @@
 \alias{adopt}
 \title{Adopt an Existing Project Folder}
 \usage{
-adopt(path = ".", yes = FALSE)
+adopt(path = ".", yes = FALSE, sensitive = NULL, type = NULL)
 }
 \arguments{
 \item{path}{The project folder (default: the working directory).}
 
 \item{yes}{If TRUE, accept the proposed mapping without asking. Required
 in a non-interactive session.}
+
+\item{sensitive}{If TRUE, the project holds sensitive data
+(\code{security: sensitive: true}): Framework treats its outputs as private by
+default and turns on the sensitive-data guards. NULL (default) asks in
+an interactive review when folders look private, and is FALSE otherwise.}
+
+\item{type}{The project type: "project", "project_sensitive", "course",
+"presentation", or "bare". NULL (default) infers it from the folders.
+"project_sensitive" implies \code{sensitive = TRUE}.}
 }
 \value{
-Invisibly, a list with \code{directories} and \code{extra_directories} as
-written.
+Invisibly, a list with \code{type}, \code{directories}, and
+\code{extra_directories} as written.
 }
 \description{
 Turns a folder you already work in into a Framework project without moving
@@ -46,6 +55,8 @@ as a structure. Both default to No.
 if (FALSE) {
 adopt("~/projects/old-study")
 adopt(yes = TRUE)
+adopt("~/projects/cohort-study", yes = TRUE, sensitive = TRUE)
+adopt("~/teaching/methods", yes = TRUE, type = "course")
 }
 }
 

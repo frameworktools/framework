@@ -26,9 +26,16 @@
 #' @param path The project folder (default: the working directory).
 #' @param yes If TRUE, accept the proposed mapping without asking. Required
 #'   in a non-interactive session.
+#' @param sensitive If TRUE, the project holds sensitive data
+#'   (`security: sensitive: true`): Framework treats its outputs as private by
+#'   default and turns on the sensitive-data guards. NULL (default) asks in
+#'   an interactive review when folders look private, and is FALSE otherwise.
+#' @param type The project type: "project", "project_sensitive", "course",
+#'   "presentation", or "bare". NULL (default) infers it from the folders.
+#'   "project_sensitive" implies `sensitive = TRUE`.
 #'
-#' @return Invisibly, a list with `directories` and `extra_directories` as
-#'   written.
+#' @return Invisibly, a list with `type`, `directories`, and
+#'   `extra_directories` as written.
 #'
 #' @seealso [structure_import()] to save the layout as a structure on
 #'   Framework Cloud.
@@ -38,13 +45,24 @@
 #' if (FALSE) {
 #' adopt("~/projects/old-study")
 #' adopt(yes = TRUE)
+#' adopt("~/projects/cohort-study", yes = TRUE, sensitive = TRUE)
+#' adopt("~/teaching/methods", yes = TRUE, type = "course")
 #' }
 #' }
 #'
 #' @export
-adopt <- function(path = ".", yes = FALSE) {
+adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL) {
   checkmate::assert_directory_exists(path)
   checkmate::assert_flag(yes)
+  checkmate::assert_flag(sensitive, null.ok = TRUE)
+  checkmate::assert_choice(type, .spec_types(), null.ok = TRUE)
+  if (identical(type, "project_sensitive")) {
+    if (isFALSE(sensitive)) {
+      stop("type = \"project_sensitive\" holds sensitive data; leave sensitive out or set it to TRUE.",
+           call. = FALSE)
+    }
+    sensitive <- TRUE
+  }
   found <- c(basename(.fw_settings_files(path)),
              if (file.exists(file.path(path, ".framework", "spec.json"))) ".framework/spec.json")
   if (length(found) > 0) {
@@ -53,7 +71,8 @@ adopt <- function(path = ".", yes = FALSE) {
          call. = FALSE)
   }
 
-  mapping <- .adopt_review(.adopt_map(.adopt_scan(path)), yes = yes, allow_empty = TRUE)
+  mapping <- .adopt_review(.adopt_map(.adopt_scan(path), type = type), yes = yes,
+                           allow_empty = TRUE, sensitive = sensitive)
   name <- basename(normalizePath(path))
   spec <- .adopt_spec(mapping, name)
 
@@ -69,8 +88,10 @@ adopt <- function(path = ".", yes = FALSE) {
   .spec_write_record(path, spec)
 
   message("\n[ok] ", name, " is a Framework project. Run framework::scaffold() in it to start.")
-  if (length(mapping$warnings) > 0) {
-    message("Some folders look private. Keep them out of git, and consider the Privacy Sensitive structure.")
+  if (length(mapping$warnings) > 0 && !isTRUE(mapping$sensitive)) {
+    message("Some folders look private. Keep them out of git. If the project holds sensitive data, ",
+            "adopt it with sensitive = TRUE (fw adopt --sensitive), or set security: sensitive: true ",
+            "in settings.yml.")
   }
 
   # Signed in and interactive: offer the cloud, default No
@@ -92,7 +113,7 @@ adopt <- function(path = ".", yes = FALSE) {
       .structure_upload(mapping, name)
     }
   }
-  invisible(mapping[c("directories", "extra_directories")])
+  invisible(mapping[c("type", "directories", "extra_directories")])
 }
 
 #' Save a Folder's Layout as a Structure on Framework Cloud
@@ -306,8 +327,11 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 # leave a folder out. With private-looking folders, an interactive review
 # also asks whether the project holds sensitive data; yes = TRUE never sets it.
 #' @keywords internal
-.adopt_review <- function(mapping, yes = FALSE, ask_sensitive = TRUE, allow_empty = FALSE) {
-  mapping$sensitive <- FALSE
+.adopt_review <- function(mapping, yes = FALSE, ask_sensitive = TRUE, allow_empty = FALSE,
+                          sensitive = NULL) {
+  if (identical(mapping$type, "project_sensitive")) sensitive <- TRUE
+  mapping$sensitive <- isTRUE(sensitive)
+  if (!is.null(sensitive)) ask_sensitive <- FALSE
   if (length(mapping$directories) + length(mapping$extra_directories) == 0) {
     if (!allow_empty) stop("No folders found to map. Nothing was changed.", call. = FALSE)
     # A project of loose files (one analysis.qmd) is still a project: its
@@ -360,7 +384,8 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
              sprintf("(rendered %s)", names(mapping$render_dirs))),
     stringsAsFactors = FALSE
   )
-  message("Proposed mapping:")
+  message("Proposed mapping (type: ", mapping$type %||% "bare",
+          if (isTRUE(mapping$sensitive)) ", sensitive data" else "", "):")
   for (i in seq_len(nrow(rows))) message(sprintf("  %2d. %-30s %s", i, rows$path[i], rows$role[i]))
   rows
 }

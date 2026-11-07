@@ -131,6 +131,10 @@ Adopting and upgrading projects:
   map the private and public input and output folders and the course folders
   (`data`, `slides`, `assignments`, `course_docs`, `readings`, and `modules`
   as notebooks), and a folder inside a mapped folder gets no key of its own.
+* `adopt()` takes `sensitive = TRUE` and `type`, so a non-interactive adopt
+  (and `fw adopt`) can mark a project as holding sensitive data or choose its
+  type. Without them, when folders look private, it says how to turn sensitive
+  data on. It returns the type with the folders.
 
 # framework 2.0.0
 

@@ -251,3 +251,37 @@ test_that("adopt() infers course and privacy-sensitive types from the folders", 
   expect_identical(spec$directories$outputs_private_tables, "outputs/private/tables")
   expect_length(spec$skills, 0)
 })
+
+test_that("adopt() takes sensitive = TRUE and a type without asking", {
+  dir <- local_folder(c("analysis", "data/private"))
+  expect_warning(suppressMessages(adopt(dir, yes = TRUE, sensitive = TRUE)), "looks private")
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_true(spec$security$sensitive)
+  expect_identical(spec$type, "project")
+  expect_true(yaml::read_yaml(file.path(dir, "settings.yml"))$default$security$sensitive)
+
+  dir <- local_folder(c("analysis", "data/raw"))
+  res <- suppressMessages(adopt(dir, yes = TRUE, type = "project_sensitive"))
+  expect_identical(res$type, "project_sensitive")
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$type, "project_sensitive")
+  expect_true(spec$security$sensitive)
+
+  dir <- local_folder(c("analysis", "slides"))
+  res <- suppressMessages(adopt(dir, yes = TRUE, type = "course"))
+  expect_identical(res$directories$slides, "slides")
+
+  expect_error(adopt(local_folder("analysis"), yes = TRUE, type = "project_sensitive", sensitive = FALSE),
+               "sensitive data")
+  expect_error(adopt(local_folder("analysis"), yes = TRUE, type = "lab"))
+})
+
+test_that("without sensitive = TRUE, adopt() says how to turn it on", {
+  dir <- local_folder(c("analysis", "data/private"))
+  msgs <- character()
+  withCallingHandlers(
+    suppressWarnings(adopt(dir, yes = TRUE)),
+    message = function(m) { msgs <<- c(msgs, conditionMessage(m)); invokeRestart("muffleMessage") }
+  )
+  expect_true(any(grepl("sensitive = TRUE", msgs)))
+})
