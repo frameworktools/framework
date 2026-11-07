@@ -756,10 +756,14 @@ git_hooks_list <- function(config_file = NULL) {
 #' @keywords internal
 .fw_outer_repository <- function(root) {
   if (is.null(root) || !dir.exists(root) || !.git_available()) return(NULL)
-  top <- .fw_git(root, "rev-parse", "--show-toplevel")
-  if (!.fw_git_ok(top) || length(top) == 0 || !nzchar(top[1])) return(NULL)
-  top <- normalizePath(top[1], winslash = "/", mustWork = FALSE)
-  if (identical(top, normalizePath(root, winslash = "/", mustWork = FALSE))) NULL else top
+  # An empty prefix means root is the top of its work tree. Asking git, not
+  # comparing paths, works for MSYS paths (/d/temp), short names, symlinks,
+  # and case differences alike.
+  prefix <- .fw_git(root, "rev-parse", "--show-prefix")
+  if (!.fw_git_ok(prefix)) return(NULL)
+  prefix <- if (length(prefix) == 0) "" else trimws(prefix[length(prefix)])
+  if (!nzchar(prefix)) return(NULL)
+  .fw_git_toplevel(root)
 }
 
 #' @keywords internal
@@ -784,7 +788,7 @@ git_hooks_list <- function(config_file = NULL) {
   if (!is.null(attr(path, "status")) || length(path) == 0 || !nzchar(path[1])) {
     return(NULL)
   }
-  path <- path[1]
+  path <- .fw_git_native_path(path[1])
   if (!grepl("^(/|[A-Za-z]:)", path)) {
     path <- file.path(root, path)
   }

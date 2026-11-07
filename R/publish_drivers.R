@@ -74,8 +74,8 @@
   }
   if (driver == "github" && identical(visibility, "private")) {
     root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL) %||% getwd()
-    top <- .fw_git(root, "rev-parse", "--show-toplevel")
-    remote <- if (.fw_git_ok(top)) .fw_pages_remote(top[1]) else NULL
+    top <- .fw_git_toplevel(root)
+    remote <- if (!is.null(top)) .fw_pages_remote(top) else NULL
     gh <- Sys.which("gh")
     public <- if (!is.null(remote) && nzchar(gh)) {
       suppressWarnings(system2(gh, c("api", paste0("repos/", remote$owner, "/", remote$repo, "/pages"), "--jq", ".public"), stdout = TRUE, stderr = FALSE))

@@ -186,3 +186,12 @@ test_that("git hooks refuse a project nested inside another repository", {
   expect_true(suppressMessages(git_hooks_install()))
   expect_true(file.exists(file.path(project, ".git", "hooks", "pre-commit")))
 })
+
+test_that("git paths in MSYS and Cygwin form become Windows paths", {
+  native <- function(path) framework:::.fw_git_native_path(path, windows = TRUE)
+  expect_identical(native("/d/temp/study"), "D:/temp/study")
+  expect_identical(native("/cygdrive/c/Users/ada"), "C:/Users/ada")
+  expect_identical(native("C:/temp/study"), "C:/temp/study")
+  expect_identical(native(".git/hooks/pre-commit"), ".git/hooks/pre-commit")
+  expect_identical(framework:::.fw_git_native_path("/d/temp", windows = FALSE), "/d/temp")
+})

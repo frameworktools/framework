@@ -16,6 +16,28 @@
 #' @keywords internal
 .fw_git_ok <- function(out) identical(as.integer(attr(out, "status")), 0L)
 
+# A path printed by git as a path R can use. On Windows, an MSYS or Cygwin
+# git prints /d/temp/... or /cygdrive/d/temp/... for D:/temp/....
+#' @keywords internal
+.fw_git_native_path <- function(path, windows = .Platform$OS.type == "windows") {
+  if (!windows) return(path)
+  path <- sub("^/cygdrive/([A-Za-z])(/|$)", "\\U\\1:/", path, perl = TRUE)
+  sub("^/([A-Za-z])(/|$)", "\\U\\1:/", path, perl = TRUE)
+}
+
+# The top folder of the work tree holding `dir`, as a path R can use, or NULL
+# outside one. `git rev-parse --show-toplevel` can't be used for this: an
+# MSYS or Cygwin git on Windows prints /d/temp/... for D:/temp/..., which R
+# reads as a different folder. --show-cdup is relative, so it works with any
+# git.
+#' @keywords internal
+.fw_git_toplevel <- function(dir) {
+  cdup <- .fw_git(dir, "rev-parse", "--show-cdup")
+  if (!.fw_git_ok(cdup)) return(NULL)
+  cdup <- if (length(cdup) == 0) "" else trimws(cdup[length(cdup)])
+  normalizePath(if (nzchar(cdup)) file.path(dir, cdup) else dir, winslash = "/", mustWork = FALSE)
+}
+
 # owner and repo from a GitHub remote URL (https, ssh, or scp-style), or NULL
 #' @keywords internal
 .fw_github_remote <- function(url) {
@@ -172,11 +194,10 @@
   }
 
   root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL) %||% getwd()
-  top <- .fw_git(root, "rev-parse", "--show-toplevel")
-  if (!.fw_git_ok(top)) {
+  top <- .fw_git_toplevel(root)
+  if (is.null(top)) {
     stop("This project isn't a git repository. Create the project on GitHub first.", call. = FALSE)
   }
-  top <- top[1]
   remote <- .fw_pages_remote(top)
   if (is.null(remote)) {
     stop("This project has no GitHub remote. Create the project on GitHub first, then publish again.",
