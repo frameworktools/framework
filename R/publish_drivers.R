@@ -225,8 +225,14 @@
     stop("Destination contains an unmanaged index.html.", call. = FALSE)
   }
   dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(root)) stop("Could not create the destination folder ", root, ".", call. = FALSE)
   lock <- file.path(root, ".framework-publish.lock")
-  if (!dir.create(lock, showWarnings = FALSE)) stop("Another publish is using this folder.", call. = FALSE)
+  if (!dir.create(lock, showWarnings = FALSE)) {
+    # Only an existing lock means another publish; anything else is a
+    # folder that can't be written to
+    if (dir.exists(lock)) stop("Another publish is using this folder.", call. = FALSE)
+    stop("Could not write to the destination folder ", root, ".", call. = FALSE)
+  }
   on.exit(unlink(lock, recursive = TRUE), add = TRUE)
   target <- file.path(root, slug)
   if (dir.exists(target) && !overwrite) stop("Artifact already exists: ", slug, call. = FALSE)
