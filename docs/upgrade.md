@@ -107,20 +107,28 @@ framework::cloud_register("~/projects/old-study", dry_run = TRUE)  # print the r
 framework::cloud_register("~/projects/old-study")
 ```
 
-`cloud_register()` makes these requests:
+`cloud_register()` sends one request, `POST /api/v1/projects`, with the
+spec as it is on disk, the name, the slug, an optional description, and
+`adopted: true` when the spec says the folder was adopted. Framework Cloud
+stores the spec as the project's only layer and as its last-received spec.
+The response's project token and the server go into `.env` as
+`FW_PROJECT_TOKEN` and `FW_CLOUD_URL`.
 
-1. `POST /api/v1/structures`, when the folders differ from the type's
-   built-in layout. The structure holds the folder mapping.
-2. `POST /api/v1/projects`, with the name, language, structure, tools, and
-   settings, marked `adopted: true`.
-3. `PUT /api/v1/project/spec`, with the new project token, after the token
-   and server are written to `.env` as `FW_PROJECT_TOKEN` and `FW_CLOUD_URL`.
+```r
+framework::cloud_register("~/projects/old-study", slug = "old-study")
+```
 
-It refuses a project that already has a token in `.env` and a project whose
-`.env` git tracks. It asks before registering a project inside a folder named
-`private`. When a step after creating the project fails, it prints the
-project's slug and the commands that finish linking
-(`fw project link --from SLUG` and `fw project push-spec`).
+The slug comes from the name unless you pass `slug`. When you already have a
+project with that slug, `cloud_register()` offers to link this folder to it
+(as `fw project link --from` does) and creates nothing. A slug held by a
+project in your Trash can't be reused: restore that project or pass another
+slug.
+
+It changes nothing in a project that already has a token in `.env`, refuses
+a project whose `.env` git tracks, and asks before registering a project
+inside a folder named `private`. A self-hosted server from before the spec
+API builds the project from your defaults; the spec is then sent separately
+with `PUT /api/v1/project/spec`.
 
 ## Typical sequences
 

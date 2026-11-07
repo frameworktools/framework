@@ -1,5 +1,5 @@
-# cloud_register() creates the Cloud project for a local one, links it, and
-# sends its spec. The Cloud API is mocked: nothing is created.
+# cloud_register() creates the Cloud project for a local one from its spec,
+# in one request, and links it. The Cloud API is mocked: nothing is created.
 
 local_adopted <- function(folders = c("analysis", "data/raw", "archive"), env = parent.frame()) {
   dir <- withr::local_tempdir(.local_envir = env)
@@ -8,102 +8,141 @@ local_adopted <- function(folders = c("analysis", "data/raw", "archive"), env = 
   dir
 }
 
-local_cloud <- function(env = parent.frame(), fail = NULL) {
+# The server: POST /api/v1/projects answers with `create` (a function of the
+# parsed body returning list(status, body)); other calls are recorded
+local_cloud <- function(env = parent.frame(), create = NULL, interactive = FALSE, answer = FALSE) {
   calls <- new.env()
   calls$log <- list()
+  create <- create %||% function(body) list(status = 201L, body = list(
+    slug = body$slug, name = body$name, language = "r", type = body$spec$type,
+    adopted = isTRUE(body$adopted), url = paste0("https://cloud.test/", body$slug),
+    token = "fwp_project", github = NULL
+  ))
   testthat::local_mocked_bindings(
     .fw_cloud_token = function(url = NULL) "fw_user",
     .fw_cloud_url = function(url = NULL, scope = "user") "https://cloud.test",
+    .fw_api_request = function(path, token, method = "GET", json = NULL, url = NULL) {
+      body <- jsonlite::fromJSON(json, simplifyVector = FALSE)
+      calls$log[[length(calls$log) + 1]] <- list(path = path, token = token, method = method, json = json, body = body)
+      create(body)
+    },
     .fw_api = function(path, token, method = "GET", body = NULL, url = NULL) {
       calls$log[[length(calls$log) + 1]] <- list(path = path, token = token, method = method, body = body)
-      if (!is.null(fail) && identical(path, fail)) stop("server error")
-      switch(path,
-        "/api/v1/structures" = list(key = "ada/study-layout", name = body$name, url = "https://cloud.test/s"),
-        "/api/v1/projects" = list(slug = "ada/study", url = "https://cloud.test/ada/study", token = "fwp_project"),
-        "/api/v1/project/spec" = list(changed = TRUE),
-        stop("unexpected ", path)
-      )
+      if (grepl("pull-tokens$", path)) return(list(token = "fwp_existing", url = "https://cloud.test"))
+      list(changed = TRUE)
+    },
+    .adopt_ask = function(msg, default = FALSE) {
+      calls$asked <- c(calls$asked, msg)
+      answer
     },
     .env = env
   )
-  withr::local_options(rlang_interactive = FALSE, .local_envir = env)
+  withr::local_options(rlang_interactive = interactive, .local_envir = env)
   calls
 }
 
-test_that("cloud_register() saves the layout, creates, links, and sends the spec", {
+test_that("cloud_register() sends the spec in one request and links the folder", {
   dir <- local_adopted()
   calls <- local_cloud()
-  res <- suppressMessages(cloud_register(dir, name = "Study"))
-  paths <- vapply(calls$log, `[[`, "", "path")
-  expect_identical(paths, c("/api/v1/structures", "/api/v1/projects", "/api/v1/project/spec"))
+  res <- suppressMessages(cloud_register(dir, name = "Study One"))
+  expect_length(calls$log, 1)
+  call <- calls$log[[1]]
+  expect_identical(call$path, "/api/v1/projects")
+  expect_identical(call$method, "POST")
+  expect_identical(call$token, "fw_user")
 
-  structure <- calls$log[[1]]$body
-  expect_identical(structure$name, "Study layout")
-  expect_identical(structure$directories$inputs_raw, "data/raw")
-  expect_identical(structure$extra_directories$archive$path, "archive")
-
-  project <- calls$log[[2]]$body
-  expect_identical(project$structure, "ada/study-layout")
-  expect_identical(project$language, "r")
-  expect_true(project$adopted)
-  expect_false(project$settings$sensitive)
-  expect_identical(calls$log[[2]]$token, "fw_user")
-
-  # The spec goes with the new project token
-  expect_identical(calls$log[[3]]$method, "PUT")
-  expect_identical(calls$log[[3]]$token, "fwp_project")
-  expect_identical(calls$log[[3]]$body$spec$name, basename(dir))
+  body <- call$body
+  expect_identical(body$name, "Study One")
+  expect_identical(body$slug, "study-one")
+  expect_true(body$adopted)
+  expect_null(body$project_type)
+  expect_identical(body$spec$directories$inputs_raw, "data/raw")
+  # The spec goes as it is on disk: empty maps stay {}
+  spec_text <- paste(readLines(file.path(dir, ".framework", "spec.json")), collapse = "\n")
+  expect_true(startsWith(call$json, paste0("{\"spec\":", spec_text, ",")))
+  expect_match(call$json, "\"skills\": {}", fixed = TRUE)
 
   env <- readLines(file.path(dir, ".env"))
   expect_true("FW_PROJECT_TOKEN=fwp_project" %in% env)
   expect_true("FW_CLOUD_URL=https://cloud.test" %in% env)
   expect_true(".env" %in% readLines(file.path(dir, ".gitignore")))
-  expect_identical(res$slug, "ada/study")
+  expect_identical(res$slug, "study-one")
+  expect_identical(res$type, "project")
+  expect_true(res$adopted)
   expect_true(res$linked)
-  expect_true(res$spec_pushed)
 
-  expect_error(cloud_register(dir), "already linked")
+  # Already linked: nothing changes
+  expect_message(again <- cloud_register(dir), "already linked")
+  expect_length(calls$log, 1)
+  expect_false(again$created)
 })
 
-test_that("a built-in layout needs no structure", {
+test_that("a project made by Framework isn't marked adopted", {
   dir <- withr::local_tempdir()
-  spec <- spec_resolve(list(list(type = "project_sensitive", git = list(use_git = FALSE))), name = "Built in")
-  dir.create(file.path(dir, ".framework"))
-  writeLines("default:\n  project_type: project_sensitive", file.path(dir, "settings.yml"))
-  writeLines(jsonlite::toJSON(spec, auto_unbox = TRUE, null = "null"), file.path(dir, ".framework", "spec.json"))
+  spec <- spec_resolve(list(list(type = "project_sensitive", git = list(use_git = FALSE))), name = "Built In")
+  suppressMessages(project_create(spec, file.path(dir, "p")))
   calls <- local_cloud()
-  suppressMessages(cloud_register(dir))
-  expect_identical(vapply(calls$log, `[[`, "", "path"), c("/api/v1/projects", "/api/v1/project/spec"))
-  expect_identical(calls$log[[1]]$body$structure, "framework/project_sensitive")
-  expect_true(calls$log[[1]]$body$settings$sensitive)
+  expect_error(cloud_register(file.path(dir, "p"), slug = "Not A Slug"), "cannot be a slug")
+  suppressMessages(cloud_register(file.path(dir, "p"), slug = "built-in"))
+  expect_null(calls$log[[1]]$body$adopted)
+  expect_identical(calls$log[[1]]$body$spec$type, "project_sensitive")
 })
 
-test_that("a dry run sends nothing and shows the requests", {
+test_that("a dry run sends nothing and shows the request", {
   dir <- local_adopted()
   calls <- local_cloud()
   out <- capture_messages(res <- cloud_register(dir, dry_run = TRUE))
   expect_length(calls$log, 0)
-  expect_true(any(grepl("POST https://cloud.test/api/v1/structures", out, fixed = TRUE)))
-  expect_true(any(grepl("PUT https://cloud.test/api/v1/project/spec", out, fixed = TRUE)))
-  expect_identical(res$project$name, basename(dir))
+  expect_true(any(grepl("POST https://cloud.test/api/v1/projects", out, fixed = TRUE)))
+  expect_identical(res$slug, framework:::.cloud_slugify(basename(dir)))
   expect_false(file.exists(file.path(dir, ".env")))
 })
 
-test_that("cloud_register() needs a spec and names the commands that finish a failed link", {
+test_that("a taken slug offers to link to the existing project", {
+  dir <- local_adopted()
+  taken <- function(body) list(status = 422L, body = list(
+    message = "The slug has already been taken.",
+    errors = list(slug = list("You already have a project with this slug."))
+  ))
+  local_cloud(create = taken)
+  expect_error(cloud_register(dir, slug = "study"), "fw project link --from study")
+  expect_false(file.exists(file.path(dir, ".env")))
+
+  calls <- local_cloud(create = taken, interactive = TRUE, answer = TRUE)
+  res <- suppressMessages(cloud_register(dir, slug = "study"))
+  expect_identical(calls$asked, "You already have a project study on cloud.test. Link this folder to it instead?")
+  expect_identical(calls$log[[2]]$path, "/api/v1/projects/study/pull-tokens")
+  expect_true("FW_PROJECT_TOKEN=fwp_existing" %in% readLines(file.path(dir, ".env")))
+  expect_false(res$created)
+})
+
+test_that("a slug held by a project in the Trash is reported as such", {
+  dir <- local_adopted()
+  local_cloud(create = function(body) list(status = 422L, body = list(
+    errors = list(slug = list("A deleted project in your Trash has this slug."))
+  )))
+  expect_error(cloud_register(dir, slug = "old"), "in your Trash")
+  local_cloud(create = function(body) list(status = 422L, body = list(errors = list(slug = list("is reserved")))))
+  expect_error(cloud_register(dir, slug = "admin"), "refused the slug admin: is reserved")
+})
+
+test_that("an older server gets the spec sent separately", {
+  dir <- local_adopted()
+  calls <- local_cloud(create = function(body) list(status = 201L, body = list(
+    slug = "study", url = "https://cloud.test/study", token = "fwp_old"
+  )))
+  expect_warning(suppressMessages(cloud_register(dir)), "older than the spec API")
+  expect_identical(calls$log[[2]]$path, "/api/v1/project/spec")
+  expect_identical(calls$log[[2]]$method, "PUT")
+  expect_identical(calls$log[[2]]$token, "fwp_old")
+})
+
+test_that("cloud_register() needs a spec and refuses a tracked .env and a private path", {
   dir <- withr::local_tempdir()
   writeLines("default:\n  project_type: project", file.path(dir, "settings.yml"))
   local_cloud()
   expect_error(cloud_register(dir), "upgrade\\(")
 
-  dir <- local_adopted()
-  calls <- local_cloud(fail = "/api/v1/project/spec")
-  out <- capture_messages(res <- cloud_register(dir))
-  expect_true(res$linked)
-  expect_false(res$spec_pushed)
-  expect_true(any(grepl("fw project push-spec", out, fixed = TRUE)))
-})
-
-test_that("cloud_register() refuses a tracked .env and a private path", {
   skip_if(!nzchar(Sys.which("git")))
   dir <- local_adopted()
   writeLines("A=1", file.path(dir, ".env"))
@@ -127,7 +166,7 @@ test_that("adopt(cloud = TRUE) registers without asking", {
   dir.create(file.path(dir, "analysis"))
   calls <- local_cloud()
   suppressMessages(adopt(dir, yes = TRUE, cloud = TRUE))
-  expect_identical(vapply(calls$log, `[[`, "", "path"),
-                   c("/api/v1/structures", "/api/v1/projects", "/api/v1/project/spec"))
+  expect_length(calls$log, 1)
+  expect_true(calls$log[[1]]$body$adopted)
   expect_true(any(grepl("^FW_PROJECT_TOKEN=", readLines(file.path(dir, ".env")))))
 })

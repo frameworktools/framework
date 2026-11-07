@@ -179,14 +179,17 @@ Adopting and upgrading projects:
   leaves out a rule that would ignore files git tracks, and records the
   resulting `.gitignore` in `spec.json`. Before, `framework.db` from
   `scaffold()` showed up as untracked.
-* New `cloud_register()` creates the Cloud project for a local project, links
-  the folder (`FW_PROJECT_TOKEN` and `FW_CLOUD_URL` in `.env`), and sends
-  `.framework/spec.json`. When the folders differ from the type's built-in
-  layout it saves them as a structure first, so the Cloud project describes
-  the folder as it is. `dry_run = TRUE` prints the requests. `adopt(cloud =
-  TRUE)`, or saying yes to its offer, calls it. Before, `adopt()` registered a
-  name-only project and dropped its token, leaving a Cloud project the folder
-  couldn't link to.
+* New `cloud_register()` creates the Cloud project for a local project from
+  its `.framework/spec.json` in one request, at the slug you give or one made
+  from its name, and links the folder (`FW_PROJECT_TOKEN` and `FW_CLOUD_URL`
+  in `.env`). Framework Cloud stores the spec as the project's only layer, so
+  the Cloud project describes the folder as it is, and an adopted project is
+  marked as adopted. When you already have a project with that slug, it
+  offers to link to it instead; a slug held by a project in your Trash can't
+  be reused. `dry_run = TRUE` prints the request. `adopt(cloud = TRUE)`, or
+  saying yes to its offer, calls it. Before, `adopt()` registered a name-only
+  project and dropped its token, leaving a Cloud project the folder couldn't
+  link to.
 * `ai_skills_update()` updates a skill installed before
   `.framework/skills.lock.json` existed when its `SKILL.md` matches any
   version the package has shipped (recorded in

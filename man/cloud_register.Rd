@@ -7,6 +7,7 @@
 cloud_register(
   path = ".",
   name = NULL,
+  slug = NULL,
   description = NULL,
   dry_run = FALSE,
   include_private = FALSE
@@ -15,48 +16,56 @@ cloud_register(
 \arguments{
 \item{path}{The project folder (default: the working directory).}
 
-\item{name}{The Cloud project's name. Default: the spec's name.}
+\item{name}{The Cloud project's name. Default: the spec's name, then the
+folder's name.}
+
+\item{slug}{The project's slug. Default: made from the name (lowercase
+letters, digits, and hyphens).}
 
 \item{description}{An optional description.}
 
-\item{dry_run}{If TRUE, print the requests without sending them.}
+\item{dry_run}{If TRUE, print the request without sending it.}
 
 \item{include_private}{A project whose path has a folder named \code{private}
 asks before registering in an interactive session and stops otherwise;
 TRUE registers it anyway.}
 }
 \value{
-Invisibly, a list with \code{slug}, \code{url}, \code{structure}, \code{linked}, and
-\code{spec_pushed}; with \code{dry_run = TRUE}, the request bodies.
+Invisibly, a list with \code{slug}, \code{url}, \code{type}, \code{adopted},
+\code{created}, \code{linked}, and \code{spec_changed}; with \code{dry_run = TRUE}, the
+request body.
 }
 \description{
 Creates the Cloud project for a folder that is already a Framework project
-(one you adopted with \code{\link[=adopt]{adopt()}} or brought up to date with \code{\link[=upgrade]{upgrade()}}),
-links the folder to it, and sends its spec, in one step:
+(one you adopted with \code{\link[=adopt]{adopt()}} or brought up to date with \code{\link[=upgrade]{upgrade()}})
+and links the folder to it, in one step:
 }
 \details{
 \enumerate{
-\item When the project's folders differ from its type's built-in layout,
-saves them as a structure (\code{POST /api/v1/structures}), so the Cloud
-project describes the folder as it is.
-\item Creates the project (\code{POST /api/v1/projects}) with that structure, the
-language, tools, and settings, marked \code{adopted} so Cloud doesn't
-scaffold a new repository.
+\item Sends \code{.framework/spec.json} as it is, with the name, slug, and
+description, in one request (\code{POST /api/v1/projects}). Framework Cloud
+stores the spec as the project's only layer and as its last-received
+spec, so the Cloud project has exactly this folder's name, type,
+language, folders, and tools, and none of your defaults. An adopted
+project is marked as adopted.
 \item Writes the project token and server to \code{.env} (\code{FW_PROJECT_TOKEN},
 \code{FW_CLOUD_URL}), making sure git ignores \code{.env} first.
-\item Sends \code{.framework/spec.json} (\code{PUT /api/v1/project/spec}).
 }
 
 It needs \code{.framework/spec.json} (run \code{upgrade(dry_run = FALSE)} first for
-an older project), refuses a project that already has a token in \code{.env},
-and refuses when git tracks \code{.env}. When a step after creating the project
-fails, it names the project and the commands that finish linking.
+an older project), changes nothing in a project that already has a token
+in \code{.env}, and refuses when git tracks \code{.env}. When you already have a
+project with the slug, it offers to link this folder to that project
+instead (in an interactive session) and creates nothing. A slug held by a
+project in your Trash can't be reused. A self-hosted server from before
+the spec API builds the project from your defaults; the spec is then sent
+separately (\code{PUT /api/v1/project/spec}).
 }
 \examples{
 \donttest{
 if (FALSE) {
 cloud_register("~/projects/old-study", dry_run = TRUE)
-cloud_register("~/projects/old-study")
+cloud_register("~/projects/old-study", slug = "old-study")
 }
 }
 
