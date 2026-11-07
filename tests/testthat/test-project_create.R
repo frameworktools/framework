@@ -353,3 +353,12 @@ test_that("project_create handles different project types", {
     expect_equal(config$default$project_type, type, info = paste("Wrong type in config for:", type))
   }
 })
+
+test_that("a course project's .gitignore ignores the folder it renders to", {
+  gitignore <- readLines(system.file("templates", "gitignore-course", package = "framework"))
+  render_dirs <- framework:::.default_render_dirs_for_type("course")
+  roots <- unique(vapply(strsplit(unlist(render_dirs), "/"), `[`, character(1), 1))
+  expect_identical(roots, "rendered")
+  expect_true("/rendered/" %in% gitignore)
+  expect_false(any(grepl("_rendered", gitignore)))
+})

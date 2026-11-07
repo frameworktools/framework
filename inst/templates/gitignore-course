@@ -39,11 +39,8 @@
 **/logs/**
 slurm-*.out
 
-# Rendered slide artifacts
-/slides/_rendered/
-
-# Allow structure documentation
-!/slides/_rendered/**/README.md
+# Rendered output (render_dirs and _quarto.yml's output-dir: rendered/)
+/rendered/
 
 # ============================================================================
 # R ENVIRONMENT
