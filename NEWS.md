@@ -82,6 +82,10 @@ Fixes:
   `name` with `/` names.
 * `publish_data()`'s message shows the normalized slug, and `publish_dir()`
   keeps the folder part of `dest` in the slug.
+* A `layout: site-root` folder counts versions per slug: publishing another
+  slug there replaces the site, starts again at version 1, and the message
+  names the slug it replaced. It never writes a notebook source (`.qmd`,
+  `.Rmd`, `.ipynb`), only rendered output.
 * `publish_notebook()` publishes only the rendered page: the HTML and its
   own `_files` folder, or the HTML alone for a self-contained render. It no
   longer copies folders such as `outputs/` that Quarto mirrors into the

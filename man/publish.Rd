@@ -95,7 +95,9 @@ folder or a data catalog name whose entry is private.}
 \code{publish.default} selects the default destination. \code{"folder"} needs a named
 destination with a path. A folder destination with \code{layout: site-root}
 keeps only the latest publish, at the folder's root (for a GitHub Pages
-\verb{docs/} folder), recorded in \code{.framework-site.json}; the default layout,
+\verb{docs/} folder), recorded with its slug in \code{.framework-site.json}.
+Versions count per slug: another slug there starts again at 1. The
+default layout,
 \code{versioned}, keeps every version under \verb{<slug>/v/<n>/}. \code{"s3"} and \code{"bucket"} retain legacy storage uploads.
 \code{"cloud"} selects Framework Cloud even when a
 bucket is configured. \code{"bucket"} selects storage. \code{"github"} publishes to the project's GitHub

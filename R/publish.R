@@ -366,7 +366,9 @@ NULL
 #'   `publish.default` selects the default destination. `"folder"` needs a named
 #'   destination with a path. A folder destination with `layout: site-root`
 #'   keeps only the latest publish, at the folder's root (for a GitHub Pages
-#'   `docs/` folder), recorded in `.framework-site.json`; the default layout,
+#'   `docs/` folder), recorded with its slug in `.framework-site.json`.
+#'   Versions count per slug: another slug there starts again at 1. The
+#'   default layout,
 #'   `versioned`, keeps every version under `<slug>/v/<n>/`. `"s3"` and `"bucket"` retain legacy storage uploads.
 #'   `"cloud"` selects Framework Cloud even when a
 #'   bucket is configured. `"bucket"` selects storage. `"github"` publishes to the project's GitHub

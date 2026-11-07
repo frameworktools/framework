@@ -299,9 +299,12 @@
 
 # A site-root folder keeps only the latest publish, at its root: the files
 # the previous publish wrote (listed in .framework-site.json) are removed,
-# and other files there (CNAME, .nojekyll) stay. The bundle's artifact.json
-# isn't written, nor an HTML source identical to index.html, so a deck is
-# written once. framework-py's folder_deliver_root() follows the same rules.
+# and other files there (CNAME, .nojekyll) stay. Only rendered output is
+# written: not the bundle's artifact.json, a notebook source (.qmd, .ipynb,
+# .Rmd), or an HTML source identical to index.html, so a deck is written
+# once. Versions count per slug: publishing another slug there starts at 1
+# and says which slug it replaced. framework-py's folder_deliver_root()
+# follows the same rules.
 .fw_folder_deliver_root <- function(bundle, destination) {
   root <- .fw_folder_path(destination$path)
   link <- Sys.readlink(root)
@@ -327,9 +330,11 @@
   original <- manifest$original
   index <- file.path(bundle$path, "index.html")
   if (is.character(original) && length(original) == 1L && original %in% files && !grepl("/", original) &&
-      original != "index.html" && tolower(tools::file_ext(original)) %in% c("html", "htm") &&
-      file.exists(index) && .fw_same_bytes(file.path(bundle$path, original), index)) {
-    files <- setdiff(files, original)
+      original != "index.html") {
+    ext <- tolower(tools::file_ext(original))
+    source_copy <- ext %in% c("qmd", "ipynb", "rmd") ||
+      (ext %in% c("html", "htm") && file.exists(index) && .fw_same_bytes(file.path(bundle$path, original), index))
+    if (source_copy) files <- setdiff(files, original)
   }
 
   # Remove what the previous publish wrote, and folders that leaves empty
@@ -359,8 +364,11 @@
     }
   }
 
+  # Versions count per slug: another artifact in the folder starts again at 1
+  replaced <- previous$slug
+  replaced <- if (is.character(replaced) && length(replaced) == 1L && !identical(replaced, manifest$slug)) replaced
   version <- suppressWarnings(as.integer(previous$version %||% 0L))
-  if (length(version) != 1L || is.na(version) || version < 0L) version <- 0L
+  if (length(version) != 1L || is.na(version) || version < 0L || !is.null(replaced)) version <- 0L
   version <- version + 1L
   record <- list(schema = "framework.site/v1", version = version, slug = manifest$slug,
                  title = manifest$title, kind = manifest$kind, description = manifest$description,
@@ -368,7 +376,8 @@
   jsonlite::write_json(record, record_path, auto_unbox = TRUE, null = "null", digits = NA, pretty = TRUE)
 
   location <- file.path(root, "index.html")
-  message("Published version ", version, ": ", location)
+  message("Published version ", version, ": ", location,
+          if (!is.null(replaced)) sprintf(" (replaced '%s')", replaced))
   list(driver = "folder",
        url = if (!is.null(destination$url)) paste0(sub("/+$", "", destination$url), "/") else NULL,
        version = version, version_url = NULL, location = location, commit = NULL)

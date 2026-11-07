@@ -391,7 +391,8 @@ test_that("a site-root folder keeps only the latest publish at its root", {
   names <- list.files(site, all.files = TRUE, no.. = TRUE)
   expect_true(all(c("CNAME", "data.csv", "index.html") %in% names))
   expect_false(any(c("v", "counts", "artifact.json", "index.json") %in% names))
-  expect_equal(jsonlite::read_json(file.path(site, ".framework-site.json"))$version, 2)
+  expect_equal(jsonlite::read_json(file.path(site, ".framework-site.json"))$version, 1)
+  expect_identical(jsonlite::read_json(file.path(site, ".framework-site.json"))$slug, "counts")
   listed <- publish_list(to = "pages")
   expect_identical(listed$key, "counts/")
   expect_identical(listed$url, "https://me.github.io/deck/")
@@ -400,9 +401,15 @@ test_that("a site-root folder keeps only the latest publish at its root", {
   expect_identical(listed$last_modified, record$created_at)
   expect_identical(nrow(publish_list("other", to = "pages")), 0L)
 
-  suppressMessages(publish("deck.html", to = "pages"))
+  # Versions count per slug; another slug starts again at 1 and says so
+  expect_message(publish("deck.html", to = "pages"),
+                 paste0("Published version 1: ", file.path(site, "index.html"), " (replaced 'counts')"), fixed = TRUE)
   expect_setequal(list.files(site, all.files = TRUE, no.. = TRUE), c(".framework-site.json", "CNAME", "index.html"))
-  expect_equal(jsonlite::read_json(file.path(site, ".framework-site.json"))$version, 3)
+  expect_equal(jsonlite::read_json(file.path(site, ".framework-site.json"))$version, 1)
+  expect_message(publish("deck.html", to = "pages"),
+                 paste0("Published version 2: ", file.path(site, "index.html")), fixed = TRUE)
+  expect_equal(jsonlite::read_json(file.path(site, ".framework-site.json"))$version, 2)
+  expect_no_match(paste(capture_messages(publish("deck.html", to = "pages")), collapse = ""), "replaced")
 })
 
 test_that("a site-root publish removes only recorded files inside the folder, and empty folders", {
@@ -425,8 +432,20 @@ test_that("a site-root publish removes only recorded files inside the folder, an
   expect_true(file.exists(outside))
   expect_true(file.exists(file.path(site, "mine", "b.txt")))
   record <- jsonlite::read_json(file.path(site, ".framework-site.json"))
-  expect_equal(record$version, 5)
+  expect_equal(record$version, 1)
+  expect_identical(record$slug, "report")
   expect_identical(unlist(record$files), c("index.html", "notes.txt"))
+})
+
+test_that("a site-root publish never writes a notebook source", {
+  site <- file.path(withr::local_tempdir(), "docs")
+  local_site_root(site)
+  writeLines('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}', "analysis.ipynb")
+  suppressMessages(publish("analysis.ipynb", to = "pages", include_private = TRUE))
+  written <- list.files(site, recursive = TRUE, all.files = TRUE)
+  expect_true("index.html" %in% written)
+  expect_false(any(grepl("\\.(ipynb|qmd|rmd)$", written, ignore.case = TRUE)))
+  expect_false("analysis.ipynb" %in% unlist(jsonlite::read_json(file.path(site, ".framework-site.json"))$files))
 })
 
 test_that("layout is checked before anything is rendered or written", {

@@ -194,7 +194,7 @@ publish:
 publish_notebook("presentation.qmd", to = "pages")
 ```
 
-Each publish first removes the files the previous one wrote, which `docs/.framework-site.json` lists, and leaves other files, such as `CNAME` or `.nojekyll`, alone. A file the new publish writes replaces one of the same name. An HTML source is written once, as `index.html`. Objects and other files get the same offline reader, data, and representation files as a versioned folder, at the root. `publish_list()` shows the one artifact. The default layout is `versioned`; `layout` on any other driver is an error.
+Each publish first removes the files the previous one wrote, which `docs/.framework-site.json` lists, and leaves other files, such as `CNAME` or `.nojekyll`, alone. A file the new publish writes replaces one of the same name. Only rendered output is written: an HTML source is written once, as `index.html`, and a notebook's source (`.qmd`, `.Rmd`, `.ipynb`) never. The record keeps the slug, and versions count per slug: publishing another slug to the folder replaces the site, starts again at version 1, and the message says so (`Published version 1: docs/index.html (replaced 'old-talk')`). Objects and other files get the same offline reader, data, and representation files as a versioned folder, at the root. `publish_list()` shows the one artifact. The default layout is `versioned`; `layout` on any other driver is an error.
 
 Set `visibility: public` on a folder meant to be committed, as a Pages folder is. Otherwise new projects add the folder to `.gitignore`, and the security audit warns about it.
 
