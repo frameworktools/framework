@@ -38,16 +38,15 @@ Statements holding only comments are dropped. MySQL's client-side
 \code{DELIMITER} command is not supported.
 
 A failed statement stops the file with an error naming its
-number and line. The connection must be writable: a connection with
-\code{read_only: true} in its settings is opened writable with
-\code{db_connect(name, read_only = FALSE)}.
+number and line. The connection must be writable: not opened with
+\code{read_only = TRUE} and without \code{read_only: true} in its settings.
 }
 \examples{
 \donttest{
 if (FALSE) {
 db_execute_file("warehouse", "sql/schema.sql")
 
-conn <- db_connect("analysis", read_only = FALSE)
+conn <- db_connect("analysis")
 db_execute_file(conn, "sql/build.sql")
 DBI::dbDisconnect(conn)
 }

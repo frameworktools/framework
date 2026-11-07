@@ -168,6 +168,10 @@ test_that("read_only: true opens an unwritable SQLite file and refuses writes", 
   expect_error(db_connect("writable"), "read_only: true")
   expect_identical(nrow(db_query("SELECT * FROM people", "study")), 3L)
   expect_error(db_execute("DELETE FROM people", "study"), "read-only")
+  overridden <- "Connection 'study' is read-only in its settings; read_only = FALSE can't override that."
+  expect_error(db_connect("study", read_only = FALSE), overridden, fixed = TRUE)
+  expect_error(db_query("DELETE FROM people", "study", read_only = FALSE), overridden, fixed = TRUE)
+  expect_error(db_with("study", DBI::dbExecute(conn, "DELETE FROM people")), "readonly")
 
   con <- db_connect("study")
   on.exit(DBI::dbDisconnect(con), add = TRUE)

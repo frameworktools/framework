@@ -57,6 +57,37 @@
   FALSE
 }
 
+#' Refuse a write on a read-only connection
+#'
+#' The message says where the read-only mode came from: the connection's
+#' settings, which a call can't override, or `read_only = TRUE` in the call.
+#'
+#' @param con A DBI connection
+#' @param name The connection's name, or NULL
+#' @param what The function that needs to write, such as "db_execute()"
+#' @return NULL invisibly; an error when `con` is read-only
+#' @keywords internal
+.fw_require_writable <- function(con, name, what) {
+  if (!.fw_connection_read_only(con)) return(invisible(NULL))
+  source <- attr(con, "framework_read_only", exact = TRUE)
+  if (is.null(name)) name <- attr(con, "framework_name", exact = TRUE)
+  label <- if (is.null(name)) "This connection" else sprintf("Connection '%s'", name)
+  message <- if (identical(source, "settings")) {
+    sprintf(paste(
+      "%s is read-only (read_only: true in its settings). %s needs a writable connection,",
+      "from a connection entry without read_only: true."
+    ), label, what)
+  } else if (identical(source, "call") && !is.null(name)) {
+    sprintf(
+      "%s is read-only (read_only = TRUE in this call). %s needs a writable connection: db_connect('%s').",
+      label, what, name
+    )
+  } else {
+    sprintf("%s is read-only. %s needs a writable connection.", label, what)
+  }
+  stop(message, call. = FALSE)
+}
+
 #' Check if a SQLite database exists
 #'
 #' @param config Connection configuration from settings.yml

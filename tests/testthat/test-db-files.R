@@ -10,6 +10,7 @@ local_db_project <- function(env = parent.frame()) {
     connections = list(databases = list(
       local = list(driver = "sqlite", database = "data/local.db"),
       duck = list(driver = "duckdb", database = "data/local.duckdb"),
+      # The same file as "duck", read-only in its settings
       shared = list(driver = "duckdb", database = "data/local.duckdb", read_only = TRUE),
       warehouse = list(driver = "postgres", host = "db", port = 5432, database = "a",
                        user = "u", password = "p")
@@ -142,7 +143,7 @@ test_that("db_execute_file() errors", {
   on.exit(DBI::dbDisconnect(conn))
   expect_error(
     db_execute_file(conn, "sql/x.sql"),
-    "Connection 'local' is read-only. db_execute_file() needs a writable connection: db_connect('local', read_only = FALSE).",
+    "Connection 'local' is read-only (read_only = TRUE in this call). db_execute_file() needs a writable connection: db_connect('local').",
     fixed = TRUE
   )
   expect_error(db_copy_from(conn, "t", "sql/x.sql"), "db_copy_from() needs a writable connection", fixed = TRUE)
@@ -195,25 +196,75 @@ test_that("read_only per call", {
   skip_if_not_installed("duckdb")
   local_db_project()
   db_execute("CREATE TABLE t (a INTEGER)", "duck")
-  # "shared" is read_only: true in the settings; a build step opens it writable
-  expect_error(db_execute("INSERT INTO t VALUES (1)", "shared"), "read-only")
-  conn <- db_connect("shared", read_only = FALSE)
-  expect_false(framework:::.fw_connection_read_only(conn))
-  DBI::dbExecute(conn, "INSERT INTO t VALUES (1)")
-  DBI::dbDisconnect(conn, shutdown = TRUE)
-  expect_equal(db_query("SELECT a FROM t", "shared")$a, 1)
+  db_execute("INSERT INTO t VALUES (1)", "duck")
   expect_equal(db_query("SELECT a FROM t", "duck", read_only = TRUE)$a, 1)
   conn <- db_connect("duck", read_only = TRUE)
   expect_true(framework:::.fw_connection_read_only(conn))
+  DBI::dbDisconnect(conn, shutdown = TRUE)
+  # FALSE on a connection the settings leave writable changes nothing
+  conn <- db_connect("duck", read_only = FALSE)
+  expect_false(framework:::.fw_connection_read_only(conn))
   DBI::dbDisconnect(conn, shutdown = TRUE)
 
   db_execute("CREATE TABLE t (a INTEGER)", "local")
   conn <- db_connect("local", read_only = TRUE)
   expect_true(framework:::.fw_connection_read_only(conn))
+  expect_error(
+    db_transaction(conn, DBI::dbExecute(conn, "INSERT INTO t VALUES (1)")),
+    "Connection 'local' is read-only (read_only = TRUE in this call). db_transaction() needs a writable connection: db_connect('local').",
+    fixed = TRUE
+  )
   DBI::dbDisconnect(conn)
   expect_error(
     db_connect("warehouse", read_only = TRUE),
     "read_only = TRUE applies to sqlite and duckdb files, and 'warehouse' is postgres. Connect as a database user without write access instead.",
     fixed = TRUE
   )
+})
+
+test_that("read_only: true in the settings can't be overridden by a call", {
+  skip_if_not_installed("duckdb")
+  local_db_project()
+  db_execute("CREATE TABLE t (a INTEGER)", "duck")
+  db_execute("INSERT INTO t VALUES (1)", "duck")
+  writeLines("INSERT INTO t VALUES (2);", "sql/insert.sql")
+  writeLines(c("a", "3"), "data/rows.csv")
+  overridden <- "Connection 'shared' is read-only in its settings; read_only = FALSE can't override that."
+  settings <- function(what) sprintf(
+    paste(
+      "Connection 'shared' is read-only (read_only: true in its settings). %s needs a writable connection,",
+      "from a connection entry without read_only: true."
+    ),
+    what
+  )
+
+  expect_error(db_connect("shared", read_only = FALSE), overridden, fixed = TRUE)
+  expect_error(db_query("SELECT a FROM t", "shared", read_only = FALSE), overridden, fixed = TRUE)
+  expect_error(db_execute("INSERT INTO t VALUES (2)", "shared"), settings("db_execute()"), fixed = TRUE)
+  expect_error(db_execute_file("shared", "sql/insert.sql"), settings("db_execute_file()"), fixed = TRUE)
+  expect_error(db_copy_from("shared", "t", "data/rows.csv"), settings("db_copy_from()"), fixed = TRUE)
+  expect_error(db_with("shared", DBI::dbExecute(conn, "INSERT INTO t VALUES (2)")))
+
+  # read_only = TRUE agrees with the settings
+  expect_equal(db_query("SELECT a FROM t", "shared", read_only = TRUE)$a, 1)
+  conn <- db_connect("shared", read_only = TRUE)
+  expect_true(framework:::.fw_connection_read_only(conn))
+  DBI::dbDisconnect(conn, shutdown = TRUE)
+  conn <- db_connect("shared")
+  expect_true(framework:::.fw_connection_read_only(conn))
+  expect_error(db_execute_file(conn, "sql/insert.sql"), settings("db_execute_file()"), fixed = TRUE)
+  expect_error(db_copy_from(conn, "t", "data/rows.csv"), settings("db_copy_from()"), fixed = TRUE)
+  expect_error(
+    db_transaction(conn, DBI::dbExecute(conn, "INSERT INTO t VALUES (2)")),
+    settings("db_transaction()"),
+    fixed = TRUE
+  )
+  DBI::dbDisconnect(conn, shutdown = TRUE)
+
+  # Nothing was written
+  expect_equal(db_query("SELECT a FROM t", "duck")$a, 1)
+
+  # A build job writes through a second entry for the same file ("duck")
+  expect_equal(db_execute_file("duck", "sql/insert.sql"), 1L)
+  expect_equal(db_query("SELECT a FROM t ORDER BY a", "shared")$a, c(1, 2))
 })

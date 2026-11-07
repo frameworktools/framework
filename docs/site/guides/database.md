@@ -110,6 +110,25 @@ connections:
       read_only: true
 ```
 
+### Read-only for one call
+
+`read_only = TRUE` on [db_connect()](ref:db_connect) and [db_query()](ref:db_query) opens a SQLite or DuckDB connection read-only for that call, whatever its setting. A call can add read-only but never remove it: `read_only = FALSE` on a connection with `read_only: true` in its settings is an error, so the settings decide what may write. A job that rebuilds a database that notebooks share read-only gets its own connection entry for the same file:
+
+```yaml
+connections:
+  databases:
+    vizient: {driver: duckdb, database: data/vizient.duckdb, read_only: true}
+    vizient_build: {driver: duckdb, database: data/vizient.duckdb}
+```
+
+```r
+db_execute_file("vizient_build", "sql/build.sql")
+
+db_query("SELECT count(*) AS n FROM encounters", "vizient")
+```
+
+Server databases control writes with the database user's permissions, so `read_only = TRUE` on a PostgreSQL, MySQL, or SQL Server connection is an error, and `read_only = FALSE` changes nothing. A DuckDB file opened read-only can be open in several processes at once; one opened writable locks it until the connection closes.
+
 ### DuckDB configuration
 
 DuckDB supports additional options in `settings.yml`:

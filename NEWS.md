@@ -21,8 +21,11 @@ New functions and arguments:
   TRUE)` warns when the model holds data rows.
 * `show_table()` prints a data frame as a Markdown table in Quarto and Jupyter.
 * `db_execute_file()` runs a SQL file, `db_copy_from()` loads a CSV into an
-  existing table, and `db_connect()` and `db_query()` take `read_only` to
-  override the connection's setting for SQLite and DuckDB.
+  existing table, and `db_connect()` and `db_query()` take `read_only = TRUE`
+  to open a SQLite or DuckDB file read-only for one call. A call can add
+  read-only but never remove it: `read_only = FALSE` on a connection with
+  `read_only: true` in its settings is an error. A job that rebuilds such a
+  database uses a second connection entry for the same file.
 * `cache_remember()` and `cache()` take `depends_on`: catalog names, files,
   folders, or values. The entry is recomputed when any of them changes, and
   the record is shared with framework-py.
@@ -65,6 +68,10 @@ Fixes:
   `name` with `/` names.
 * `publish_data()`'s message shows the normalized slug, and `publish_dir()`
   keeps the folder part of `dest` in the slug.
+* `db_execute()`, `db_transaction()`, `db_execute_file()`, and
+  `db_copy_from()` refuse a read-only connection with one message that says
+  whether the mode came from its settings or from `read_only = TRUE` in the
+  call.
 
 # framework 2.0.0
 

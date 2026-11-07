@@ -6,9 +6,9 @@
 #' @param query SQL query to execute
 #' @param connection_name Name of the connection in settings.yml
 #' @param ... Additional arguments passed to DBI::dbGetQuery
-#' @param read_only Open the connection read-only (`TRUE`) or writable
-#'   (`FALSE`) for this query, as [db_connect()] does. Default (`NULL`): the
-#'   connection's setting. A read-only DuckDB file can be open in several
+#' @param read_only Open the connection read-only (`TRUE`) for this query, as
+#'   [db_connect()] does. Default (`NULL`): the connection's setting. `FALSE`
+#'   can't override `read_only: true` in the settings. A read-only DuckDB file can be open in several
 #'   processes at once, so `read_only = TRUE` lets a notebook query a database
 #'   another job holds open read-only too.
 #' @return A data frame with the query results
@@ -63,12 +63,7 @@ db_execute <- function(query, connection_name, ...) {
 
   con <- db_connect(connection_name)
   on.exit(DBI::dbDisconnect(con))
-  if (.fw_connection_read_only(con)) {
-    stop(sprintf(
-      "Connection '%s' is read-only (read_only: true in its settings). db_execute() can't change it.",
-      connection_name
-    ), call. = FALSE)
-  }
+  .fw_require_writable(con, connection_name, "db_execute()")
 
   tryCatch(
     DBI::dbExecute(con, query, ...),

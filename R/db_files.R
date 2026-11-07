@@ -232,24 +232,13 @@
 #' @keywords internal
 .fw_open_db <- function(conn) {
   if (inherits(conn, "DBIConnection")) {
-    name <- attr(conn, "framework_name", exact = TRUE) %||% "<name>"
+    name <- attr(conn, "framework_name", exact = TRUE)
     return(list(con = conn, name = name, close = FALSE))
   }
   if (!is.character(conn) || length(conn) != 1 || !nzchar(conn)) {
     stop("conn must be a connection from db_connect() or a connection name.", call. = FALSE)
   }
   list(con = db_connect(conn), name = conn, close = TRUE)
-}
-
-#' @keywords internal
-.fw_require_writable <- function(con, name, what) {
-  if (.fw_connection_read_only(con)) {
-    stop(sprintf(
-      "Connection '%s' is read-only. %s needs a writable connection: db_connect('%s', read_only = FALSE).",
-      name, what, name
-    ), call. = FALSE)
-  }
-  invisible(NULL)
 }
 
 #' Run every statement in a SQL file
@@ -280,16 +269,15 @@
 #' @return The number of statements (or SQL Server batches) run.
 #'
 #' @details A failed statement stops the file with an error naming its
-#'   number and line. The connection must be writable: a connection with
-#'   `read_only: true` in its settings is opened writable with
-#'   `db_connect(name, read_only = FALSE)`.
+#'   number and line. The connection must be writable: not opened with
+#'   `read_only = TRUE` and without `read_only: true` in its settings.
 #'
 #' @examples
 #' \donttest{
 #' if (FALSE) {
 #' db_execute_file("warehouse", "sql/schema.sql")
 #'
-#' conn <- db_connect("analysis", read_only = FALSE)
+#' conn <- db_connect("analysis")
 #' db_execute_file(conn, "sql/build.sql")
 #' DBI::dbDisconnect(conn)
 #' }

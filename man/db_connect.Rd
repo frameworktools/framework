@@ -9,13 +9,15 @@ db_connect(name, read_only = NULL)
 \arguments{
 \item{name}{Character. Name of the connection in settings (e.g., "postgres")}
 
-\item{read_only}{Open a sqlite or duckdb file read-only (\code{TRUE}) or
-writable (\code{FALSE}) for this call, whatever the connection's \code{read_only}
-setting says. A job that builds a database other code reads with
-\code{read_only: true} opens it with \code{read_only = FALSE}. Default (\code{NULL}): the
-setting. Server databases (postgres, mysql, sqlserver) control writes with
-the database user's permissions, so \code{TRUE} is an error for them and
-\code{FALSE} changes nothing.}
+\item{read_only}{Open a sqlite or duckdb file read-only (\code{TRUE}) for this
+call. Default (\code{NULL}): the connection's \code{read_only} setting. A call can
+add read-only but never remove it: \code{FALSE} on a connection with
+\code{read_only: true} in its settings is an error, so the settings decide
+what may write. A job that rebuilds a database other code reads with
+\code{read_only: true} uses a second connection entry for the same file,
+without \code{read_only: true}. Server databases (postgres, mysql, sqlserver)
+control writes with the database user's permissions, so \code{TRUE} is an
+error for them and \code{FALSE} changes nothing.}
 }
 \value{
 A database connection object (DBIConnection)
@@ -37,6 +39,13 @@ users <- db_query("SELECT * FROM users", "postgres")
 conn <- db_connect("postgres")
 DBI::dbListTables(conn)
 DBI::dbDisconnect(conn)
+
+# A database notebooks read with read_only: true ("study"), rebuilt
+# through a second entry for the same file without it ("study_build"):
+#   study:       {driver: duckdb, database: data/study.duckdb, read_only: true}
+#   study_build: {driver: duckdb, database: data/study.duckdb}
+db_execute_file("study_build", "sql/build.sql")
+db_query("SELECT count(*) AS n FROM visits", "study")
 }
 }
 

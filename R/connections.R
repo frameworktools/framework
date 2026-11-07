@@ -7,13 +7,15 @@
 #' connection lifecycle automatically.
 #'
 #' @param name Character. Name of the connection in settings (e.g., "postgres")
-#' @param read_only Open a sqlite or duckdb file read-only (`TRUE`) or
-#'   writable (`FALSE`) for this call, whatever the connection's `read_only`
-#'   setting says. A job that builds a database other code reads with
-#'   `read_only: true` opens it with `read_only = FALSE`. Default (`NULL`): the
-#'   setting. Server databases (postgres, mysql, sqlserver) control writes with
-#'   the database user's permissions, so `TRUE` is an error for them and
-#'   `FALSE` changes nothing.
+#' @param read_only Open a sqlite or duckdb file read-only (`TRUE`) for this
+#'   call. Default (`NULL`): the connection's `read_only` setting. A call can
+#'   add read-only but never remove it: `FALSE` on a connection with
+#'   `read_only: true` in its settings is an error, so the settings decide
+#'   what may write. A job that rebuilds a database other code reads with
+#'   `read_only: true` uses a second connection entry for the same file,
+#'   without `read_only: true`. Server databases (postgres, mysql, sqlserver)
+#'   control writes with the database user's permissions, so `TRUE` is an
+#'   error for them and `FALSE` changes nothing.
 #' @return A database connection object (DBIConnection)
 #'
 #' @examples
@@ -26,6 +28,13 @@
 #' conn <- db_connect("postgres")
 #' DBI::dbListTables(conn)
 #' DBI::dbDisconnect(conn)
+#'
+#' # A database notebooks read with read_only: true ("study"), rebuilt
+#' # through a second entry for the same file without it ("study_build"):
+#' #   study:       {driver: duckdb, database: data/study.duckdb, read_only: true}
+#' #   study_build: {driver: duckdb, database: data/study.duckdb}
+#' db_execute_file("study_build", "sql/build.sql")
+#' db_query("SELECT count(*) AS n FROM visits", "study")
 #' }
 #' }
 #'
@@ -54,8 +63,10 @@ db_connect <- function(name, read_only = NULL) {
     stop(sprintf("No driver specified for connection '%s'", name))
   }
 
-  # read_only per call: file databases only
+  # read_only per call: file databases only. Settings win: a call may add
+  # read-only, never remove it.
   driver <- .fw_sql_dialect(conn_config$driver)
+  settings_read_only <- isTRUE(conn_config$read_only)
   if (!is.null(read_only)) {
     if (!driver %in% c("sqlite", "duckdb")) {
       if (read_only) {
@@ -64,6 +75,11 @@ db_connect <- function(name, read_only = NULL) {
           "Connect as a database user without write access instead."
         ), name, driver), call. = FALSE)
       }
+    } else if (settings_read_only && !read_only) {
+      stop(sprintf(
+        "Connection '%s' is read-only in its settings; read_only = FALSE can't override that.",
+        name
+      ), call. = FALSE)
     } else {
       conn_config$read_only <- read_only
     }
@@ -94,6 +110,12 @@ db_connect <- function(name, read_only = NULL) {
   # The name and driver, for messages from the helpers that take a connection
   attr(con, "framework_name") <- name
   attr(con, "framework_driver") <- driver
+  # Where a read-only mode came from, for the messages that refuse writes
+  if (settings_read_only) {
+    attr(con, "framework_read_only") <- "settings"
+  } else if (isTRUE(read_only) && driver %in% c("sqlite", "duckdb")) {
+    attr(con, "framework_read_only") <- "call"
+  }
   con
 }
 
