@@ -46,20 +46,29 @@ project/
 ├── notebooks/              # Exploratory analysis
 ├── scripts/                # Production pipelines
 ├── inputs/
-│   ├── raw/                # Raw data (gitignored)
-│   ├── intermediate/       # Cleaned datasets (gitignored)
-│   ├── final/              # Curated analytic datasets (gitignored)
-│   └── reference/          # External documentation (gitignored)
-├── outputs/
-│   ├── private/            # Tables, figures, models, cache (gitignored)
-│   └── public/             # Share-ready artifacts
+│   ├── raw/                # Raw data
+│   ├── intermediate/       # Cleaned datasets
+│   └── final/              # Curated analytic datasets
+├── outputs/                # Made on first save
+│   ├── tables/             # save_table()
+│   ├── figures/            # save_figure()
+│   ├── models/             # save_model()
+│   ├── reports/            # save_report()
+│   └── cache/              # cache_remember() (gitignored)
 ├── functions/              # Custom functions
 ├── docs/                   # Documentation
+├── scratch/                # Temporary files (gitignored)
 ├── logs/                   # Run logs, cluster job output (gitignored)
 ├── settings.yml            # Project configuration
-├── framework.db            # Metadata tracking database
+├── framework.db            # Metadata tracking database (gitignored)
 └── .env                    # Secrets (gitignored)
 ```
+
+The standard project's `.gitignore` does not ignore `inputs/` or `outputs/`:
+keep data that must not be committed in a folder named `private/` (any
+`private/` folder is ignored), or use the **project_sensitive** type, which
+splits inputs and outputs into ignored `private/` and committed `public/`
+folders.
 
 ## Skill sync
 
@@ -79,7 +88,7 @@ forks with an exact source version. Concurrent edits stop for reconciliation.
 Framework reduces boilerplate and enforces best practices:
 
 - **Project scaffolding**: Standardized directories, config-driven setup
-- **Data management**: Declarative data catalog, integrity tracking, encryption
+- **Data management**: Declarative data catalog and integrity tracking
 - **Auto-loading**: Load packages with one command; no more scattered `library()` calls
 - **Pain-free renv**: Reproducible package management without fighting renv
 - **Caching**: Smart caching for expensive computations
@@ -131,15 +140,15 @@ data:
 ```
 
 ```r
-df <- data_load("inputs.raw.survey")
+df <- data_read("inputs.raw.survey")
 ```
 
 **Direct path:**
 
 ```r
-df <- data_load("inputs/raw/my_file.csv")       # CSV
-df <- data_load("inputs/raw/stata_file.dta")    # Stata
-df <- data_load("inputs/raw/spss_file.sav")     # SPSS
+df <- data_read("inputs/raw/my_file.csv")       # CSV
+df <- data_read("inputs/raw/stata_file.dta")    # Stata
+df <- data_read("inputs/raw/spss_file.sav")     # SPSS
 ```
 
 Every read is logged with a SHA-256 hash for integrity tracking.
@@ -147,9 +156,9 @@ Every read is logged with a SHA-256 hash for integrity tracking.
 ### 4. Cache Expensive Operations
 
 ```r
-model <- get_or_cache("model_v1", {
+model <- cache_remember("model_v1", {
   expensive_model_fit(df)
-}, expire_after = 1440)  # 24 hours
+}, expire_after = "1 day")  # or a number of hours, such as 24
 ```
 
 ### 5. Save Results
@@ -157,10 +166,10 @@ model <- get_or_cache("model_v1", {
 **Save data files:**
 
 ```r
-data_save(processed_df, "intermediate.cleaned_data")
+data_save(processed_df, "inputs.intermediate.cleaned_data")
 # → saves to inputs/intermediate/cleaned_data.rds
 
-data_save(final_df, "final.analysis_ready", type = "csv")
+data_save(final_df, "inputs.final.analysis_ready", type = "csv")
 # → saves to inputs/final/analysis_ready.csv
 ```
 
@@ -177,12 +186,14 @@ save_model(model, "regression_model")   # → outputs/models/regression_model.rd
 ```yaml
 # settings.yml
 connections:
-  db:
-    driver: postgresql
-    host: env("DB_HOST")
-    database: env("DB_NAME")
-    user: env("DB_USER")
-    password: env("DB_PASS")
+  default_database: db
+  databases:
+    db:
+      driver: postgres
+      host: env("DB_HOST")
+      database: env("DB_NAME")
+      user: env("DB_USER")
+      password: env("DB_PASS")
 ```
 
 ```r
@@ -195,7 +206,7 @@ df <- db_query("SELECT * FROM users WHERE active = true", "db")
 
 ```r
 view(mtcars)                    # Interactive table with search/filter/export
-view(config)                    # Tabbed YAML + R structure for lists
+view(settings())                # Tabbed YAML + R structure for lists
 view(ggplot(mtcars, aes(mpg, hp)) + geom_point())  # Interactive plots
 ```
 
@@ -228,20 +239,24 @@ DB_PASS=secret
 **Reference in config:**
 ```yaml
 connections:
-  db:
-    host: env("DB_HOST")
-    password: env("DB_PASS", "default")
+  databases:
+    db:
+      driver: postgres
+      host: env("DB_HOST")
+      password: env("DB_PASS", "default")
 ```
 
 ### AI Assistant Support
 
-Framework creates instruction files for AI coding assistants:
+New projects can include instruction files for AI coding assistants
+(AGENTS.md, with CLAUDE.md and GitHub Copilot copies) and Framework skills in
+`.claude/skills/`. To keep them current:
 
 ```r
-framework::configure_ai_agents()
+ai_regenerate_context()   # Refresh the generated sections of AGENTS.md
+ai_sync_context()         # Copy AGENTS.md to the other assistants' files
+ai_skills_update()        # Update the Framework skills after upgrading
 ```
-
-Supported: Claude Code (CLAUDE.md), GitHub Copilot, AGENTS.md
 
 ## Key Functions
 
@@ -260,33 +275,24 @@ Supported: Claude Code (CLAUDE.md), GitHub Copilot, AGENTS.md
 | `renv_enable()` | Enable renv for reproducibility |
 | `packages_snapshot()` | Save package versions to renv.lock |
 | `packages_restore()` | Restore packages from renv.lock |
-| `security_audit()` | Scan for data leaks and security issues |
+| `git_security_audit()` | Scan for data leaks and security issues |
 
 ## Data Integrity & Security
 
 - **Hash tracking**: All data files tracked with SHA-256 hashes
 - **Locked data**: Flag files as read-only, errors on modification
-- **Password-based encryption**: Ansible Vault-style encryption for sensitive data
-- **Gitignore by default**: Private directories auto-ignored
-- **Security audits**: `security_audit()` detects data leaks
+- **Gitignore by default**: Any `private/` folder, `.env`, caches, scratch,
+  and logs are ignored
+- **Security audits**: `git_security_audit()` detects data leaks
 
-### Encryption
-
-```r
-# Save encrypted data
-data_save(sensitive_df, "private.data", encrypted = TRUE)
-
-# Load (auto-detects encryption)
-data <- data_load("private.data")
-```
-
-Password from `ENCRYPTION_PASSWORD` env var or interactive prompt.
+Framework does not encrypt data files. Keep sensitive data in ignored
+`private/` folders, on encrypted storage, or both.
 
 ### Security Auditing
 
 ```r
-audit <- security_audit()              # Full audit
-audit <- security_audit(auto_fix = TRUE)  # Auto-fix .gitignore issues
+audit <- git_security_audit()                  # Full audit
+audit <- git_security_audit(auto_fix = TRUE)   # Auto-fix .gitignore issues
 ```
 
 ## Reproducibility with renv
