@@ -1,3 +1,36 @@
+# framework 1.9.0.9005
+
+* Package sets: 24 more, and `package_set_add()` adds one to an existing
+  project.
+* `read_only: true` opens a SQLite connection read-only, including a file
+  without write permission. `db_execute()` and `db_transaction()` refuse
+  read-only connections.
+* `publish_data()`, `publish_dir()`, and `publish_list()` follow
+  `publish.default` and `publish.destinations`, and take `to`. A relative
+  folder destination `path:` starts at the project root.
+* `publish_notebook()` takes `title` and `description`. Titles default to the
+  document's YAML title.
+* `data_save()` never writes relative to the working directory:
+  `"inputs.final.x.csv"` is the catalog name `inputs.final.x` saved as CSV, and
+  relative paths start at the project root. `data_verify()` accepts a path.
+* `data_add()` names files in every configured inputs folder, so
+  `inputs/private/raw/x.csv` becomes `inputs.private.raw.x`.
+* `make_*()` resolve `dir` from the project root, give new notebooks a
+  readable title, and say "presentation" for presentations.
+* `adopt()` writes connections in the layout `db_connect()` reads.
+* Git hooks refuse a project nested inside another repository, and
+  `git_status()` and `status()` say when they report an enclosing repository.
+* `cache` `expire_after` accepts minutes and seconds.
+* The security audit's orphan scan respects `.gitignore`.
+* Sensitive projects render to `outputs/private/notebooks` by default, and
+  course projects gitignore `rendered/`.
+* `bootstrap()` leaves output folders lazy and lists only the `.env` variables
+  the settings use. `project_list()` marks missing project folders.
+* Fixes: `packages_status()` works with renv off; `ai_skills_update()` reports
+  what it did; `ai_regenerate_context()` keeps blank lines; new `scaffold.R`
+  files don't set the theme and seed twice; the login advice is the same
+  everywhere; the README matches the real API.
+
 # framework (development version)
 
 * `package_set_add()` adds a package set to an existing project.
