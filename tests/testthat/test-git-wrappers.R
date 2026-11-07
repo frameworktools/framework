@@ -144,9 +144,10 @@ test_that("git wrappers work from a subdirectory of the repository", {
 
 test_that("git_push() pushes the current branch and sets its upstream", {
   dir <- local_repo()
-  remote <- file.path(withr::local_tempdir(), "remote.git")
+  remote <- withr::local_tempdir()
   system2("git", c("init", "-q", "--bare", shQuote(remote)), stdout = FALSE, stderr = FALSE)
-  system2("git", c("remote", "add", "origin", shQuote(remote)))
+  # A relative path: an MSYS git on Windows reads D:\... as an ssh host
+  system2("git", c("remote", "add", "origin", shQuote(file.path("..", basename(remote)))))
   writeLines("x", "a.R")
   suppressMessages(git_add("a.R"))
   suppressMessages(git_commit("first"))

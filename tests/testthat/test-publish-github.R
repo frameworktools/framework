@@ -13,7 +13,8 @@ local_pages_repo <- function(owner = "Ada", repo = "study", env = parent.frame()
   git("config", "core.hooksPath", "/dev/null")
   # GitHub URL for fetching and the URL math, a local bare repo for pushes
   git("remote", "add", "origin", sprintf("https://github.com/%s/%s.git", owner, repo))
-  git("remote", "set-url", "--push", "origin", shQuote(bare))
+  # A relative path: an MSYS git on Windows reads D:\... as an ssh host
+  git("remote", "set-url", "--push", "origin", shQuote(file.path("..", basename(bare))))
   withr::local_dir(dir, .local_envir = env)
   yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
   git("add", "settings.yml")
