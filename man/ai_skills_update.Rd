@@ -10,7 +10,9 @@ ai_skills_update(project_path = ".")
 \item{project_path}{Path to the project directory (default: current directory)}
 }
 \value{
-Invisible character vector of updated skill names
+Invisible character vector of the package skills now in the
+project (created, updated, or already up to date). Its \code{status}
+attribute names what happened to each skill, including preserved ones.
 }
 \description{
 Re-copies the skill files Framework ships for the project's type (the

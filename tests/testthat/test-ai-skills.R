@@ -95,3 +95,23 @@ test_that(".generate_skills_section lists skills with paths", {
   expect_true(grepl("framework-sensitive-data", section))
   expect_true(grepl(".claude/skills/framework-data/SKILL.md", section, fixed = TRUE))
 })
+
+
+test_that("ai_skills_update() reports what it actually did", {
+  skip_on_cran()
+  test_dir <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project"), file.path(test_dir, "settings.yml"))
+
+  first <- capture.output(installed <- ai_skills_update(test_dir), type = "message")
+  n <- length(installed)
+  expect_match(tail(first, 1), sprintf("[ok] Framework skills: %d created", n), fixed = TRUE)
+
+  again <- capture.output(ai_skills_update(test_dir), type = "message")
+  expect_identical(tail(again, 1), sprintf("[ok] Framework skills: %d already up to date", n))
+  expect_false(any(grepl("Updated", again)))
+
+  writeLines("my edits", file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md"))
+  edited <- capture.output(ai_skills_update(test_dir), type = "message")
+  expect_identical(tail(edited, 1),
+                   sprintf("[ok] Framework skills: %d already up to date, 1 locally edited, kept", n - 1L))
+})

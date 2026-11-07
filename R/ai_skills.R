@@ -90,6 +90,7 @@ NULL
 
   skills <- .ai_skills_for_type(project_type)
   installed <- character(0)
+  statuses <- character(0)
 
   for (skill in skills) {
     source_file <- file.path(template_dir, skill, "SKILL.md")
@@ -105,16 +106,20 @@ NULL
     if (!.skill_package_install(dirname(source_file), project_dir,
         file.path(".claude", "skills", skill), skill)) {
       if (verbose) message("  Preserved local skill: ", skill)
+      statuses[[skill]] <- "Preserved"
       next
     }
     installed <- c(installed, skill)
 
+    status <- if (is.null(before)) "Created" else if (identical(before, skill_hash())) "Up to date" else "Updated"
+    statuses[[skill]] <- status
     if (verbose) {
-      status <- if (is.null(before)) "Created" else if (identical(before, skill_hash())) "Up to date" else "Updated"
       message("  ", status, ": .claude/skills/", skill, "/SKILL.md")
     }
   }
 
+  # What happened to each skill: Created, Updated, Up to date, or Preserved
+  attr(installed, "status") <- statuses
   invisible(installed)
 }
 
@@ -130,7 +135,9 @@ NULL
 #' package skills receive the new package version. Custom skills are left alone.
 #'
 #' @param project_path Path to the project directory (default: current directory)
-#' @return Invisible character vector of updated skill names
+#' @return Invisible character vector of the package skills now in the
+#'   project (created, updated, or already up to date). Its `status`
+#'   attribute names what happened to each skill, including preserved ones.
 #' @export
 #'
 #' @examples
@@ -153,11 +160,19 @@ ai_skills_update <- function(project_path = ".") {
   project_type <- config$project_type %||% "project"
 
   installed <- .ai_install_skills(project_path, project_type, verbose = TRUE)
+  statuses <- attr(installed, "status") %||% character(0)
 
-  if (length(installed) > 0) {
-    message("[ok] Updated ", length(installed), " Framework skill(s)")
-  } else {
+  if (length(statuses) == 0) {
     message("Note: No skills installed (package skill templates not found)")
+  } else {
+    counts <- table(factor(statuses, levels = c("Updated", "Created", "Up to date", "Preserved")))
+    parts <- c(
+      if (counts[["Updated"]] > 0) paste(counts[["Updated"]], "updated"),
+      if (counts[["Created"]] > 0) paste(counts[["Created"]], "created"),
+      if (counts[["Up to date"]] > 0) paste(counts[["Up to date"]], "already up to date"),
+      if (counts[["Preserved"]] > 0) paste(counts[["Preserved"]], "locally edited, kept")
+    )
+    message("[ok] Framework skills: ", paste(parts, collapse = ", "))
   }
 
   invisible(installed)
