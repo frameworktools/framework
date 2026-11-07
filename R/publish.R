@@ -662,8 +662,9 @@ publish_notebook <- function(file,
 #' `connection`, and projects without `publish.default` get a plain upload to
 #' the storage bucket at `dest`. Folder, GitHub, and Cloud destinations
 #' publish the file with [publish()]. The slug is `dest` without its
-#' extension, with each `/` turned into `-`: `"tables/demo.csv"` publishes
-#' as `tables-demo`. The message says which slug was used.
+#' extension, with each `/` turned into `-`, then normalized like every slug
+#' (lowercase, each run of other characters a `-`): `"tables/bp_by_visit.csv"`
+#' publishes as `tables-bp-by-visit`. The message says which slug was used.
 #'
 #' @param data Data frame or character path to existing file.
 #' @param dest Character. Destination path in S3 (required for data frames).
@@ -782,13 +783,15 @@ publish_data <- function(data,
 
 
 # The slug publish_data() uses for dest: the path without its extension
-# (and .gz), with "/" turned into "-". "tables/demo.csv" is "tables-demo".
+# (and .gz), with "/" turned into "-", then normalized as every slug is
+# (lowercase, each other run of characters a "-"). "tables/bp_by_visit.csv"
+# is "tables-bp-by-visit", so the message shows the slug the artifact gets.
 #' @keywords internal
 .fw_data_slug <- function(dest) {
   path <- gsub("\\\\", "/", sub("\\.gz$", "", dest))
   path <- sub("([^/])\\.[^./]*$", "\\1", path)
   parts <- strsplit(path, "/", fixed = TRUE)[[1]]
-  paste(parts[!parts %in% c("", ".", "..")], collapse = "-")
+  .fw_bundle_slug(paste(parts[!parts %in% c("", ".", "..")], collapse = "-"))
 }
 
 # Where publish_data(), publish_dir(), and publish_list() go. Like publish(),

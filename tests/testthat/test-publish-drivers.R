@@ -258,7 +258,7 @@ test_that("publish_data(), publish_dir(), and publish_list() follow publish.defa
 
   df <- data.frame(arm = c("a", "b"), n = c(10, 12))
   # The slug keeps the folder part of dest, and the message names it
-  expect_message(url <- publish_data(df, "tables/arm_counts.csv"), "as tables-arm_counts")
+  expect_message(url <- publish_data(df, "tables/arm_counts.csv"), "Publishing tables/arm_counts.csv as tables-arm-counts", fixed = TRUE)
   expect_identical(url, "https://files.example.org/research/tables-arm-counts/")
   artifact <- file.path(project, "local-site", "tables-arm-counts")
   expect_true(file.exists(file.path(artifact, "arm_counts.csv")))
@@ -285,7 +285,8 @@ test_that("publish_data() slugs are dest without its extension, / as -", {
   expect_identical(slug("demo.csv"), "demo")
   expect_identical(slug("./tables/sub/demo.csv.gz"), "tables-sub-demo")
   expect_identical(slug("tables\\demo.rds"), "tables-demo")
-  expect_identical(slug("a.b/c"), "a.b-c")
+  expect_identical(slug("a.b/c"), "a-b-c")
+  expect_identical(slug("tables/BP_by_visit.csv"), "tables-bp-by-visit")
 })
 
 test_that("publish_data() still uploads to a bucket with connection or to = 's3'", {

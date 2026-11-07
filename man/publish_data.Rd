@@ -48,8 +48,9 @@ Uploads a data frame or existing data file. Like \code{\link[=publish]{publish()
 \code{connection}, and projects without \code{publish.default} get a plain upload to
 the storage bucket at \code{dest}. Folder, GitHub, and Cloud destinations
 publish the file with \code{\link[=publish]{publish()}}. The slug is \code{dest} without its
-extension, with each \code{/} turned into \code{-}: \code{"tables/demo.csv"} publishes
-as \code{tables-demo}. The message says which slug was used.
+extension, with each \code{/} turned into \code{-}, then normalized like every slug
+(lowercase, each run of other characters a \code{-}): \code{"tables/bp_by_visit.csv"}
+publishes as \code{tables-bp-by-visit}. The message says which slug was used.
 }
 \examples{
 \donttest{
