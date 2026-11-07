@@ -350,3 +350,25 @@ test_that("make_notebook type parameter overrides config", {
   expect_true(file.exists("notebooks/override-test.Rmd"))
   expect_false(file.exists("notebooks/override-test.qmd"))
 })
+
+test_that("new notebooks get a readable title and accurate messages", {
+  expect_identical(framework:::.notebook_title("bp-summary"), "Bp Summary")
+  expect_identical(framework:::.notebook_title("01_load_data"), "01 Load Data")
+  expect_identical(framework:::.notebook_title("My cool analysis"), "My cool analysis")
+  expect_identical(framework:::.notebook_title("analysis"), "Analysis")
+
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  writeLines("default:\n  directories:\n    notebooks: notebooks", "settings.yml")
+
+  msgs <- capture.output(make_notebook("bp-summary"), type = "message")
+  expect_true(any(grepl('^title: "Bp Summary"', readLines("notebooks/bp-summary.qmd"))))
+  expect_identical(msgs[length(msgs)], "Created Quarto notebook: notebooks/bp-summary.qmd")
+
+  msgs <- capture.output(make_presentation("study-talk"), type = "message")
+  expect_identical(msgs, "Created reveal.js presentation: notebooks/study-talk.qmd")
+  expect_true(any(grepl('^title: "Study Talk"', readLines("notebooks/study-talk.qmd"))))
+
+  msgs <- capture.output(make_notebook("quick", stub = "minimal"), type = "message")
+  expect_identical(msgs, "Created Quarto notebook: notebooks/quick.qmd (stub: minimal)")
+})

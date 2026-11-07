@@ -209,7 +209,7 @@ make_notebook <- function(name,
   stub_content <- .replace_moustache_placeholders(
     stub_content,
     list(
-      title = original_name,
+      title = .notebook_title(original_name),
       filename = original_name,
       date = creation_date,
       author = author_name,
@@ -228,18 +228,33 @@ make_notebook <- function(name,
   # Write notebook
   writeLines(stub_content, target_path)
 
-  if (is_script) {
-    message(sprintf("Created R script: %s", target_path))
+  kind <- if (is_script) {
+    "R script"
+  } else if (identical(stub, "revealjs")) {
+    "reveal.js presentation"
+  } else if (type == "quarto") {
+    "Quarto notebook"
   } else {
-    message(sprintf("Created %s notebook: %s",
-                    if (type == "quarto") "Quarto" else "RMarkdown",
-                    target_path))
+    "RMarkdown notebook"
   }
-  if (!identical(stub, "default")) {
-    message(sprintf("  Using stub: %s", stub))
-  }
+  # The revealjs stub is implied by "presentation"; name any other stub
+  stub_note <- if (!stub %in% c("default", "revealjs")) sprintf(" (stub: %s)", stub) else ""
+  message(sprintf("Created %s: %s%s", kind, target_path, stub_note))
 
   invisible(target_path)
+}
+
+# The default title for a new notebook. A name with spaces is already a
+# title and is kept as typed ("My Cool Analysis"). A file-style name has its
+# - and _ turned into spaces and each word capitalized ("bp-summary" ->
+# "Bp Summary", "01_load_data" -> "01 Load Data"). Shared with framework-py.
+#' @keywords internal
+.notebook_title <- function(name) {
+  if (grepl("[[:space:]]", trimws(name))) return(trimws(name))
+  words <- strsplit(trimws(gsub("[-_[:space:]]+", " ", name)), " ", fixed = TRUE)[[1]]
+  words <- words[nzchar(words)]
+  if (length(words) == 0) return(name)
+  paste0(toupper(substring(words, 1, 1)), substring(words, 2), collapse = " ")
 }
 
 
@@ -345,7 +360,7 @@ make_notebook <- function(name,
   }
   notebook <- list(
     cells = list(
-      cell("markdown", paste0("# ", sub("\\.ipynb$", "", basename(name), ignore.case = TRUE))),
+      cell("markdown", paste0("# ", .notebook_title(sub("\\.ipynb$", "", basename(name), ignore.case = TRUE)))),
       cell("code", "framework::scaffold()")
     ),
     metadata = list(

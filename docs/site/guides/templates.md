@@ -25,8 +25,8 @@ Templates support variable substitution. When you create a new file, these place
 
 | Variable | Description |
 |----------|-------------|
-| `{{title}}` | File name as given, without extension |
-| `{{filename}}` | Same as `{{title}}` |
+| `{{title}}` | A title from the name: `bp-summary` becomes `Bp Summary`; a name with spaces stays as typed |
+| `{{filename}}` | The name as given, without extension |
 | `{{author}}` | Author name |
 | `{{email}}` | Author email |
 | `{{affiliation}}` | Author affiliation |
