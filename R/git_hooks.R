@@ -4,6 +4,10 @@
 #'
 #' Display the working tree status from the R console.
 #'
+#' For a project inside another git repository (the project folder is not
+#' the repository's top folder), it says so: the status is the enclosing
+#' repository's.
+#'
 #' @param short Logical; if TRUE, show short format (default: FALSE)
 #'
 #' @return Invisibly returns the status output as a character vector
@@ -15,10 +19,6 @@
 #' git_status(short = TRUE)
 #' }
 #' }
-#'
-#' For a project inside another git repository (the project folder is not
-#' the repository's top folder), it says so: the status is the enclosing
-#' repository's.
 #'
 #' @export
 git_status <- function(short = FALSE) {
