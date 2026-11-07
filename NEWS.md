@@ -102,6 +102,9 @@ Fixes:
   `db_copy_from()` refuse a read-only connection with one message that says
   whether the mode came from its settings or from `read_only = TRUE` in the
   call.
+* Registering a new bare project on Framework Cloud writes its project token
+  to `.env`, as for every other type, so the folder is linked to the Cloud
+  project.
 
 Adopting and upgrading projects:
 
@@ -144,6 +147,14 @@ Adopting and upgrading projects:
   leaves out a rule that would ignore files git tracks, and records the
   resulting `.gitignore` in `spec.json`. Before, `framework.db` from
   `scaffold()` showed up as untracked.
+* New `cloud_register()` creates the Cloud project for a local project, links
+  the folder (`FW_PROJECT_TOKEN` and `FW_CLOUD_URL` in `.env`), and sends
+  `.framework/spec.json`. When the folders differ from the type's built-in
+  layout it saves them as a structure first, so the Cloud project describes
+  the folder as it is. `dry_run = TRUE` prints the requests. `adopt(cloud =
+  TRUE)`, or saying yes to its offer, calls it. Before, `adopt()` registered a
+  name-only project and dropped its token, leaving a Cloud project the folder
+  couldn't link to.
 
 # framework 2.0.0
 

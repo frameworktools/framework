@@ -950,9 +950,9 @@ cloud_settings <- function() {
   slug <- res$slug %||% res$project$slug
   project_token <- res$token %||% res$pull_token
   message("[ok] Registered on ", .fw_cloud_host(url), ": ", slug)
-  if (!identical(type, "bare")) {
-    .fw_write_project_token(project_dir, project_token, url)
-  }
+  # Every registered project needs its token, bare ones included: without
+  # it the folder can't link to the Cloud project it just created
+  .fw_write_project_token(project_dir, project_token, url)
   invisible(res)
 }
 

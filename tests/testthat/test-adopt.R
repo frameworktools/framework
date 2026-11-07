@@ -117,14 +117,14 @@ test_that("a project token is never written into a .env git tracks", {
   expect_identical(readLines(file.path(dir, ".env")), "A=1")
 })
 
-test_that("adopt() offers to register and to save the layout when signed in", {
+test_that("adopt() offers to register and link when signed in", {
   dir <- local_folder(c("analysis", "data/raw"))
   asked <- character()
   registered <- NULL
   local_mocked_bindings(
     .fw_cloud_token = function(url = NULL) "fw_test",
     .fw_cloud_host = function(url = NULL) "cloud.test",
-    .fw_cloud_register_project = function(project_dir, name, type) registered <<- list(dir = project_dir, type = type),
+    cloud_register = function(path, ...) registered <<- path,
     .structure_upload = function(mapping, name) stop("not asked for"),
     .adopt_ask = function(msg, default = FALSE) {
       asked <<- c(asked, msg)
@@ -134,9 +134,24 @@ test_that("adopt() offers to register and to save the layout when signed in", {
   )
   withr::local_options(rlang_interactive = TRUE)
   suppressMessages(adopt(dir))
-  expect_identical(asked, c("Register this project on cloud.test?",
-                            "Save this folder layout as a structure on cloud.test?"))
-  expect_identical(registered$type, "project")
+  expect_identical(asked, "Register this project on cloud.test?")
+  expect_identical(registered, dir)
+})
+
+test_that("adopt() offers the structure when the person doesn't register", {
+  dir <- local_folder(c("analysis", "data/raw"))
+  saved <- FALSE
+  local_mocked_bindings(
+    .fw_cloud_token = function(url = NULL) "fw_test",
+    .fw_cloud_host = function(url = NULL) "cloud.test",
+    cloud_register = function(path, ...) stop("not asked for"),
+    .structure_upload = function(mapping, name) saved <<- TRUE,
+    .adopt_ask = function(msg, default = FALSE) grepl("^Save", msg),
+    .adopt_readline = function(prompt) "a"
+  )
+  withr::local_options(rlang_interactive = TRUE)
+  suppressMessages(adopt(dir))
+  expect_true(saved)
 })
 
 test_that("adopt() writes connections in the layout db_connect() reads", {

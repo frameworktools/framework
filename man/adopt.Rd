@@ -4,7 +4,7 @@
 \alias{adopt}
 \title{Adopt an Existing Project Folder}
 \usage{
-adopt(path = ".", yes = FALSE, sensitive = NULL, type = NULL)
+adopt(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud = NULL)
 }
 \arguments{
 \item{path}{The project folder (default: the working directory).}
@@ -20,6 +20,10 @@ an interactive review when folders look private, and is FALSE otherwise.}
 \item{type}{The project type: "project", "project_sensitive", "course",
 "presentation", or "bare". NULL (default) infers it from the folders.
 "project_sensitive" implies \code{sensitive = TRUE}.}
+
+\item{cloud}{If TRUE, register the adopted project on Framework Cloud and
+link it (\code{\link[=cloud_register]{cloud_register()}}); FALSE never does. NULL (default) asks in an
+interactive session when you are signed in.}
 }
 \value{
 Invisibly, a list with \code{type}, \code{directories}, and
@@ -49,10 +53,12 @@ folders are never proposed, and \verb{outputs/notebooks/} becomes a render folde
 Folders whose path contains "private" are flagged: consider the Privacy
 Sensitive structure for that project, and keep those folders out of git.
 
-When you are signed in to Framework Cloud and run \code{adopt()} interactively,
-it then offers to register the project (which writes its project token
-to \code{.env}, making sure git ignores \code{.env} first) and to save the layout
-as a structure. Both default to No.
+With \code{cloud = TRUE}, or when you are signed in to Framework Cloud, run
+\code{adopt()} interactively, and say yes (the default is No), it then
+registers the project with \code{\link[=cloud_register]{cloud_register()}}: the Cloud project gets the
+folder's layout, the folder is linked (its project token and server go to
+\code{.env}, which git is made to ignore first), and the spec is sent. If you
+don't register, it offers to save the layout as a structure.
 }
 \examples{
 \donttest{
@@ -66,6 +72,8 @@ adopt("~/teaching/methods", yes = TRUE, type = "course")
 
 }
 \seealso{
-\code{\link[=structure_import]{structure_import()}} to save the layout as a structure on
-Framework Cloud.
+\code{\link[=upgrade]{upgrade()}} for a project made by an older Framework,
+\code{\link[=cloud_register]{cloud_register()}} to register and link a project later, and
+\code{\link[=structure_import]{structure_import()}} to save the layout as a structure on Framework
+Cloud.
 }

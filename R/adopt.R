@@ -22,10 +22,12 @@
 #' Folders whose path contains "private" are flagged: consider the Privacy
 #' Sensitive structure for that project, and keep those folders out of git.
 #'
-#' When you are signed in to Framework Cloud and run `adopt()` interactively,
-#' it then offers to register the project (which writes its project token
-#' to `.env`, making sure git ignores `.env` first) and to save the layout
-#' as a structure. Both default to No.
+#' With `cloud = TRUE`, or when you are signed in to Framework Cloud, run
+#' `adopt()` interactively, and say yes (the default is No), it then
+#' registers the project with [cloud_register()]: the Cloud project gets the
+#' folder's layout, the folder is linked (its project token and server go to
+#' `.env`, which git is made to ignore first), and the spec is sent. If you
+#' don't register, it offers to save the layout as a structure.
 #'
 #' @param path The project folder (default: the working directory).
 #' @param yes If TRUE, accept the proposed mapping without asking. Required
@@ -37,12 +39,17 @@
 #' @param type The project type: "project", "project_sensitive", "course",
 #'   "presentation", or "bare". NULL (default) infers it from the folders.
 #'   "project_sensitive" implies `sensitive = TRUE`.
+#' @param cloud If TRUE, register the adopted project on Framework Cloud and
+#'   link it ([cloud_register()]); FALSE never does. NULL (default) asks in an
+#'   interactive session when you are signed in.
 #'
 #' @return Invisibly, a list with `type`, `directories`, and
 #'   `extra_directories` as written.
 #'
-#' @seealso [structure_import()] to save the layout as a structure on
-#'   Framework Cloud.
+#' @seealso [upgrade()] for a project made by an older Framework,
+#'   [cloud_register()] to register and link a project later, and
+#'   [structure_import()] to save the layout as a structure on Framework
+#'   Cloud.
 #'
 #' @examples
 #' \donttest{
@@ -55,9 +62,10 @@
 #' }
 #'
 #' @export
-adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL) {
+adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud = NULL) {
   checkmate::assert_directory_exists(path)
   checkmate::assert_flag(yes)
+  checkmate::assert_flag(cloud, null.ok = TRUE)
   checkmate::assert_flag(sensitive, null.ok = TRUE)
   checkmate::assert_choice(type, .spec_types(), null.ok = TRUE)
   if (identical(type, "project_sensitive")) {
@@ -102,24 +110,18 @@ adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL) {
             "in settings.yml.")
   }
 
-  # Signed in and interactive: offer the cloud, default No
-  if (!yes && rlang::is_interactive() && !is.null(.fw_cloud_token())) {
-    host <- .fw_cloud_host()
-    if (isTRUE(.adopt_ask(paste0("Register this project on ", host, "?"), default = FALSE))) {
-      # Check before registering, so a tracked .env never leaves a
-      # registered project without its token
-      ok <- tryCatch({
-        .fw_refuse_tracked_env(path)
-        TRUE
-      }, error = function(e) {
-        message(conditionMessage(e))
-        FALSE
-      })
-      if (ok) .fw_cloud_register_project(path, name, spec$type)
-    }
-    if (isTRUE(.adopt_ask(paste0("Save this folder layout as a structure on ", host, "?"), default = FALSE))) {
-      .structure_upload(mapping, name)
-    }
+  # Register on Framework Cloud: when asked to, or, signed in and
+  # interactive, when the person says yes (default No)
+  offer <- is.null(cloud) && !yes && rlang::is_interactive() && !is.null(.fw_cloud_token())
+  host <- if (offer) .fw_cloud_host()
+  if (offer) cloud <- isTRUE(.adopt_ask(paste0("Register this project on ", host, "?"), default = FALSE))
+  if (isTRUE(cloud)) {
+    tryCatch(cloud_register(path), error = function(e) {
+      message("Not registered on Framework Cloud: ", conditionMessage(e))
+    })
+  } else if (offer && isTRUE(.adopt_ask(paste0("Save this folder layout as a structure on ", host, "?"),
+                                        default = FALSE))) {
+    .structure_upload(mapping, name)
   }
   invisible(mapping[c("type", "directories", "extra_directories")])
 }

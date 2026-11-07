@@ -185,8 +185,8 @@ new_project <- function(name = NULL, location = NULL, type = NULL, browse = inte
     .create_env_file(result$path, args$env)
   }
 
-  # Register the resolved choices on Cloud. Offline creation stays local.
-  # Bare projects are registered without writing a token or creating .env.
+  # Register the resolved choices on Cloud and write the project token.
+  # Offline creation stays local.
   if (result$success && !isTRUE(offline)) {
     .fw_cloud_register_project(result$path, name, type, choices = choices)
   }

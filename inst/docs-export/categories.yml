@@ -212,6 +212,7 @@ Cloud:
     - cloud_login
     - cloud_logout
     - cloud_status
+    - cloud_register
     - cloud_settings
     - cloud_sync
     - skills_sync

@@ -179,10 +179,12 @@ test_that("failed Cloud registration leaves a usable local project", {
 })
 
 
-test_that("bare project registration does not create a token file", {
+test_that("bare project registration writes the project token too", {
   local_signed_in()
   location <- withr::local_tempdir()
   local_mocked_bindings(.fw_api = function(...) list(slug = "bare", token = "1|bare-token"))
   expect_message(framework:::.fw_cloud_register_project(location, "Bare", "bare", list(language = "r", name = "Bare")), "Registered on")
-  expect_false(file.exists(file.path(location, ".env")))
+  env <- readLines(file.path(location, ".env"))
+  expect_true("FW_PROJECT_TOKEN=1|bare-token" %in% env)
+  expect_true("FW_CLOUD_URL=https://cloud.test:8443" %in% env)
 })
