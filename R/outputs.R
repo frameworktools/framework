@@ -327,7 +327,12 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 #' @param name The name for the output file (without extension). A name
 #'   with `/`, such as `"meeting-2026-10-16/cohort"`, saves into subfolders
 #'   of the output folder, which are created as needed.
-#' @param format Output format: "png" (default), "pdf", "svg", or "jpg"
+#' @param format Output format: "png" (default), "pdf", "svg", "eps", "jpg",
+#'   "jpeg", "tiff", or "emf", or a vector of them, such as
+#'   `c("pdf", "png", "svg")`, to save one file per format. Each file gets its
+#'   own row in [result_list()]. Every format, and every existing file when
+#'   `overwrite = FALSE`, is checked before anything is written. emf needs the
+#'   devEMF package.
 #' @param width Width in inches (default: 8)
 #' @param height Height in inches (default: 6)
 #' @param dpi Resolution in dots per inch (default: 300)
@@ -335,7 +340,8 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 #' @param overwrite If TRUE, overwrites existing files (default: TRUE)
 #' @param ... Additional arguments passed to ggsave or the graphics device
 #'
-#' @return The path to the saved file (invisibly)
+#' @return The path to the saved file (invisibly), or the paths in the order
+#'   of `format` when it names several formats
 #'
 #' @examples
 #' \donttest{
@@ -346,6 +352,9 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 #'
 #' # Save as PDF for publication
 #' save_figure(p, "mpg_vs_hp", format = "pdf", width = 10, height = 8)
+#'
+#' # Save one figure in several formats for a journal
+#' save_figure(p, "journal/figure_2", format = c("pdf", "eps", "png"))
 #'
 #' # Save to public directory
 #' save_figure(p, "summary_plot", public = TRUE)
@@ -360,7 +369,7 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
 save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6,
                         dpi = 300, public = FALSE, overwrite = TRUE, ...) {
   checkmate::assert_string(name, min.chars = 1)
-  checkmate::assert_choice(format, c("png", "pdf", "svg", "jpg", "jpeg", "tiff"))
+  formats <- .fw_figure_formats(format)
   checkmate::assert_number(width, lower = 0.1)
   checkmate::assert_number(height, lower = 0.1)
   checkmate::assert_number(dpi, lower = 1)
@@ -377,37 +386,73 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
   # Ensure directory exists (lazy creation)
   .ensure_output_dir(figures_dir, "figures")
 
-  # Determine file path
-  ext <- paste0(".", format)
-  file_path <- file.path(figures_dir, paste0(name, ext))
-
-  # Check for existing file
-  if (file.exists(file_path) && !overwrite) {
-    cli::cli_abort("File already exists: {.path {file_path}}. Use overwrite = TRUE to replace.")
+  # One file per format; every one is checked before any is written
+  file_paths <- file.path(figures_dir, paste0(name, ".", formats))
+  if (!overwrite) {
+    for (file_path in file_paths[file.exists(file_paths)]) {
+      cli::cli_abort("File already exists: {.path {file_path}}. Use overwrite = TRUE to replace.")
+    }
   }
   # A name with / saves into subfolders
-  dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
+  dir.create(dirname(file_paths[1]), recursive = TRUE, showWarnings = FALSE)
 
   # Save the figure
-  tryCatch({
-    if (inherits(plot, "recordedplot")) {
-      .fw_save_recorded_plot(plot, file_path, format, width, height, dpi, ...)
-    } else {
-      ggplot2::ggsave(file_path, plot = plot, width = width, height = height, dpi = dpi, ...)
-    }
-    cli::cli_alert_success("Saved figure to {.path {file_path}}")
+  for (i in seq_along(formats)) {
+    file_path <- file_paths[i]
+    tryCatch({
+      if (inherits(plot, "recordedplot")) {
+        .fw_save_recorded_plot(plot, file_path, formats[i], width, height, dpi, ...)
+      } else {
+        ggplot2::ggsave(file_path, plot = plot, device = .fw_ggsave_device(formats[i]),
+                        width = width, height = height, dpi = dpi, ...)
+      }
+      cli::cli_alert_success("Saved figure to {.path {file_path}}")
 
-    # Log to results database
-    .save_result(
-      path = file_path,
-      type = "figure",
-      public = public
-    )
-  }, error = function(e) {
-    cli::cli_abort("Failed to save figure: {e$message}")
-  })
+      # Log to results database
+      .save_result(
+        path = file_path,
+        type = "figure",
+        public = public
+      )
+    }, error = function(e) {
+      cli::cli_abort("Failed to save figure: {e$message}")
+    })
+  }
 
-  invisible(file_path)
+  invisible(file_paths)
+}
+
+# The formats save_figure() writes, checked before any file is written:
+# one format or several, duplicates dropped keeping the first.
+.fw_figure_formats <- function(format) {
+  allowed <- c("png", "pdf", "svg", "eps", "jpg", "jpeg", "tiff", "emf")
+  if (is.list(format) && all(vapply(format, checkmate::test_string, logical(1)))) {
+    format <- unlist(format, use.names = FALSE)
+  }
+  if (!is.character(format) || length(format) == 0L || anyNA(format)) {
+    cli::cli_abort("format must be a format name or a vector of them")
+  }
+  formats <- unique(format)
+  unknown <- setdiff(formats, allowed)
+  if (length(unknown) > 0L) {
+    cli::cli_abort("format must be one of {paste(allowed, collapse = ', ')} (got {unknown[1]})")
+  }
+  if ("emf" %in% formats && !.fw_emf_available()) {
+    cli::cli_abort(paste(
+      "emf needs the devEMF package, which isn't installed.",
+      "Install it with install.packages(\"devEMF\"), or save svg or pdf and convert them",
+      "(for example with Inkscape or LibreOffice)."
+    ))
+  }
+  formats
+}
+
+.fw_emf_available <- function() requireNamespace("devEMF", quietly = TRUE)
+
+# The ggsave() device for a format: devEMF for emf, else ggsave()'s own
+# choice by file extension (eps is PostScript with onefile = FALSE).
+.fw_ggsave_device <- function(format) {
+  if (identical(format, "emf")) devEMF::emf else NULL
 }
 
 # The plot save_figure(plot = NULL) should save: the active device's display
@@ -439,7 +484,10 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
     jpeg = grDevices::jpeg(file_path, width = width, height = height, units = "in", res = dpi, ...),
     tiff = grDevices::tiff(file_path, width = width, height = height, units = "in", res = dpi, ...),
     pdf = grDevices::pdf(file_path, width = width, height = height, ...),
-    svg = grDevices::svg(file_path, width = width, height = height, ...)
+    svg = grDevices::svg(file_path, width = width, height = height, ...),
+    eps = grDevices::postscript(file_path, width = width, height = height, onefile = FALSE,
+                                horizontal = FALSE, paper = "special", ...),
+    emf = devEMF::emf(file = file_path, width = width, height = height, ...)
   )
   device <- grDevices::dev.cur()
   on.exit({

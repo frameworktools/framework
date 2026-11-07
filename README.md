@@ -176,6 +176,7 @@ data_save(final_df, "inputs.final.analysis_ready", type = "csv")
 ```r
 save_table(summary_df, "summary")       # → outputs/tables/summary.csv
 save_figure(plot, "trend")              # → outputs/figures/trend.png
+save_figure(plot, "paper/fig2", format = c("pdf", "eps"))  # → outputs/figures/paper/fig2.pdf, .eps
 save_model(model, "regression_model")   # → outputs/models/regression_model.rds
 ```
 

@@ -24,7 +24,12 @@ or NULL to save the current plot}
 with \code{/}, such as \code{"meeting-2026-10-16/cohort"}, saves into subfolders
 of the output folder, which are created as needed.}
 
-\item{format}{Output format: "png" (default), "pdf", "svg", or "jpg"}
+\item{format}{Output format: "png" (default), "pdf", "svg", "eps", "jpg",
+"jpeg", "tiff", or "emf", or a vector of them, such as
+\code{c("pdf", "png", "svg")}, to save one file per format. Each file gets its
+own row in \code{\link[=result_list]{result_list()}}. Every format, and every existing file when
+\code{overwrite = FALSE}, is checked before anything is written. emf needs the
+devEMF package.}
 
 \item{width}{Width in inches (default: 8)}
 
@@ -39,7 +44,8 @@ of the output folder, which are created as needed.}
 \item{...}{Additional arguments passed to ggsave or the graphics device}
 }
 \value{
-The path to the saved file (invisibly)
+The path to the saved file (invisibly), or the paths in the order
+of \code{format} when it names several formats
 }
 \description{
 Saves a ggplot2 plot or base R graphics to the configured figures directory.
@@ -62,6 +68,9 @@ save_figure(p, "mpg_vs_hp")
 
 # Save as PDF for publication
 save_figure(p, "mpg_vs_hp", format = "pdf", width = 10, height = 8)
+
+# Save one figure in several formats for a journal
+save_figure(p, "journal/figure_2", format = c("pdf", "eps", "png"))
 
 # Save to public directory
 save_figure(p, "summary_plot", public = TRUE)

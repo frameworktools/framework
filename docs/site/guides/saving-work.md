@@ -47,12 +47,15 @@ save_figure(my_plot, "revenue_chart", width = 10, height = 6, dpi = 300)
 save_figure(my_plot, "revenue_chart", format = "pdf")
 save_figure(my_plot, "revenue_chart", format = "svg")
 
+# Several formats at once, one file each
+save_figure(my_plot, "journal/figure_2", format = c("pdf", "eps", "png"))
+
 # The current plot on a screen device
 plot(mtcars$mpg, mtcars$hp)
 save_figure(name = "mpg_vs_hp")
 ```
 
-Formats are `png` (the default), `pdf`, `svg`, `jpg`, `jpeg`, and `tiff`. The defaults are 8 by 6 inches at 300 dpi.
+Formats are `png` (the default), `pdf`, `svg`, `eps`, `jpg`, `jpeg`, `tiff`, and `emf`. The defaults are 8 by 6 inches at 300 dpi. With several formats, each file gets its own row in `result_list()`, and `save_figure()` returns the paths in the order given. Every format, and every existing file when `overwrite = FALSE`, is checked before anything is written, so a failed call writes nothing. `emf` needs the devEMF package; without it, save `svg` or `pdf` and convert them (for example with Inkscape or LibreOffice).
 
 ### Models
 

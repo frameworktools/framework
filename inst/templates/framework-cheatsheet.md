@@ -195,6 +195,7 @@ packages_update()                # Update packages (renv)
 ```r
 save_table(df, "summary")                            # outputs/tables/
 save_figure(plot, "trend")                           # outputs/figures/
+save_figure(plot, "paper/fig2", format = c("pdf", "eps")) # one file per format, in a subfolder
 save_model(model, "my_model")                        # outputs/models/ (rds)
 result_list()                                        # List saved outputs
 result_list(type = "model")                          # Only models
