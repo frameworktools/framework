@@ -39,7 +39,9 @@ project_create(
 
 \item{ai}{List with enabled, assistants, canonical_content}
 
-\item{git}{List with use_git, hooks, gitignore_content}
+\item{git}{List with use_git, hooks, gitignore_content. With use_git, a
+project inside an existing git work tree is left to that repository:
+no git init and no initial commit.}
 
 \item{scaffold}{List with seed_on_scaffold, seed, set_theme_on_scaffold, ggplot_theme, ide, positron}
 

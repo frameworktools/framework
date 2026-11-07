@@ -12,7 +12,9 @@
 #' @param directories Named list of directory paths (notebooks, scripts, functions, etc.)
 #' @param extra_directories List of additional custom directories
 #' @param ai List with enabled, assistants, canonical_content
-#' @param git List with use_git, hooks, gitignore_content
+#' @param git List with use_git, hooks, gitignore_content. With use_git, a
+#'   project inside an existing git work tree is left to that repository:
+#'   no git init and no initial commit.
 #' @param scaffold List with seed_on_scaffold, seed, set_theme_on_scaffold, ggplot_theme, ide, positron
 #' @param quarto List with html and revealjs format configurations for Quarto
 #' @param render_dirs Named list of render directory paths for Quarto outputs
@@ -833,6 +835,16 @@ duplicate its content in this file.
   if (!nzchar(Sys.which("git"))) {
     message("  Git not found - skipping repository initialization")
     message("  Install git and run 'git init' manually to enable version control")
+    return(invisible(NULL))
+  }
+
+  # Inside an existing work tree (a folder of examples in another
+  # repository), git init would make a nested repository that hides the
+  # project from the one it sits in. Leave it to that repository.
+  outer <- .fw_git_toplevel(project_dir)
+  if (!is.null(outer)) {
+    .ensure_secrets_ignored(project_dir)
+    message("  Project is tracked by the enclosing git repository at ", outer)
     return(invisible(NULL))
   }
 

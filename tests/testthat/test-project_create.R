@@ -362,3 +362,23 @@ test_that("a course project's .gitignore ignores the folder it renders to", {
   expect_true("/rendered/" %in% gitignore)
   expect_false(any(grepl("_rendered", gitignore)))
 })
+
+test_that("a project made inside a git work tree is left to that repository", {
+  skip_on_cran()
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+
+  outer <- withr::local_tempdir()
+  system2("git", c("-C", shQuote(outer), "init", "-q"), stdout = FALSE, stderr = FALSE)
+  project_dir <- file.path(outer, "examples", "study")
+
+  msgs <- capture.output(
+    result <- project_create(name = "study", location = project_dir, type = "project",
+                             git = list(use_git = TRUE, hooks = list())),
+    type = "message"
+  )
+  expect_true(result$success)
+  expect_false(dir.exists(file.path(project_dir, ".git")))
+  top <- normalizePath(outer, winslash = "/")
+  expect_true(any(msgs == paste0("  Project is tracked by the enclosing git repository at ", top)))
+  expect_false(any(grepl("Initialized git repository", msgs)))
+})
