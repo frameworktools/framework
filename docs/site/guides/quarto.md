@@ -167,6 +167,29 @@ quarto render notebooks/analysis.qmd
 quarto render
 ```
 
+## Tables and interactive figures
+
+`show_table()` shows a data frame as a Markdown pipe table, which Quarto makes a real table in HTML, PDF, and Word, styled like the rest of the page. framework-py's `show_table()` gives the same Markdown for the same data.
+
+````markdown
+```{r}
+#| label: tbl-arms
+#| tbl-cap: Patients by arm
+show_table(counts, digits = 1, big_mark = ",")
+```
+
+@tbl-arms shows the arms.
+````
+
+`digits` sets the decimal places of doubles, `big_mark` the thousands separator, and `na` what a missing value shows. `caption` adds a caption when the chunk has no `tbl-cap`. Row names aren't shown; make them a column first if you need them. Every row is shown, so summarize large data first.
+
+### plotly and other htmlwidgets with embed-resources
+
+With `embed-resources: true`, Quarto copies every script a page loads into the page. Each htmlwidget, such as a plotly figure, brings its JavaScript libraries, and plotly's full bundle is several megabytes, so a page with many figures grows large. Two ways to keep it small:
+
+- `plotly::partial_bundle(p)` swaps the full plotly.js for a smaller bundle with only the trace types the figure uses.
+- Set `embed-resources: false` (or render with `self_contained = FALSE` from R Markdown) for pages with many widgets. Libraries are then saved once, in the page's `_files/` folder, which must travel with the page.
+
 ## Format-specific settings
 
 ### HTML documents

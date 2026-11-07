@@ -78,6 +78,7 @@ Saving Work:
     - save_model
     - save_notebook
     - result_list
+    - show_table
 
 Notebooks & Scripts:
   description: Creating notebooks, scripts, and presentations

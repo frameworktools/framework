@@ -49,6 +49,7 @@ Suggests:
     htmlwidgets,
     httr2,
     IRkernel,
+    repr,
     keyring,
     jsonvalidate,
     askpass,

@@ -179,6 +179,7 @@ save_table(summary_df, "summary")       # → outputs/tables/summary.csv
 save_figure(plot, "trend")              # → outputs/figures/trend.png
 save_figure(plot, "paper/fig2", format = c("pdf", "eps"))  # → outputs/figures/paper/fig2.pdf, .eps
 save_model(model, "regression_model")   # → outputs/models/regression_model.rds
+show_table(summary_df, digits = 2)      # Markdown table in a Quarto or Jupyter notebook
 ```
 
 ### 6. Query Databases
