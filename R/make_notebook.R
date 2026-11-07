@@ -30,6 +30,11 @@
 #'   `stubs/notebook-{stub}.Rmd`, or `stubs/script-{stub}.R`.
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #' @param subdir Optional subdirectory under `dir` (e.g., "analyses/exploratory").
+#' @param title Character or NULL. The title that fills `{{ title }}` in the
+#'   stub (and the heading of a Jupyter notebook), exactly as typed. Use it
+#'   for acronyms a file name can't carry:
+#'   `title = "BP for LDL and HbA1c"`. The file name still comes from `name`.
+#'   Default: a title made from `name`.
 #'
 #' @return Invisible path to created notebook
 #'
@@ -95,7 +100,9 @@ make_notebook <- function(name,
                           dir = NULL,
                           stub = "default",
                           overwrite = FALSE,
-                          subdir = NULL) {
+                          subdir = NULL,
+                          title = NULL) {
+  checkmate::assert_string(title, null.ok = TRUE)
 
   # Determine type: explicit parameter > config setting > quarto default
   if (is.null(type)) {
@@ -126,7 +133,7 @@ make_notebook <- function(name,
   }
   if (grepl("\\.ipynb$", name, ignore.case = TRUE)) type <- "jupyter"
   if (identical(type, "jupyter")) {
-    return(.make_jupyter_notebook(name, dir, subdir, overwrite))
+    return(.make_jupyter_notebook(name, dir, subdir, overwrite, title))
   }
 
   # Normalize extension and detect type
@@ -213,7 +220,7 @@ make_notebook <- function(name,
   stub_content <- .replace_moustache_placeholders(
     stub_content,
     list(
-      title = .notebook_title(original_name),
+      title = title %||% .notebook_title(original_name),
       filename = original_name,
       date = creation_date,
       author = author_name,
@@ -356,7 +363,7 @@ make_notebook <- function(name,
 
 # A Jupyter notebook for the R kernel (IRkernel) that starts with scaffold()
 #' @keywords internal
-.make_jupyter_notebook <- function(name, dir = NULL, subdir = NULL, overwrite = FALSE) {
+.make_jupyter_notebook <- function(name, dir = NULL, subdir = NULL, overwrite = FALSE, title = NULL) {
   base <- .slugify(sub("\\.ipynb$", "", name, ignore.case = TRUE))
   dir <- dir %||% .get_notebook_dir_from_config()
   if (!is.null(subdir)) dir <- file.path(dir, subdir)
@@ -377,7 +384,7 @@ make_notebook <- function(name,
   }
   notebook <- list(
     cells = list(
-      cell("markdown", paste0("# ", .notebook_title(sub("\\.ipynb$", "", basename(name), ignore.case = TRUE)))),
+      cell("markdown", paste0("# ", title %||% .notebook_title(sub("\\.ipynb$", "", basename(name), ignore.case = TRUE)))),
       cell("code", "framework::scaffold()")
     ),
     metadata = list(
@@ -707,6 +714,11 @@ stubs_list <- function(type = NULL) {
 #' @param subdir Optional subdirectory under `dir` (e.g., "slides/week-01").
 #' @param stub Character. Name of the stub template to use. Default "default".
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
+#' @param title Character or NULL. The title that fills `{{ title }}` in the
+#'   stub (and the heading of a Jupyter notebook), exactly as typed. Use it
+#'   for acronyms a file name can't carry:
+#'   `title = "BP for LDL and HbA1c"`. The file name still comes from `name`.
+#'   Default: a title made from `name`.
 #'
 #' @return Invisible path to created notebook
 #'
@@ -726,8 +738,9 @@ stubs_list <- function(type = NULL) {
 #'
 #' @seealso [make_notebook()], [make_rmd()]
 #' @export
-make_qmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subdir = NULL) {
-  make_notebook(name = name, type = "quarto", dir = dir, stub = stub, overwrite = overwrite, subdir = subdir)
+make_qmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subdir = NULL, title = NULL) {
+  make_notebook(name = name, type = "quarto", dir = dir, stub = stub, overwrite = overwrite, subdir = subdir,
+                title = title)
 }
 
 
@@ -744,6 +757,11 @@ make_qmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subd
 #' @param stub Character. Name of the stub template to use. Default "default".
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #' @param subdir Optional subdirectory under `dir` (e.g., "analyses/exploratory").
+#' @param title Character or NULL. The title that fills `{{ title }}` in the
+#'   stub (and the heading of a Jupyter notebook), exactly as typed. Use it
+#'   for acronyms a file name can't carry:
+#'   `title = "BP for LDL and HbA1c"`. The file name still comes from `name`.
+#'   Default: a title made from `name`.
 #'
 #' @return Invisible path to created notebook
 #'
@@ -763,8 +781,9 @@ make_qmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subd
 #'
 #' @seealso [make_notebook()], [make_qmd()]
 #' @export
-make_rmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subdir = NULL) {
-  make_notebook(name = name, type = "rmarkdown", dir = dir, stub = stub, overwrite = overwrite, subdir = subdir)
+make_rmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subdir = NULL, title = NULL) {
+  make_notebook(name = name, type = "rmarkdown", dir = dir, stub = stub, overwrite = overwrite, subdir = subdir,
+                title = title)
 }
 
 
@@ -779,6 +798,11 @@ make_rmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subd
 #'   path starts at the project root, not the working directory.
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #' @param subdir Optional subdirectory under `dir` (e.g., "slides/week-01").
+#' @param title Character or NULL. The title that fills `{{ title }}` in the
+#'   stub (and the heading of a Jupyter notebook), exactly as typed. Use it
+#'   for acronyms a file name can't carry:
+#'   `title = "BP for LDL and HbA1c"`. The file name still comes from `name`.
+#'   Default: a title made from `name`.
 #'
 #' @return Invisible path to created presentation
 #'
@@ -795,8 +819,9 @@ make_rmd <- function(name, dir = NULL, stub = "default", overwrite = FALSE, subd
 #'
 #' @seealso [make_notebook()], [make_qmd()], [make_presentation()]
 #' @export
-make_revealjs <- function(name, dir = NULL, overwrite = FALSE, subdir = NULL) {
-  make_notebook(name = name, type = "quarto", dir = dir, stub = "revealjs", overwrite = overwrite, subdir = subdir)
+make_revealjs <- function(name, dir = NULL, overwrite = FALSE, subdir = NULL, title = NULL) {
+  make_notebook(name = name, type = "quarto", dir = dir, stub = "revealjs", overwrite = overwrite, subdir = subdir,
+                title = title)
 }
 
 
@@ -810,6 +835,11 @@ make_revealjs <- function(name, dir = NULL, overwrite = FALSE, subdir = NULL) {
 #'   path starts at the project root, not the working directory.
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
 #' @param subdir Optional subdirectory under `dir` (e.g., "slides/week-01").
+#' @param title Character or NULL. The title that fills `{{ title }}` in the
+#'   stub (and the heading of a Jupyter notebook), exactly as typed. Use it
+#'   for acronyms a file name can't carry:
+#'   `title = "BP for LDL and HbA1c"`. The file name still comes from `name`.
+#'   Default: a title made from `name`.
 #'
 #' @return Invisible path to created presentation
 #'
@@ -823,6 +853,6 @@ make_revealjs <- function(name, dir = NULL, overwrite = FALSE, subdir = NULL) {
 #'
 #' @seealso [make_notebook()], [make_revealjs()]
 #' @export
-make_presentation <- function(name, dir = NULL, overwrite = FALSE, subdir = NULL) {
-  make_revealjs(name = name, dir = dir, overwrite = overwrite, subdir = subdir)
+make_presentation <- function(name, dir = NULL, overwrite = FALSE, subdir = NULL, title = NULL) {
+  make_revealjs(name = name, dir = dir, overwrite = overwrite, subdir = subdir, title = title)
 }

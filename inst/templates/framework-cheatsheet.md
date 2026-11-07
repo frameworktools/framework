@@ -27,6 +27,7 @@ standardize_wd()                 # Normalize working directory for notebooks
 ```r
 make_notebook("1-init")          # Create notebooks/1-init.qmd (defaults to Quarto)
 make_qmd("analysis")             # Explicit Quarto notebook
+make_qmd("bp-ldl", title = "BP and LDL")  # Title as typed, for acronyms
 make_rmd("report")               # Explicit RMarkdown notebook
 make_revealjs("slides")          # Create reveal.js presentation
 make_presentation("deck")        # Alias for make_revealjs()

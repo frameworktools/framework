@@ -121,6 +121,12 @@ make_notebook("modeling", subdir = "analysis")
 
 This creates a `.qmd` file from your notebook template in the configured notebooks directory. Use `make_rmd()` or a `.Rmd` name for R Markdown.
 
+The title comes from the name: a name with spaces or capitals is kept as typed, and otherwise `-` and `_` become spaces and the first letter is capitalized. A lowercase file name can't carry acronyms, so pass `title`, which is used exactly as typed (the file name still comes from the name). `make_qmd()`, `make_rmd()`, `make_revealjs()`, `make_presentation()`, and `make_script()` take it too:
+
+```r
+make_notebook("bp-for-ldl-and-hba1c", title = "BP for LDL and HbA1c")
+```
+
 For a Jupyter notebook for the R kernel, pass `type = "jupyter"` or a `.ipynb` name:
 
 ```r

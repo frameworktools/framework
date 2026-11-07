@@ -4,7 +4,13 @@
 \alias{make_script}
 \title{Create an R Script from Stub Template}
 \usage{
-make_script(name, dir = NULL, stub = "default", overwrite = FALSE)
+make_script(
+  name,
+  dir = NULL,
+  stub = "default",
+  overwrite = FALSE,
+  title = NULL
+)
 }
 \arguments{
 \item{name}{Character. The script name (with or without .R extension).
@@ -20,6 +26,11 @@ starts at the project root, not the working directory.}
 \code{write_framework_template("script", ...)}.}
 
 \item{overwrite}{Logical. Whether to overwrite existing file. Default FALSE.}
+
+\item{title}{Character or NULL. The title that fills \code{{{ title }}} in the
+stub, exactly as typed. Use it for acronyms a file name can't carry:
+\code{title = "BP for LDL and HbA1c"}. The file name still comes from \code{name}.
+Default: a title made from \code{name}.}
 }
 \value{
 Invisible path to created script

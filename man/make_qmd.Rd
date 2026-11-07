@@ -4,7 +4,14 @@
 \alias{make_qmd}
 \title{Create a Quarto Notebook}
 \usage{
-make_qmd(name, dir = NULL, stub = "default", overwrite = FALSE, subdir = NULL)
+make_qmd(
+  name,
+  dir = NULL,
+  stub = "default",
+  overwrite = FALSE,
+  subdir = NULL,
+  title = NULL
+)
 }
 \arguments{
 \item{name}{Character. The file name (with or without .qmd extension).
@@ -19,6 +26,12 @@ path starts at the project root, not the working directory.}
 \item{overwrite}{Logical. Whether to overwrite existing file. Default FALSE.}
 
 \item{subdir}{Optional subdirectory under \code{dir} (e.g., "slides/week-01").}
+
+\item{title}{Character or NULL. The title that fills \code{{{ title }}} in the
+stub (and the heading of a Jupyter notebook), exactly as typed. Use it
+for acronyms a file name can't carry:
+\code{title = "BP for LDL and HbA1c"}. The file name still comes from \code{name}.
+Default: a title made from \code{name}.}
 }
 \value{
 Invisible path to created notebook

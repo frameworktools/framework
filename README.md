@@ -108,6 +108,7 @@ scaffold()  # Loads packages, functions, config, standardizes working directory
 # Quarto notebook (default)
 make_notebook("exploration")    # → notebooks/exploration.qmd
 make_qmd("analysis")            # Always Quarto
+make_qmd("bp-ldl", title = "BP and LDL")  # Title as typed, for acronyms
 make_rmd("report")              # RMarkdown
 
 # Presentations

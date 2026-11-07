@@ -400,3 +400,38 @@ test_that("dir and configured folders start at the project root, not the working
   suppressMessages(make_notebook("abs", dir = elsewhere))
   expect_true(file.exists(file.path(elsewhere, "abs.qmd")))
 })
+
+test_that("title fills {{ title }} exactly as typed, and the file name comes from name", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
+  suppressMessages(make_notebook("bp-for-ldl-and-hba1c", dir = "nb", title = "BP for LDL and HbA1c"))
+  expect_true(any(grepl('title: "BP for LDL and HbA1c"', readLines("nb/bp-for-ldl-and-hba1c.qmd"), fixed = TRUE)))
+
+  suppressMessages(make_qmd("q", dir = "nb", title = "QMD Title"))
+  expect_true(any(grepl('title: "QMD Title"', readLines("nb/q.qmd"), fixed = TRUE)))
+  skip_if_not_installed("rmarkdown")
+  suppressMessages(make_rmd("r", dir = "nb", title = "RMD Title"))
+  expect_true(any(grepl('title: "RMD Title"', readLines("nb/r.Rmd"), fixed = TRUE)))
+})
+
+test_that("title reaches presentations, scripts, and the Jupyter heading", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
+  suppressMessages(make_revealjs("deck", dir = "nb", title = "ICU Deck"))
+  deck <- readLines("nb/deck.qmd")
+  expect_true(any(grepl('title: "ICU Deck"', deck, fixed = TRUE)))
+  expect_true(any(grepl('footer: "ICU Deck"', deck, fixed = TRUE)))
+  suppressMessages(make_presentation("talk", dir = "nb", title = "NIH Talk"))
+  expect_true(any(grepl('title: "NIH Talk"', readLines("nb/talk.qmd"), fixed = TRUE)))
+  suppressMessages(make_script("clean-ehr", dir = "scripts", title = "Clean EHR extracts"))
+  expect_true(any(grepl("# Clean EHR extracts", readLines("scripts/clean-ehr.R"), fixed = TRUE)))
+  suppressMessages(make_notebook("bp-review.ipynb", dir = "nb", title = "BP review"))
+  cells <- jsonlite::read_json("nb/bp-review.ipynb")$cells
+  expect_identical(cells[[1]]$source[[1]], "# BP review")
+
+  # The default title rule is unchanged
+  suppressMessages(make_notebook("bp-summary", dir = "nb"))
+  expect_true(any(grepl('title: "Bp summary"', readLines("nb/bp-summary.qmd"), fixed = TRUE)))
+})

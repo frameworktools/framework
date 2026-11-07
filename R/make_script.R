@@ -13,6 +13,10 @@
 #'   `stubs/script-{stub}.R`, or save your default with
 #'   `write_framework_template("script", ...)`.
 #' @param overwrite Logical. Whether to overwrite existing file. Default FALSE.
+#' @param title Character or NULL. The title that fills `{{ title }}` in the
+#'   stub, exactly as typed. Use it for acronyms a file name can't carry:
+#'   `title = "BP for LDL and HbA1c"`. The file name still comes from `name`.
+#'   Default: a title made from `name`.
 #'
 #' @return Invisible path to created script
 #'
@@ -49,7 +53,7 @@
 #'
 #' @seealso [make_notebook()] for creating Quarto/RMarkdown notebooks
 #' @export
-make_script <- function(name, dir = NULL, stub = "default", overwrite = FALSE) {
+make_script <- function(name, dir = NULL, stub = "default", overwrite = FALSE, title = NULL) {
   # Validate arguments
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_string(dir, min.chars = 1, null.ok = TRUE)
@@ -72,7 +76,8 @@ make_script <- function(name, dir = NULL, stub = "default", overwrite = FALSE) {
     type = "script",
     dir = dir,
     stub = stub,
-    overwrite = overwrite
+    overwrite = overwrite,
+    title = title
   )
 }
 
