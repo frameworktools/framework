@@ -959,3 +959,29 @@ test_that("the history check fails on data committed in inputs folders or with i
   # Aggregate output without identifiers is not a leak
   expect_false("outputs/tables/summary.csv" %in% hist$file)
 })
+
+test_that("the orphan scan counts plain folders as known and leaves out JSON, text, and hidden folders", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  yaml::write_yaml(list(default = list(
+    project_type = "project",
+    directories = list(scripts = "scripts"),
+    extra_directories = list(hades = list(label = "hades", path = "hades"))
+  )), "settings.yml")
+  for (d in c("hades/cohorts", "scripts", ".vite/deps", "loose")) dir.create(d, recursive = TRUE)
+  writeLines("{}", "hades/cohorts/c1.json")
+  writeLines("x", "hades/cohorts/counts.csv")
+  writeLines("{}", "loose/schema.json")
+  writeLines("x", "loose/manifest.txt")
+  writeLines("{}", ".vite/deps/x.json")
+  writeLines("x", ".vite/deps/y.csv")
+  writeLines("x", "scripts/lookup.csv")
+  writeLines("x", "loose/data.csv")
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
+  expect_identical(audit$findings$orphaned_files$path, "loose/data.csv")
+  # Asking for JSON explicitly still scans it
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE, extensions = c("csv", "json"))
+  expect_setequal(audit$findings$orphaned_files$path, c("loose/data.csv", "loose/schema.json"))
+  out <- capture_messages(framework:::.print_audit_summary(audit))
+  expect_true(any(grepl("loose/ (2 files)", out, fixed = TRUE)))
+})

@@ -243,7 +243,12 @@ git_security_audit <- function(config_file = NULL,
 
   # Check 4: Orphaned data files
   if (verbose) message("Scanning for orphaned data files...")
-  orphan_findings <- .scan_for_orphaned_files(data_dirs, extensions, verbose)
+  # Every folder the settings name counts as known, plain folders
+  # (extra_directories) included. Text, JSON, and XML files are mostly
+  # code, cohort definitions, and manifests, so the default leaves them out.
+  known_dirs <- c(unlist(data_dirs, use.names = FALSE), .fw_all_project_folders(config, root))
+  orphan_extensions <- if (missing(extensions)) setdiff(extensions, c("json", "txt", "xml")) else extensions
+  orphan_findings <- .scan_for_orphaned_files(known_dirs, orphan_extensions, verbose)
   findings$orphaned_files <- orphan_findings$files
   if (nrow(orphan_findings$files) > 0) {
     recommendations <- c(recommendations, orphan_findings$recommendations)
@@ -502,6 +507,20 @@ git_security_audit <- function(config_file = NULL,
 .outside_directories <- function(config, root = ".") {
   config_dirs <- .configured_directories(config)
   config_dirs[vapply(config_dirs, function(path) .fw_outside_root(root, path), logical(1))]
+}
+
+# Every folder the settings name inside the project: directories,
+# extra_directories, and render_dirs, as paths from the root
+#' @keywords internal
+.fw_all_project_folders <- function(config, root = ".") {
+  paths <- c(
+    unlist(.configured_directories(config), use.names = FALSE),
+    unlist(lapply(config$extra_directories, function(e) if (is.list(e)) e$path), use.names = FALSE),
+    unlist(config$render_dirs, use.names = FALSE)
+  )
+  paths <- unique(sub("/+$", "", sub("^\\./", "", as.character(paths))))
+  paths <- paths[nzchar(paths)]
+  paths[!vapply(paths, function(p) .fw_outside_root(root, p), logical(1))]
 }
 
 # Folders with the deepest first (most path segments), keeping settings order
@@ -913,14 +932,12 @@ git_security_audit <- function(config_file = NULL,
   # Build pattern for data files
   ext_pattern <- paste0("\\.(", paste(extensions, collapse = "|"), ")$")
 
-  # Folders to skip at any depth: tool folders, plus the *_files and *_cache
-  # folders Quarto and knitr write next to a rendered document
-  exclude_dirs <- c(
-    ".git", ".Rproj.user", "renv", "packrat",
-    ".framework_cache", ".quarto", "node_modules"
-  )
+  # Folders to skip at any depth: hidden folders (.git, .venv, .quarto,
+  # tool caches), tool folders, plus the *_files and *_cache folders Quarto
+  # and knitr write next to a rendered document
+  exclude_dirs <- c("renv", "packrat", "node_modules", "_site", "_freeze")
   exclude_pattern <- paste0(
-    "(^|/)(", paste(gsub(".", "\\.", exclude_dirs, fixed = TRUE), collapse = "|"),
+    "(^|/)(\\.[^/]*|", paste(exclude_dirs, collapse = "|"),
     "|[^/]*_cache|[^/]*_files)/"
   )
 
@@ -935,8 +952,8 @@ git_security_audit <- function(config_file = NULL,
   # Get all configured directory paths
   configured_paths <- unlist(data_dirs, use.names = FALSE)
 
-  # Scan project root
-  all_files <- list.files(".", recursive = TRUE, full.names = TRUE, include.dirs = FALSE)
+  # Scan project root (hidden folders are left out by the pattern below)
+  all_files <- list.files(".", recursive = TRUE, full.names = TRUE, include.dirs = FALSE, all.files = TRUE)
   all_files <- all_files[!grepl(exclude_pattern, sub("^\\./", "", all_files))]
   all_files <- all_files[grepl(ext_pattern, all_files, ignore.case = TRUE)]
   # Files git ignores never reach the repository
@@ -952,9 +969,10 @@ git_security_audit <- function(config_file = NULL,
     # Check if it's a data file
     if (grepl(ext_pattern, file, ignore.case = TRUE)) {
       # Check if it's in any configured directory
-      in_configured_dir <- any(sapply(configured_paths, function(d) {
-        startsWith(file, paste0("./", d)) || startsWith(file, d)
-      }))
+      in_configured_dir <- any(vapply(configured_paths, function(d) {
+        d <- sub("/+$", "", sub("^\\./", "", d))
+        identical(d, ".") || startsWith(file_name, paste0(d, "/"))
+      }, logical(1)))
 
       if (!in_configured_dir) {
         file_info <- file.info(file)
@@ -1465,20 +1483,18 @@ git_security_audit <- function(config_file = NULL,
 
   if (nrow(result$findings$orphaned_files) > 0) {
     has_issues <- TRUE
-    message("\n--- Orphaned Data Files ---")
-    for (i in seq_len(min(10, nrow(result$findings$orphaned_files)))) {
-      issue <- result$findings$orphaned_files[i, ]
-      size_kb <- round(issue$size / 1024, 1)
-      message(sprintf("  %d. %s (%s KB, .%s)",
-                     i,
-                     issue$path,
-                     size_kb,
-                     issue$extension))
+    message("\n--- Orphaned Data Files (outside the folders in settings) ---")
+    orphans <- result$findings$orphaned_files
+    folders <- table(dirname(orphans$path))
+    folders <- folders[order(-folders, names(folders))]
+    for (i in seq_len(min(10, length(folders)))) {
+      message(sprintf("  %d. %s/ (%d file%s)", i, names(folders)[i], folders[[i]],
+                      if (folders[[i]] == 1) "" else "s"))
     }
-    if (nrow(result$findings$orphaned_files) > 10) {
-      message(sprintf("     ... and %d more orphaned files\n",
-                     nrow(result$findings$orphaned_files) - 10))
+    if (length(folders) > 10) {
+      message(sprintf("     ... and %d more folders", length(folders) - 10))
     }
+    message("     Add a folder to settings.yml (directories or extra_directories) if it holds project data.")
     message("")
   }
 

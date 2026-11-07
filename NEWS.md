@@ -83,6 +83,12 @@ Sensitive data:
   header has identifier-like columns. It reads renames and copies too, and a
   new `reason` column says why each file is listed. Patient CSVs committed
   under `inputs/intermediate` in a standard project passed before.
+* `git_security_audit()`'s orphaned-file check counts every folder in the
+  settings as known, `extra_directories` and `render_dirs` included, skips
+  hidden folders, and by default leaves out `.json`, `.txt`, and `.xml` files
+  (cohort definitions, manifests, schemas); pass `extensions` to scan them.
+  The summary lists orphans by folder. Adopted and course projects went from
+  26 to 807 warnings to a useful few.
 
 Fixes:
 
