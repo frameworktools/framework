@@ -1,0 +1,34 @@
+{
+  "id": "causal-inference-r",
+  "name": "Causal inference",
+  "description": "MatchIt and WeightIt for matching and weighting, cobalt for balance, and marginaleffects with sandwich for effects and robust errors.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "MatchIt": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "WeightIt": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "cobalt": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "marginaleffects": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "sandwich": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

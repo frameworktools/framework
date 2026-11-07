@@ -1,0 +1,22 @@
+{
+  "id": "python-spatial",
+  "name": "Spatial data in Python",
+  "description": "GeoPandas and Shapely for vector data.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "geopandas": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "shapely": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

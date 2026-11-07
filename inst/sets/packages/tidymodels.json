@@ -1,0 +1,22 @@
+{
+  "id": "tidymodels",
+  "name": "Tidymodels",
+  "description": "tidymodels for machine learning with recipes, resampling, and tuning, and vip for variable importance.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "tidymodels": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "vip": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

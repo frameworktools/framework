@@ -1,0 +1,26 @@
+{
+  "id": "spatial-r",
+  "name": "Spatial data in R",
+  "description": "sf for vector data, terra for rasters, and tmap for maps.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "sf": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "terra": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "tmap": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

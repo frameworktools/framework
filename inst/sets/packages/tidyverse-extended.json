@@ -1,0 +1,70 @@
+{
+  "id": "tidyverse-extended",
+  "name": "Tidyverse extended",
+  "description": "The tidyverse analysis set plus readers for CSV, Excel, Stata, and SPSS files, janitor, glue, scales, and patchwork.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "dplyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "tidyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "ggplot2": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "purrr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "stringr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "forcats": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "lubridate": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "readr": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "readxl": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "haven": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "janitor": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "glue": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "scales": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "patchwork": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

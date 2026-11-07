@@ -1,0 +1,42 @@
+{
+  "id": "regression-r",
+  "name": "Regression and mixed models",
+  "description": "lme4 and glmmTMB for mixed models, with marginaleffects, emmeans, performance, and broom to read them.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "lme4": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "glmmTMB": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "marginaleffects": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "emmeans": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "performance": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "broom": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "broom.mixed": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "id": "tidy-omop",
+  "name": "Tidy OMOP",
+  "description": "The DARWIN EU packages for OMOP CDM data: CDMConnector and omopgenerics to connect, CodelistGenerator and CohortConstructor for cohorts, PatientProfiles, IncidencePrevalence, CohortCharacteristics, and DrugUtilisation for studies, visOmopResults for results, and omock for test data.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "DBI": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "CDMConnector": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "omopgenerics": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "CodelistGenerator": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "CohortConstructor": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "PatientProfiles": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "IncidencePrevalence": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "CohortCharacteristics": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "DrugUtilisation": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "visOmopResults": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "omock": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

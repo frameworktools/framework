@@ -1,0 +1,51 @@
+{
+  "id": "bayes-r",
+  "name": "Bayes in R",
+  "description": "CmdStanR and brms for Stan models, rstanarm for common regressions, and bayesplot, posterior, loo, tidybayes, priorsense, and projpred to check and read them. CmdStanR needs CmdStan: run cmdstanr::install_cmdstan() once.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "cmdstanr": {
+          "source": "github",
+          "repo": "stan-dev/cmdstanr",
+          "auto_attach": false
+        },
+        "brms": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "rstanarm": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "bayesplot": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "posterior": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "loo": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "tidybayes": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "priorsense": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "projpred": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

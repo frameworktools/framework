@@ -1,0 +1,22 @@
+{
+  "id": "python-ml",
+  "name": "Machine learning in Python",
+  "description": "scikit-learn for models and pipelines, and XGBoost for boosted trees.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "scikit-learn": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "xgboost": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

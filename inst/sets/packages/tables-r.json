@@ -1,0 +1,30 @@
+{
+  "id": "tables-r",
+  "name": "Tables for reports",
+  "description": "gt, gtsummary, modelsummary, and flextable for tables in Quarto documents, Word, and the web.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "gt": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "gtsummary": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "modelsummary": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "flextable": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

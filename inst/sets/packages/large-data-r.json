@@ -1,0 +1,30 @@
+{
+  "id": "large-data-r",
+  "name": "Large data in R",
+  "description": "arrow and DuckDB for data larger than memory, and data.table for fast data in memory.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "arrow": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "duckdb": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "duckplyr": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "data.table": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

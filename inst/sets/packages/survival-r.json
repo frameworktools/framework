@@ -1,0 +1,30 @@
+{
+  "id": "survival-r",
+  "name": "Survival analysis",
+  "description": "survival for the models, ggsurvfit for curves, and gtsummary and broom for tables.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "survival": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "ggsurvfit": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "gtsummary": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "broom": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "fastapi-python",
+  "name": "FastAPI app",
+  "description": "FastAPI with uvicorn to serve it, pydantic for request models, and httpx for tests.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "fastapi": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "uvicorn": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "pydantic": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "httpx": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

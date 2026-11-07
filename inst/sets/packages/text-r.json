@@ -1,0 +1,22 @@
+{
+  "id": "text-r",
+  "name": "Text analysis in R",
+  "description": "tidytext and quanteda for text as data.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "tidytext": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "quanteda": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

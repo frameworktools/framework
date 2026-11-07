@@ -1,0 +1,34 @@
+{
+  "id": "shiny-r",
+  "name": "Shiny app in R",
+  "description": "shiny with bslib and bsicons for the layout, and DT and plotly for tables and charts.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "shiny": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "bslib": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "bsicons": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "DT": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "plotly": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

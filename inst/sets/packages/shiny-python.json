@@ -1,0 +1,30 @@
+{
+  "id": "shiny-python",
+  "name": "Shiny app in Python",
+  "description": "shiny for the app, shinywidgets and plotly for interactive charts, and pandas for data.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "shiny": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "shinywidgets": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "plotly": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "pandas": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

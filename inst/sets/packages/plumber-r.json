@@ -1,0 +1,30 @@
+{
+  "id": "plumber-r",
+  "name": "Plumber API",
+  "description": "plumber for the API, jsonlite and httr2 for JSON and requests, and logger for logs.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "plumber": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "jsonlite": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "httr2": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "logger": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "tidy-core",
+  "name": "Tidy basics",
+  "description": "dplyr, tidyr, and ggplot2: the smallest tidy set.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "dplyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "tidyr": {
+          "source": "cran",
+          "auto_attach": true
+        },
+        "ggplot2": {
+          "source": "cran",
+          "auto_attach": true
+        }
+      }
+    }
+  }
+}

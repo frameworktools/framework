@@ -1,0 +1,26 @@
+{
+  "id": "python-bayes",
+  "name": "Bayes in Python",
+  "description": "PyMC for models, Bambi for regressions, and ArviZ to check and read them.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "pymc": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "bambi": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "arviz": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

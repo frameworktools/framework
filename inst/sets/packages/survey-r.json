@@ -1,0 +1,22 @@
+{
+  "id": "survey-r",
+  "name": "Survey data",
+  "description": "survey for weighted designs, and srvyr to use them with dplyr.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "survey": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "srvyr": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "polars-python",
+  "name": "Polars and DuckDB",
+  "description": "polars and DuckDB for fast data frames and SQL, with pyarrow for Parquet.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "polars": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "duckdb": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "pyarrow": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

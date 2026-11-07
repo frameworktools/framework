@@ -1,0 +1,22 @@
+{
+  "id": "python-viz",
+  "name": "Interactive figures in Python",
+  "description": "plotly and Altair for interactive charts.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "plotly": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "altair": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

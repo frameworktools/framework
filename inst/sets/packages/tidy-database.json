@@ -1,0 +1,38 @@
+{
+  "id": "tidy-database",
+  "name": "Tidy databases",
+  "description": "DBI and dbplyr for SQL from dplyr, with drivers for DuckDB, SQLite, PostgreSQL, and ODBC.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "DBI": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "dbplyr": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "duckdb": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "RSQLite": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "RPostgres": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "odbc": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

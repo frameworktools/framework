@@ -1,0 +1,26 @@
+{
+  "id": "python-database",
+  "name": "Python databases",
+  "description": "SQLAlchemy for SQL, with DuckDB and psycopg for PostgreSQL.",
+  "language": [
+    "python"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "sqlalchemy": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "duckdb": {
+          "source": "pypi",
+          "auto_attach": false
+        },
+        "psycopg": {
+          "source": "pypi",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}
