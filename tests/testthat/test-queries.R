@@ -150,3 +150,34 @@ test_that("db_connect fails for non-existent connection name", {
 
   expect_error(db_connect("nonexistent_connection"))
 })
+
+test_that("read_only: true opens an unwritable SQLite file and refuses writes", {
+  skip_on_os("windows")
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  con <- DBI::dbConnect(RSQLite::SQLite(), "study.sqlite")
+  DBI::dbWriteTable(con, "people", data.frame(id = 1:3))
+  DBI::dbDisconnect(con)
+  Sys.chmod("study.sqlite", "444")
+  withr::defer(Sys.chmod(file.path(dir, "study.sqlite"), "644"))
+  yaml::write_yaml(list(default = list(connections = list(databases = list(
+    study = list(driver = "sqlite", database = "study.sqlite", read_only = TRUE),
+    writable = list(driver = "sqlite", database = "study.sqlite")
+  )))), "settings.yml")
+
+  expect_error(db_connect("writable"), "read_only: true")
+  expect_identical(nrow(db_query("SELECT * FROM people", "study")), 3L)
+  expect_error(db_execute("DELETE FROM people", "study"), "read-only")
+
+  con <- db_connect("study")
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_true(framework:::.fw_connection_read_only(con))
+  expect_error(db_transaction(con, DBI::dbExecute(con, "DELETE FROM people")), "read-only")
+  expect_identical(nrow(DBI::dbGetQuery(con, "SELECT * FROM people")), 3L)
+})
+
+test_that("ordinary SQLite connections are not read-only", {
+  con <- DBI::dbConnect(RSQLite::SQLite(), ":memory:")
+  on.exit(DBI::dbDisconnect(con))
+  expect_false(framework:::.fw_connection_read_only(con))
+})

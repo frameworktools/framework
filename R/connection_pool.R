@@ -168,6 +168,7 @@ connection_pool <- function(name,
   pool::dbPool(
     drv = RSQLite::SQLite(),
     dbname = config$database,
+    flags = if (isTRUE(config$read_only)) RSQLite::SQLITE_RO else RSQLite::SQLITE_RWC,
     minSize = min_size,
     maxSize = max_size,
     idleTimeout = idle_timeout,

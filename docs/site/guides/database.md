@@ -97,6 +97,19 @@ connections:
       odbc_driver: "ODBC Driver 17 for SQL Server"
 ```
 
+### Read-only databases
+
+Add `read_only: true` to a SQLite or DuckDB connection to open it read-only. The file needs no write permission, so a shared database marked read-only on disk (`chmod 444`) opens. `db_query()` works; `db_execute()` and `db_transaction()` stop with a message that the connection is read-only.
+
+```yaml
+connections:
+  databases:
+    study:
+      driver: sqlite
+      database: ../shared/study.sqlite
+      read_only: true
+```
+
 ### DuckDB configuration
 
 DuckDB supports additional options in `settings.yml`:

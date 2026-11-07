@@ -19,13 +19,16 @@
     stop(sprintf("Database directory does not exist: %s", db_dir))
   }
 
-  # Check file permissions if database already exists
-  if (file.exists(db_path) && file.access(db_path, 2) != 0) {
-    stop(sprintf("No write permission for database: %s", db_path))
-  }
-
   # DuckDB-specific configuration options
-  read_only <- if (!is.null(config$read_only) && config$read_only) TRUE else FALSE
+  read_only <- isTRUE(config$read_only)
+
+  # A read-only database needs no write permission
+  if (!read_only && file.exists(db_path) && file.access(db_path, 2) != 0) {
+    stop(sprintf(
+      "No write permission for database: %s. Add read_only: true to the connection to open it read-only.",
+      db_path
+    ))
+  }
   memory_limit <- if (!is.null(config$memory_limit)) config$memory_limit else NULL
   threads <- if (!is.null(config$threads)) config$threads else NULL
 

@@ -58,6 +58,12 @@ db_execute <- function(query, connection_name, ...) {
 
   con <- db_connect(connection_name)
   on.exit(DBI::dbDisconnect(con))
+  if (.fw_connection_read_only(con)) {
+    stop(sprintf(
+      "Connection '%s' is read-only (read_only: true in its settings). db_execute() can't change it.",
+      connection_name
+    ), call. = FALSE)
+  }
 
   tryCatch(
     DBI::dbExecute(con, query, ...),

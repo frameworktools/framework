@@ -48,6 +48,10 @@
 db_transaction <- function(conn, code) {
   # Validate arguments
   checkmate::assert_class(conn, "DBIConnection")
+  if (.fw_connection_read_only(conn)) {
+    stop("This connection is read-only (read_only: true in its settings). ",
+         "db_transaction() needs a writable connection.", call. = FALSE)
+  }
 
   # Check if already in a transaction
   in_transaction <- tryCatch({
