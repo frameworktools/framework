@@ -47,3 +47,20 @@ test_that("list-style package specs infer defaults and sources", {
   expect_equal(bioc_list$source, "bioc")
   expect_equal(bioc_list$name, "DESeq2")
 })
+
+test_that("installs use the cloud CRAN mirror when none is set", {
+  withr::local_options(repos = c(CRAN = "@CRAN@"))
+  expect_identical(framework:::.fw_cran_repos()[["CRAN"]], "https://cloud.r-project.org")
+  withr::local_options(repos = NULL)
+  expect_identical(framework:::.fw_cran_repos()[["CRAN"]], "https://cloud.r-project.org")
+  withr::local_options(repos = c(CRAN = "https://cran.example.org", BioC = "https://bioc.example.org"))
+  expect_identical(framework:::.fw_cran_repos(),
+                   c(CRAN = "https://cran.example.org", BioC = "https://bioc.example.org"))
+  seen <- NULL
+  local_mocked_bindings(install.packages = function(pkgs, ...) seen <<- getOption("repos")[["CRAN"]],
+                        .package = "utils")
+  withr::local_options(repos = c(CRAN = "@CRAN@"))
+  suppressMessages(framework:::.install_package_base(list(name = "x", source = "cran")))
+  expect_identical(seen, "https://cloud.r-project.org")
+  expect_identical(getOption("repos")[["CRAN"]], "@CRAN@")
+})

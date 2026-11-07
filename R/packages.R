@@ -214,6 +214,20 @@
   )
 }
 
+# The package repositories to install from: getOption("repos"), with the
+# cloud CRAN mirror when CRAN is unset ("@CRAN@" or missing), as under
+# Rscript without a site profile
+#' @keywords internal
+.fw_cran_repos <- function() {
+  repos <- getOption("repos")
+  if (is.null(repos) || length(repos) == 0) repos <- c(CRAN = "@CRAN@")
+  cran <- if ("CRAN" %in% names(repos)) repos[["CRAN"]] else NA_character_
+  if (is.na(cran) || !nzchar(cran) || identical(cran, "@CRAN@")) {
+    repos[["CRAN"]] <- "https://cloud.r-project.org"
+  }
+  repos
+}
+
 .ensure_biocmanager_installed <- function(use_renv = FALSE) {
   if (requireNamespace("BiocManager", quietly = TRUE)) {
     return(invisible(TRUE))
@@ -240,6 +254,8 @@
   if (!requireNamespace("renv", quietly = TRUE)) {
     stop("renv package is required but not installed")
   }
+  old <- options(repos = .fw_cran_repos())
+  on.exit(options(old), add = TRUE)
 
   source <- spec$source %||% "cran"
 
@@ -278,6 +294,8 @@
 #' @keywords internal
 .install_package_base <- function(spec) {
   source <- spec$source %||% "cran"
+  old <- options(repos = .fw_cran_repos())
+  on.exit(options(old), add = TRUE)
 
   if (identical(source, "github")) {
     # Install from GitHub using remotes
@@ -311,7 +329,7 @@
       )
     } else {
       message("Installing ", spec$name, " from CRAN...")
-      install.packages(spec$name)
+      utils::install.packages(spec$name)
     }
   } else {
     stop("Unsupported package source: ", source)

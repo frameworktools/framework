@@ -131,6 +131,10 @@ Fixes:
 * `ai_regenerate_context()` in a project without an AI context file (an
   adopted project with AI off) says how to create one with
   `ai_generate_context()`.
+* `scaffold()` and `package_add()` install from the cloud CRAN mirror
+  (`https://cloud.r-project.org`) when no CRAN mirror is set, as under
+  `Rscript`, instead of stopping with "trying to use CRAN without setting a
+  mirror". A mirror you set is kept, and the option is restored afterwards.
 
 Adopting and upgrading projects:
 
