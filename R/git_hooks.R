@@ -689,6 +689,24 @@ git_hooks_list <- function(config_file = NULL) {
   list(output = output, status = if (is.null(status)) 0L else as.integer(status))
 }
 
+# The paths that git ignores, from `git check-ignore --stdin`. The input is
+# written with bare LF line ends (R writes CRLF on Windows, and git would
+# then look for "path\r") and any CR is dropped from the output.
+#' @keywords internal
+.fw_git_check_ignore <- function(paths, root = ".", no_index = FALSE) {
+  if (length(paths) == 0) return(character())
+  input <- tempfile("fw_check_ignore_")
+  on.exit(unlink(input), add = TRUE)
+  con <- file(input, open = "wb")
+  writeBin(charToRaw(enc2utf8(paste0(paths, "\n", collapse = ""))), con)
+  close(con)
+  out <- suppressWarnings(system2(
+    "git", c("-C", shQuote(root), "check-ignore", if (no_index) "--no-index", "--stdin"),
+    stdin = input, stdout = TRUE, stderr = FALSE
+  ))
+  sub("\r$", "", as.character(out))
+}
+
 #' Check if git is available on the system
 #' @return TRUE if git is available, FALSE otherwise
 #' @keywords internal
@@ -893,13 +911,7 @@ git_hooks_list <- function(config_file = NULL) {
     out
   }
   candidates <- unique(unlist(lapply(found, ancestors)))
-  input <- tempfile("fw_check_ignore_")
-  on.exit(unlink(input), add = TRUE)
-  writeLines(candidates, input)
-  ignored <- suppressWarnings(system2(
-    "git", c("-C", shQuote(root), "check-ignore", "--no-index", "--stdin"),
-    stdin = input, stdout = TRUE, stderr = FALSE
-  ))
+  ignored <- .fw_git_check_ignore(candidates, root = root, no_index = TRUE)
   found[!vapply(found, function(f) any(ancestors(f) %in% ignored), logical(1))]
 }
 

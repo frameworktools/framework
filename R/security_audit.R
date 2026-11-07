@@ -775,8 +775,7 @@ git_security_audit <- function(config_file = NULL,
                                        stdout = TRUE, stderr = FALSE))
     if (identical(inside, "true")) {
       # Exit status 1 means nothing is ignored, so no warning
-      ignored <- suppressWarnings(system2(git, c("check-ignore", "--stdin"),
-                                          input = paths, stdout = TRUE, stderr = FALSE))
+      ignored <- .fw_git_check_ignore(paths)
       return(paths %in% ignored)
     }
   }
