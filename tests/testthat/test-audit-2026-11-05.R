@@ -204,7 +204,7 @@ test_that("quarto_regenerate() works with a relative project path", {
   result <- suppressMessages(quarto_regenerate("demo"))
   expect_true(result$success)
   expect_identical(result$backed_up, "_quarto.yml")
-  expect_identical(getwd(), normalizePath(base))
+  expect_identical(normalizePath(getwd(), winslash = "/"), normalizePath(base, winslash = "/"))
   expect_true(any(grepl("output-dir: outputs", readLines("demo/_quarto.yml"))))
 })
 
