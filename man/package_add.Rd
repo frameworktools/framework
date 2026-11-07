@@ -31,6 +31,11 @@ everything listed, and auto-attached packages are loaded by \code{\link[=scaffol
 \details{
 Adding a package that is already listed replaces its entry, so this is
 also how to pin a version or turn auto-attach on or off.
+
+Afterward, the Installed Packages section of the project's AI context file
+(\code{ai.canonical_file}, else AGENTS.md, else CLAUDE.md) is rewritten from the
+package settings, so agents see the new package. Only the section marked
+\verb{<!-- @framework:regenerate -->} changes; remove the marker to opt out.
 }
 \examples{
 \donttest{

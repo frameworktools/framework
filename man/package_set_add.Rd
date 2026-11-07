@@ -21,7 +21,8 @@ Adds a package set's packages to an existing project. Packages the project
 already lists are left as they are. The rest are recorded as
 \code{\link[=package_add]{package_add()}} records them, with each package's source, repository, and
 auto-attach setting from the set. Sets also stack at creation with
-\code{new_project(package_sets = ...)}.
+\code{new_project(package_sets = ...)}. As with \code{\link[=package_add]{package_add()}}, the Installed
+Packages section of the project's AI context file is then rewritten.
 }
 \details{
 A set is one of Framework's built-in sets for R, such as

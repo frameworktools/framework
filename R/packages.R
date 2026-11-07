@@ -561,6 +561,11 @@ renv_update <- function(packages = NULL) {
 #' Adding a package that is already listed replaces its entry, so this is
 #' also how to pin a version or turn auto-attach on or off.
 #'
+#' Afterward, the Installed Packages section of the project's AI context file
+#' (`ai.canonical_file`, else AGENTS.md, else CLAUDE.md) is rewritten from the
+#' package settings, so agents see the new package. Only the section marked
+#' `<!-- @framework:regenerate -->` changes; remove the marker to opt out.
+#'
 #' @param package Package specification: `"janitor"`, a pinned CRAN version
 #'   (`"dplyr@1.1.0"`), a GitHub repository (`"tidyverse/dplyr@main"`), or a
 #'   Bioconductor package (`"bioc::DESeq2"`).
@@ -649,6 +654,7 @@ package_add <- function(package, auto_attach = FALSE, install = TRUE) {
     }
   }
 
+  .fw_refresh_agents_md(settings_file)
   invisible(entry)
 }
 
@@ -658,7 +664,8 @@ package_add <- function(package, auto_attach = FALSE, install = TRUE) {
 #' already lists are left as they are. The rest are recorded as
 #' [package_add()] records them, with each package's source, repository, and
 #' auto-attach setting from the set. Sets also stack at creation with
-#' `new_project(package_sets = ...)`.
+#' `new_project(package_sets = ...)`. As with [package_add()], the Installed
+#' Packages section of the project's AI context file is then rewritten.
 #'
 #' A set is one of Framework's built-in sets for R, such as
 #' `"tidyverse-analysis"` or `"bayes-r"`. See [package_sets_list()]. When you
@@ -724,6 +731,7 @@ package_set_add <- function(set, install = TRUE) {
   if (length(added_names) > 0) {
     message("Added ", length(added_names), " package(s) from ", definition$name, ": ",
             paste(added_names, collapse = ", "))
+    .fw_refresh_agents_md(settings_file)
   } else {
     message("The project already lists every package in ", definition$name, ".")
   }
@@ -747,6 +755,58 @@ package_set_add <- function(set, install = TRUE) {
   }
 
   invisible(list(added = added_names, present = present))
+}
+
+# Rewrite the Installed Packages section of the project's AI context file
+# (ai.canonical_file, else AGENTS.md, else CLAUDE.md) from the package
+# settings, as ai_regenerate_context(sections = "packages") does. Only a file
+# with the marked heading changes. A file that can't be read or written is
+# skipped quietly. Shared with framework-py.
+#' @keywords internal
+.fw_refresh_agents_md <- function(settings_file) {
+  root <- dirname(settings_file)
+  config <- tryCatch(settings_read(settings_file), error = function(e) NULL)
+  if (is.null(config)) return(invisible(NULL))
+
+  canonical <- config$ai$canonical_file
+  candidates <- c(
+    if (is.character(canonical) && length(canonical) == 1 && nzchar(canonical)) canonical,
+    "AGENTS.md", "CLAUDE.md"
+  )
+  ai_file <- NULL
+  for (candidate in candidates) {
+    candidate_path <- file.path(root, candidate)
+    if (file.exists(candidate_path) && !dir.exists(candidate_path)) {
+      ai_file <- candidate
+      break
+    }
+  }
+  if (is.null(ai_file)) return(invisible(NULL))
+  ai_path <- file.path(root, ai_file)
+
+  content <- tryCatch(
+    paste(readLines(ai_path, warn = FALSE, encoding = "UTF-8"), collapse = "\n"),
+    error = function(e) NULL,
+    warning = function(w) NULL
+  )
+  if (is.null(content)) return(invisible(NULL))
+  if (!grepl("## Installed Packages <!-- @framework:regenerate -->", content, fixed = TRUE)) {
+    return(invisible(NULL))
+  }
+
+  updated <- tryCatch(
+    .replace_section(content, "Installed Packages", .generate_packages_section(config)),
+    error = function(e) content
+  )
+  if (identical(updated, content)) return(invisible(NULL))
+  written <- tryCatch({
+    writeLines(enc2utf8(updated), ai_path, useBytes = TRUE)
+    TRUE
+  }, error = function(e) FALSE, warning = function(w) FALSE)
+  if (isTRUE(written)) {
+    message("\u2713 Updated the package list in ", basename(ai_file))
+  }
+  invisible(NULL)
 }
 
 #' List package sets

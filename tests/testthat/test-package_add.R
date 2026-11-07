@@ -202,3 +202,84 @@ test_that("skills, AI context, and the cheatsheet only call exported functions",
   unknown <- setdiff(unique(code[!vapply(code, known, logical(1))]), placeholders)
   expect_identical(unknown, character(0))
 })
+
+test_that("package_add() and package_set_add() refresh the package list in AGENTS.md", {
+  local_package_project(
+    list(default = list(project_type = "project", packages = "settings/packages.yml")),
+    split = list(packages = list(use_renv = FALSE, default_packages = list(
+      list(name = "dplyr", source = "cran", auto_attach = TRUE)
+    )))
+  )
+  writeLines(c(
+    "# Project",
+    "",
+    "Notes kept as they are.",
+    "",
+    "## Installed Packages <!-- @framework:regenerate -->",
+    "",
+    "old list",
+    "",
+    "## My Notes",
+    "",
+    "Mine."
+  ), "AGENTS.md")
+
+  expect_message(package_add("janitor", install = FALSE), "Updated the package list in AGENTS.md")
+  text <- readLines("AGENTS.md")
+  expect_false("old list" %in% text)
+  expect_true(any(grepl("janitor", text)))
+  expect_identical(text[1:5], c("# Project", "", "Notes kept as they are.", "",
+                                "## Installed Packages <!-- @framework:regenerate -->"))
+  expect_identical(utils::tail(text, 3), c("## My Notes", "", "Mine."))
+
+  # Adding it again changes nothing, so no message
+  messages <- character()
+  withCallingHandlers(
+    package_add("janitor", install = FALSE),
+    message = function(m) {
+      messages <<- c(messages, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+  expect_false(any(grepl("Updated the package list", messages)))
+
+  expect_message(package_set_add("tidyverse-analysis", install = FALSE), "Updated the package list in AGENTS.md")
+  expect_true(any(grepl("ggplot2", readLines("AGENTS.md"))))
+})
+
+test_that("package_add() leaves a context file without the marker alone", {
+  local_package_project(list(default = list(
+    packages = list(default_packages = list()),
+    ai = list(canonical_file = "CLAUDE.md")
+  )))
+  writeLines(c("## Installed Packages", "", "hand-written"), "CLAUDE.md")
+  writeLines(c("## Installed Packages <!-- @framework:regenerate -->", "", "old"), "AGENTS.md")
+  before <- readLines("AGENTS.md")
+
+  messages <- character()
+  withCallingHandlers(
+    package_add("janitor", install = FALSE),
+    message = function(m) {
+      messages <<- c(messages, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+  # The canonical file is CLAUDE.md, which has no marker
+  expect_identical(readLines("CLAUDE.md"), c("## Installed Packages", "", "hand-written"))
+  expect_identical(readLines("AGENTS.md"), before)
+  expect_false(any(grepl("Updated the package list", messages)))
+})
+
+test_that("package_add() skips an AI context file it can't write", {
+  skip_on_os("windows")
+  local_package_project(list(default = list(packages = list(default_packages = list()))))
+  writeLines(c("## Installed Packages <!-- @framework:regenerate -->", "", "old"), "AGENTS.md")
+  Sys.chmod("AGENTS.md", "0444")
+  withr::defer(Sys.chmod("AGENTS.md", "0644"))
+  skip_if(file.access("AGENTS.md", 2) == 0, "running as a user who can write read-only files")
+
+  expect_no_warning(expect_no_error(suppressMessages(package_add("janitor", install = FALSE))))
+  expect_identical(readLines("AGENTS.md"), c("## Installed Packages <!-- @framework:regenerate -->", "", "old"))
+  pkgs <- yaml::read_yaml("settings.yml")$default$packages$default_packages
+  expect_identical(pkgs[[1]]$name, "janitor")
+})
