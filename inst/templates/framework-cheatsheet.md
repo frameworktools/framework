@@ -50,6 +50,9 @@ data_info("inputs.private.raw.x", columns = TRUE)  # Column names, types, missin
 # Direct file path (bypass catalog)
 data_read("path/to/file.csv")             # Read CSV directly
 data_read("data/results.rds")             # Read RDS directly
+
+# A path from the project root, the same from any folder (like here::here())
+file.exists(project_path("outputs/tables", "incidence.csv"))
 ```
 
 ### Saving Data
@@ -346,6 +349,7 @@ capture_output(expr)             # Capture console output
 | `packages_status()` | Check package status (renv) |
 | `packages_update()` | Update packages (renv) |
 | `project_info()` | Display project information |
+| `project_path()` | A path from the project root, like `here::here()` |
 | `project_list()` | List registered projects |
 | `publish()` | Upload file or directory to S3, Framework Cloud, or GitHub Pages |
 | `publish_data()` | Publish data frame or file to S3 |

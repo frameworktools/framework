@@ -20,6 +20,7 @@ Workflow:
     - configure_global
     - gui
     - standardize_wd
+    - project_path
     - env_clear
     - env_summary
     - scratch_capture

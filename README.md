@@ -263,6 +263,7 @@ ai_skills_update()        # Update the Framework skills after upgrading
 | `scaffold()` | Initialize session (load packages, functions, config) |
 | `data_read()` | Read data from path or catalog |
 | `data_save()` | Save data with integrity tracking |
+| `project_path()` | A path from the project root, like `here::here()` |
 | `db_query()` | Execute SQL query, return data |
 | `db_execute()` | Execute SQL command |
 | `cache_remember()` | Lazy evaluation with caching |
