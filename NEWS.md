@@ -103,6 +103,16 @@ Fixes:
   whether the mode came from its settings or from `read_only = TRUE` in the
   call.
 
+Adopting and upgrading projects:
+
+* A `config.yml` makes a folder a Framework project only when it has Framework
+  keys (`project_type`, `project_name`, `directories`, or 1.x `options:`
+  folder keys or package list) in `default:` or at the top level. A project's
+  own `config.yml`, such as the config package's, no longer stops `adopt()` or
+  makes Framework treat the folder as a project.
+* `adopt()` on a folder that is already a Framework project points to
+  `upgrade()`.
+
 # framework 2.0.0
 
 Framework 2.0 works with Framework Cloud (framework.pub or a self-hosted

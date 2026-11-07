@@ -152,3 +152,35 @@ test_that("adopt() writes connections in the layout db_connect() reads", {
     expect_true(DBI::dbIsValid(con))
   })
 })
+
+test_that("a config.yml without Framework keys doesn't make a Framework project", {
+  dir <- withr::local_tempdir()
+  # sidr-pipeline's own config.yml (repository settings)
+  writeLines(c("repositories:", "  data:", "    name: x"), file.path(dir, "config.yml"))
+  dir.create(file.path(dir, "scripts"))
+  expect_false(framework:::.has_settings_file(dir))
+  expect_false(framework:::.fw_is_framework_config(file.path(dir, "config.yml")))
+  # The config package's layout: default: with app keys
+  writeLines(c("default:", "  trials: 5", "  dataset: data.csv"), file.path(dir, "config.yml"))
+  expect_false(framework:::.has_settings_file(dir))
+  suppressMessages(suppressWarnings(adopt(dir, yes = TRUE)))
+  expect_true(file.exists(file.path(dir, "settings.yml")))
+  expect_true(file.exists(file.path(dir, "config.yml")))
+})
+
+test_that("a Framework config.yml still counts, and adopt points to upgrade()", {
+  dir <- withr::local_tempdir()
+  is_fw <- function(lines) {
+    writeLines(lines, file.path(dir, "config.yml"))
+    framework:::.fw_is_framework_config(file.path(dir, "config.yml"))
+  }
+  expect_true(is_fw(c("default:", "  project_type: project")))
+  expect_true(is_fw(c("default:", "  directories:", "    notebooks: notebooks")))
+  expect_true(is_fw(c("project_name: Old")))
+  expect_true(is_fw(c("default:", "  options:", "    functions_dir: functions")))
+  expect_true(is_fw(c("default:", "  packages:", "    - name: dplyr", "      auto_attach: true")))
+  expect_false(is_fw(c("default:", "  packages: [a, b]")))
+  expect_false(is_fw("not: [valid"))
+  is_fw(c("default:", "  project_type: project"))
+  expect_error(adopt(dir, yes = TRUE), "upgrade\\(\\)")
+})

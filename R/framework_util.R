@@ -1,51 +1,79 @@
+#' Whether a config.yml is a Framework settings file
+#'
+#' Other tools use config.yml too (the config package, CI, an app's own
+#' settings), so only a file with Framework keys counts: `project_type`,
+#' `project_name`, or `directories`, or the 1.x `options:` folder keys (`*_dir`) or
+#' package list with `auto_attach`, in its `default:` section or at the top
+#' level. Shared with framework-py and fw.
+#'
+#' @param path Path to the config.yml file
+#' @return TRUE or FALSE
+#' @keywords internal
+.fw_is_framework_config <- function(path) {
+  if (!file.exists(path) || dir.exists(path)) return(FALSE)
+  raw <- tryCatch(
+    yaml::yaml.load_file(path, handlers = list(expr = function(x) x)),
+    error = function(e) NULL
+  )
+  if (!is.list(raw) || is.null(names(raw))) return(FALSE)
+  section <- if (is.list(raw$default) && !is.null(names(raw$default))) raw$default else raw
+  if (any(c("project_type", "project_name", "directories") %in% names(section))) return(TRUE)
+  options <- section$options
+  if (is.list(options) && any(names(options) %in% c("results", "framework_db") | grepl("_dir$", names(options)))) {
+    return(TRUE)
+  }
+  packages <- section$packages
+  if (is.list(packages) && is.null(names(packages)) && length(packages) > 0) {
+    return(any(vapply(packages, function(p) is.list(p) && "auto_attach" %in% names(p), logical(1))))
+  }
+  FALSE
+}
+
+#' The settings files that make a folder a Framework project
+#'
+#' settings.yml, settings.yaml, and a config.yml with Framework keys (see
+#' [.fw_is_framework_config()]), in that order, as paths under `path`.
+#'
+#' @param path Folder to look in
+#' @return Character vector of existing files (possibly empty)
+#' @keywords internal
+.fw_settings_files <- function(path = ".") {
+  candidates <- file.path(path, c("settings.yml", "settings.yaml"))
+  found <- candidates[file.exists(candidates)]
+  config <- file.path(path, "config.yml")
+  if (.fw_is_framework_config(config)) found <- c(found, config)
+  found
+}
+
 #' Check if settings file exists
 #'
-#' Checks for settings.yml (preferred) or settings.yml (backward compatibility).
+#' Checks for settings.yml, or a config.yml with Framework keys (older
+#' projects).
 #'
 #' @param path Optional path to check in (default: current directory)
 #' @return TRUE if either file exists, FALSE otherwise
 #' @keywords internal
 .has_settings_file <- function(path = ".") {
-  file.exists(file.path(path, "settings.yml")) || file.exists(file.path(path, "config.yml"))
+  file.exists(file.path(path, "settings.yml")) || .fw_is_framework_config(file.path(path, "config.yml"))
 }
 
 #' Get settings file path
 #'
-#' Returns path to settings.yml (preferred) or config.yml (backward compatibility).
-#' Walks up directory tree to find project root if not found in current directory.
+#' Returns path to settings.yml (preferred) or a Framework config.yml (backward
+#' compatibility). Walks up directory tree to find project root if not found
+#' in current directory.
 #'
 #' @param path Optional path to check in (default: current directory)
 #' @return Path to settings file, or NULL if neither exists
 #' @keywords internal
 .get_settings_file <- function(path = ".") {
-  # Try current directory first
-  settings_path <- file.path(path, "settings.yml")
-  config_path <- file.path(path, "config.yml")
-
-  if (file.exists(settings_path)) {
-    return(settings_path)
-  } else if (file.exists(config_path)) {
-    return(config_path)
-  }
-
-  # Not in current directory - walk up the tree to find project root
-  project_root <- .find_project_root(path)
-
-  if (is.null(project_root)) {
+  # Try current directory first, then the project root above it
+  root <- if (.has_settings_file(path)) path else .find_project_root(path)
+  if (is.null(root)) {
     return(NULL)
   }
-
-  # Return the settings file from project root
-  settings_path <- file.path(project_root, "settings.yml")
-  config_path <- file.path(project_root, "config.yml")
-
-  if (file.exists(settings_path)) {
-    return(settings_path)
-  } else if (file.exists(config_path)) {
-    return(config_path)
-  } else {
-    return(NULL)
-  }
+  settings_path <- file.path(root, "settings.yml")
+  if (file.exists(settings_path)) settings_path else file.path(root, "config.yml")
 }
 
 #' Find project root by walking up directory tree

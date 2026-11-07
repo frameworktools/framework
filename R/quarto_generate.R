@@ -315,7 +315,7 @@ quarto_regenerate <- function(project_path, backup = TRUE) {
   settings_path <- file.path(project_path, "settings.yml")
   config_path <- if (file.exists(settings_path)) settings_path else file.path(project_path, "config.yml")
 
-  if (!file.exists(config_path)) {
+  if (!file.exists(settings_path) && !.fw_is_framework_config(config_path)) {
     stop("Project settings.yml/config.yml not found")
   }
 

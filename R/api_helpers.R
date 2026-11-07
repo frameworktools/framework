@@ -11,7 +11,7 @@
   settings_file <- NULL
   if (file.exists(file.path(project_path, "settings.yml"))) {
     settings_file <- file.path(project_path, "settings.yml")
-  } else if (file.exists(file.path(project_path, "config.yml"))) {
+  } else if (.fw_is_framework_config(file.path(project_path, "config.yml"))) {
     settings_file <- file.path(project_path, "config.yml")
   } else {
     return(list(use_split = FALSE, main_file = NULL, split_file = NULL))

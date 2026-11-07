@@ -270,6 +270,7 @@ test_that("settings() handles nested paths correctly", {
   })
 
   config_content <- "default:
+  project_type: project
   connections:
     db:
       driver: postgresql
@@ -425,6 +426,7 @@ test_that("conflict between main config and split file triggers warning", {
 
   # Main config with default_connection
   config_content <- "default:
+  project_type: project
   connections: settings/connections.yml
   default_connection: from_main
 "
@@ -508,6 +510,7 @@ test_that("multiple split files can coexist without conflicts", {
 
   # Main config with multiple split files
   config_content <- "default:
+  project_type: project
   connections: settings/connections.yml
   data: settings/data.yml
 "
@@ -661,6 +664,7 @@ test_that("settings() works with deep nesting", {
   # Create config with deep nesting
   yaml::write_yaml(list(
     default = list(
+      project_type = "project",
       level1 = list(
         level2 = list(
           level3 = list(

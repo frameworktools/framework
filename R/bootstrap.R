@@ -49,8 +49,7 @@ bootstrap <- function(path = ".", interactive = base::interactive(), packages = 
   checkmate::assert_flag(packages)
 
   root <- normalizePath(path.expand(path), winslash = "/", mustWork = FALSE)
-  candidates <- file.path(root, c("settings.yml", "settings.yaml", "config.yml"))
-  settings_file <- candidates[file.exists(candidates)][1]
+  settings_file <- .fw_settings_files(root)[1]
   if (!dir.exists(root) || is.na(settings_file)) {
     stop(sprintf("No settings.yml in %s. Is this a Framework project?", root), call. = FALSE)
   }
@@ -192,8 +191,7 @@ bootstrap <- function(path = ".", interactive = base::interactive(), packages = 
 # Sys.getenv("NAME"), and ${NAME}, in settings.yml and settings/*.yml
 #' @keywords internal
 .bootstrap_env_references <- function(root) {
-  files <- file.path(root, c("settings.yml", "settings.yaml", "config.yml"))
-  files <- c(files[file.exists(files)],
+  files <- c(.fw_settings_files(root),
              list.files(file.path(root, "settings"), pattern = "\\.ya?ml$", full.names = TRUE))
   text <- unlist(lapply(files, readLines, warn = FALSE), use.names = FALSE)
   text <- sub("(^|\\s)#.*$", "", text)

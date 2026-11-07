@@ -847,8 +847,7 @@ git_hooks_list <- function(config_file = NULL) {
     message("Framework hook: unknown hook '", name, "'")
     return(1L)
   }
-  candidates <- c("settings.yml", "settings.yaml", "config.yml")
-  config_file <- candidates[file.exists(candidates)][1]
+  config_file <- basename(.fw_settings_files(".")[1])
   if (is.na(config_file)) {
     return(0L)
   }

@@ -80,7 +80,7 @@ project_add_directory <- function(project_path, key, label, path) {
 
   if (file.exists(settings_path)) {
     config_path <- settings_path
-  } else if (file.exists(config_path)) {
+  } else if (.fw_is_framework_config(config_path)) {
     config_path <- config_path
   } else {
     return(list(

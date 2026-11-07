@@ -38,10 +38,12 @@
 adopt <- function(path = ".", yes = FALSE) {
   checkmate::assert_directory_exists(path)
   checkmate::assert_flag(yes)
-  existing <- file.path(path, c("settings.yml", "settings.yaml", "config.yml", ".framework/spec.json"))
-  if (any(file.exists(existing))) {
-    stop("This folder is already a Framework project (found ",
-         basename(existing[file.exists(existing)][1]), "). Nothing was changed.", call. = FALSE)
+  found <- c(basename(.fw_settings_files(path)),
+             if (file.exists(file.path(path, ".framework", "spec.json"))) ".framework/spec.json")
+  if (length(found) > 0) {
+    stop("This folder is already a Framework project (found ", found[1], "). ",
+         "Run framework::upgrade() to bring it to the current layout. Nothing was changed.",
+         call. = FALSE)
   }
 
   mapping <- .adopt_review(.adopt_map(.adopt_scan(path)), yes = yes)
