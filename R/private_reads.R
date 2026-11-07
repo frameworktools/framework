@@ -1,10 +1,91 @@
 # Private data read in this session, and the warning on public saves after it.
 # framework-py: _private.note_private_read(), warn_public_save().
 
+# Whether a folder name marks it private: "private" or "..._private", in any
+# case. framework-py: _private.is_private_folder_name().
+#' @keywords internal
+.fw_is_private_folder_name <- function(name) {
+  lowered <- tolower(name)
+  lowered == "private" | endsWith(lowered, "_private")
+}
+
+# macOS keeps /tmp, /var, and /etc under /private; that prefix isn't a
+# private folder. Matched as a string, so it reads the same on Windows, where
+# normalizePath() adds a drive letter.
+#' @keywords internal
+.fw_strip_system_private <- function(path) {
+  sub("^([A-Za-z]:)?/private/(?=(tmp|var|etc)/)", "\\1/", path, perl = TRUE)
+}
+
+#' @keywords internal
+.fw_full_path <- function(path) {
+  .fw_strip_system_private(normalizePath(path.expand(path), winslash = "/", mustWork = FALSE))
+}
+
+# Whether `path` (the folder `under` or a path below it) is `under`
+#' @keywords internal
+.fw_path_under <- function(path, under) {
+  path <- tolower(sub("/+$", "", path))
+  under <- tolower(sub("/+$", "", under))
+  path == under | startsWith(path, paste0(under, "/"))
+}
+
+# The settings folders marked private by key: a directories entry whose key
+# contains "private" and not "public" (outputs_private_tables), as full
+# paths. framework-py: _private.private_directories().
+#' @keywords internal
+.fw_private_directories <- function(root = NULL) {
+  if (is.null(root)) root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  if (is.null(root)) return(character())
+  settings <- tryCatch(suppressWarnings(settings_read()), error = function(e) NULL)
+  dirs <- .configured_directories(settings %||% list())
+  keys <- tolower(names(dirs))
+  dirs <- dirs[grepl("private", keys, fixed = TRUE) & !grepl("public", keys, fixed = TRUE)]
+  if (length(dirs) == 0) return(character())
+  unique(vapply(dirs, function(folder) .fw_full_path(.fw_folder_abs(root, folder)),
+                character(1), USE.NAMES = FALSE))
+}
+
+# The private-path rule for files to upload, shared with framework-py
+# (_private.is_private_path()): a path is private when one of its folders
+# (not the file name; a folder's own name counts when the path is a folder)
+# is named "private" or ends in "_private", in any case, or when it is a
+# settings folder marked private or under one. macOS's /private/ system
+# prefix doesn't count.
+#' @keywords internal
+.fw_path_is_private <- function(path, private_dirs = NULL) {
+  if (is.null(private_dirs)) private_dirs <- .fw_private_directories()
+  vapply(path, function(one) {
+    full <- .fw_full_path(one)
+    parts <- strsplit(full, "/", fixed = TRUE)[[1]]
+    folders <- if (dir.exists(one)) parts else parts[-length(parts)]
+    any(.fw_is_private_folder_name(folders)) || any(.fw_path_under(full, private_dirs))
+  }, logical(1), USE.NAMES = FALSE)
+}
+
+# Whether a quoted string in a notebook is a path with a private folder part,
+# or a settings folder marked private or a path under one. The last part
+# counts as a folder only when it has no ".", so a file named
+# "01-private-notes.qmd" doesn't count. framework-py:
+# _private._private_path_string().
+#' @keywords internal
+.fw_private_path_string <- function(value, root, private_dirs) {
+  if (!grepl("[/\\\\]", value)) return(FALSE)
+  parts <- strsplit(value, "[/\\\\]")[[1]]
+  if (grepl("[/\\\\]$", value)) parts <- c(parts, "")
+  last <- parts[length(parts)]
+  folders <- if (grepl(".", last, fixed = TRUE)) parts[-length(parts)] else parts
+  if (any(.fw_is_private_folder_name(folders))) return(TRUE)
+  if (length(private_dirs) == 0 || is.null(root)) return(FALSE)
+  candidate <- if (grepl("^(/|[A-Za-z]:[/\\\\]|~)", value)) value else file.path(root, value)
+  any(.fw_path_under(.fw_full_path(candidate), private_dirs))
+}
+
 # Whether a data file is private by its path: a folder between the project
 # root and the file named like private, confidential, or sensitive (the
-# security audit's segment rule), or, for a file outside the project,
-# "private" anywhere in its full path (macOS's /private/ prefix aside)
+# security audit's segment rule), or, for a file outside the project, the
+# private-path rule (.fw_path_is_private()). framework-py:
+# _private.is_private_data().
 #' @keywords internal
 .fw_is_private_data <- function(path) {
   full <- normalizePath(path, winslash = "/", mustWork = FALSE)
@@ -16,10 +97,7 @@
       return(grepl("(^|/)[^/]*(private|confidential|sensitive)[^/]*(/|$)", folder, ignore.case = TRUE))
     }
   }
-  if (startsWith(full, "/private/")) {
-    full <- substring(full, nchar("/private"))
-  }
-  grepl("private", full, ignore.case = TRUE)
+  .fw_path_is_private(path)
 }
 
 # Remember that data_read() read private data, named as the caller gave it

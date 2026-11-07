@@ -448,12 +448,22 @@ test_that("publishing warns about private paths and stops in scripts", {
     expect_error(publish("outputs/Private/report.html"), "include_private = TRUE"),
     "private"
   )
-  expect_warning(expect_error(publish_dir("outputs/Private"), "non-interactive"), "private")
+  expect_warning(
+    expect_error(
+      publish_dir("outputs/Private"),
+      "Not uploading files from private folders without confirmation. Review it, then pass include_private = TRUE to upload it.",
+      fixed = TRUE
+    ),
+    "2 file(s) to upload are in private folders:", fixed = TRUE
+  )
   expect_silent(confirm("outputs/Private/report.html", include_private = TRUE))
   expect_silent(confirm("/srv/project/outputs/public/report.html"))
-  # Anywhere in the absolute path, in any case
-  expect_warning(expect_error(confirm("/home/PRIVATE-studies/report.html")), "private")
-  expect_warning(expect_error(confirm("/srv/my_private_notes.html")), "private")
+  # A folder part named private or ending in _private, in any case; not the
+  # file name or other words
+  expect_warning(expect_error(confirm("/home/Studies_PRIVATE/report.html")), "private folders")
+  expect_silent(confirm("/home/PRIVATE-studies/report.html"))
+  expect_silent(confirm("/srv/my_private_notes.html"))
+  expect_silent(confirm("/srv/notebooks/01-private-and-public-data.qmd"))
   # macOS puts /tmp, /var, and /etc under /private; a folder the user named
   # private still counts
   expect_silent(confirm("/private/var/folders/xy/T/Rtmp1/report.html"))
@@ -467,9 +477,12 @@ test_that("publishing warns about private paths and stops in scripts", {
   writeLines("ok", "outputs/public/site/index.html")
   expect_silent(confirm("outputs/public/site"))
   for (i in 1:7) writeLines("x", sprintf("outputs/public/site/private_%d.html", i))
+  expect_silent(confirm("outputs/public/site"))
+  dir.create("outputs/public/site/private")
+  for (i in 1:7) writeLines("x", sprintf("outputs/public/site/private/%d.html", i))
   expect_error(
-    expect_warning(confirm("outputs/public/site"), "private_5.html.*and 2 more"),
-    "non-interactive"
+    expect_warning(confirm("outputs/public/site"), "private/5.html.*and 2 more"),
+    "Not uploading files from private folders"
   )
 
   # Interactive sessions ask, and only an explicit yes publishes
@@ -481,6 +494,30 @@ test_that("publishing warns about private paths and stops in scripts", {
   expect_warning(expect_error(confirm("/srv/private/x.html"), "Cancelled"), "private")
   answer <- TRUE
   expect_warning(expect_true(confirm("/srv/private/x.html")), "private")
+})
+
+test_that("publishing checks settings folders whose key names them private", {
+  dir <- withr::local_tempdir()
+  withr::local_dir(dir)
+  yaml::write_yaml(list(default = list(project_type = "project", directories = list(
+    outputs_private = "outputs/restricted", outputs_public = "outputs/shared",
+    outputs_private_public = "outputs/both"
+  ))), "settings.yml")
+  dir.create("outputs/restricted", recursive = TRUE)
+  dir.create("outputs/shared", recursive = TRUE)
+  writeLines("x", "outputs/restricted/a.html")
+  writeLines("x", "outputs/shared/a.html")
+  withr::local_options(rlang_interactive = FALSE)
+  confirm <- framework:::.fw_confirm_private
+  expect_warning(expect_error(confirm("outputs/restricted/a.html"), "Not uploading files from private folders"),
+                 "1 file(s) to upload are in private folders:", fixed = TRUE)
+  expect_warning(expect_error(confirm("outputs/restricted")), "private folders")
+  expect_silent(confirm("outputs/shared/a.html"))
+  # A key that also says public isn't a private folder
+  dir.create("outputs/both")
+  writeLines("x", "outputs/both/a.html")
+  expect_silent(confirm("outputs/both/a.html"))
+  withr::with_dir("outputs", expect_warning(expect_error(confirm("restricted/a.html")), "private folders"))
 })
 
 

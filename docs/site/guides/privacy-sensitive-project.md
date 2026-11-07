@@ -64,7 +64,7 @@ The privacy sensitive `.gitignore` template excludes:
 
 ### Publishing checks
 
-`publish()` checks every file it would upload. A path containing `private` triggers a warning. Interactive sessions ask first. Scripts stop unless `include_private = TRUE`.
+`publish()` checks every file it would upload. A file in a private folder (named `private` or ending in `_private`) triggers a warning. Interactive sessions ask first. Scripts stop unless `include_private = TRUE`.
 
 ### Public and private outputs
 

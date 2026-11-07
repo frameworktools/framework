@@ -73,11 +73,10 @@
 NULL
 
 # Uploads are the user's choice, so private paths warn rather than refuse.
-# Every file that would be uploaded is checked: one whose absolute path
-# contains "private", in any case, counts. A leading /private/ is skipped
-# because macOS resolves /tmp, /var, and /etc there, so tempdir() would
-# always match. Interactive sessions ask, defaulting to No, and scripts stop
-# unless include_private = TRUE. framework-py and fw apply the same rule.
+# Every file that would be uploaded is checked with the private-path rule
+# (see .fw_path_is_private()): a folder named private or ending in _private,
+# or a settings folder marked private by its key. File names don't count. Interactive sessions ask, defaulting to No, and scripts stop unless
+# include_private = TRUE. framework-py and fw apply the same rule.
 #
 # `reasons` are other reasons to confirm, as text (see .fw_publish_reasons()):
 # each is a warning, and one question covers them and the paths. Returns
@@ -92,12 +91,8 @@ NULL
   if (length(source) == 1L && dir.exists(source)) {
     paths <- c(source, list.files(source, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
   }
-  paths <- normalizePath(paths, winslash = "/", mustWork = FALSE)
-  # macOS keeps /tmp, /var, and /etc under /private; that prefix isn't a
-  # private folder. Matched as a string, so it reads the same on Windows,
-  # where normalizePath() adds a drive letter.
-  system_prefix <- "^([A-Za-z]:)?/private/(?=(tmp|var|etc)/)"
-  flagged <- paths[grepl("private", sub(system_prefix, "/", paths, perl = TRUE), ignore.case = TRUE)]
+  paths <- normalizePath(path.expand(paths), winslash = "/", mustWork = FALSE)
+  flagged <- paths[.fw_path_is_private(paths)]
   if (length(flagged) == 0 && length(reasons) == 0) {
     return(invisible(FALSE))
   }
@@ -107,7 +102,7 @@ NULL
       shown <- c(shown, sprintf("... and %d more", length(flagged) - 5))
     }
     warning(
-      "These paths have \"private\" in them, so they may hold restricted data:\n",
+      sprintf("%d file(s) to upload are in private folders:\n", length(flagged)),
       paste0("  ", shown, collapse = "\n"),
       call. = FALSE, immediate. = TRUE
     )
@@ -120,18 +115,10 @@ NULL
     }
     stop("Cancelled: nothing was published.", call. = FALSE)
   }
-  if (length(flagged) > 0) {
-    stop(
-      "Not publishing from a non-interactive session. ",
-      "Pass include_private = TRUE to publish these paths.",
-      call. = FALSE
-    )
-  }
-  stop(
-    "Not publishing this from a non-interactive session without confirmation. ",
-    "Review it, then pass include_private = TRUE to publish it.",
-    call. = FALSE
-  )
+  stop(sprintf(paste(
+    "Not uploading %s without confirmation.",
+    "Review it, then pass include_private = TRUE to upload it."
+  ), if (length(flagged) > 0) "files from private folders" else "this"), call. = FALSE)
 }
 
 # Why publishing `source` needs confirmation beyond its path, as text: in a
@@ -172,12 +159,13 @@ NULL
 }
 
 # The quoted strings in a notebook's code that name private data, in order of
-# appearance, once each. A string counts when a part of it, split on /, \, or
-# ., with no whitespace, is named like private, confidential, or sensitive
-# ("inputs/private/raw/ids.csv", "inputs.private.raw.ids"), or when it is a
-# data catalog name whose entry data_info() reports as private. A quick text
-# check, like framework-py's notebook_private_reads(): data reached any other
-# way is not found.
+# appearance, once each. A string counts when it is a path (it has a / or \)
+# with a private folder part, or under a settings folder marked private (see
+# .fw_private_path_string()), or when it is a data catalog name whose entry
+# data_info() reports as private.
+# Settings keys and other strings ("private|public") don't count. A quick
+# text check, like framework-py's notebook_private_reads(): data reached any
+# other way is not found.
 #' @keywords internal
 .fw_notebook_private_reads <- function(path) {
   code <- tryCatch(.fw_notebook_code(path), error = function(e) "")
@@ -186,11 +174,12 @@ NULL
   matches <- regmatches(code, gregexpr(pattern, code, perl = TRUE))[[1]]
   strings <- unique(substring(matches, 2L, nchar(matches) - 1L))
   strings <- strings[nzchar(strings) & nchar(strings) <= 500L]
-  private_part <- "(^|[/\\\\.])[^/\\\\.\\s]*(private|confidential|sensitive)[^/\\\\.\\s]*([/\\\\.]|$)"
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  private_dirs <- .fw_private_directories(root)
   settings <- NULL
   found <- character()
   for (value in strings) {
-    if (grepl(private_part, value, ignore.case = TRUE, perl = TRUE)) {
+    if (.fw_private_path_string(value, root, private_dirs)) {
       found <- c(found, value)
     } else if (grepl("^[A-Za-z0-9_]+(\\.[A-Za-z0-9_-]+)+$", value)) {
       settings <- settings %||% tryCatch(settings_read(), error = function(e) list())
@@ -363,15 +352,16 @@ NULL
 #' @param self_contained Logical. When publishing to Framework Cloud, whether
 #'   to bundle an HTML file with its resources. Ignored for S3. Default TRUE.
 #' @param include_private Logical. Skip the private-path check. When the
-#'   absolute path of any file to upload contains "private" in any case
-#'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
-#'   warns and, in an interactive session, asks before publishing (default No).
+#'   path of any file to upload has a folder named `private` or ending in
+#'   `_private` (in any case; file names don't count), or is under a settings
+#'   folder whose key contains `private` and not `public`
+#'   (`outputs_private_tables`), Framework warns
+#'   and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
 #'   The same confirmation covers a notebook (`.qmd`, `.Rmd`, `.ipynb`) or an
 #'   object such as a data frame in a project with `security: sensitive: true`,
-#'   and, in any project, a notebook whose code quotes a private path (a part
-#'   named like private, confidential, or sensitive) or a data catalog name
-#'   whose entry is private.
+#'   and, in any project, a notebook whose code quotes a path in a private
+#'   folder or a data catalog name whose entry is private.
 #' @param to Named destination from `publish.destinations`, or a driver name.
 #'   `publish.default` selects the default destination. `"folder"` needs a named
 #'   destination with a path. A folder destination with `layout: site-root`
@@ -563,9 +553,11 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
 #'   Ignored if `static_hosting: false` (always renders self-contained).
 #' @param format Character. Output format. Default "html".
 #' @param include_private Logical. Skip the private-path check. When the
-#'   absolute path of any file to upload contains "private" in any case
-#'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
-#'   warns and, in an interactive session, asks before publishing (default No).
+#'   path of any file to upload has a folder named `private` or ending in
+#'   `_private` (in any case; file names don't count), or is under a settings
+#'   folder whose key contains `private` and not `public`
+#'   (`outputs_private_tables`), Framework warns
+#'   and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
 #'   It also asks for every notebook in a project with
 #'   `security: sensitive: true`, and for a notebook whose code names private
@@ -786,9 +778,11 @@ publish_notebook <- function(file,
 #' @param connection Character or NULL. S3 connection name, or NULL for default.
 #' @param compress Logical. Whether to gzip compress. Default FALSE.
 #' @param include_private Logical. Skip the private-path check. When the
-#'   absolute path of any file to upload contains "private" in any case
-#'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
-#'   warns and, in an interactive session, asks before publishing (default No).
+#'   path of any file to upload has a folder named `private` or ending in
+#'   `_private` (in any case; file names don't count), or is under a settings
+#'   folder whose key contains `private` and not `public`
+#'   (`outputs_private_tables`), Framework warns
+#'   and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
 #'   A data frame in a project with `security: sensitive: true` is confirmed
 #'   the same way.
@@ -1022,9 +1016,11 @@ publish_data <- function(data,
 #' @param pattern Character or NULL. Optional regex pattern to filter files.
 #' @param recursive Logical. Whether to include subdirectories. Default TRUE.
 #' @param include_private Logical. Skip the private-path check. When the
-#'   absolute path of any file to upload contains "private" in any case
-#'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
-#'   warns and, in an interactive session, asks before publishing (default No).
+#'   path of any file to upload has a folder named `private` or ending in
+#'   `_private` (in any case; file names don't count), or is under a settings
+#'   folder whose key contains `private` and not `public`
+#'   (`outputs_private_tables`), Framework warns
+#'   and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
 #' @param to Character or NULL. Named destination from
 #'   `publish.destinations`, or a driver name, as in [publish()]. Default:

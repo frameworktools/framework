@@ -27,9 +27,11 @@ the directory name.}
 \item{recursive}{Logical. Whether to include subdirectories. Default TRUE.}
 
 \item{include_private}{Logical. Skip the private-path check. When the
-absolute path of any file to upload contains "private" in any case
-(apart from the \verb{/private/} macOS adds to \verb{/tmp} and \verb{/var}), Framework
-warns and, in an interactive session, asks before publishing (default No).
+path of any file to upload has a folder named \code{private} or ending in
+\verb{_private} (in any case; file names don't count), or is under a settings
+folder whose key contains \code{private} and not \code{public}
+(\code{outputs_private_tables}), Framework warns
+and, in an interactive session, asks before publishing (default No).
 In a non-interactive session it stops unless \code{include_private = TRUE}.}
 
 \item{to}{Character or NULL. Named destination from

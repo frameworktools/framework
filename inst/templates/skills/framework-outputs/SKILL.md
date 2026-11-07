@@ -78,6 +78,7 @@ publish("outputs/report.html", to = "github")        # GitHub Pages: commits pub
 Publish there only when the user asks for it.
 
 Never publish files from private/sensitive directories. The publish functions
-warn about any source with "private" in its path and ask the user to confirm.
+warn about any source in a folder named `private` or ending in `_private` (or a
+settings folder whose key says private) and ask the user to confirm.
 In a script they stop. Never pass `include_private = TRUE` or answer the
 prompt on the user's behalf. See the `framework-sensitive-data` skill if this project has one.

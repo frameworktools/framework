@@ -46,16 +46,21 @@ test_that("data_read() remembers private reads once each, as the caller named th
   ))
 })
 
-test_that("files outside the project are private when the path says private", {
+test_that("files outside the project are private by the private-path rule", {
   local_private_project()
   outside <- withr::local_tempdir()
+  dir.create(file.path(outside, "Share_Private"))
   dir.create(file.path(outside, "Private_share"))
-  writeLines(c("x", "1"), file.path(outside, "Private_share", "d.csv"))
+  writeLines(c("x", "1"), file.path(outside, "Share_Private", "d.csv"))
+  writeLines(c("x", "1"), file.path(outside, "Private_share", "f.csv"))
   writeLines(c("x", "1"), file.path(outside, "e.csv"))
   read_quietly(file.path(outside, "e.csv"))
+  # Outside the project, the private-path rule: a folder named private or
+  # ending in _private
+  read_quietly(file.path(outside, "Private_share", "f.csv"))
   expect_null(reads())
-  read_quietly(file.path(outside, "Private_share", "d.csv"))
-  expect_equal(reads(), file.path(outside, "Private_share", "d.csv"))
+  read_quietly(file.path(outside, "Share_Private", "d.csv"))
+  expect_equal(reads(), file.path(outside, "Share_Private", "d.csv"))
 })
 
 test_that("public saves in a sensitive project warn after private reads", {

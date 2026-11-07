@@ -12,6 +12,16 @@ Behavior changes:
 * `project_sensitive` projects turn on the `data_security` and
   `check_sensitive_dirs` git hooks by default, and the pre-commit hook is
   installed after the initial commit.
+* The check before publishing matches folder names, not file names: a path
+  is private when one of its folders is named `private` or ends in
+  `_private`, as the `.gitignore` templates ignore, or when it is under a
+  settings folder whose key contains `private` and not `public`
+  (`outputs_private_tables`). File names such as
+  `01-private-and-public-data.qmd` no longer count, nor do folders named only
+  like confidential or sensitive. The warning says "file(s) to upload are in
+  private folders". A notebook reads private data only when its code quotes
+  a path with a private folder or a catalog name whose entry is private, not
+  a settings key or a string such as `"private|public"`.
 
 New functions and arguments:
 

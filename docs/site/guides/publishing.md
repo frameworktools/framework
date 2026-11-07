@@ -20,12 +20,18 @@ Pick one with `to`: `"cloud"`, `"github"`, `"bucket"`, or a named destination. W
 
 ## Private paths
 
-Before uploading, Framework checks every file's absolute path. A path containing `private`, in any case, may hold restricted data. Framework warns and, in an interactive session, asks before publishing (default No). A non-interactive session stops unless you pass `include_private = TRUE`. The `/private/` macOS adds to `/tmp` and `/var` doesn't count.
+Before uploading, Framework checks the full path of every file. A file in a private folder may hold restricted data. A folder is private when it is named `private` or its name ends in `_private`, in any case, such as `outputs/private/tables/detail.csv`, `~/Private/notes.html`, or `data/study_private/ids.csv`, or when the settings mark it private: a `directories` entry whose key contains `private` (and not `public`), such as `outputs_private_tables: results/held`. File names don't count, so `notebooks/01-private-and-public.qmd` is not flagged, and the `/private/` macOS adds to `/tmp` and `/var` doesn't count. Framework warns and, in an interactive session, asks before publishing (default No). A non-interactive session stops unless you pass `include_private = TRUE`:
+
+```text
+Warning: 1 file(s) to upload are in private folders:
+  /home/me/study/outputs/private/tables/detail.csv
+Error: Not uploading files from private folders without confirmation. Review it, then pass include_private = TRUE to upload it.
+```
 
 The same confirmation covers sources whose path doesn't tell:
 
 - In a project with `security: sensitive: true`, every notebook (`.qmd`, `.Rmd`, `.ipynb`) published with `publish()` or `publish_notebook()`, and every object, such as a data frame or model given to `publish()` or a data frame given to `publish_data()`.
-- In any project, a notebook whose code quotes private data: a string with a part, split on `/`, `\`, or `.`, named like `private`, `confidential`, or `sensitive` (`"inputs/private/raw/ids.csv"`), or a data catalog name whose entry is private (`"inputs.ids"`).
+- In any project, a notebook whose code quotes private data: a path in a private folder (`"inputs/private/raw/ids.csv"`), or a data catalog name whose entry is private (`"inputs.ids"`). Other strings, such as settings keys (`"inputs_private_raw"`) or patterns (`"private|public"`), don't count.
 
 Each reason is a warning, and one question covers them all. This is a quick check of the text, not an analysis: data reached any other way isn't found.
 

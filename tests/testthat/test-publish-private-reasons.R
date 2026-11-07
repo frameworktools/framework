@@ -31,7 +31,7 @@ test_that("sensitive projects confirm objects and notebooks", {
   dir.create("notebooks")
   writeLines(c("---", "title: S", "---", "", "```{r}", "x <- 1", "```"), "notebooks/summary.qmd")
   expect_warning(
-    expect_error(publish_notebook("notebooks/summary.qmd"), "Not publishing this from a non-interactive session"),
+    expect_error(publish_notebook("notebooks/summary.qmd"), "Not uploading this without confirmation. Review it, then pass include_private = TRUE to upload it."),
     "the rendered notebook summary.qmd can show it"
   )
   expect_warning(expect_error(publish("notebooks/summary.qmd"), "include_private = TRUE"), "sensitive")
@@ -73,19 +73,28 @@ test_that("notebook strings that name private data are found", {
     'e <- data_read("inputs.private.raw.other")',
     'f <- data_read("inputs.ids")',
     'print("private results are not shown")',
+    'g <- settings("directories.inputs_private")',
+    'h <- grepl("private|public", names(x))',
+    'i <- data_read("inputs/private_ids.csv")',
+    'j <- data_read("outputs/study_private/k.csv")',
+    'k <- list.files("outputs/private")',
     "```"
   ), "a.qmd")
+  # Catalog names that resolve to private data, and paths with a private
+  # folder (the last part is a folder when it has no dot); not settings keys,
+  # dotted names outside the catalog, other strings, or file names
   expect_identical(framework:::.fw_notebook_private_reads("a.qmd"), c(
-    "inputs/private/raw/ids.csv", "inputs.ids", "inputs.flagged", "inputs.private.raw.other"
+    "inputs/private/raw/ids.csv", "inputs.ids", "inputs.flagged", "outputs/study_private/k.csv",
+    "outputs/private"
   ))
   writeLines(paste0(
     '{"cells": [{"cell_type": "markdown", "source": ["\\"inputs/private/x.csv\\""]},',
     ' {"cell_type": "code", "source": ["df <- data_read(\\"inputs.ids\\")"]}]}'
   ), "b.ipynb")
   expect_identical(framework:::.fw_notebook_private_reads("b.ipynb"), "inputs.ids")
-  writeLines(c("```{r}", 'x <- "inputs\\\\Confidential\\\\a.csv"', 'y <- "my secret_sensitive_notes"',
-               paste0('z <- "', strrep("a", 495), '/private"'), "```"), "c.Rmd")
-  expect_identical(framework:::.fw_notebook_private_reads("c.Rmd"), "inputs\\\\Confidential\\\\a.csv")
+  writeLines(c("```{r}", 'x <- "inputs\\\\Private\\\\a.csv"', 'y <- "inputs\\\\Confidential\\\\b.csv"',
+               paste0('z <- "', strrep("a", 495), '/private/x"'), "```"), "c.Rmd")
+  expect_identical(framework:::.fw_notebook_private_reads("c.Rmd"), "inputs\\\\Private\\\\a.csv")
 })
 
 test_that("a notebook reading private data needs confirmation in any project", {
