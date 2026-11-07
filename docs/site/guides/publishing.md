@@ -169,6 +169,29 @@ Drivers are `cloud`, `github`, `folder`, and `s3`. A folder `path` may start wit
 publish(results_table, to = "site", slug = "estimates")
 ```
 
+### A folder as a site root
+
+A folder destination with `layout: site-root` keeps only the latest publish, at the folder's root: a rendered deck becomes `docs/index.html`, with no `<slug>/` folder, version archive, or site index. This replaces copying `deck.html` to `docs/index.html` for a GitHub Pages site served from `docs/`.
+
+```yaml
+publish:
+  destinations:
+    pages:
+      driver: folder
+      path: docs
+      url: https://me.github.io/my-talk
+      visibility: public
+      layout: site-root
+```
+
+```r
+publish_notebook("presentation.qmd", to = "pages")
+```
+
+Each publish first removes the files the previous one wrote, which `docs/.framework-site.json` lists, and leaves other files, such as `CNAME` or `.nojekyll`, alone. A file the new publish writes replaces one of the same name. An HTML source is written once, as `index.html`. Objects and other files get the same offline reader, data, and representation files as a versioned folder, at the root. `publish_list()` shows the one artifact. The default layout is `versioned`; `layout` on any other driver is an error.
+
+Set `visibility: public` on a folder meant to be committed, as a Pages folder is. Otherwise new projects add the folder to `.gitignore`, and the security audit warns about it.
+
 ## S3 configuration
 
 Define storage buckets in `settings.yml` (or `settings/connections.yml`):

@@ -56,6 +56,7 @@
 
 .fw_publish_capabilities <- function(destination, visibility = NULL, password = NULL, collection = NULL) {
   driver <- destination$driver
+  .fw_assert_layout(destination)
   visibility <- .fw_publish_visibility(destination, visibility)
   if (!is.null(visibility)) checkmate::assert_choice(visibility, c("public", "unlisted", "private"))
   if (driver == "cloud") return(invisible(TRUE))
@@ -81,6 +82,22 @@
       suppressWarnings(system2(gh, c("api", paste0("repos/", remote$owner, "/", remote$repo, "/pages"), "--jq", ".public"), stdout = TRUE, stderr = FALSE))
     } else character()
     if (!identical(public, "false")) stop("GitHub has not confirmed private Pages access for this repository.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# Folder layouts: every publish kept under <slug>/v/<n>/ with a site index
+# (versioned, the default), or the latest publish alone at the folder's root
+# (site-root), as a GitHub Pages docs/ folder wants. Checked before anything
+# is rendered or written.
+.fw_assert_layout <- function(destination) {
+  layout <- destination$layout
+  if (is.null(layout)) return(invisible(TRUE))
+  if (!identical(destination$driver, "folder")) {
+    stop("layout applies to folder destinations only.", call. = FALSE)
+  }
+  if (!is.character(layout) || length(layout) != 1L || !layout %in% c("versioned", "site-root")) {
+    stop("A folder destination's layout must be versioned or site-root.", call. = FALSE)
   }
   invisible(TRUE)
 }
@@ -277,6 +294,92 @@
        sha256 = digest::digest(file = file.path(target, "artifact.json"), algo = "sha256"))
 }
 
+# The record of what a site-root publish wrote, at the folder's root
+.fw_site_record <- ".framework-site.json"
+
+# A site-root folder keeps only the latest publish, at its root: the files
+# the previous publish wrote (listed in .framework-site.json) are removed,
+# and other files there (CNAME, .nojekyll) stay. The bundle's artifact.json
+# isn't written, nor an HTML source identical to index.html, so a deck is
+# written once. framework-py's folder_deliver_root() follows the same rules.
+.fw_folder_deliver_root <- function(bundle, destination) {
+  root <- .fw_folder_path(destination$path)
+  link <- Sys.readlink(root)
+  if (!is.na(link) && nzchar(link)) stop("Destination cannot be a symbolic link.", call. = FALSE)
+  dir.create(root, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(root)) stop("Could not create the destination folder ", root, ".", call. = FALSE)
+  lock <- file.path(root, ".framework-publish.lock")
+  if (!dir.create(lock, showWarnings = FALSE)) {
+    if (dir.exists(lock)) stop("Another publish is using this folder.", call. = FALSE)
+    stop("Could not write to the destination folder ", root, ".", call. = FALSE)
+  }
+  on.exit(unlink(lock, recursive = TRUE), add = TRUE)
+
+  record_path <- file.path(root, .fw_site_record)
+  previous <- if (file.exists(record_path)) {
+    tryCatch(jsonlite::read_json(record_path, simplifyVector = FALSE), error = function(e) NULL)
+  }
+  if (!is.list(previous) || is.null(names(previous))) previous <- list()
+
+  manifest <- bundle$manifest
+  files <- sort(list.files(bundle$path, recursive = TRUE, all.files = TRUE, no.. = TRUE))
+  files <- files[basename(files) != "artifact.json"]
+  original <- manifest$original
+  index <- file.path(bundle$path, "index.html")
+  if (is.character(original) && length(original) == 1L && original %in% files && !grepl("/", original) &&
+      original != "index.html" && tolower(tools::file_ext(original)) %in% c("html", "htm") &&
+      file.exists(index) && .fw_same_bytes(file.path(bundle$path, original), index)) {
+    files <- setdiff(files, original)
+  }
+
+  # Remove what the previous publish wrote, and folders that leaves empty
+  base <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  for (relative in unlist(previous$files)) {
+    if (!is.character(relative) || !nzchar(relative)) next
+    old <- normalizePath(file.path(root, relative), winslash = "/", mustWork = FALSE)
+    if (!startsWith(old, paste0(base, "/")) || !file.exists(old) || dir.exists(old)) next
+    unlink(old)
+    folder <- dirname(old)
+    while (startsWith(folder, paste0(base, "/")) &&
+           length(list.files(folder, all.files = TRUE, no.. = TRUE)) == 0L) {
+      unlink(folder, recursive = TRUE)
+      folder <- dirname(folder)
+    }
+  }
+
+  for (relative in files) {
+    target <- file.path(root, relative)
+    link <- Sys.readlink(target)
+    if (!is.na(link) && nzchar(link)) {
+      stop("The publishing destination has a symbolic link: ", target, call. = FALSE)
+    }
+    dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
+    if (!file.copy(file.path(bundle$path, relative), target, overwrite = TRUE)) {
+      stop("Could not copy all published files.", call. = FALSE)
+    }
+  }
+
+  version <- suppressWarnings(as.integer(previous$version %||% 0L))
+  if (length(version) != 1L || is.na(version) || version < 0L) version <- 0L
+  version <- version + 1L
+  record <- list(schema = "framework.site/v1", version = version, slug = manifest$slug,
+                 title = manifest$title, kind = manifest$kind, description = manifest$description,
+                 created_at = manifest$created_at, files = as.list(files))
+  jsonlite::write_json(record, record_path, auto_unbox = TRUE, null = "null", digits = NA, pretty = TRUE)
+
+  location <- file.path(root, "index.html")
+  message("Published version ", version, ": ", location)
+  list(driver = "folder",
+       url = if (!is.null(destination$url)) paste0(sub("/+$", "", destination$url), "/") else NULL,
+       version = version, version_url = NULL, location = location, commit = NULL)
+}
+
+.fw_same_bytes <- function(a, b) {
+  size <- file.size(c(a, b))
+  !anyNA(size) && size[1] == size[2] &&
+    identical(readBin(a, "raw", n = size[1]), readBin(b, "raw", n = size[2]))
+}
+
 .fw_track_external <- function(bundle, receipt, visibility = NULL) {
   token <- .fw_project_token()
   if (is.null(token)) return(invisible(NULL))
@@ -326,7 +429,11 @@
   bundle <- .fw_bundle_build(source, slug, title, description, kind, self_contained, include_private)
   on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   receipt <- switch(destination$driver,
-    folder = .fw_folder_deliver(bundle, destination, overwrite),
+    folder = if (identical(destination$layout, "site-root")) {
+      .fw_folder_deliver_root(bundle, destination)
+    } else {
+      .fw_folder_deliver(bundle, destination, overwrite)
+    },
     github = {
       url <- .fw_github_publish(bundle$path, slug = bundle$manifest$slug, self_contained = self_contained, bundle = bundle, visibility = visibility)
       attr(url, "receipt")

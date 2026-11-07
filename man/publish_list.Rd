@@ -24,7 +24,8 @@ Data frame with columns: key, size, last_modified, url.
 \description{
 Lists files in an S3 bucket/prefix. Like \code{\link[=publish]{publish()}}, it follows \code{to},
 then \code{publish.default} in settings.yml. For a folder destination it lists
-the published artifacts, one row per slug. GitHub and Cloud destinations
+the published artifacts, one row per slug; a \code{layout: site-root} folder
+has at most one, the latest publish. GitHub and Cloud destinations
 can't be listed here.
 }
 \examples{

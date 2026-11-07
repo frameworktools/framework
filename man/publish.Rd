@@ -92,7 +92,10 @@ whose entry is private.}
 
 \item{to}{Named destination from \code{publish.destinations}, or a driver name.
 \code{publish.default} selects the default destination. \code{"folder"} needs a named
-destination with a path. \code{"s3"} and \code{"bucket"} retain legacy storage uploads.
+destination with a path. A folder destination with \code{layout: site-root}
+keeps only the latest publish, at the folder's root (for a GitHub Pages
+\verb{docs/} folder), recorded in \code{.framework-site.json}; the default layout,
+\code{versioned}, keeps every version under \verb{<slug>/v/<n>/}. \code{"s3"} and \code{"bucket"} retain legacy storage uploads.
 \code{"cloud"} selects Framework Cloud even when a
 bucket is configured. \code{"bucket"} selects storage. \code{"github"} publishes to the project's GitHub
 Pages site instead of a storage bucket or Framework Cloud: the document

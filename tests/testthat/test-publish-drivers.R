@@ -354,3 +354,87 @@ test_that("publish_dir() slugs keep the folder part of dest", {
   )
   expect_true(file.exists(file.path(project, "local-site", "figures-meeting-1", "a.png")))
 })
+
+local_site_root <- function(site, layout = "site-root", env = parent.frame()) {
+  project <- withr::local_tempdir(.local_envir = env)
+  withr::local_dir(project, .local_envir = env)
+  yaml::write_yaml(list(default = list(publish = list(destinations = list(
+    pages = list(driver = "folder", path = site, url = "https://me.github.io/deck",
+                 visibility = "public", layout = layout),
+    bucket = list(driver = "s3", layout = "site-root")
+  )))), "settings.yml")
+  testthat::local_mocked_bindings(.fw_project_token = function(...) NULL, .env = env)
+  project
+}
+
+test_that("a site-root folder keeps only the latest publish at its root", {
+  site <- file.path(withr::local_tempdir(), "docs")
+  local_site_root(site)
+  dir.create(site)
+  writeLines("deck.example.org", file.path(site, "CNAME"))
+  writeLines("<html><body>Slides</body></html>", "deck.html")
+
+  expect_message(url <- publish("deck.html", to = "pages"),
+                 paste0("Published version 1: ", file.path(site, "index.html")), fixed = TRUE)
+  expect_identical(url, "https://me.github.io/deck/")
+  expect_setequal(list.files(site, all.files = TRUE, no.. = TRUE), c(".framework-site.json", "CNAME", "index.html"))
+  expect_identical(readLines(file.path(site, "index.html")), readLines("deck.html"))
+  record <- jsonlite::read_json(file.path(site, ".framework-site.json"))
+  expect_identical(record$schema, "framework.site/v1")
+  expect_identical(names(record), c("schema", "version", "slug", "title", "kind", "description", "created_at", "files"))
+  expect_equal(record$version, 1)
+  expect_identical(record$slug, "deck")
+  expect_identical(record$files, list("index.html"))
+
+  # A table replaces the deck: the deck's files go, the folder's own files stay
+  suppressMessages(publish(data.frame(n = 1), to = "pages", slug = "counts"))
+  names <- list.files(site, all.files = TRUE, no.. = TRUE)
+  expect_true(all(c("CNAME", "data.csv", "index.html") %in% names))
+  expect_false(any(c("v", "counts", "artifact.json", "index.json") %in% names))
+  expect_equal(jsonlite::read_json(file.path(site, ".framework-site.json"))$version, 2)
+  listed <- publish_list(to = "pages")
+  expect_identical(listed$key, "counts/")
+  expect_identical(listed$url, "https://me.github.io/deck/")
+  record <- jsonlite::read_json(file.path(site, ".framework-site.json"))
+  expect_equal(listed$size, sum(file.size(file.path(site, unlist(record$files)))))
+  expect_identical(listed$last_modified, record$created_at)
+  expect_identical(nrow(publish_list("other", to = "pages")), 0L)
+
+  suppressMessages(publish("deck.html", to = "pages"))
+  expect_setequal(list.files(site, all.files = TRUE, no.. = TRUE), c(".framework-site.json", "CNAME", "index.html"))
+  expect_equal(jsonlite::read_json(file.path(site, ".framework-site.json"))$version, 3)
+})
+
+test_that("a site-root publish removes only recorded files inside the folder, and empty folders", {
+  site <- file.path(withr::local_tempdir(), "docs")
+  outside <- file.path(dirname(site), "keep.txt")
+  local_site_root(site)
+  dir.create(file.path(site, "old", "deep"), recursive = TRUE)
+  dir.create(file.path(site, "mine"))
+  writeLines("x", file.path(site, "old", "deep", "a.js"))
+  writeLines("x", file.path(site, "mine", "b.txt"))
+  writeLines("x", outside)
+  jsonlite::write_json(list(schema = "framework.site/v1", version = 4, slug = "old",
+                            files = list("old/deep/a.js", "../keep.txt", "mine", "missing.txt")),
+                       file.path(site, ".framework-site.json"), auto_unbox = TRUE)
+  dir.create("report")
+  writeLines("<p>hi</p>", "report/index.html")
+  writeLines("a", "report/notes.txt")
+  suppressMessages(publish("report", to = "pages"))
+  expect_false(dir.exists(file.path(site, "old")))
+  expect_true(file.exists(outside))
+  expect_true(file.exists(file.path(site, "mine", "b.txt")))
+  record <- jsonlite::read_json(file.path(site, ".framework-site.json"))
+  expect_equal(record$version, 5)
+  expect_identical(unlist(record$files), c("index.html", "notes.txt"))
+})
+
+test_that("layout is checked before anything is rendered or written", {
+  site <- file.path(withr::local_tempdir(), "docs")
+  local_site_root(site, layout = "flat")
+  writeLines("<p>hi</p>", "page.html")
+  expect_error(publish("page.html", to = "pages"), "A folder destination's layout must be versioned or site-root.", fixed = TRUE)
+  expect_error(publish("page.html", to = "bucket"), "layout applies to folder destinations only.", fixed = TRUE)
+  expect_error(publish_list(to = "pages"), "versioned or site-root")
+  expect_false(dir.exists(site))
+})

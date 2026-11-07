@@ -374,7 +374,10 @@ NULL
 #'   whose entry is private.
 #' @param to Named destination from `publish.destinations`, or a driver name.
 #'   `publish.default` selects the default destination. `"folder"` needs a named
-#'   destination with a path. `"s3"` and `"bucket"` retain legacy storage uploads.
+#'   destination with a path. A folder destination with `layout: site-root`
+#'   keeps only the latest publish, at the folder's root (for a GitHub Pages
+#'   `docs/` folder), recorded in `.framework-site.json`; the default layout,
+#'   `versioned`, keeps every version under `<slug>/v/<n>/`. `"s3"` and `"bucket"` retain legacy storage uploads.
 #'   `"cloud"` selects Framework Cloud even when a
 #'   bucket is configured. `"bucket"` selects storage. `"github"` publishes to the project's GitHub
 #'   Pages site instead of a storage bucket or Framework Cloud: the document
@@ -937,6 +940,9 @@ publish_data <- function(data,
 .fw_folder_list <- function(destination, prefix = NULL, max = 1000L) {
   .fw_publish_capabilities(destination)
   root <- .fw_folder_path(destination$path)
+  if (identical(destination$layout, "site-root")) {
+    return(utils::head(.fw_site_root_list(root, destination$url, prefix), max))
+  }
   manifests <- file.path(list.dirs(root, recursive = FALSE, full.names = TRUE), "artifact.json")
   manifests <- manifests[file.exists(manifests)]
   rows <- lapply(manifests, function(file) {
@@ -960,6 +966,27 @@ publish_data <- function(data,
   if (!is.null(prefix)) df <- df[startsWith(df$key, prefix), , drop = FALSE]
   rownames(df) <- NULL
   utils::head(df, max)
+}
+
+# publish_list() for a site-root folder: the one artifact at its root, if any
+.fw_site_root_list <- function(root, url = NULL, prefix = NULL) {
+  empty <- data.frame(key = character(0), size = numeric(0), last_modified = character(0),
+                      url = character(0), stringsAsFactors = FALSE)
+  file <- file.path(root, .fw_site_record)
+  record <- if (file.exists(file)) tryCatch(jsonlite::read_json(file, simplifyVector = FALSE), error = function(e) NULL)
+  slug <- if (is.list(record)) record$slug
+  if (!is.character(slug) || length(slug) != 1L || (!is.null(prefix) && !startsWith(slug, prefix))) {
+    return(empty)
+  }
+  files <- file.path(root, as.character(unlist(record$files)))
+  files <- files[file.exists(files) & !dir.exists(files)]
+  data.frame(
+    key = paste0(slug, "/"),
+    size = sum(as.numeric(file.size(files))),
+    last_modified = as.character(record$created_at %||% NA_character_),
+    url = if (!is.null(url)) paste0(sub("/+$", "", url), "/") else file.path(root, "index.html"),
+    stringsAsFactors = FALSE
+  )
 }
 
 .fw_gzip_file <- function(source, dest) {
@@ -1101,7 +1128,8 @@ publish_dir <- function(dir,
 #'
 #' Lists files in an S3 bucket/prefix. Like [publish()], it follows `to`,
 #' then `publish.default` in settings.yml. For a folder destination it lists
-#' the published artifacts, one row per slug. GitHub and Cloud destinations
+#' the published artifacts, one row per slug; a `layout: site-root` folder
+#' has at most one, the latest publish. GitHub and Cloud destinations
 #' can't be listed here.
 #'
 #' @param prefix Character or NULL. Prefix to filter by. If NULL, lists all
