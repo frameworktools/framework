@@ -169,7 +169,7 @@ init_global_config <- function(force = FALSE) {
 
   # Create empty projects file if doesn't exist
   if (!file.exists(projects_path)) {
-    yaml::write_yaml(list(projects = list()), projects_path)
+    .fw_write_yaml(list(projects = list()), projects_path)
     message("Initialized projects registry: ", projects_path)
   }
 
@@ -526,11 +526,11 @@ write_frameworkrc <- function(config) {
   }
 
   # Write main settings
-  yaml::write_yaml(config, settings_path)
+  .fw_write_yaml(config, settings_path)
 
   # Write projects separately, only when given
   if (write_projects || !file.exists(projects_path)) {
-    yaml::write_yaml(list(projects = projects %||% list()), projects_path)
+    .fw_write_yaml(list(projects = projects %||% list()), projects_path)
   }
 
   invisible(NULL)

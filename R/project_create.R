@@ -427,7 +427,7 @@ project_create <- function(
 
     # Write main settings.yml
     if (!is.null(publish)) main_config$default$publish <- publish
-    yaml::write_yaml(main_config, file.path(project_dir, "settings.yml"))
+    .fw_write_yaml(main_config, file.path(project_dir, "settings.yml"))
     message("  Created: settings.yml")
 
     # Write split files
@@ -435,27 +435,27 @@ project_create <- function(
     # Leave the key out then, rather than write `email: ''`.
     author_out <- .author_normalize(author)
     if (!nzchar(author_out$email)) author_out$email <- NULL
-    yaml::write_yaml(list(author = author_out), file.path(settings_dir, "author.yml"))
+    .fw_write_yaml(list(author = author_out), file.path(settings_dir, "author.yml"))
 
-    yaml::write_yaml(list(packages = list(
+    .fw_write_yaml(list(packages = list(
       use_renv = packages$use_renv %||% FALSE,
       default_packages = .df_to_list_of_lists(packages$default_packages)
     )), file.path(settings_dir, "packages.yml"))
 
-    yaml::write_yaml(list(git = list(
+    .fw_write_yaml(list(git = list(
       enabled = git$initialize %||% git$use_git %||% TRUE,
       user_name = git$user_name %||% "",
       user_email = git$user_email %||% "",
       hooks = git$hooks
     )), file.path(settings_dir, "git.yml"))
 
-    yaml::write_yaml(list(ai = list(
+    .fw_write_yaml(list(ai = list(
       enabled = ai$enabled %||% FALSE,
       canonical_file = ai$canonical_file %||% "AGENTS.md",
       assistants = ai$assistants
     )), file.path(settings_dir, "ai.yml"))
 
-    yaml::write_yaml(list(scaffold = list(
+    .fw_write_yaml(list(scaffold = list(
       seed_on_scaffold = scaffold$seed_on_scaffold %||% FALSE,
       seed = scaffold$seed %||% "",
       set_theme_on_scaffold = scaffold$set_theme_on_scaffold %||% TRUE,
@@ -467,10 +467,10 @@ project_create <- function(
     )), file.path(settings_dir, "scaffold.yml"))
 
     # Write quarto settings to split file
-    yaml::write_yaml(list(quarto = quarto %||% list()), file.path(settings_dir, "quarto.yml"))
+    .fw_write_yaml(list(quarto = quarto %||% list()), file.path(settings_dir, "quarto.yml"))
 
     # Write empty data catalog to split file
-    yaml::write_yaml(list(data = list()), file.path(settings_dir, "data.yml"))
+    .fw_write_yaml(list(data = list()), file.path(settings_dir, "data.yml"))
 
     message("  Created: settings/ directory with split configuration files")
   } else {
@@ -537,7 +537,7 @@ project_create <- function(
 
     config_path <- file.path(project_dir, "settings.yml")
     if (!is.null(publish)) config$default$publish <- publish
-    yaml::write_yaml(config, config_path)
+    .fw_write_yaml(config, config_path)
     message("  Created: settings.yml")
   }
 }
@@ -586,7 +586,7 @@ project_create <- function(
   target_path <- file.path(project_dir, relative_path)
   dir.create(dirname(target_path), recursive = TRUE, showWarnings = FALSE)
 
-  yaml::write_yaml(config, target_path)
+  .fw_write_yaml(config, target_path)
   message("  Created: ", relative_path)
 }
 

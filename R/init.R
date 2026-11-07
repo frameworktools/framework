@@ -480,7 +480,7 @@ message("Framework dev mode active - will load from: %s")
           return(FALSE)
         }
 
-        author_yaml <- tryCatch(yaml::read_yaml(author_path), error = function(e) NULL)
+        author_yaml <- tryCatch(.fw_read_yaml(author_path), error = function(e) NULL)
         if (is.null(author_yaml)) {
           return(FALSE)
         }
@@ -499,7 +499,7 @@ message("Framework dev mode active - will load from: %s")
           author_yaml$author$affiliation <- author_affiliation
         }
 
-        yaml::write_yaml(author_yaml, author_path)
+        .fw_yaml_set(author_path, "author", author_yaml$author)
         TRUE
       }
 
@@ -509,7 +509,7 @@ message("Framework dev mode active - will load from: %s")
           return(FALSE)
         }
 
-        options_yaml <- tryCatch(yaml::read_yaml(options_path), error = function(e) NULL)
+        options_yaml <- tryCatch(.fw_read_yaml(options_path), error = function(e) NULL)
         if (is.null(options_yaml)) {
           return(FALSE)
         }
@@ -522,7 +522,7 @@ message("Framework dev mode active - will load from: %s")
           options_yaml$options$default_notebook_format <- default_notebook_format
         }
 
-        yaml::write_yaml(options_yaml, options_path)
+        .fw_yaml_set(options_path, "options", options_yaml$options)
         TRUE
       }
 
@@ -877,7 +877,7 @@ bootstrap_project_init <- function(output_file = "init.R") {
         if (!file.exists(git_path)) {
           return(FALSE)
         }
-        git_yaml <- tryCatch(yaml::read_yaml(git_path), error = function(e) NULL)
+        git_yaml <- tryCatch(.fw_read_yaml(git_path), error = function(e) NULL)
         if (is.null(git_yaml)) {
           return(FALSE)
         }
@@ -888,7 +888,7 @@ bootstrap_project_init <- function(output_file = "init.R") {
           git_yaml$git$hooks <- list()
         }
         git_yaml$git$hooks$data_security <- data_security_enabled
-        yaml::write_yaml(git_yaml, git_path)
+        .fw_yaml_set(git_path, "git", git_yaml$git)
         TRUE
       }
 
@@ -900,7 +900,7 @@ bootstrap_project_init <- function(output_file = "init.R") {
         if (!file.exists(ai_path)) {
           return(FALSE)
         }
-        ai_yaml <- tryCatch(yaml::read_yaml(ai_path), error = function(e) NULL)
+        ai_yaml <- tryCatch(.fw_read_yaml(ai_path), error = function(e) NULL)
         if (is.null(ai_yaml)) {
           return(FALSE)
         }
@@ -908,7 +908,7 @@ bootstrap_project_init <- function(output_file = "init.R") {
           ai_yaml$ai <- list()
         }
         ai_yaml$ai$canonical_file <- ai_canonical
-        yaml::write_yaml(ai_yaml, ai_path)
+        .fw_yaml_set(ai_path, "ai", ai_yaml$ai)
         TRUE
       }
 

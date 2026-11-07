@@ -619,7 +619,7 @@ settings_write <- function(settings, settings_file = NULL, section = NULL) {
 
     # Read current settings
     current <- tryCatch(
-      yaml::read_yaml(settings_file),
+      .fw_read_yaml(settings_file),
       error = function(e) {
         stop(sprintf("Failed to read settings file '%s': %s", settings_file, e$message))
       }
@@ -641,7 +641,7 @@ settings_write <- function(settings, settings_file = NULL, section = NULL) {
       if (file.exists(split_file)) {
         # Read current split file
         split_settings <- tryCatch(
-          yaml::read_yaml(split_file),
+          .fw_read_yaml(split_file),
           error = function(e) {
             stop(sprintf("Failed to read split file '%s': %s", split_file, e$message))
           }
@@ -651,13 +651,19 @@ settings_write <- function(settings, settings_file = NULL, section = NULL) {
         # without that wrapper, and wrap an older file that lacks it.
         values <- if (identical(names(settings), section)) settings[[section]] else settings
         if (is.null(split_settings)) split_settings <- list()
-        if (length(split_settings) > 0 && is.null(split_settings[[section]])) {
+        wrapped <- !is.null(split_settings[[section]])
+        if (length(split_settings) > 0 && !wrapped) {
           split_settings <- stats::setNames(list(split_settings), section)
         }
         split_settings[[section]] <- modifyList(split_settings[[section]] %||% list(), values)
-        # Write back to split file
+        # Write back to split file: only the section's block when the file
+        # already has one, so comments around it stay
         tryCatch(
-          yaml::write_yaml(split_settings, split_file),
+          if (wrapped) {
+            .fw_yaml_set(split_file, section, split_settings[[section]])
+          } else {
+            .fw_write_yaml(split_settings, split_file)
+          },
           error = function(e) {
             stop(sprintf("Failed to write split file '%s': %s", split_file, e$message))
           }
@@ -666,15 +672,9 @@ settings_write <- function(settings, settings_file = NULL, section = NULL) {
         stop(sprintf("Split file '%s' does not exist", split_file))
       }
     } else {
-      # This is a direct section in settings.yml
-      if (scoped) {
-        current[[env]][[section]] <- settings
-      } else {
-        if (is.null(current)) current <- list()
-        current[[section]] <- settings
-      }
+      # This is a direct section in settings.yml: rewrite only its block
       tryCatch(
-        yaml::write_yaml(current, settings_file),
+        .fw_yaml_set(settings_file, c(if (scoped) env, section), settings),
         error = function(e) {
           stop(sprintf("Failed to write settings file '%s': %s", settings_file, e$message))
         }
@@ -687,7 +687,7 @@ settings_write <- function(settings, settings_file = NULL, section = NULL) {
     }
 
     tryCatch(
-      yaml::write_yaml(settings, settings_file),
+      .fw_write_yaml(settings, settings_file),
       error = function(e) {
         stop(sprintf("Failed to write settings file '%s': %s", settings_file, e$message))
       }

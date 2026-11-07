@@ -1019,7 +1019,7 @@ git_hooks_list <- function(config_file = NULL) {
   }
 
   # Read config
-  config_content <- yaml::read_yaml(config_file, eval.expr = FALSE)
+  config_content <- .fw_read_yaml(config_file)
   if (is.null(config_content)) config_content <- list()
 
   has_envs <- !is.null(config_content$default) && is.list(config_content$default)
@@ -1028,29 +1028,20 @@ git_hooks_list <- function(config_file = NULL) {
   reference <- env_config$git
   if (is.character(reference) && length(reference) == 1 && grepl("\\.ya?ml$", reference)) {
     split_file <- if (grepl("^(/|[A-Za-z]:)", reference)) reference else file.path(dirname(config_file), reference)
-    split <- if (file.exists(split_file)) yaml::read_yaml(split_file, eval.expr = FALSE) else NULL
+    split <- if (file.exists(split_file)) .fw_read_yaml(split_file) else NULL
     if (!is.list(split)) split <- list()
+    dir.create(dirname(split_file), recursive = TRUE, showWarnings = FALSE)
     # A split file holds its section under `git:`, or the bare keys
     if (!is.null(split$git) || length(split) == 0) {
-      split$git <- set_hook(split$git)
+      .fw_yaml_set(split_file, "git", set_hook(split$git))
     } else {
-      split <- set_hook(split)
+      .fw_write_yaml(set_hook(split), split_file)
     }
-    dir.create(dirname(split_file), recursive = TRUE, showWarnings = FALSE)
-    yaml::write_yaml(split, split_file)
     return(invisible(TRUE))
   }
 
-  env_config$git <- set_hook(env_config$git)
-
-  if (has_envs) {
-    config_content$default <- env_config
-  } else {
-    config_content <- env_config
-  }
-
-  # Write back
-  yaml::write_yaml(config_content, config_file)
+  # Write back only the git: block
+  .fw_yaml_set(config_file, c(if (has_envs) "default", "git"), set_hook(env_config$git))
 
   invisible(TRUE)
 }

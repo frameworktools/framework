@@ -135,7 +135,7 @@ project_add_directory <- function(project_path, key, label, path) {
 # Add or replace one extra_directories entry in a project settings file.
 # Entries may be a list of {key, label, path} or a map keyed by name.
 .fw_record_extra_directory <- function(settings_file, key, label, path) {
-  raw <- yaml::read_yaml(settings_file) %||% list()
+  raw <- .fw_read_yaml(settings_file) %||% list()
   scoped <- is.list(raw$default)
   config <- if (scoped) raw$default else raw
   extra <- config$extra_directories %||% list()
@@ -149,8 +149,6 @@ project_add_directory <- function(project_path, key, label, path) {
     extra <- Filter(function(e) !identical(e$key, key), extra)
     extra[[length(extra) + 1L]] <- entry
   }
-  config$extra_directories <- extra
-  if (scoped) raw$default <- config else raw <- config
-  yaml::write_yaml(raw, settings_file)
+  .fw_yaml_set(settings_file, c(if (scoped) "default", "extra_directories"), extra)
   invisible(TRUE)
 }

@@ -826,7 +826,7 @@ package_sets_list <- function() {
 #' @keywords internal
 .packages_edit <- function(settings_file, edit) {
   env <- Sys.getenv("R_CONFIG_ACTIVE", Sys.getenv("R_CONFIG_NAME", "default"))
-  main <- .safe_read_yaml(settings_file)
+  main <- .fw_read_yaml(settings_file)
   section <- if (!is.null(main[[env]])) main[[env]]$packages else main$packages
 
   edit_node <- function(node) {
@@ -846,22 +846,16 @@ package_sets_list <- function() {
     if (!file.exists(split_file)) {
       stop("Split file '", section, "' does not exist", call. = FALSE)
     }
-    split <- .safe_read_yaml(split_file) %||% list()
+    split <- .fw_read_yaml(split_file) %||% list()
     if ("packages" %in% names(split)) {
-      split$packages <- edit_node(split$packages)
+      .fw_yaml_set(split_file, "packages", edit_node(split$packages))
     } else {
-      split <- edit_node(split)
+      .fw_write_yaml(edit_node(split), split_file)
     }
-    yaml::write_yaml(split, split_file)
     return(invisible(split_file))
   }
 
-  if (!is.null(main[[env]])) {
-    main[[env]]$packages <- edit_node(section)
-  } else {
-    main$packages <- edit_node(section)
-  }
-  yaml::write_yaml(main, settings_file)
+  .fw_yaml_set(settings_file, c(if (!is.null(main[[env]])) env, "packages"), edit_node(section))
   invisible(settings_file)
 }
 

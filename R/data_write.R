@@ -512,7 +512,7 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
 
   # Load raw config to determine where `data` is defined
   raw_config <- tryCatch(
-    yaml::read_yaml(config_path, eval.expr = FALSE),
+    .fw_read_yaml(config_path),
     error = function(e) {
       stop(sprintf("Failed to read %s: %s", config_path, e$message))
     }
@@ -531,7 +531,7 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
     data_path <- data_source
     current <- if (file.exists(data_path)) {
       tryCatch({
-        external_content <- yaml::read_yaml(data_path, eval.expr = FALSE)
+        external_content <- .fw_read_yaml(data_path)
         # External data files have a 'data' wrapper, extract it
         if (!is.null(external_content$data)) {
           external_content$data
@@ -560,20 +560,21 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   }
   current <- set_in(current, keys, spec)
 
-  # Write back to the correct location
+  # Write back to the correct location, rewriting only the data: block so
+  # the rest of the file (comments included) stays as it was
   tryCatch({
     if (is_external) {
       dir.create(dirname(data_path), recursive = TRUE, showWarnings = FALSE)
-      # Wrap in 'data' key when writing to external file
-      yaml::write_yaml(list(data = current), data_path)
-    } else {
-      env_config$data <- current
-      if (!is.null(env_key)) {
-        raw_config[[env_key]] <- env_config
+      wrapped <- file.exists(data_path) &&
+        "data" %in% names(tryCatch(.fw_read_yaml(data_path), error = function(e) NULL))
+      if (wrapped) {
+        .fw_yaml_set(data_path, "data", current)
       } else {
-        raw_config <- env_config
+        # Wrap in 'data' key when writing to external file
+        .fw_write_yaml(list(data = current), data_path)
       }
-      yaml::write_yaml(raw_config, config_path)
+    } else {
+      .fw_yaml_set(config_path, c(env_key, "data"), current)
     }
   }, error = function(e) {
     stop(sprintf("Failed to write configuration: %s", e$message))
