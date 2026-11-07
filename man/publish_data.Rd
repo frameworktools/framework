@@ -18,7 +18,8 @@ publish_data(
 \item{data}{Data frame or character path to existing file.}
 
 \item{dest}{Character. Destination path in S3 (required for data frames).
-For other destinations, its file name names the file and the slug.}
+For other destinations, its file name names the file, and the path
+without its extension, with \code{/} turned into \code{-}, is the slug.}
 
 \item{format}{Character. Output format when \code{data} is a data frame:
 "csv", "rds", "parquet", or "json". Default "csv".}
@@ -46,8 +47,9 @@ Uploads a data frame or existing data file. Like \code{\link[=publish]{publish()
 \code{to}, then \code{publish.default} in settings.yml. S3 destinations, an explicit
 \code{connection}, and projects without \code{publish.default} get a plain upload to
 the storage bucket at \code{dest}. Folder, GitHub, and Cloud destinations
-publish the file with \code{\link[=publish]{publish()}}, using the file name of \code{dest} as the
-slug.
+publish the file with \code{\link[=publish]{publish()}}. The slug is \code{dest} without its
+extension, with each \code{/} turned into \code{-}: \code{"tables/demo.csv"} publishes
+as \code{tables-demo}. The message says which slug was used.
 }
 \examples{
 \donttest{

@@ -661,12 +661,14 @@ publish_notebook <- function(file,
 #' `to`, then `publish.default` in settings.yml. S3 destinations, an explicit
 #' `connection`, and projects without `publish.default` get a plain upload to
 #' the storage bucket at `dest`. Folder, GitHub, and Cloud destinations
-#' publish the file with [publish()], using the file name of `dest` as the
-#' slug.
+#' publish the file with [publish()]. The slug is `dest` without its
+#' extension, with each `/` turned into `-`: `"tables/demo.csv"` publishes
+#' as `tables-demo`. The message says which slug was used.
 #'
 #' @param data Data frame or character path to existing file.
 #' @param dest Character. Destination path in S3 (required for data frames).
-#'   For other destinations, its file name names the file and the slug.
+#'   For other destinations, its file name names the file, and the path
+#'   without its extension, with `/` turned into `-`, is the slug.
 #' @param format Character. Output format when `data` is a data frame:
 #'   "csv", "rds", "parquet", or "json". Default "csv".
 #' @param connection Character or NULL. S3 connection name, or NULL for default.
@@ -761,13 +763,14 @@ publish_data <- function(data,
     on.exit(unlink(stage, recursive = TRUE), add = TRUE)
     staged <- file.path(stage, basename(dest))
     if (!file.copy(source_file, staged)) stop("Could not stage ", basename(dest), " for publishing.", call. = FALSE)
-    slug <- tools::file_path_sans_ext(sub("\\.gz$", "", basename(dest)))
+    slug <- .fw_data_slug(dest)
+    message(sprintf("Publishing %s as %s", dest, slug))
     return(publish(staged, to = route$name, slug = slug, include_private = TRUE))
   }
   s3_config <- .resolve_s3_connection(route$bucket)
 
   bundle <- .fw_bundle_build(if (is.data.frame(data)) data else source_file,
-                             slug = tools::file_path_sans_ext(basename(dest)), include_private = TRUE)
+                             slug = .fw_data_slug(dest), include_private = TRUE)
   on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   # Upload
   url <- .s3_upload_file(source_file, dest, s3_config)
@@ -777,6 +780,16 @@ publish_data <- function(data,
   invisible(url)
 }
 
+
+# The slug publish_data() uses for dest: the path without its extension
+# (and .gz), with "/" turned into "-". "tables/demo.csv" is "tables-demo".
+#' @keywords internal
+.fw_data_slug <- function(dest) {
+  path <- gsub("\\\\", "/", sub("\\.gz$", "", dest))
+  path <- sub("([^/])\\.[^./]*$", "\\1", path)
+  parts <- strsplit(path, "/", fixed = TRUE)[[1]]
+  paste(parts[!parts %in% c("", ".", "..")], collapse = "-")
+}
 
 # Where publish_data(), publish_dir(), and publish_list() go. Like publish(),
 # they follow `to`, then publish.default. An explicit `connection` (an S3

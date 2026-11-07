@@ -257,9 +257,10 @@ test_that("publish_data(), publish_dir(), and publish_list() follow publish.defa
   )
 
   df <- data.frame(arm = c("a", "b"), n = c(10, 12))
-  url <- publish_data(df, "tables/arm_counts.csv")
-  expect_identical(url, "https://files.example.org/research/arm-counts/")
-  artifact <- file.path(project, "local-site", "arm-counts")
+  # The slug keeps the folder part of dest, and the message names it
+  expect_message(url <- publish_data(df, "tables/arm_counts.csv"), "as tables-arm_counts")
+  expect_identical(url, "https://files.example.org/research/tables-arm-counts/")
+  artifact <- file.path(project, "local-site", "tables-arm-counts")
   expect_true(file.exists(file.path(artifact, "arm_counts.csv")))
   expect_identical(read.csv(file.path(artifact, "arm_counts.csv"))$n, c(10L, 12L))
 
@@ -273,9 +274,18 @@ test_that("publish_data(), publish_dir(), and publish_list() follow publish.defa
   expect_false("b.txt" %in% files)
 
   listed <- publish_list()
-  expect_setequal(listed$key, c("arm-counts/", "figures/"))
+  expect_setequal(listed$key, c("tables-arm-counts/", "figures/"))
   expect_identical(publish_list("fig")$key, "figures/")
   expect_error(publish_list(to = "cloud"), "lists S3 and folder destinations")
+})
+
+test_that("publish_data() slugs are dest without its extension, / as -", {
+  slug <- framework:::.fw_data_slug
+  expect_identical(slug("tables/demo.csv"), "tables-demo")
+  expect_identical(slug("demo.csv"), "demo")
+  expect_identical(slug("./tables/sub/demo.csv.gz"), "tables-sub-demo")
+  expect_identical(slug("tables\\demo.rds"), "tables-demo")
+  expect_identical(slug("a.b/c"), "a.b-c")
 })
 
 test_that("publish_data() still uploads to a bucket with connection or to = 's3'", {
