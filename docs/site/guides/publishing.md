@@ -273,6 +273,13 @@ publish_data(my_results, "datasets/results.csv", compress = TRUE)
 publish_data("outputs/model.rds", "models/v2/model.rds")
 ```
 
+`publish_data()`, `publish_dir()`, and `publish_list()` follow `to` and `publish.default` as `publish()` does. With an S3 destination, a `connection`, or no `publish.default`, they work on the storage bucket as shown here. With a folder, GitHub, or Cloud destination, `publish_data()` and `publish_dir()` publish through `publish()`, with the file or folder name of `dest` as the slug, and `publish_list()` lists a folder destination's artifacts:
+
+```r
+publish_data(my_results, "tables/results.csv", to = "site")   # slug "results"
+publish_list(to = "site")
+```
+
 ## Directory publishing
 
 `publish_dir()` uploads entire directories to a storage bucket:

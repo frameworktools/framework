@@ -248,3 +248,49 @@ test_that("a relative folder path starts at the project root, not the working di
   expect_identical(framework:::.fw_folder_path("/abs/site"), "/abs/site")
   expect_identical(framework:::.fw_folder_path("~/site"), path.expand("~/site"))
 })
+
+test_that("publish_data(), publish_dir(), and publish_list() follow publish.default", {
+  local_publish_settings("local-site")
+  project <- getwd()
+  testthat::local_mocked_bindings(
+    .resolve_s3_connection = function(...) stop("No S3 connections configured")
+  )
+
+  df <- data.frame(arm = c("a", "b"), n = c(10, 12))
+  url <- publish_data(df, "tables/arm_counts.csv")
+  expect_identical(url, "https://files.example.org/research/arm-counts/")
+  artifact <- file.path(project, "local-site", "arm-counts")
+  expect_true(file.exists(file.path(artifact, "arm_counts.csv")))
+  expect_identical(read.csv(file.path(artifact, "arm_counts.csv"))$n, c(10L, 12L))
+
+  dir.create("figures/sub", recursive = TRUE)
+  writeLines("a", "figures/a.png")
+  writeLines("b", "figures/b.txt")
+  writeLines("c", "figures/sub/c.png")
+  publish_dir("figures", pattern = "\\.png$")
+  files <- list.files(file.path(project, "local-site", "figures"), recursive = TRUE)
+  expect_true(all(c("a.png", "sub/c.png") %in% files))
+  expect_false("b.txt" %in% files)
+
+  listed <- publish_list()
+  expect_setequal(listed$key, c("arm-counts/", "figures/"))
+  expect_identical(publish_list("fig")$key, "figures/")
+  expect_error(publish_list(to = "cloud"), "lists S3 and folder destinations")
+})
+
+test_that("publish_data() still uploads to a bucket with connection or to = 's3'", {
+  local_publish_settings("local-site")
+  uploaded <- character()
+  testthat::local_mocked_bindings(
+    .resolve_s3_connection = function(name = NULL, ...) list(bucket = name %||% "default", region = "", prefix = ""),
+    .s3_upload_file = function(file, dest, config) {
+      uploaded <<- c(uploaded, paste0(config$bucket, ":", dest))
+      paste0("http://mock/", dest)
+    },
+    .fw_track_external = function(...) NULL
+  )
+  suppressMessages(publish_data(data.frame(x = 1), "d/x.csv", connection = "backup"))
+  suppressMessages(publish_data(data.frame(x = 1), "d/y.csv", to = "s3"))
+  expect_identical(uploaded, c("backup:d/x.csv", "default:d/y.csv"))
+  expect_false(dir.exists("local-site"))
+})

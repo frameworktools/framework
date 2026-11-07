@@ -2,7 +2,7 @@
 % Please edit documentation in R/publish.R
 \name{publish_dir}
 \alias{publish_dir}
-\title{Publish a directory to S3}
+\title{Publish a directory to S3 or a named destination}
 \usage{
 publish_dir(
   dir,
@@ -10,7 +10,8 @@ publish_dir(
   connection = NULL,
   pattern = NULL,
   recursive = TRUE,
-  include_private = FALSE
+  include_private = FALSE,
+  to = NULL
 )
 }
 \arguments{
@@ -30,12 +31,22 @@ absolute path of any file to upload contains "private" in any case
 (apart from the \verb{/private/} macOS adds to \verb{/tmp} and \verb{/var}), Framework
 warns and, in an interactive session, asks before publishing (default No).
 In a non-interactive session it stops unless \code{include_private = TRUE}.}
+
+\item{to}{Character or NULL. Named destination from
+\code{publish.destinations}, or a driver name, as in \code{\link[=publish]{publish()}}. Default:
+\code{publish.default}.}
 }
 \value{
-Character vector. Public URLs of uploaded files.
+Character vector. Public URLs of uploaded files (for other
+destinations, the published artifact's URL or location).
 }
 \description{
-Recursively uploads all files in a directory to S3.
+Recursively uploads all files in a directory to S3. Like \code{\link[=publish]{publish()}}, it
+follows \code{to}, then \code{publish.default} in settings.yml. S3 destinations, an
+explicit \code{connection}, and projects without \code{publish.default} get a
+file-by-file upload under \code{dest}. Folder, GitHub, and Cloud destinations
+publish the directory (after \code{pattern} and \code{recursive}) with \code{\link[=publish]{publish()}},
+using the last part of \code{dest} (or the directory name) as the slug.
 }
 \examples{
 \donttest{

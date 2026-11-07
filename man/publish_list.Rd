@@ -2,9 +2,9 @@
 % Please edit documentation in R/publish.R
 \name{publish_list}
 \alias{publish_list}
-\title{List published files in S3}
+\title{List published files in S3 or a folder destination}
 \usage{
-publish_list(prefix = NULL, connection = NULL, max = 1000L)
+publish_list(prefix = NULL, connection = NULL, max = 1000L, to = NULL)
 }
 \arguments{
 \item{prefix}{Character or NULL. Prefix to filter by. If NULL, lists all
@@ -13,12 +13,19 @@ files under the connection's configured prefix.}
 \item{connection}{Character or NULL. S3 connection name, or NULL for default.}
 
 \item{max}{Integer. Maximum number of files to list. Default 1000.}
+
+\item{to}{Character or NULL. Named destination from
+\code{publish.destinations}, or a driver name, as in \code{\link[=publish]{publish()}}. Default:
+\code{publish.default}.}
 }
 \value{
-Data frame with columns: key, size, last_modified.
+Data frame with columns: key, size, last_modified, url.
 }
 \description{
-Lists files in an S3 bucket/prefix.
+Lists files in an S3 bucket/prefix. Like \code{\link[=publish]{publish()}}, it follows \code{to},
+then \code{publish.default} in settings.yml. For a folder destination it lists
+the published artifacts, one row per slug. GitHub and Cloud destinations
+can't be listed here.
 }
 \examples{
 \donttest{

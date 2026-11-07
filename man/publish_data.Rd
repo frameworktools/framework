@@ -2,7 +2,7 @@
 % Please edit documentation in R/publish.R
 \name{publish_data}
 \alias{publish_data}
-\title{Publish data to S3}
+\title{Publish data to S3 or a named destination}
 \usage{
 publish_data(
   data,
@@ -10,13 +10,15 @@ publish_data(
   format = "csv",
   connection = NULL,
   compress = FALSE,
-  include_private = FALSE
+  include_private = FALSE,
+  to = NULL
 )
 }
 \arguments{
 \item{data}{Data frame or character path to existing file.}
 
-\item{dest}{Character. Destination path in S3 (required for data frames).}
+\item{dest}{Character. Destination path in S3 (required for data frames).
+For other destinations, its file name names the file and the slug.}
 
 \item{format}{Character. Output format when \code{data} is a data frame:
 "csv", "rds", "parquet", or "json". Default "csv".}
@@ -30,12 +32,22 @@ absolute path of any file to upload contains "private" in any case
 (apart from the \verb{/private/} macOS adds to \verb{/tmp} and \verb{/var}), Framework
 warns and, in an interactive session, asks before publishing (default No).
 In a non-interactive session it stops unless \code{include_private = TRUE}.}
+
+\item{to}{Character or NULL. Named destination from
+\code{publish.destinations}, or a driver name, as in \code{\link[=publish]{publish()}}. Default:
+\code{publish.default}.}
 }
 \value{
-Character. Public URL of the published data.
+Character. Public URL of the published data (for a folder
+destination without a \code{url}, its location).
 }
 \description{
-Uploads a data frame or existing data file to S3.
+Uploads a data frame or existing data file. Like \code{\link[=publish]{publish()}}, it follows
+\code{to}, then \code{publish.default} in settings.yml. S3 destinations, an explicit
+\code{connection}, and projects without \code{publish.default} get a plain upload to
+the storage bucket at \code{dest}. Folder, GitHub, and Cloud destinations
+publish the file with \code{\link[=publish]{publish()}}, using the file name of \code{dest} as the
+slug.
 }
 \examples{
 \donttest{

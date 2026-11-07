@@ -620,12 +620,18 @@ publish_notebook <- function(file,
 }
 
 
-#' Publish data to S3
+#' Publish data to S3 or a named destination
 #'
-#' Uploads a data frame or existing data file to S3.
+#' Uploads a data frame or existing data file. Like [publish()], it follows
+#' `to`, then `publish.default` in settings.yml. S3 destinations, an explicit
+#' `connection`, and projects without `publish.default` get a plain upload to
+#' the storage bucket at `dest`. Folder, GitHub, and Cloud destinations
+#' publish the file with [publish()], using the file name of `dest` as the
+#' slug.
 #'
 #' @param data Data frame or character path to existing file.
 #' @param dest Character. Destination path in S3 (required for data frames).
+#'   For other destinations, its file name names the file and the slug.
 #' @param format Character. Output format when `data` is a data frame:
 #'   "csv", "rds", "parquet", or "json". Default "csv".
 #' @param connection Character or NULL. S3 connection name, or NULL for default.
@@ -635,7 +641,11 @@ publish_notebook <- function(file,
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
-#' @return Character. Public URL of the published data.
+#' @param to Character or NULL. Named destination from
+#'   `publish.destinations`, or a driver name, as in [publish()]. Default:
+#'   `publish.default`.
+#' @return Character. Public URL of the published data (for a folder
+#'   destination without a `url`, its location).
 #'
 #' @export
 #'
@@ -657,7 +667,8 @@ publish_data <- function(data,
                          format = "csv",
                          connection = NULL,
                          compress = FALSE,
-                         include_private = FALSE) {
+                         include_private = FALSE,
+                         to = NULL) {
   checkmate::assert_string(dest, min.chars = 1)
   checkmate::assert_choice(format, c("csv", "rds", "parquet", "json"))
   checkmate::assert_string(connection, min.chars = 1, null.ok = TRUE)
@@ -665,8 +676,7 @@ publish_data <- function(data,
   checkmate::assert_flag(include_private)
   if (is.character(data)) .fw_confirm_private(data, include_private)
 
-  # Resolve S3 connection
-  s3_config <- .resolve_s3_connection(connection)
+  route <- .fw_publish_route(to, connection)
 
   # Handle data frame vs file path
   if (is.data.frame(data)) {
@@ -709,6 +719,18 @@ publish_data <- function(data,
     }
   }
 
+  if (route$driver != "s3") {
+    # Folder, GitHub, and Cloud: publish the file under dest's file name
+    stage <- tempfile("fw_publish_data_")
+    dir.create(stage)
+    on.exit(unlink(stage, recursive = TRUE), add = TRUE)
+    staged <- file.path(stage, basename(dest))
+    if (!file.copy(source_file, staged)) stop("Could not stage ", basename(dest), " for publishing.", call. = FALSE)
+    slug <- tools::file_path_sans_ext(sub("\\.gz$", "", basename(dest)))
+    return(publish(staged, to = route$name, slug = slug, include_private = TRUE))
+  }
+  s3_config <- .resolve_s3_connection(route$bucket)
+
   bundle <- .fw_bundle_build(if (is.data.frame(data)) data else source_file,
                              slug = tools::file_path_sans_ext(basename(dest)), include_private = TRUE)
   on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
@@ -720,6 +742,54 @@ publish_data <- function(data,
   invisible(url)
 }
 
+
+# Where publish_data(), publish_dir(), and publish_list() go. Like publish(),
+# they follow `to`, then publish.default. An explicit `connection` (an S3
+# bucket name), an S3 destination, or a project without publish.default keep
+# the plain bucket behavior these functions always had.
+.fw_publish_route <- function(to = NULL, connection = NULL) {
+  checkmate::assert_string(to, min.chars = 1, null.ok = TRUE)
+  bucket <- list(driver = "s3", bucket = connection, name = "s3")
+  if (is.null(to)) {
+    if (!is.null(connection)) return(bucket)
+    settings <- tryCatch(settings_read(), error = function(e) list())
+    if (is.null(settings$publish$default)) return(bucket)
+  }
+  destination <- .fw_publish_destination(to, connection)
+  if (destination$driver == "s3") {
+    destination$bucket <- destination$bucket %||% connection
+  }
+  destination
+}
+
+# publish_list() for a folder destination: one row per published artifact
+.fw_folder_list <- function(destination, prefix = NULL, max = 1000L) {
+  .fw_publish_capabilities(destination)
+  root <- .fw_folder_path(destination$path)
+  manifests <- file.path(list.dirs(root, recursive = FALSE, full.names = TRUE), "artifact.json")
+  manifests <- manifests[file.exists(manifests)]
+  rows <- lapply(manifests, function(file) {
+    manifest <- tryCatch(jsonlite::read_json(file, simplifyVector = FALSE), error = function(e) NULL)
+    if (is.null(manifest) || !is.character(manifest$slug)) return(NULL)
+    slug <- manifest$slug
+    data.frame(
+      key = paste0(slug, "/"),
+      size = sum(vapply(manifest$files, function(x) as.numeric(x$bytes %||% 0), numeric(1))),
+      last_modified = as.character(manifest$created_at %||% NA_character_),
+      url = if (!is.null(destination$url)) paste0(sub("/+$", "", destination$url), "/", slug, "/")
+            else file.path(root, slug, "index.html"),
+      stringsAsFactors = FALSE
+    )
+  })
+  rows <- Filter(Negate(is.null), rows)
+  df <- if (length(rows)) do.call(rbind, rows) else data.frame(
+    key = character(0), size = numeric(0), last_modified = character(0),
+    url = character(0), stringsAsFactors = FALSE
+  )
+  if (!is.null(prefix)) df <- df[startsWith(df$key, prefix), , drop = FALSE]
+  rownames(df) <- NULL
+  utils::head(df, max)
+}
 
 .fw_gzip_file <- function(source, dest) {
   input <- file(source, "rb")
@@ -735,9 +805,14 @@ publish_data <- function(data,
 }
 
 
-#' Publish a directory to S3
+#' Publish a directory to S3 or a named destination
 #'
-#' Recursively uploads all files in a directory to S3.
+#' Recursively uploads all files in a directory to S3. Like [publish()], it
+#' follows `to`, then `publish.default` in settings.yml. S3 destinations, an
+#' explicit `connection`, and projects without `publish.default` get a
+#' file-by-file upload under `dest`. Folder, GitHub, and Cloud destinations
+#' publish the directory (after `pattern` and `recursive`) with [publish()],
+#' using the last part of `dest` (or the directory name) as the slug.
 #'
 #' @param dir Character. Local directory path.
 #' @param dest Character or NULL. Destination prefix in S3. If NULL, uses
@@ -750,7 +825,11 @@ publish_data <- function(data,
 #'   (apart from the `/private/` macOS adds to `/tmp` and `/var`), Framework
 #'   warns and, in an interactive session, asks before publishing (default No).
 #'   In a non-interactive session it stops unless `include_private = TRUE`.
-#' @return Character vector. Public URLs of uploaded files.
+#' @param to Character or NULL. Named destination from
+#'   `publish.destinations`, or a driver name, as in [publish()]. Default:
+#'   `publish.default`.
+#' @return Character vector. Public URLs of uploaded files (for other
+#'   destinations, the published artifact's URL or location).
 #'
 #' @export
 #'
@@ -772,7 +851,8 @@ publish_dir <- function(dir,
                         connection = NULL,
                         pattern = NULL,
                         recursive = TRUE,
-                        include_private = FALSE) {
+                        include_private = FALSE,
+                        to = NULL) {
   checkmate::assert_directory_exists(dir)
   checkmate::assert_flag(include_private)
   .fw_confirm_private(dir, include_private)
@@ -781,8 +861,7 @@ publish_dir <- function(dir,
   checkmate::assert_string(pattern, null.ok = TRUE)
   checkmate::assert_flag(recursive)
 
-  # Resolve S3 connection
-  s3_config <- .resolve_s3_connection(connection)
+  route <- .fw_publish_route(to, connection)
 
   # Determine destination
   if (is.null(dest)) {
@@ -804,6 +883,25 @@ publish_dir <- function(dir,
     return(invisible(character(0)))
   }
 
+  if (route$driver != "s3") {
+    slug <- basename(sub("/+$", "", dest))
+    source <- dir
+    if (!is.null(pattern) || !recursive) {
+      # Publish only the selected files, keeping their relative paths
+      source <- file.path(tempfile("fw_publish_dir_"), slug)
+      dir.create(source, recursive = TRUE)
+      on.exit(unlink(dirname(source), recursive = TRUE), add = TRUE)
+      root <- normalizePath(dir)
+      for (file in files) {
+        rel_path <- substring(normalizePath(file), nchar(root) + 2L)
+        dir.create(dirname(file.path(source, rel_path)), recursive = TRUE, showWarnings = FALSE)
+        file.copy(file, file.path(source, rel_path))
+      }
+    }
+    return(publish(source, to = route$name, slug = slug, include_private = TRUE))
+  }
+  s3_config <- .resolve_s3_connection(route$bucket)
+
   bundle <- .fw_bundle_build(dir, slug = basename(dest), include_private = include_private)
   on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   # Upload each file
@@ -824,15 +922,21 @@ publish_dir <- function(dir,
 }
 
 
-#' List published files in S3
+#' List published files in S3 or a folder destination
 #'
-#' Lists files in an S3 bucket/prefix.
+#' Lists files in an S3 bucket/prefix. Like [publish()], it follows `to`,
+#' then `publish.default` in settings.yml. For a folder destination it lists
+#' the published artifacts, one row per slug. GitHub and Cloud destinations
+#' can't be listed here.
 #'
 #' @param prefix Character or NULL. Prefix to filter by. If NULL, lists all
 #'   files under the connection's configured prefix.
 #' @param connection Character or NULL. S3 connection name, or NULL for default.
 #' @param max Integer. Maximum number of files to list. Default 1000.
-#' @return Data frame with columns: key, size, last_modified.
+#' @param to Character or NULL. Named destination from
+#'   `publish.destinations`, or a driver name, as in [publish()]. Default:
+#'   `publish.default`.
+#' @return Data frame with columns: key, size, last_modified, url.
 #'
 #' @export
 #'
@@ -849,17 +953,26 @@ publish_dir <- function(dir,
 #' publish_list(connection = "s3_backup")
 #' }
 #' }
-publish_list <- function(prefix = NULL, connection = NULL, max = 1000L) {
+publish_list <- function(prefix = NULL, connection = NULL, max = 1000L, to = NULL) {
   checkmate::assert_string(prefix, null.ok = TRUE)
   checkmate::assert_string(connection, min.chars = 1, null.ok = TRUE)
   checkmate::assert_integerish(max, lower = 1)
+
+  route <- .fw_publish_route(to, connection)
+  if (route$driver == "folder") {
+    return(.fw_folder_list(route, prefix, max))
+  }
+  if (route$driver != "s3") {
+    stop("publish_list() lists S3 and folder destinations. '", route$name,
+         "' uses the ", route$driver, " driver.", call. = FALSE)
+  }
 
   if (!requireNamespace("aws.s3", quietly = TRUE)) {
     stop("Package 'aws.s3' required. Install with: install.packages('aws.s3')")
   }
 
   # Resolve S3 connection
-  s3_config <- .resolve_s3_connection(connection)
+  s3_config <- .resolve_s3_connection(route$bucket)
 
   # Build full prefix
   full_prefix <- if (!is.null(prefix)) {
