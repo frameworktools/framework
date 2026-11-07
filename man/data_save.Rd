@@ -18,9 +18,14 @@ data_save(
 
 \item{path}{Either:
 \itemize{
-\item Dot notation: \code{inputs.raw.filename} resolves to inputs/raw/filename.rds
-\item Direct path: "inputs/raw/filename.csv" uses path as-is
+\item Dot notation: \code{inputs.raw.filename} resolves to inputs/raw/filename.rds.
+A name may end in the extension: \code{inputs.raw.filename.csv} is the name
+\code{inputs.raw.filename} saved as CSV.
+\item Direct path with a \code{/}: "inputs/raw/filename.csv". A relative path
+starts at the project root, not the working directory.
 }
+
+A bare file name such as "filename.csv" is an error.
 
 Dot notation uses your configured directories
 (e.g., \code{inputs.raw}, \code{inputs.intermediate}, \code{outputs.private}).}

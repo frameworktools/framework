@@ -395,7 +395,7 @@ test_that("data_save errors for simple filename without directory", {
   # Should error - no directory specified
   expect_error(
     data_save(test_data, "just_a_filename"),
-    "has no directory.*dot notation.*full path"
+    "has no directory.*dot notation.*path from the project root"
   )
 })
 

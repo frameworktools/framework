@@ -3,8 +3,13 @@
 #' @param data Data frame to save
 #' @param path Either:
 #'
-#'   - Dot notation: `inputs.raw.filename` resolves to inputs/raw/filename.rds
-#'   - Direct path: "inputs/raw/filename.csv" uses path as-is
+#'   - Dot notation: `inputs.raw.filename` resolves to inputs/raw/filename.rds.
+#'     A name may end in the extension: `inputs.raw.filename.csv` is the name
+#'     `inputs.raw.filename` saved as CSV.
+#'   - Direct path with a `/`: "inputs/raw/filename.csv". A relative path
+#'     starts at the project root, not the working directory.
+#'
+#'   A bare file name such as "filename.csv" is an error.
 #'
 #'   Dot notation uses your configured directories
 #'   (e.g., `inputs.raw`, `inputs.intermediate`, `outputs.private`).
@@ -22,12 +27,27 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   checkmate::assert_flag(locked)
   checkmate::assert_flag(force)
 
-  # Detect path format
-  has_slash <- grepl("/", path, fixed = TRUE)
+  # Detect path format. A path with a slash is a file path from the project
+  # root. A dot name ending in an extension, such as inputs.final.x.csv, is
+  # the catalog name inputs.final.x saved as that type.
+  has_slash <- grepl("[/\\\\]", path)
   has_extension <- grepl("\\.(csv|rds)$", path, ignore.case = TRUE)
+  data_name <- path
+  is_name <- !has_slash
 
-  if (has_slash || has_extension) {
-    # Direct file path mode
+  if (!has_slash && has_extension) {
+    given <- tolower(sub("^.*\\.", "", path))
+    if (!is.null(type) && !identical(tolower(type), given)) {
+      stop(sprintf("'%s' ends in .%s, but type is '%s'.", path, given, type), call. = FALSE)
+    }
+    type <- given
+    path <- sub("\\.[^.]+$", "", path)
+    data_name <- path
+  }
+
+  if (has_slash) {
+    # Direct file path mode, relative to the project root (as catalog paths
+    # are), so a notebook in notebooks/ writes where a script in the root would
     file_path <- path
 
     # Auto-detect type from extension if not specified
@@ -48,10 +68,11 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
       message(sprintf("Note: Added .%s extension to path", type))
     }
 
+    file_path <- .fw_project_path(file_path)
     dir_path <- dirname(file_path)
     file_name <- basename(file_path)
 
-  } else if (grepl("\\.", path)) {
+  } else if (grepl("\\.", path) && all(nzchar(strsplit(path, ".", fixed = TRUE)[[1]]))) {
     # Dot notation mode - directory key required
     # Example: "inputs.raw.filename" → inputs/raw/filename.rds
     # Example: "outputs.private.results" → outputs/private/results.rds
@@ -92,9 +113,9 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   } else {
     # Simple filename with no directory
     stop(sprintf(
-      "Path '%s' has no directory. Either:\n  - Use dot notation: 'inputs.raw.%s' or 'inputs.intermediate.%s'\n  - Provide full path: 'inputs/raw/%s.%s'",
+      "'%s' has no directory. Either:\n  - Use dot notation: 'inputs.raw.%s' or 'inputs.intermediate.%s'\n  - Provide a path from the project root: 'inputs/raw/%s.%s'",
       path, path, path, path, type %||% "rds"
-    ))
+    ), call. = FALSE)
   }
 
   # Validate type after resolution
@@ -125,9 +146,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
 
   message(sprintf("Data saved to: %s", .fw_project_relative_path(file_path)))
 
-  # Create normalized name for database tracking
-  # Use the original path input as the identifier
-  data_name <- path
+  # Database name: the catalog name, or the path as given
 
   # Calculate hash and update data record
   current_hash <- tryCatch(
@@ -157,7 +176,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   .fw_ledger_push_quietly(data_name, current_hash, file_path = file_path)
 
   # Register saved file in settings so data_read() works without manual catalog edits
-  if (!has_slash && !has_extension && grepl("\\.", path)) {
+  if (is_name) {
     # Only attempt to update config for dot-notation paths
     tryCatch({
       data_add(
@@ -226,11 +245,13 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   checkmate::assert_flag(locked)
   checkmate::assert_flag(update_config)
 
-  # Check file exists
-
-  if (!file.exists(file_path)) {
+  # Check file exists: a relative path from the project root, then from the
+  # working directory
+  found <- .fw_existing_file(file_path)
+  if (is.null(found)) {
     stop(sprintf("File not found: %s", file_path))
   }
+  file_path <- found
 
   # Normalize the path
   file_path <- normalizePath(file_path, mustWork = TRUE)

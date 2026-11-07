@@ -136,3 +136,26 @@ test_that("data_verify() accepts the path data_save() recorded", {
   expect_warning(suppressMessages(data_verify("outputs/public/summary.csv")), "Integrity mismatch")
   expect_error(data_verify("outputs/public/missing.csv"), "No data catalog entry or file")
 })
+
+test_that("data_save() never writes relative to the working directory", {
+  root <- local_data_project()
+  withr::local_dir(file.path(root, "notebooks"))
+  df <- data.frame(a = 1:2)
+
+  # A dot name ending in an extension is a catalog name saved as that type
+  suppressMessages(data_save(df, "inputs.final.x.csv"))
+  expect_true(file.exists(file.path(root, "inputs/final/x.csv")))
+  expect_false(file.exists(file.path(root, "notebooks/inputs.final.x.csv")))
+  expect_identical(stored_path("inputs.final.x"), "inputs/final/x.csv")
+  expect_error(data_save(df, "inputs.final.y.csv", type = "rds"), "ends in .csv")
+
+  # A bare file name is an error
+  expect_error(data_save(df, "x.csv"), "has no directory")
+  expect_false(file.exists(file.path(root, "notebooks/x.csv")))
+
+  # A relative path with a slash starts at the project root
+  suppressMessages(data_save(df, "inputs/intermediate/z.csv"))
+  expect_true(file.exists(file.path(root, "inputs/intermediate/z.csv")))
+  expect_false(dir.exists(file.path(root, "notebooks/inputs")))
+  expect_equal(nrow(suppressMessages(data_read("inputs/intermediate/z.csv"))), 2)
+})

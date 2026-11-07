@@ -15,8 +15,11 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
   checkmate::assert_choice(delim, c("comma", "tab", "semicolon", "space", ",", "\t", ";", " "), null.ok = TRUE)
   checkmate::assert_flag(keep_attributes)
 
-  # Check if path is a direct file path
-  if (file.exists(path)) {
+  # Check if path is a direct file path: a relative path is looked for
+  # from the project root, then from the working directory
+  direct <- .fw_existing_file(path)
+  if (!is.null(direct)) {
+    path <- direct
     # Direct file path - create a minimal spec
     file_ext <- tolower(sub(".*\\.", "", path))
     spec <- list(
@@ -74,7 +77,7 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
   }
 
   # Only do hash checking for config-based paths (not direct file paths)
-  if (!file.exists(path)) {
+  if (is.null(direct)) {
     # Calculate current file hash
     current_hash <- tryCatch(
       .calculate_file_hash(spec$path),
@@ -835,4 +838,19 @@ data_spec_get <- function(path) {
     }
   }
   TRUE
+}
+
+
+# A file given by path. A relative path is looked for from the project root,
+# then from the working directory, so a notebook in notebooks/ finds the files
+# a script in the root does. NULL when there is no such file. Shared with
+# framework-py.
+#' @keywords internal
+.fw_existing_file <- function(path) {
+  if (!is.character(path) || length(path) != 1 || is.na(path) || !nzchar(path)) return(NULL)
+  candidates <- unique(c(.fw_project_path(path), path))
+  for (candidate in candidates) {
+    if (file.exists(candidate) && !dir.exists(candidate)) return(candidate)
+  }
+  NULL
 }

@@ -106,7 +106,7 @@ merged <- sales |>
 data_save(merged, "inputs.final.merged")  # Writes inputs/final/merged.rds
 ```
 
-A dot-notation name starts with a configured directory key (`inputs.final` is `directories.inputs_final`). The file is saved there and registered in the catalog. `data_save()` writes `rds` by default, or `csv` with `type = "csv"`. A file path such as `"inputs/final/merged.csv"` saves the file without adding a catalog entry. The directory must exist unless you pass `force = TRUE`. Saved files are locked by default.
+A dot-notation name starts with a configured directory key (`inputs.final` is `directories.inputs_final`). The file is saved there and registered in the catalog. `data_save()` writes `rds` by default, or `csv` with `type = "csv"`. A name may also end in the extension: `"inputs.final.merged.csv"` is the name `inputs.final.merged` saved as CSV. A bare file name such as `"merged.csv"` is an error. A path with a `/`, such as `"inputs/final/merged.csv"`, saves the file without adding a catalog entry. A relative path starts at the project root, wherever R runs, so a notebook in `notebooks/` writes where a script in the root would. `data_read()` and `data_add()` look for a relative path from the project root first, then from the working directory. The directory must exist unless you pass `force = TRUE`. Saved files are locked by default.
 
 ## Data integrity
 
