@@ -52,7 +52,7 @@ processed_data <- cache_remember("my_analysis", {
 
 ## Cache expiration
 
-Set an expiration time for cached data. Pass hours as a number, or a string in hours, days, or weeks:
+Set an expiration time for cached data. Pass hours as a number, or a string in seconds, minutes, hours, days, or weeks:
 
 ```r
 # Cache expires after 1 hour
@@ -61,6 +61,7 @@ fresh_data <- cache_remember("live_data", {
 }, expire_after = 1)
 
 # Human-readable strings also work
+cache_remember("quick", expr, expire_after = "30 minutes")
 cache_remember("daily", expr, expire_after = "1 day")
 cache_remember("weekly", expr, expire_after = "7 days")
 ```

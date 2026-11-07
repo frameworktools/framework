@@ -7,7 +7,8 @@
 .normalize_expire_after(expire_after, default = NULL)
 }
 \arguments{
-\item{expire_after}{Numeric or character (e.g., "1 day", "12 hours")}
+\item{expire_after}{Numeric hours or character (e.g., "30 minutes",
+"12 hours", "1 day", "1 week", "45 seconds")}
 
 \item{default}{Default value if expire_after is NULL/empty}
 }

@@ -23,7 +23,8 @@ Expression is evaluated in the parent frame.}
 (default: \verb{cache/\{name\}.rds})}
 
 \item{expire_after}{Optional expiration time in hours
-(default: from config). Character durations like "1 day" or "2 hours" are accepted.}
+(default: from config). Character durations like "30 minutes", "2 hours",
+"1 day", or "1 week" are accepted (also seconds).}
 
 \item{refresh}{Optional boolean or function that returns boolean to force
 refresh. If TRUE or if function returns TRUE, cache is invalidated and

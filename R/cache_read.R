@@ -150,7 +150,8 @@ cache_list <- function() {
 }
 
 #' Normalize expire_after input to numeric hours
-#' @param expire_after Numeric or character (e.g., "1 day", "12 hours")
+#' @param expire_after Numeric hours or character (e.g., "30 minutes",
+#'   "12 hours", "1 day", "1 week", "45 seconds")
 #' @param default Default value if expire_after is NULL/empty
 #' @keywords internal
 .normalize_expire_after <- function(expire_after, default = NULL) {
@@ -160,13 +161,18 @@ cache_list <- function() {
 
   if (is.character(expire_after)) {
     val <- trimws(tolower(expire_after))
-    pattern <- "^([0-9]*\\.?[0-9]+)\\s*(hour|hours|hr|hrs|h|day|days|d|week|weeks|w)$"
+    pattern <- paste0(
+      "^([0-9]*\\.?[0-9]+)\\s*(second|seconds|sec|secs|s|minute|minutes|min|mins|",
+      "hour|hours|hr|hrs|h|day|days|d|week|weeks|w)$"
+    )
     m <- regexec(pattern, val)
     parts <- regmatches(val, m)[[1]]
     if (length(parts) == 3) {
       amount <- as.numeric(parts[2])
       unit <- parts[3]
       multiplier <- switch(unit,
+        second = , seconds = , sec = , secs = , s = 1 / 3600,
+        minute = , minutes = , min = , mins = 1 / 60,
         hour = 1, hours = 1, hr = 1, hrs = 1, h = 1,
         day = 24, days = 24, d = 24,
         week = 24 * 7, weeks = 24 * 7, w = 24 * 7,
@@ -174,7 +180,8 @@ cache_list <- function() {
       )
       return(amount * multiplier)
     }
-    stop("Could not parse expire_after value. Use numbers (hours) or strings like '1 day', '2 hours', '1 week'.")
+    stop("Could not parse expire_after value. Use numbers (hours) or strings like ",
+         "'30 minutes', '2 hours', '1 day', '1 week'.")
   }
 
   checkmate::assert_number(expire_after, lower = 0, null.ok = TRUE)
@@ -327,7 +334,8 @@ cache_get <- function(name, file = NULL, expire_after = NULL) {
 #' @param file Optional file path to store the cache
 #'   (default: `cache/{name}.rds`)
 #' @param expire_after Optional expiration time in hours
-#'   (default: from config). Character durations like "1 day" or "2 hours" are accepted.
+#'   (default: from config). Character durations like "30 minutes", "2 hours",
+#'   "1 day", or "1 week" are accepted (also seconds).
 #' @param expire Optional alias for `expire_after` (accepts the same formats)
 #' @param refresh Optional boolean or function that returns boolean to force
 #'   refresh. If TRUE or if function returns TRUE, cache is invalidated and

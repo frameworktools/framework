@@ -62,7 +62,7 @@ Framework uses the database to:
 - Track expiration times
 - Verify cached data hasn't been corrupted
 
-**Durations:** `expire_after` (or `expire`) accepts numeric hours (e.g., `4`) or strings like `"1 day"` or `"7 days"`.
+**Durations:** `expire_after` (or `expire`) accepts numeric hours (e.g., `4`) or strings like `"30 minutes"`, `"1 day"`, or `"7 days"` (seconds, minutes, hours, days, and weeks).
 
 The cache folder is the `cache` directory setting: `outputs/cache` in standard projects, `outputs/private/cache` in privacy-sensitive projects, and `cache/` in courses and presentations. `FW_CACHE_DIR` overrides it.
 

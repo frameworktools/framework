@@ -210,3 +210,15 @@ test_that("cache() records the cache file path relative to the project", {
   expect_false(startsWith(row$file_path, "/"))
   expect_match(row$file_path, "pathed\\.rds$")
 })
+
+test_that("expire_after accepts minutes and seconds as well as hours, days, and weeks", {
+  norm <- framework:::.normalize_expire_after
+  expect_equal(norm("30 minutes"), 0.5)
+  expect_equal(norm("15 min"), 0.25)
+  expect_equal(norm("1 minute"), 1 / 60)
+  expect_equal(norm("90 seconds"), 90 / 3600)
+  expect_equal(norm("2 hours"), 2)
+  expect_equal(norm("1 day"), 24)
+  expect_equal(norm("1 week"), 168)
+  expect_error(norm("3 fortnights"), "30 minutes")
+})
