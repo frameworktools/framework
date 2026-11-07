@@ -18,3 +18,11 @@ The settings as a list
 Reads the project settings from settings.yml or config.yml with environment-aware
 merging and split file resolution. Auto-discovers the settings file if not specified.
 }
+\details{
+In a file with environment sections (\verb{default:}, \verb{production:}, ...), only
+the environments are read. Any other top-level key, such as \verb{ehr_source:}
+beside \verb{default:}, is ignored, and a warning names those keys once per
+session. A top-level mapping that has \code{inherits} or shares a key with
+\code{default} counts as an environment. Files without environment sections are
+read whole and never warn.
+}

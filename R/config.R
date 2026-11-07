@@ -118,6 +118,13 @@ config <- function(key = NULL, default = NULL, config_file = NULL) {
 #' Reads the project settings from settings.yml or config.yml with environment-aware
 #' merging and split file resolution. Auto-discovers the settings file if not specified.
 #'
+#' In a file with environment sections (`default:`, `production:`, ...), only
+#' the environments are read. Any other top-level key, such as `ehr_source:`
+#' beside `default:`, is ignored, and a warning names those keys once per
+#' session. A top-level mapping that has `inherits` or shares a key with
+#' `default` counts as an environment. Files without environment sections are
+#' read whole and never warn.
+#'
 #' @param settings_file Path to settings file (default: auto-discover settings.yml or config.yml)
 #' @param environment Active environment name (default: R_CONFIG_ACTIVE or "default")
 #'
@@ -164,6 +171,8 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
     if (!"default" %in% names(raw_config)) {
       stop(sprintf("Settings file '%s' has environment sections but no 'default' environment", settings_file))
     }
+
+    .fw_warn_ignored_settings_keys(raw_config, active_env, sprintf("Settings file '%s'", settings_file))
 
     # Start with default environment
     config <- raw_config$default
@@ -334,6 +343,46 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
 }
 
 
+# Top-level keys of a settings file with environment sections that no
+# environment reads. A key is an environment when it is a known environment
+# name, the active one, or a mapping that looks like one: it has `inherits`,
+# or shares a key with `default`. Anything else, such as `ehr_source: optum`
+# beside `default:`, is never read. Keys in file order. Shared with
+# framework-py.
+#' @keywords internal
+.fw_ignored_settings_keys <- function(raw, environment) {
+  env_keywords <- c("default", "production", "development", "test", "testing", "staging")
+  default_keys <- if (is.list(raw$default)) names(raw$default) else character()
+  ignored <- character()
+  for (key in names(raw)) {
+    if (key %in% env_keywords || identical(key, environment)) next
+    value <- raw[[key]]
+    if (is.list(value) && !is.null(names(value)) &&
+        ("inherits" %in% names(value) || any(names(value) %in% default_keys))) {
+      next
+    }
+    ignored <- c(ignored, key)
+  }
+  ignored
+}
+
+# Warn once per session (per file and set of keys) about ignored keys
+#' @keywords internal
+.fw_warn_ignored_settings_keys <- function(raw, environment, label) {
+  ignored <- .fw_ignored_settings_keys(raw, environment)
+  if (length(ignored) == 0) return(invisible(NULL))
+  memo <- paste0(label, "\r", paste(ignored, collapse = "\r"))
+  warned <- .framework_env$settings_ignored_warned %||% character()
+  if (memo %in% warned) return(invisible(NULL))
+  .framework_env$settings_ignored_warned <- c(warned, memo)
+  warning(sprintf(
+    "%s has keys outside its environment sections, which are ignored: %s. Move them under default: to use them.",
+    label, paste(ignored, collapse = ", ")
+  ), call. = FALSE)
+  invisible(NULL)
+}
+
+
 # Helper: Resolve split file references recursively
 .resolve_split_files <- function(config, environment, parent_file, visited_files, config_root = NULL, main_config_keys = NULL) {
   # Track which keys are file references
@@ -387,6 +436,8 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
         if (!"default" %in% names(raw_split)) {
           stop(sprintf("Split file '%s' has environment sections but no 'default' environment", value))
         }
+
+        .fw_warn_ignored_settings_keys(raw_split, environment, sprintf("Split file '%s'", value))
 
         # Merge environments (same logic as main config)
         split_config <- raw_split$default
