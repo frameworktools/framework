@@ -103,7 +103,8 @@ default is the file name lowercased, with other characters as \code{-}
 \code{index.html} at its top. \code{dest}, \code{connection}, and a \code{TRUE}/\code{FALSE}
 \code{slug} are errors here.}
 
-\item{title}{Artifact title.}
+\item{title}{Artifact title. Default: a Quarto or R Markdown document's
+YAML \code{title}, else the file name.}
 
 \item{description}{Artifact description.}
 

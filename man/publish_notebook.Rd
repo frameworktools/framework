@@ -15,6 +15,8 @@ publish_notebook(
   to = NULL,
   collection = NULL,
   share_unlisted = FALSE,
+  title = NULL,
+  description = NULL,
   ...
 )
 }
@@ -49,6 +51,12 @@ project's GitHub Pages site. See \code{\link[=publish]{publish()}}.}
 \item{collection}{Existing project collection ID or slug. Follows the latest artifact version.}
 
 \item{share_unlisted}{Explicit consent to share an unlisted artifact with collection readers.}
+
+\item{title}{Character or NULL. The published title. Default: the
+document's YAML \code{title}, else its file name.}
+
+\item{description}{Character or NULL. A short description of the
+published document.}
 
 \item{...}{Additional arguments passed to quarto render.}
 }

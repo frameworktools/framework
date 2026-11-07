@@ -119,6 +119,8 @@ publish_notebook("notebooks/analysis.qmd", to = "cloud", slug = "analysis")
 
 Framework Cloud takes HTML output only. Each publish adds a version.
 
+`publish_notebook()` takes `title` and `description` too. Without `title`, a document published with `publish()` or `publish_notebook()` uses the `title` in its YAML front matter, then its file name.
+
 ## GitHub Pages
 
 `to = "github"` publishes to the project's GitHub Pages site:

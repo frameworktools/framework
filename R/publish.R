@@ -150,6 +150,23 @@ NULL
   }
 }
 
+# The `title:` in a Quarto or R Markdown document's YAML front matter, or
+# NULL. Publishing uses it as the default title instead of the file name.
+.fw_doc_title <- function(path) {
+  if (!is.character(path) || length(path) != 1L || !file.exists(path) || dir.exists(path)) return(NULL)
+  if (!tolower(tools::file_ext(path)) %in% c("qmd", "rmd")) return(NULL)
+  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
+  start <- which(trimws(lines) != "")[1]
+  if (is.na(start) || trimws(lines[start]) != "---") return(NULL)
+  end <- which(trimws(lines) %in% c("---", "..."))
+  end <- end[end > start][1]
+  if (is.na(end) || end == start + 1L) return(NULL)
+  front <- tryCatch(yaml::yaml.load(paste(lines[(start + 1L):(end - 1L)], collapse = "\n")),
+                    error = function(e) NULL)
+  title <- if (is.list(front)) front$title else NULL
+  if (is.character(title) && length(title) == 1L && !is.na(title) && nzchar(trimws(title))) trimws(title) else NULL
+}
+
 # Where publish() and publish_notebook() send output. A named connection or
 # any configured storage bucket wins; otherwise a project set up from
 # Framework Cloud publishes there.
@@ -273,7 +290,8 @@ NULL
 #'   name, and `FALSE` makes it unlisted. `NULL` (the default) publishes
 #'   under the derived name. Ignored, with a warning, for S3. With
 #'   `to = "github"`, a string names the folder under `published/`.
-#' @param title Artifact title.
+#' @param title Artifact title. Default: a Quarto or R Markdown document's
+#'   YAML `title`, else the file name.
 #' @param description Artifact description.
 #' @param kind Optional artifact kind override.
 #' @param password Password required to view the artifact on Framework Cloud.
@@ -326,6 +344,7 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
     checkmate::assert_string(source, min.chars = 1)
     if (!file.exists(source)) stop("Source not found: ", source, call. = FALSE)
     .fw_confirm_private(source, include_private)
+    title <- title %||% .fw_doc_title(source)
   }
   if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
   destination <- .fw_publish_destination(to, connection)
@@ -444,6 +463,10 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
 #'   project's GitHub Pages site. See [publish()].
 #' @param collection Existing project collection ID or slug. Follows the latest artifact version.
 #' @param share_unlisted Explicit consent to share an unlisted artifact with collection readers.
+#' @param title Character or NULL. The published title. Default: the
+#'   document's YAML `title`, else its file name.
+#' @param description Character or NULL. A short description of the
+#'   published document.
 #' @param ... Additional arguments passed to quarto render.
 #' @return Character. Public URL of the published notebook.
 #'
@@ -473,15 +496,21 @@ publish_notebook <- function(file,
                              to = NULL,
                              collection = NULL,
                              share_unlisted = FALSE,
+                             title = NULL,
+                             description = NULL,
                              ...) {
   checkmate::assert_file_exists(file, extension = c("qmd", "Qmd", "QMD"))
+  checkmate::assert_string(title, null.ok = TRUE)
+  checkmate::assert_string(description, null.ok = TRUE)
   .fw_confirm_private(file, include_private)
+  title <- title %||% .fw_doc_title(file)
   destination <- .fw_publish_destination(to, connection)
   if (!isTRUE(destination$legacy) || destination$driver == "cloud") {
     if (!identical(format, "html")) stop("Static publishing requires HTML output.", call. = FALSE)
     return(publish(file, dest = dest, connection = connection, self_contained = self_contained,
                    slug = slug, include_private = include_private, to = to,
-                   collection = collection, share_unlisted = share_unlisted))
+                   collection = collection, share_unlisted = share_unlisted,
+                   title = title, description = description))
   }
   if (destination$driver == "cloud") to <- "cloud"
   if (isTRUE(destination$legacy) && identical(to, "s3")) to <- "bucket"
@@ -519,6 +548,7 @@ publish_notebook <- function(file,
       stop("Framework Cloud publishes HTML only (got format = \"", format, "\").", call. = FALSE)
     }
     return(.fw_cloud_publish(file, dest = dest, self_contained = self_contained, slug = slug,
+                             title = title, description = description,
                              collection = collection, share_unlisted = share_unlisted))
   }
   if (!is.null(collection)) stop("Collections require publishing to Framework Cloud.", call. = FALSE)
@@ -584,7 +614,8 @@ publish_notebook <- function(file,
     base_dest <- sub("\\.html$", "", base_dest)
   }
 
-  bundle <- .fw_bundle_build(main_output, slug = base_dest, include_private = TRUE)
+  bundle <- .fw_bundle_build(main_output, slug = base_dest, title = title,
+                             description = description, include_private = TRUE)
   on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   # Upload based on static_hosting setting
   if (static_hosting) {

@@ -294,3 +294,30 @@ test_that("publish_data() still uploads to a bucket with connection or to = 's3'
   expect_identical(uploaded, c("backup:d/x.csv", "default:d/y.csv"))
   expect_false(dir.exists("local-site"))
 })
+
+test_that("publishing a document defaults the title to its YAML title", {
+  dir <- withr::local_tempdir()
+  writeLines(c("---", 'title: "Blood pressure summary"', "format: html", "---", "", "Body"), file.path(dir, "bp.qmd"))
+  writeLines(c("# No front matter"), file.path(dir, "plain.qmd"))
+  writeLines(c("---", "---", "x"), file.path(dir, "empty.qmd"))
+  expect_identical(framework:::.fw_doc_title(file.path(dir, "bp.qmd")), "Blood pressure summary")
+  expect_null(framework:::.fw_doc_title(file.path(dir, "plain.qmd")))
+  expect_null(framework:::.fw_doc_title(file.path(dir, "empty.qmd")))
+  expect_null(framework:::.fw_doc_title(file.path(dir, "missing.qmd")))
+})
+
+test_that("publish_notebook() passes title and description, defaulting to the YAML title", {
+  local_publish_settings("local-site")
+  writeLines(c("---", "title: Summary of results", "---", "", "Hi"), "report.qmd")
+  seen <- list()
+  testthat::local_mocked_bindings(
+    .fw_bundle_build = function(source, slug = NULL, title = NULL, description = NULL, ...) {
+      seen[[length(seen) + 1L]] <<- list(title = title, description = description)
+      stop("stop after bundle")
+    }
+  )
+  expect_error(publish_notebook("report.qmd", slug = "r"), "stop after bundle")
+  expect_error(publish_notebook("report.qmd", slug = "r", title = "Custom", description = "About it"), "stop after bundle")
+  expect_identical(seen[[1]]$title, "Summary of results")
+  expect_identical(seen[[2]], list(title = "Custom", description = "About it"))
+})
