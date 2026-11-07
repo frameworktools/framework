@@ -230,8 +230,10 @@ project_create <- function(
     normalizePath(tempdir(), winslash = "/", mustWork = FALSE),
     normalizePath(dirname(tempdir()), winslash = "/", mustWork = FALSE)
   ))
-  grepl("^(/private)?(/tmp|/var/folders)/", path) ||
-    any(startsWith(path, paste0(temp, "/")))
+  # The macOS temporary folders, matched as strings so the check is the same
+  # on every platform (normalizePath() adds a drive letter on Windows)
+  grepl("^(/private)?(/tmp|/var/folders)/", sub("^[A-Za-z]:(?=/)", "", path, perl = TRUE)) ||
+    any(startsWith(tolower(path), tolower(paste0(temp, "/"))))
 }
 
 # Directory entries that name a file (presentation: presentation.qmd), which

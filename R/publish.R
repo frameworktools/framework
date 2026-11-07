@@ -88,7 +88,11 @@ NULL
     paths <- c(source, list.files(source, recursive = TRUE, full.names = TRUE, all.files = TRUE, no.. = TRUE))
   }
   paths <- normalizePath(paths, winslash = "/", mustWork = FALSE)
-  flagged <- paths[grepl("private", sub("^/private/", "/", paths), ignore.case = TRUE)]
+  # macOS keeps /tmp, /var, and /etc under /private; that prefix isn't a
+  # private folder. Matched as a string, so it reads the same on Windows,
+  # where normalizePath() adds a drive letter.
+  system_prefix <- "^([A-Za-z]:)?/private/(?=(tmp|var|etc)/)"
+  flagged <- paths[grepl("private", sub(system_prefix, "/", paths, perl = TRUE), ignore.case = TRUE)]
   if (length(flagged) == 0) {
     return(invisible(TRUE))
   }
