@@ -1,4 +1,22 @@
-# framework 1.9.0.9005
+# framework 2.0.0
+
+Framework 2.0 works with Framework Cloud (framework.pub or a self-hosted
+server). The main changes since 1.1.0:
+
+* `cloud_login()` signs in from the browser. `new()` and `new_project()` build
+  projects from your Cloud defaults and blueprints, and `setup()` sets up a
+  project created in Cloud.
+* Projects are built from layers: a structure, then tools such as Quarto,
+  Jupyter, targets, and renv, then package and skill sets. 26 package sets
+  ship with the package, and `package_set_add()` adds one to an existing
+  project.
+* `publish()` publishes tables, models, figures, and notebooks to Cloud, a
+  folder, S3, or GitHub Pages. Publishing again adds a version at the same
+  link.
+* Every project gets an AGENTS.md and agent skills, and `skills_sync()` keeps
+  skills in step with Cloud.
+
+Other changes in this release:
 
 * Package sets: 24 more, and `package_set_add()` adds one to an existing
   project.
@@ -30,11 +48,6 @@
   what it did; `ai_regenerate_context()` keeps blank lines; new `scaffold.R`
   files don't set the theme and seed twice; the login advice is the same
   everywhere; the README matches the real API.
-
-# framework (development version)
-
-* `package_set_add()` adds a package set to an existing project.
-  `package_sets_list()` lists the sets for R.
 
 # framework 1.9.0.9004
 
