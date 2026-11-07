@@ -26,6 +26,14 @@ The path to the saved file (invisibly)
 Saves a fitted model object to the configured models directory.
 The directory is created lazily on first use.
 }
+\details{
+Many fitted models keep the data they were fitted on: \code{lm()}
+keeps its model frame, \code{glm()} its data and \code{y}, and \code{lme4} its frame.
+With \code{public = TRUE}, a model that holds data rows is saved with a
+warning, since the rows go to the public folder with it. Refit with
+\code{model = FALSE} (and without \code{y = TRUE} or \code{x = TRUE}), or save the
+estimates with \code{\link[=save_table]{save_table()}}. \code{\link[=load_model]{load_model()}} reads a saved model back.
+}
 \examples{
 \donttest{
 if (FALSE) {

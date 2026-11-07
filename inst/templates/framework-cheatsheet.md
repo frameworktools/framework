@@ -200,6 +200,7 @@ save_table(df, "summary")                            # outputs/tables/
 save_figure(plot, "trend")                           # outputs/figures/
 save_figure(plot, "paper/fig2", format = c("pdf", "eps")) # one file per format, in a subfolder
 save_model(model, "my_model")                        # outputs/models/ (rds)
+load_model("my_model")                               # Read a saved model back
 result_list()                                        # List saved outputs
 result_list(type = "model")                          # Only models
 show_table(df, caption = "Counts", big_mark = ",")   # Markdown table in Quarto or Jupyter
@@ -370,6 +371,7 @@ capture_output(expr)             # Capture console output
 | `save_figure()` | Save figure to outputs |
 | `show_table()` | Show a data frame as a Markdown table |
 | `save_model()` | Save model to outputs |
+| `load_model()` | Load a model saved with save_model() |
 | `save_notebook()` | Save notebook output |
 | `save_report()` | Save report to outputs |
 | `save_table()` | Save table to outputs |

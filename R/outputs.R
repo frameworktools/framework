@@ -517,6 +517,13 @@ save_figure <- function(plot = NULL, name, format = "png", width = 8, height = 6
 #'
 #' @return The path to the saved file (invisibly)
 #'
+#' @details Many fitted models keep the data they were fitted on: `lm()`
+#'   keeps its model frame, `glm()` its data and `y`, and `lme4` its frame.
+#'   With `public = TRUE`, a model that holds data rows is saved with a
+#'   warning, since the rows go to the public folder with it. Refit with
+#'   `model = FALSE` (and without `y = TRUE` or `x = TRUE`), or save the
+#'   estimates with [save_table()]. [load_model()] reads a saved model back.
+#'
 #' @examples
 #' \donttest{
 #' if (FALSE) {
@@ -531,6 +538,8 @@ save_model <- function(model, name, public = FALSE, overwrite = TRUE, ...) {
   checkmate::assert_string(name, min.chars = 1)
   checkmate::assert_flag(public)
   checkmate::assert_flag(overwrite)
+  # A public model that holds data rows warns before saving
+  .fw_warn_model_rows(model, name, public)
 
   # Get the appropriate models directory
   models_dir <- .output_dir("models", public)

@@ -184,6 +184,7 @@ save_table(summary_df, "summary")       # → outputs/tables/summary.csv
 save_figure(plot, "trend")              # → outputs/figures/trend.png
 save_figure(plot, "paper/fig2", format = c("pdf", "eps"))  # → outputs/figures/paper/fig2.pdf, .eps
 save_model(model, "regression_model")   # → outputs/models/regression_model.rds
+model <- load_model("regression_model")  # read it back
 show_table(summary_df, digits = 2)      # Markdown table in a Quarto or Jupyter notebook
 ```
 
@@ -275,7 +276,7 @@ ai_skills_update()        # Update the Framework skills after upgrading
 | `db_query()` | Execute SQL query, return data |
 | `db_execute()` | Execute SQL command |
 | `cache_remember()` | Lazy evaluation with caching |
-| `save_table()`, `save_figure()`, `save_model()` | Save analysis outputs |
+| `save_table()`, `save_figure()`, `save_model()` | Save analysis outputs (`load_model()` reads a model back) |
 | `result_list()` | List saved outputs |
 | `package_add()` | Record a package in settings and install it |
 | `scratch_capture()` | Quick debug/temp file save |
