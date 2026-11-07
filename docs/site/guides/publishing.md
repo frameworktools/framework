@@ -275,10 +275,11 @@ publish_data(my_results, "datasets/results.csv", compress = TRUE)
 publish_data("outputs/model.rds", "models/v2/model.rds")
 ```
 
-`publish_data()`, `publish_dir()`, and `publish_list()` follow `to` and `publish.default` as `publish()` does. With an S3 destination, a `connection`, or no `publish.default`, they work on the storage bucket as shown here. With a folder, GitHub, or Cloud destination, `publish_data()` and `publish_dir()` publish through `publish()`, with the file or folder name of `dest` as the slug, and `publish_list()` lists a folder destination's artifacts:
+`publish_data()`, `publish_dir()`, and `publish_list()` follow `to` and `publish.default` as `publish()` does. With an S3 destination, a `connection`, or no `publish.default`, they work on the storage bucket as shown here. With a folder, GitHub, or Cloud destination, `publish_data()` and `publish_dir()` publish through `publish()`, and `publish_list()` lists a folder destination's artifacts. The slug is `dest` with each `/` turned into `-`, normalized like every slug (lowercase, each run of other characters a `-`); `publish_data()` also drops the file extension. Both say which slug they used:
 
 ```r
-publish_data(my_results, "tables/results.csv", to = "site")   # slug "results"
+publish_data(my_results, "tables/bp_by_visit.csv", to = "site")   # slug "tables-bp-by-visit"
+publish_dir("figures", dest = "figures/meeting", to = "site")      # slug "figures-meeting"
 publish_list(to = "site")
 ```
 

@@ -45,8 +45,11 @@ Recursively uploads all files in a directory to S3. Like \code{\link[=publish]{p
 follows \code{to}, then \code{publish.default} in settings.yml. S3 destinations, an
 explicit \code{connection}, and projects without \code{publish.default} get a
 file-by-file upload under \code{dest}. Folder, GitHub, and Cloud destinations
-publish the directory (after \code{pattern} and \code{recursive}) with \code{\link[=publish]{publish()}},
-using the last part of \code{dest} (or the directory name) as the slug.
+publish the directory (after \code{pattern} and \code{recursive}) with \code{\link[=publish]{publish()}}.
+The slug is \code{dest} (default: the directory name) with each \code{/} turned into
+\code{-}, then normalized like every slug, as in \code{\link[=publish_data]{publish_data()}}:
+\code{dest = "figures/meeting"} publishes as \code{figures-meeting}. The message says
+which slug was used.
 }
 \examples{
 \donttest{

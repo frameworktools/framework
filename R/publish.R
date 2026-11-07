@@ -794,6 +794,15 @@ publish_data <- function(data,
   .fw_bundle_slug(paste(parts[!parts %in% c("", ".", "..")], collapse = "-"))
 }
 
+# The slug publish_dir() uses for dest: the path with "/" turned into "-",
+# normalized as every slug is. No extension is removed, since dest names a
+# folder: "reports/v1.2" is "reports-v1-2".
+#' @keywords internal
+.fw_dir_slug <- function(dest) {
+  parts <- strsplit(gsub("\\\\", "/", dest), "/", fixed = TRUE)[[1]]
+  .fw_bundle_slug(paste(parts[!parts %in% c("", ".", "..")], collapse = "-"))
+}
+
 # Where publish_data(), publish_dir(), and publish_list() go. Like publish(),
 # they follow `to`, then publish.default. An explicit `connection` (an S3
 # bucket name), an S3 destination, or a project without publish.default keep
@@ -862,8 +871,11 @@ publish_data <- function(data,
 #' follows `to`, then `publish.default` in settings.yml. S3 destinations, an
 #' explicit `connection`, and projects without `publish.default` get a
 #' file-by-file upload under `dest`. Folder, GitHub, and Cloud destinations
-#' publish the directory (after `pattern` and `recursive`) with [publish()],
-#' using the last part of `dest` (or the directory name) as the slug.
+#' publish the directory (after `pattern` and `recursive`) with [publish()].
+#' The slug is `dest` (default: the directory name) with each `/` turned into
+#' `-`, then normalized like every slug, as in [publish_data()]:
+#' `dest = "figures/meeting"` publishes as `figures-meeting`. The message says
+#' which slug was used.
 #'
 #' @param dir Character. Local directory path.
 #' @param dest Character or NULL. Destination prefix in S3. If NULL, uses
@@ -935,7 +947,8 @@ publish_dir <- function(dir,
   }
 
   if (route$driver != "s3") {
-    slug <- basename(sub("/+$", "", dest))
+    slug <- .fw_dir_slug(dest)
+    message(sprintf("Publishing %s as %s", dest, slug))
     source <- dir
     if (!is.null(pattern) || !recursive) {
       # Publish only the selected files, keeping their relative paths
@@ -953,7 +966,7 @@ publish_dir <- function(dir,
   }
   s3_config <- .resolve_s3_connection(route$bucket)
 
-  bundle <- .fw_bundle_build(dir, slug = basename(dest), include_private = include_private)
+  bundle <- .fw_bundle_build(dir, slug = .fw_dir_slug(dest), include_private = include_private)
   on.exit(unlink(bundle$path, recursive = TRUE), add = TRUE)
   # Upload each file
   message(sprintf("Uploading %d files...", length(files)))

@@ -332,3 +332,25 @@ test_that("publish_notebook() passes title and description, defaulting to the YA
   expect_identical(seen[[1]]$title, "Summary of results")
   expect_identical(seen[[2]], list(title = "Custom", description = "About it"))
 })
+
+test_that("publish_dir() slugs keep the folder part of dest", {
+  slug <- framework:::.fw_dir_slug
+  expect_identical(slug("figures/meeting"), "figures-meeting")
+  expect_identical(slug("reports/v1.2"), "reports-v1-2")
+  expect_identical(slug("./figures/Meeting_1/"), "figures-meeting-1")
+  expect_identical(slug("tables\\demo"), "tables-demo")
+
+  local_publish_settings("local-site")
+  project <- getwd()
+  dir.create("figures")
+  writeLines("png", "figures/a.png")
+  writeLines("txt", "figures/b.txt")
+  expect_message(url <- publish_dir("figures", dest = "figures/Meeting_1"),
+                 "Publishing figures/Meeting_1 as figures-meeting-1", fixed = TRUE)
+  expect_identical(url, "https://files.example.org/research/figures-meeting-1/")
+  expect_identical(
+    suppressMessages(publish_dir("figures", dest = "figures/Meeting_1", pattern = "png")),
+    "https://files.example.org/research/figures-meeting-1/"
+  )
+  expect_true(file.exists(file.path(project, "local-site", "figures-meeting-1", "a.png")))
+})
