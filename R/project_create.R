@@ -698,44 +698,15 @@ duplicate its content in this file.
     "# scaffold.R",
     "# This file is sourced by framework::scaffold() to set up your project environment",
     "",
-    "# Set random seed for reproducibility"
-  )
-
-  if (scaffold$seed_on_scaffold && nzchar(scaffold$seed)) {
-    scaffold_content <- c(
-      scaffold_content,
-      sprintf('set.seed(%s)', scaffold$seed),
-      sprintf('message("Random seed set to %s")', scaffold$seed)
-    )
-  } else {
-    scaffold_content <- c(
-      scaffold_content,
-      "# set.seed(20241109)  # Uncomment and set your seed"
-    )
-  }
-
-  scaffold_content <- c(
-    scaffold_content,
+    "# scaffold() already sets the random seed and the ggplot2 theme from",
+    "# settings (scaffold: seed_on_scaffold, seed, set_theme_on_scaffold,",
+    sprintf("# ggplot_theme). This project: seed %s, theme %s.",
+            if (isTRUE(scaffold$seed_on_scaffold) && nzchar(scaffold$seed %||% "")) scaffold$seed else "off",
+            if (isTRUE(scaffold$set_theme_on_scaffold) && nzchar(scaffold$ggplot_theme %||% "")) scaffold$ggplot_theme else "off"),
+    "# Change them there rather than here, so they are not set twice.",
     "",
-    "# Set ggplot2 theme"
+    "# Add your own setup below."
   )
-
-  if (scaffold$set_theme_on_scaffold && nzchar(scaffold$ggplot_theme)) {
-    scaffold_content <- c(
-      scaffold_content,
-      "if (requireNamespace('ggplot2', quietly = TRUE)) {",
-      sprintf("  ggplot2::theme_set(ggplot2::%s())", scaffold$ggplot_theme),
-      sprintf('  message("ggplot2 theme set to %s")', scaffold$ggplot_theme),
-      "}"
-    )
-  } else {
-    scaffold_content <- c(
-      scaffold_content,
-      "# if (requireNamespace('ggplot2', quietly = TRUE)) {",
-      "#   ggplot2::theme_set(ggplot2::theme_minimal())",
-      "# }"
-    )
-  }
 
   scaffold_path <- file.path(project_dir, "scaffold.R")
   writeLines(scaffold_content, scaffold_path)

@@ -208,10 +208,12 @@ test_that("project_create handles scaffold configuration", {
 
   expect_true(result$success)
 
-  # Check scaffold.R contains seed
+  # scaffold() sets the seed and theme from settings, so scaffold.R only
+  # names them and doesn't set them a second time
   scaffold <- readLines(file.path(result$path, "scaffold.R"))
-  expect_true(any(grepl("set.seed\\(20241109\\)", scaffold)))
-  expect_true(any(grepl("theme_bw", scaffold)))
+  expect_false(any(grepl("^\\s*set.seed\\(", scaffold)))
+  expect_false(any(grepl("^\\s*ggplot2::theme_set", scaffold)))
+  expect_true(any(grepl("seed 20241109, theme theme_bw", scaffold, fixed = TRUE)))
 
   # Check scaffold split file
   scaffold_config <- yaml::read_yaml(file.path(result$path, "settings/scaffold.yml"))
