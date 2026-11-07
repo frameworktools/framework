@@ -254,7 +254,7 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   file_path <- found
 
   # Normalize the path
-  file_path <- normalizePath(file_path, mustWork = TRUE)
+  file_path <- normalizePath(file_path, winslash = "/", mustWork = TRUE)
 
   # Auto-detect type from extension if not specified
   if (is.null(type)) {
@@ -295,7 +295,7 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
     for (dir_key in input_keys) {
       dir_path <- directories[[dir_key]]
       if (!is.character(dir_path) || length(dir_path) != 1 || !nzchar(dir_path)) next
-      dir_path <- normalizePath(.fw_project_path(dir_path), mustWork = FALSE)
+      dir_path <- normalizePath(.fw_project_path(dir_path), winslash = "/", mustWork = FALSE)
       if (startsWith(file_path, paste0(dir_path, "/")) && nchar(dir_path) > best_length) {
         best_length <- nchar(dir_path)
         rel_path <- substring(file_path, nchar(dir_path) + 2)

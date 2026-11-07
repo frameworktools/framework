@@ -332,7 +332,7 @@ key <- gsub("//+", "/", key)
   # Upload each file
   urls <- character(length(files))
   for (i in seq_along(files)) {
-    rel_path <- sub(paste0("^", normalizePath(dir), "/?"), "", normalizePath(files[i]))
+    rel_path <- substring(normalizePath(files[i], winslash = "/"), nchar(normalizePath(dir, winslash = "/")) + 2L)
     file_dest <- file.path(dest, rel_path)
     urls[i] <- .s3_upload_file(files[i], file_dest, s3_config)
   }

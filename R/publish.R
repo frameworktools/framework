@@ -926,9 +926,9 @@ publish_dir <- function(dir,
       source <- file.path(tempfile("fw_publish_dir_"), slug)
       dir.create(source, recursive = TRUE)
       on.exit(unlink(dirname(source), recursive = TRUE), add = TRUE)
-      root <- normalizePath(dir)
+      root <- normalizePath(dir, winslash = "/")
       for (file in files) {
-        rel_path <- substring(normalizePath(file), nchar(root) + 2L)
+        rel_path <- substring(normalizePath(file, winslash = "/"), nchar(root) + 2L)
         dir.create(dirname(file.path(source, rel_path)), recursive = TRUE, showWarnings = FALSE)
         file.copy(file, file.path(source, rel_path))
       }
@@ -944,7 +944,7 @@ publish_dir <- function(dir,
   urls <- character(length(files))
 
   for (i in seq_along(files)) {
-    rel_path <- sub(paste0("^", normalizePath(dir), "/?"), "", normalizePath(files[i]))
+    rel_path <- substring(normalizePath(files[i], winslash = "/"), nchar(normalizePath(dir, winslash = "/")) + 2L)
     file_dest <- file.path(dest, rel_path)
     urls[i] <- .s3_upload_file(files[i], file_dest, s3_config)
   }
