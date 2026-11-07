@@ -39,6 +39,13 @@
 #'     tracks). In a project that isn't `security: sensitive: true`, a
 #'     destination with `visibility: public` (or `private: false`) is left out,
 #'     since it is meant to be committed. A warning, never a failure.
+#'   \item **connection_secrets** (`connection_secrets`): Passwords, secrets,
+#'     tokens, and keys written into the settings' `connections` (in the
+#'     settings file and the split files under `settings/`) instead of read
+#'     from the environment with `env("VAR")`. Columns `file`, `key` (a dot
+#'     path such as `connections.databases.omop.password`), and `tracked`.
+#'     Values are never stored or printed. Fails when git tracks the file,
+#'     else warns.
 #' }
 #'
 #' The audit watches the settings' `directories` whose key starts with
@@ -138,6 +145,12 @@ git_security_audit <- function(config_file = NULL,
       files = integer(),
       tracked = integer(),
       stringsAsFactors = FALSE
+    ),
+    connection_secrets = data.frame(
+      file = character(),
+      key = character(),
+      tracked = logical(),
+      stringsAsFactors = FALSE
     )
   )
 
@@ -225,17 +238,25 @@ git_security_audit <- function(config_file = NULL,
   findings$published_outputs <- published_findings$issues
   recommendations <- c(recommendations, published_findings$recommendations)
 
+  # Check 6: Passwords and tokens written into connection settings
+  if (verbose) message("Checking connection settings for written-out secrets...")
+  connection_findings <- .check_connection_secrets(config_file, root, tracked_files)
+  findings$connection_secrets <- connection_findings$issues
+  recommendations <- c(recommendations, connection_findings$recommendations)
+
   # Build summary
   summary <- data.frame(
     check = c("gitignore_coverage", "private_data_exposure", "git_history", "orphaned_files",
-              "secrets_exposure", "published_outputs"),
+              "secrets_exposure", "published_outputs", "connection_secrets"),
     status = c(
       if (nrow(findings$gitignore_issues) == 0) "pass" else if (any(findings$gitignore_issues$severity == "critical")) "fail" else "warning",
       if (nrow(findings$private_data_exposure) == 0) "pass" else "fail",
       if (!check_git_history || !git_available) "skipped" else if (nrow(findings$git_history_issues) == 0) "pass" else "fail",
       if (nrow(findings$orphaned_files) == 0) "pass" else "warning",
       if (!git_available) "skipped" else if (nrow(findings$secrets_exposure) == 0) "pass" else "fail",
-      if (nrow(findings$published_outputs) == 0) "pass" else "warning"
+      if (nrow(findings$published_outputs) == 0) "pass" else "warning",
+      if (nrow(findings$connection_secrets) == 0) "pass"
+      else if (any(findings$connection_secrets$tracked)) "fail" else "warning"
     ),
     count = c(
       nrow(findings$gitignore_issues),
@@ -243,7 +264,8 @@ git_security_audit <- function(config_file = NULL,
       nrow(findings$git_history_issues),
       nrow(findings$orphaned_files),
       nrow(findings$secrets_exposure),
-      nrow(findings$published_outputs)
+      nrow(findings$published_outputs),
+      nrow(findings$connection_secrets)
     ),
     stringsAsFactors = FALSE
   )
@@ -1062,6 +1084,101 @@ git_security_audit <- function(config_file = NULL,
 }
 
 
+# Whether a credential value is written out: anything but missing, empty, a
+# mapping or list, a boolean, env("VAR"), or !expr Sys.getenv("VAR"). A
+# default (env("VAR", "x"), Sys.getenv("VAR", "x")) is written out too, as
+# are numbers.
+#' @keywords internal
+.fw_literal_secret <- function(value) {
+  if (is.null(value) || is.list(value) || is.logical(value) || length(value) == 0) return(FALSE)
+  if (!is.character(value)) return(TRUE)
+  value <- value[1]
+  if (is.na(value) || !nzchar(value)) return(FALSE)
+  text <- trimws(value)
+  env_call <- regmatches(text, regexec('^env\\("(.*?)"(?:,\\s*"(.*?)")?\\)$', text, perl = TRUE))[[1]]
+  if (length(env_call) > 0) {
+    return(length(env_call) >= 3 && !is.na(env_call[3]) && nzchar(env_call[3]))
+  }
+  if (grepl("^!expr\\s+", value)) {
+    code <- trimws(sub("^!expr\\s+", "", value))
+    system <- regmatches(code, regexec(
+      "^Sys\\.getenv\\(\\s*(['\"])(.*?)\\1\\s*(?:,\\s*(?:unset\\s*=\\s*)?(['\"])(.*?)\\3\\s*)?\\)$",
+      code, perl = TRUE
+    ))[[1]]
+    if (length(system) == 0) return(TRUE)
+    return(length(system) >= 5 && !is.na(system[5]) && nzchar(system[5]))
+  }
+  TRUE
+}
+
+# Dot paths of credential keys with written-out values under `connections`
+#' @keywords internal
+.fw_secret_keys <- function(node, path = "", inside = FALSE) {
+  found <- character()
+  if (is.list(node) && !is.null(names(node)) && all(nzchar(names(node)))) {
+    for (i in seq_along(node)) {
+      key <- names(node)[i]
+      value <- node[[i]]
+      here <- if (nzchar(path)) paste0(path, ".", key) else key
+      within <- inside || identical(key, "connections")
+      if (within && grepl("password|passwd|pwd|secret|token|api_?key|access_key", key, ignore.case = TRUE) &&
+          .fw_literal_secret(value)) {
+        found <- c(found, here)
+      } else {
+        found <- c(found, .fw_secret_keys(value, here, within))
+      }
+    }
+  } else if (is.list(node)) {
+    for (i in seq_along(node)) {
+      found <- c(found, .fw_secret_keys(node[[i]], sprintf("%s[%d]", path, i - 1L), inside))
+    }
+  }
+  found
+}
+
+#' Check for secrets written into connection settings
+#'
+#' Reads the settings file the audit read and every `.yml`/`.yaml` file under
+#' the project's `settings/` folder, without evaluating anything (`!expr`
+#' stays text). Under any key named `connections`, a key whose name matches
+#' `password|passwd|pwd|secret|token|api_?key|access_key` (any case) is a
+#' finding when its value is written out rather than read from the
+#' environment. Values are never stored or printed.
+#' @keywords internal
+.check_connection_secrets <- function(config_file, root = ".", tracked = character()) {
+  issues <- data.frame(file = character(), key = character(), tracked = logical(),
+                       stringsAsFactors = FALSE)
+  root <- normalizePath(root, winslash = "/", mustWork = TRUE)
+  files <- normalizePath(config_file, winslash = "/", mustWork = TRUE)
+  folder <- file.path(root, "settings")
+  if (dir.exists(folder)) {
+    split <- list.files(folder, pattern = "\\.ya?ml$", recursive = TRUE, full.names = TRUE,
+                        ignore.case = TRUE)
+    files <- c(files, sort(normalizePath(split, winslash = "/"), method = "radix"))
+  }
+  for (file in unique(files)) {
+    document <- tryCatch(
+      yaml::read_yaml(file, eval.expr = FALSE,
+                      handlers = list(expr = function(x) paste0("!expr ", x))),
+      error = function(e) NULL
+    )
+    if (is.null(document)) next
+    keys <- .fw_secret_keys(document)
+    if (length(keys) == 0) next
+    relative <- if (startsWith(file, paste0(root, "/"))) substring(file, nchar(root) + 2) else file
+    issues <- rbind(issues, data.frame(file = relative, key = keys, tracked = relative %in% tracked,
+                                       stringsAsFactors = FALSE))
+  }
+  recommendations <- if (nrow(issues) > 0) {
+    c('Move connection passwords and tokens to .env and refer to them with env("VARIABLE") in the settings',
+      "Rotate any secret that was committed: it stays in git history")
+  } else {
+    character()
+  }
+  list(issues = issues, recommendations = recommendations)
+}
+
+
 #' Check if file is a data file based on extension
 #' @keywords internal
 .is_data_file <- function(file, extensions) {
@@ -1256,6 +1373,12 @@ git_security_audit <- function(config_file = NULL,
     message(paste(.audit_finding_lines(result, "published_outputs"), collapse = "\n"))
   }
 
+  if (nrow(result$findings$connection_secrets %||% data.frame()) > 0) {
+    has_issues <- TRUE
+    message("\n--- Secrets Written in Connection Settings ---")
+    message(paste(.audit_finding_lines(result, "connection_secrets"), collapse = "\n"))
+  }
+
   skipped <- result$audit_metadata$skipped_directories
   if (length(skipped) > 0) {
     message("\n--- Skipped: Folders Outside the Project ---")
@@ -1308,7 +1431,9 @@ git_security_audit <- function(config_file = NULL,
     lines <- c(lines, switch(check,
       published_outputs = sprintf("  %d. %s/ (destination %s: %d file(s) not ignored, %d tracked)",
                                   i, row$path, row$destination, as.integer(row$files),
-                                  as.integer(row$tracked))
+                                  as.integer(row$tracked)),
+      connection_secrets = sprintf("  %d. %s: %s (%s)", i, row$file, row$key,
+                                   if (isTRUE(row$tracked)) "tracked in git" else "not tracked")
     ))
   }
   if (nrow(frame) > 10) {

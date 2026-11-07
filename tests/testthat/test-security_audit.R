@@ -756,7 +756,7 @@ test_that("publishing folders git doesn't ignore warn", {
   msgs <- capture_messages(audit <- git_security_audit(check_git_history = FALSE))
   expect_identical(audit$summary$check, c(
     "gitignore_coverage", "private_data_exposure", "git_history", "orphaned_files",
-    "secrets_exposure", "published_outputs"
+    "secrets_exposure", "published_outputs", "connection_secrets"
   ))
   published <- audit$findings$published_outputs
   expect_identical(published$destination, "local") # docs is public, share is outside
@@ -779,4 +779,59 @@ test_that("sensitive projects check public publishing folders too", {
   published <- git_security_audit(check_git_history = FALSE, verbose = FALSE)$findings$published_outputs
   expect_identical(published$destination, c("local", "pages"))
   expect_identical(published$tracked, c(0L, 1L))
+})
+
+test_that("connection secrets written into the settings are flagged, never shown", {
+  # Ports 2026-11-07 (D9): settings/connections.yml held a written-out password
+  local_audit_repo()
+  writeLines(c(
+    "default:",
+    "  connections: settings/connections.yml",
+    "  publish:",
+    "    destinations: {}",
+    "  token_note: not a connection"
+  ), "settings.yml")
+  dir.create("settings")
+  writeLines(c(
+    "connections:",
+    "  databases:",
+    "    omop:",
+    "      driver: postgres",
+    "      password: a2omop-dev-secret",
+    "      user: env(\"DB_USER\")",
+    "    warehouse:",
+    "      password: env(\"WH_PASSWORD\")",
+    "      api_key: env(\"WH_KEY\", \"fallback-key\")",
+    "      token: ''",
+    "      secret: !expr Sys.getenv(\"WH_SECRET\")",
+    "      access_key: !expr Sys.getenv(\"WH_ACCESS\", \"fallback\")",
+    "      pwd: 1234",
+    "      tls: {secret_file: false}",
+    "  servers:",
+    "    - name: a",
+    "      token: abc"
+  ), "settings/connections.yml")
+  msgs <- capture_messages(audit <- git_security_audit(check_git_history = FALSE))
+  secrets <- audit$findings$connection_secrets
+  expect_identical(names(secrets), c("file", "key", "tracked"))
+  expect_identical(secrets$key, c(
+    "connections.databases.omop.password",
+    "connections.databases.warehouse.api_key",
+    "connections.databases.warehouse.access_key",
+    "connections.databases.warehouse.pwd",
+    "connections.servers[0].token"
+  ))
+  expect_identical(unique(secrets$file), "settings/connections.yml")
+  expect_identical(audit$summary$check[7], "connection_secrets")
+  expect_identical(audit$summary$status[7], "warning")
+  report <- paste(msgs, collapse = "")
+  expect_match(report, "--- Secrets Written in Connection Settings ---", fixed = TRUE)
+  expect_match(report, "settings/connections.yml: connections.databases.omop.password (not tracked)", fixed = TRUE)
+  expect_match(report, "Rotate any secret that was committed: it stays in git history", fixed = TRUE)
+  expect_false(grepl("a2omop-dev-secret|fallback|abc", report))
+  expect_false(any(grepl("a2omop-dev-secret", unlist(audit$findings))))
+
+  system2("git", c("add", "settings"), stdout = FALSE, stderr = FALSE)
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
+  expect_identical(audit$summary$status[audit$summary$check == "connection_secrets"], "fail")
 })

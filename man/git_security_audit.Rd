@@ -62,6 +62,13 @@ whose folder holds files git doesn't ignore. Columns \code{destination},
 tracks). In a project that isn't \code{security: sensitive: true}, a
 destination with \code{visibility: public} (or \code{private: false}) is left out,
 since it is meant to be committed. A warning, never a failure.
+\item \strong{connection_secrets} (\code{connection_secrets}): Passwords, secrets,
+tokens, and keys written into the settings' \code{connections} (in the
+settings file and the split files under \verb{settings/}) instead of read
+from the environment with \code{env("VAR")}. Columns \code{file}, \code{key} (a dot
+path such as \code{connections.databases.omop.password}), and \code{tracked}.
+Values are never stored or printed. Fails when git tracks the file,
+else warns.
 }
 
 The audit watches the settings' \code{directories} whose key starts with
