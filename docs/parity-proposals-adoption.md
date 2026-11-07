@@ -32,6 +32,8 @@ tests.
 | B6, B11, B12, B30, design 3 | b4ca43d | upgrade() brings an older Framework project to the current layout |
 | design 3 wording | b0b0db3 | upgrade()'s note about missing skills names the type plainly |
 | docs | 0f6281e | guide to adopt(), upgrade(), and cloud_register() (`docs/upgrade.md`) |
+| Cloud create-from-spec (follow-up) | bbed2d0 | cloud_register() creates the Cloud project from its spec in one request |
+| Sensitive skill (follow-up) | cd7e2c4 | upgrade() gives a sensitive project without skills the sensitive-data skill |
 | this file | (last commit) | parity proposals and results |
 
 Not R's: B7, B17, B18, B19, B21 (fw help text), B29 (fw), and B22, B23, B25
@@ -41,7 +43,10 @@ where the shared design affects them.
 ## Test results
 
 - macOS, full suite (`NOT_CRAN=true`, `testthat::test_local(".")`) at
-  4966e33: 3587 passed, 0 failed, 0 errors, 19 skipped. The baseline on
+  4966e33: 3587 passed, 0 failed, 0 errors, 19 skipped. After the follow-ups
+  (cd7e2c4): 3606 passed, 0 failed, 19 skipped, and `R CMD check` again
+  gives only the incoming-feasibility NOTE. The Windows run below predates
+  the follow-ups. The baseline on
   `origin/main` had 3379 passing tests and no failures.
 - macOS, `R CMD check --as-cran --no-manual`: Status 1 NOTE. The NOTE is
   CRAN incoming feasibility ("Days since last update: 0").
@@ -67,16 +72,17 @@ Framework project, so it is adopted first.
 
 ```
 Upgrade plan for /tmp/fwfix3/adopt-tests/run/syphillis-poc-test-analysis
-  settings    settings.yml              add tools (quarto: true, renv: false); add security (sensitive: true; project_type is project_sensitive)
-  connections settings/connections.yml  rewrite in the current layout: 0 database(s)
-  gitignore   .gitignore                add 5 rule(s): **/logs/**, slurm-*.out, /.quarto/, **/*.quarto_ipynb, .quarto_backups/
-  ai          AGENTS.md                 create from CLAUDE.md (AGENTS.md becomes the canonical file)
-  ai          CLAUDE.md                 replace with a pointer to AGENTS.md
-  ai          AGENTS.md                 regenerate marked sections (environment, packages, data, functions)
-  ai          .claude/settings.json     keep Claude Code out of inputs/private
-  spec        .framework/spec.json      create from the settings
+  settings    settings.yml                             add tools (quarto: true, renv: false); add security (sensitive: true; project_type is project_sensitive)
+  connections settings/connections.yml                 rewrite in the current layout: 0 database(s)
+  gitignore   .gitignore                               add 5 rule(s): **/logs/**, slurm-*.out, /.quarto/, **/*.quarto_ipynb, .quarto_backups/
+  ai          AGENTS.md                                create from CLAUDE.md (AGENTS.md becomes the canonical file)
+  ai          CLAUDE.md                                replace with a pointer to AGENTS.md
+  ai          AGENTS.md                                regenerate marked sections (environment, packages, data, functions)
+  ai          .claude/settings.json                    keep Claude Code out of inputs/private
+  skills      .claude/skills/framework-sensitive-data  add
+  spec        .framework/spec.json                     create from the settings
 Notes:
-  - This project has no Framework skills. framework::ai_skills_update() installs the ones for its type (project_sensitive).
+  - This project has no other Framework skills; upgrade() adds or keeps framework-sensitive-data. framework::ai_skills_update() installs the others for its type (project_sensitive).
   - notebooks/_quarto.yml makes notebooks/ a separate Quarto project and was kept. quarto_regenerate(overwrite = TRUE) folds it into the root _quarto.yml.
   - docs/_quarto.yml makes docs/ a separate Quarto project and was kept. quarto_regenerate(overwrite = TRUE) folds it into the root _quarto.yml.
 Dry run: nothing was changed. Apply with framework::upgrade("syphillis-poc-test-analysis", dry_run = FALSE); every file it rewrites is backed up to .framework/backups/ first.
@@ -187,7 +193,10 @@ no actions in all four. Checks on the result:
   `inputs/raw/*.xlsx`).
 - cannabis-ehr: after `adopt()`, the audit's orphaned-file check passes (it
   reported 26 cohort JSONs before), and `cloud_register(dry_run = TRUE)`
-  prints a structure with the four mapped folders and four extra folders.
+  prints one request: `POST /api/v1/projects` with the spec, `name` and
+  `slug` `cannabis-ehr`, and `adopted: true`.
+- syphillis-poc-test-analysis after cd7e2c4: the plan adds
+  `.claude/skills/framework-sensitive-data`, and a second run plans nothing.
 - Fresh projects made by this version plan only the new `.quarto_backups/`
   rule.
 
@@ -323,34 +332,69 @@ with their paths from the root (a `-2` suffix when the folder exists).
 ### cloud_register()
 
 ```
-cloud_register(path = ".", name = NULL, description = NULL, dry_run = FALSE,
-               include_private = FALSE)
+cloud_register(path = ".", name = NULL, slug = NULL, description = NULL,
+               dry_run = FALSE, include_private = FALSE)
 ```
 
-Preconditions, in order: a Framework project; `.framework/spec.json` exists
-(else: run `upgrade(path, dry_run = FALSE)`); no `FW_PROJECT_TOKEN` in `.env`;
-the project path has no folder named `private` or `*_private` (ask when
-interactive, else stop, unless `include_private`); git doesn't track `.env`.
+This matches `fw project link --create` at framework-cli 0832476 and the
+framework-cloud create-from-spec API (ef3224d).
 
-Requests, with the user token unless noted:
+Order of checks:
 
-1. `POST /api/v1/structures` `{name: "<name> layout", directories,
-   extra_directories: {key: {label, path}}}`, only when the spec's
-   `extra_directories` is non-empty or `directories` differ from the type's
-   built-in ones. The response's `key` is the structure.
-2. `POST /api/v1/projects` `{name, description?, language, structure:
-   <key or "framework/<type>">, tools: {id: bool}, settings: {sensitive, git,
-   ai}, adopted: true}`. The response gives `slug`, `url`, and `token`.
-3. Write `FW_PROJECT_TOKEN` and `FW_CLOUD_URL` to `.env` after making git
-   ignore `.env` (the existing `.fw_write_project_token()` path).
-4. `PUT /api/v1/project/spec` `{spec}` with the project token.
+1. A Framework project, else stop (run `adopt()`).
+2. `FW_PROJECT_TOKEN` already in `.env`: message "This project is already
+   linked: .env has FW_PROJECT_TOKEN. Nothing changed. To send its spec, run:
+   fw project push-spec" and return with `created: false, linked: true`.
+3. `.framework/spec.json` exists (else: run `upgrade(path, dry_run = FALSE)`),
+   and is valid JSON.
+4. Git doesn't track `.env`. The path has no folder named `private` or
+   `*_private` (ask when interactive, else stop, unless `include_private`).
+5. Name: the argument, the spec's `name`, then the folder name. Slug: the
+   argument, or the name lowercased with each run of characters other than
+   `a-z0-9` turned into `-` and leading or trailing `-` removed. It must match
+   `^[a-z0-9]+(-[a-z0-9]+)*$`.
 
-A failure after step 2 prints the slug and `fw project link --from SLUG` and
-`fw project push-spec`. The result is `{slug, url, structure, linked,
-spec_pushed}`. `dry_run = TRUE` prints the three requests and sends nothing.
+One request with the user token, `POST /api/v1/projects`, body built as text
+so the spec goes as it is on disk (empty maps stay `{}`):
+
+```
+{"spec": <spec.json bytes>, "name": "...", "slug": "...",
+ "description": "..." (when given), "adopted": true (when spec.source.adopted)}
+```
+
+No `project_type`, no structure first, no separate spec push. The server
+stores the spec as the project's only layer and its last-received spec. The
+response is `{slug, name, language, type, adopted, url, token, github: null}`.
+Then: message "Created <slug> on <host>: <url>", and write `FW_PROJECT_TOKEN`
+(the response's pull token) and `FW_CLOUD_URL` to `.env`, after making git
+ignore `.env`. If writing fails: "Created <slug> on <host>, but linking this
+folder failed: ... To finish, run: fw project link --from <slug>".
+
+Errors on `slug` (HTTP 422 with `errors.slug`, first message):
+
+- Contains "deleted": stop with "<slug> is the slug of a project in your
+  Trash on <host>, so it can't be used again. Restore that project and run fw
+  project link --from <slug>, or pass slug = with another name."
+- Contains "already have": in an interactive session, ask "You already have a
+  project <slug> on <host>. Link this folder to it instead?". Yes mints a
+  token with `POST /api/v1/projects/<slug>/pull-tokens` `{name: "framework
+  (R) on <host name>"}`, writes it with the server to `.env`, and says "To
+  send this folder's spec to it, run: fw project push-spec". Otherwise stop
+  with "You already have a project <slug> on <host>. To link this folder to it,
+  run fw project link --from <slug>. To create a new project, pass slug = with
+  another name."
+- Anything else: stop with "<host> refused the slug <slug>: <message>".
+
+A server from before the spec API answers without `type`. Then warn "<host>
+is older than the spec API, so it made the project from your defaults at
+<slug>. ...", link as above, and send `PUT /api/v1/project/spec {spec}` with
+the new project token.
+
+The result is `{slug, url, type, adopted, created, linked, spec_changed}`.
+`dry_run = TRUE` prints the request (with the spec elided) and sends nothing.
 Registration from `new()` now writes the token for every type, `bare`
-included. This replaces framework-py's `adopt.py:298-310` offer, which sends
-`structure: framework/bare` (B25).
+included. framework-py's `adopt.py:298-310` offer, which sends
+`structure: framework/bare` (B25), should call this.
 
 ### upgrade()
 
@@ -391,9 +435,13 @@ earlier steps, so later steps see earlier ones. Steps run in this order:
    alone is not written. Sensitive projects with the `claude` assistant get the
    `.claude/settings.json` deny and sandbox rules for each folder up to its
    `private` part, and `.env`.
-6. **Skills** (only with `ai.enabled` and an existing skills folder for the
-   assistants). Each skill for the type is created when missing, updated when
-   it is an unedited older version, and listed when edited.
+6. **Skills** (only with `ai.enabled`). When the assistants' skills folder
+   holds any skill other than `framework-sensitive-data`, each skill for the
+   type is created when missing, updated when it is an unedited older
+   version, and listed when edited. Otherwise a sensitive project gets
+   `framework-sensitive-data` only, in the assistants' skills folder
+   (`.claude/skills` when no assistant is set), and other projects get a note
+   pointing to `ai_skills_update()`.
 7. **Quarto** (when `_quarto.yml` exists, or there are `render_dirs` and
    Quarto isn't off). As `quarto_regenerate()` without `overwrite`.
 8. **Spec.** Built from the settings as written: a `spec_resolve()` of the
