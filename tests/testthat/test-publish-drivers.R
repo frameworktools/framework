@@ -236,3 +236,15 @@ test_that("private S3 verification accepts aws.s3 scalar PolicyStatus responses"
   }, .package="aws.s3")
   expect_no_error(framework:::.fw_s3_confirm_private(s3))
 })
+
+test_that("a relative folder path starts at the project root, not the working directory", {
+  local_publish_settings("local-site")
+  project <- getwd()
+  dir.create("notebooks")
+  withr::local_dir("notebooks")
+  publish(data.frame(x = 1:2), slug = "from-notebook")
+  expect_true(file.exists(file.path(project, "local-site", "from-notebook", "artifact.json")))
+  expect_false(dir.exists(file.path(project, "notebooks", "local-site")))
+  expect_identical(framework:::.fw_folder_path("/abs/site"), "/abs/site")
+  expect_identical(framework:::.fw_folder_path("~/site"), path.expand("~/site"))
+})

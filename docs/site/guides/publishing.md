@@ -154,7 +154,7 @@ publish:
       path: ~/site
 ```
 
-Drivers are `cloud`, `github`, `folder`, and `s3`. A folder destination writes each artifact to `<path>/<slug>/`, keeps each version under `v/<n>/`, and maintains a site index. Folder destinations use `slug` and reject `dest`. Credential fields in a destination must be `env("VARIABLE")` references, with the values in `.env`.
+Drivers are `cloud`, `github`, `folder`, and `s3`. A folder `path` may start with `~`; a relative path starts at the project root, even when a notebook runs from `notebooks/`. A folder destination writes each artifact to `<path>/<slug>/`, keeps each version under `v/<n>/`, and maintains a site index. Folder destinations use `slug` and reject `dest`. Credential fields in a destination must be `env("VARIABLE")` references, with the values in `.env`.
 
 ```r
 publish(results_table, to = "site", slug = "estimates")

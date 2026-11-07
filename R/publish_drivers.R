@@ -199,8 +199,19 @@
   writeLines(paste0('<!doctype html><html><head><meta charset="utf-8"><title>Artifacts</title></head><body><h1>Artifacts</h1><ul>', paste(rows, collapse = ""), '</ul></body></html>'), file.path(path, "index.html"))
 }
 
+# A folder destination's path: ~ is the home folder, and a relative path
+# starts at the project root wherever R runs (a notebook renders from
+# notebooks/), as fw resolves it.
+.fw_folder_path <- function(path) {
+  path <- path.expand(path)
+  absolute <- startsWith(path, "/") || startsWith(path, "\\") || grepl("^[A-Za-z]:[/\\\\]", path)
+  if (absolute) return(path)
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL) %||% getwd()
+  file.path(root, path)
+}
+
 .fw_folder_deliver <- function(bundle, destination, overwrite = TRUE) {
-  root <- path.expand(destination$path)
+  root <- .fw_folder_path(destination$path)
   slug <- bundle$manifest$slug
   candidates <- c(root, file.path(root, slug))
   parent <- dirname(root)
