@@ -600,3 +600,26 @@ test_that("data_add records project-relative paths, even from a subfolder", {
   spec <- suppressMessages(data_add(file.path(test_dir, "inputs/raw/moved.csv"), name = "raw.moved"))
   expect_identical(spec$path, "inputs/raw/moved.csv")
 })
+
+test_that("data_add() names files in any configured inputs directory", {
+  test_dir <- create_test_project()
+  withr::defer(cleanup_test_dir(test_dir))
+  withr::local_dir(test_dir)
+  settings <- yaml::read_yaml("settings.yml")
+  settings$default$directories$inputs_private_raw <- "inputs/private/raw"
+  settings$default$directories$inputs_public_final <- "inputs/public/final"
+  yaml::write_yaml(settings, "settings.yml")
+  for (d in c("inputs/raw", "inputs/private/raw", "inputs/public/final")) dir.create(d, recursive = TRUE, showWarnings = FALSE)
+  write.csv(data.frame(x = 1), "inputs/private/raw/participants.csv", row.names = FALSE)
+  write.csv(data.frame(x = 1), "inputs/public/final/summary.csv", row.names = FALSE)
+  write.csv(data.frame(x = 1), "inputs/raw/visits.csv", row.names = FALSE)
+
+  suppressMessages(data_add("inputs/private/raw/participants.csv"))
+  suppressMessages(data_add("inputs/public/final/summary.csv"))
+  suppressMessages(data_add("inputs/raw/visits.csv"))
+
+  conn <- DBI::dbConnect(RSQLite::SQLite(), "framework.db")
+  on.exit(DBI::dbDisconnect(conn), add = TRUE)
+  names <- DBI::dbGetQuery(conn, "SELECT name FROM data")$name
+  expect_setequal(names, c("inputs.private.raw.participants", "inputs.public.final.summary", "inputs.raw.visits"))
+})

@@ -17,7 +17,10 @@ data_add(
 \item{file_path}{Path to the existing file (must exist)}
 
 \item{name}{Optional dot notation name for the data catalog (e.g., \code{inputs.raw.survey_data}).
-If NULL, derives name from file path relative to project root.}
+If NULL, a file in a configured inputs directory is named after the
+directory's key and the file name: \code{inputs/private/raw/participants.csv}
+in \code{inputs_private_raw} becomes \code{inputs.private.raw.participants}. Files
+elsewhere use the file name alone.}
 
 \item{type}{Optional type override. Auto-detected from file extension if NULL.}
 

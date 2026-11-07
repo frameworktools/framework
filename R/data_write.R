@@ -189,7 +189,10 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
 #'
 #' @param file_path Path to the existing file (must exist)
 #' @param name Optional dot notation name for the data catalog (e.g., `inputs.raw.survey_data`).
-#'   If NULL, derives name from file path relative to project root.
+#'   If NULL, a file in a configured inputs directory is named after the
+#'   directory's key and the file name: `inputs/private/raw/participants.csv`
+#'   in `inputs_private_raw` becomes `inputs.private.raw.participants`. Files
+#'   elsewhere use the file name alone.
 #' @param type Optional type override. Auto-detected from file extension if NULL.
 #' @param delimiter Delimiter for CSV files ("comma", "tab", "semicolon", "space")
 #' @param locked Whether the file should be locked (hash-verified on read)
@@ -262,19 +265,20 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
     rel_path <- file_path
     prefix <- NULL
 
-    # Try to make path relative to common directories
-    for (dir_key in c("inputs_raw", "inputs_intermediate", "inputs_final", "inputs_reference")) {
-      dir_path <- tryCatch(config(sprintf("directories.%s", dir_key)), error = function(e) NULL)
-      if (is.character(dir_path) && length(dir_path) == 1) {
-        dir_path <- normalizePath(.fw_project_path(dir_path), mustWork = FALSE)
-      } else {
-        dir_path <- NULL
-      }
-      if (!is.null(dir_path) && startsWith(file_path, paste0(dir_path, "/"))) {
+    # Match the deepest configured inputs directory (inputs_raw,
+    # inputs_private_raw, inputs_public_final, ...) and use its key as the
+    # prefix (inputs_private_raw -> inputs.private.raw)
+    directories <- tryCatch(settings_read()$directories, error = function(e) NULL)
+    input_keys <- grep("^inputs(_|$)", names(directories), value = TRUE)
+    best_length <- 0L
+    for (dir_key in input_keys) {
+      dir_path <- directories[[dir_key]]
+      if (!is.character(dir_path) || length(dir_path) != 1 || !nzchar(dir_path)) next
+      dir_path <- normalizePath(.fw_project_path(dir_path), mustWork = FALSE)
+      if (startsWith(file_path, paste0(dir_path, "/")) && nchar(dir_path) > best_length) {
+        best_length <- nchar(dir_path)
         rel_path <- substring(file_path, nchar(dir_path) + 2)
-        # Convert directory key to dot notation (inputs_raw -> inputs.raw)
         prefix <- gsub("_", ".", dir_key)
-        break
       }
     }
 
