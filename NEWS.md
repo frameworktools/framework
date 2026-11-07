@@ -52,6 +52,27 @@ Other changes in this release:
   what it did; `ai_regenerate_context()` keeps blank lines; new `scaffold.R`
   files don't set the theme and seed twice; the login advice is the same
   everywhere; the README matches the real API.
+* Settings writes change only the section they edit. `data_save()` and
+  `data_add()` in a project with the catalog in settings.yml no longer drop
+  comments, collapse `[claude]` to `claude`, or turn `true` into `yes`, and
+  whole-file writes use `true`/`false` and keep one-item lists as lists.
+* `data_save()` records a path relative to the project root, so
+  `"./x/y.csv"` and `"x/y.csv"` are one record and `data_verify()` finds it.
+* `publish_data()` to a folder, GitHub, or Cloud keeps the folder part of
+  `dest` in the slug (`"tables/demo.csv"` publishes as `tables-demo`) and
+  says which slug it used.
+* New notebook titles use sentence case: `"setup-and-settings"` becomes
+  "Setup and settings".
+* The .gitignore templates hold Quarto's own `/.quarto/` and
+  `**/*.quarto_ipynb` lines, so a first render leaves .gitignore unchanged.
+* A project created inside an existing git repository is left to it: no
+  `git init` and no initial commit. In such a project, `status()` reports
+  "Commits touching this project".
+* Windows: git hooks, `bootstrap()`, and GitHub Pages publishing work with an
+  MSYS or Cygwin git; `data_add()`, `publish_dir()`, and S3 folder uploads
+  handle backslash paths; the sensitive-folder hook and the orphan scan
+  read `git check-ignore` correctly; temporary and macOS system folders are
+  recognized on every platform; `config_sync()` no longer recopies files.
 
 # framework 1.9.0.9004
 
