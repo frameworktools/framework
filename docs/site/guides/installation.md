@@ -5,10 +5,6 @@ section: getting_started
 position: 1
 description: 'Requirements, installation, and updates'
 ---
-> [!NOTE]
-> Framework 1.1 is on CRAN. Framework 2.0 is in beta and works with Framework Cloud. These docs cover 2.0. Install it from GitHub:
-> `remotes::install_github("frameworktools/framework")`. 2.0 will be on CRAN soon.
-
 ## Requirements
 
 - **R** version 4.1 or higher.
@@ -16,9 +12,17 @@ description: 'Requirements, installation, and updates'
 
 Framework works with [Positron](https://positron.posit.co/), [VS Code](https://code.visualstudio.com/), and [RStudio](https://posit.co/products/open-source/rstudio/).
 
-## GitHub installation
+## Installation
 
-Install Framework 2.0 from GitHub with the `remotes` package:
+Install Framework from CRAN:
+
+```r
+install.packages("framework")
+```
+
+## Development version
+
+The development version on GitHub has fixes and features not yet on CRAN. Install it with the `remotes` package:
 
 ```r
 install.packages("remotes")
@@ -43,11 +47,17 @@ library(framework)
 packageVersion("framework")
 ```
 
-Development builds of 2.0 report a version such as `1.9.0.9003`.
+Framework 2.0 reports version 2.0.0 or later.
 
 ## Updates
 
-Reinstall from GitHub to update:
+Update from CRAN with your other packages:
+
+```r
+update.packages()
+```
+
+For the development version, install from GitHub again:
 
 ```r
 remotes::install_github("frameworktools/framework")

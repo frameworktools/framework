@@ -6,10 +6,9 @@ title: Framework for R
 tagline: Structured data science projects in R
 repository: https://github.com/frameworktools/framework
 install: |-
-  # Framework 2.0 beta, which works with Framework Cloud
-  remotes::install_github("frameworktools/framework")
+  install.packages("framework")
 
-  # Framework 1.1 is on CRAN: install.packages("framework")
+  # Development version: remotes::install_github("frameworktools/framework")
 sections:
   - id: getting_started
     title: Getting started

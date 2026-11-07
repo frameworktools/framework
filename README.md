@@ -2,7 +2,7 @@
 
 An R package for structured, reproducible data analysis projects.
 
-**Status:** Stable 1.x on CRAN. Version 2.0 (in development) adds Framework Cloud integration.
+**Status:** Version 2.0 is on CRAN and works with Framework Cloud.
 
 ## Quick Start
 

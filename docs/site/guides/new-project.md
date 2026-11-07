@@ -5,10 +5,6 @@ section: getting_started
 position: 5
 description: 'Project creation from the R console and Framework Cloud'
 ---
-> [!NOTE]
-> Framework 1.1 is on CRAN. Framework 2.0 is in beta and works with Framework Cloud. These docs cover 2.0. Install it from GitHub:
-> `remotes::install_github("frameworktools/framework")`. 2.0 will be on CRAN soon.
-
 ## Project creation
 
 ```r
