@@ -216,6 +216,45 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   result
 }
 
+# What installing a package skill would do: "create" (missing), "current"
+# (up to date), "update" (an unedited older version: the lock's hash, or,
+# without a lock entry, a SKILL.md the package has shipped), "edited"
+# (changed locally), or "account" (tracks an account skill)
+.skill_package_status <- function(source, root, relative, name) {
+  target <- .skill_path(root, relative); state <- .skill_load(root)
+  keys <- names(Filter(function(e) relative %in% unlist(e$paths), state$skills))
+  entry <- if (length(keys)) state$skills[[keys[1]]] else list()
+  if (!is.null(entry$skill_id) && !startsWith(entry$skill_id, "framework:")) return("account")
+  fresh <- .skill_hash(.skill_scan(source))
+  if (!dir.exists(target)) return("create")
+  current <- .skill_hash(.skill_scan(target))
+  if (identical(current, fresh)) return("current")
+  if (!is.null(entry$hash)) return(if (identical(current, entry$hash)) "update" else "edited")
+  if (.skill_released_copy(target, name)) "update" else "edited"
+}
+
+# Whether a skill folder holds only a SKILL.md the package has shipped, in
+# any version (inst/templates/skill-history.json). Skills installed before
+# .framework/skills.lock.json have no lock entry to compare with.
+# framework-py: skills.is_released_copy().
+.skill_released_copy <- function(target, name) {
+  files <- list.files(target, all.files = TRUE, recursive = TRUE, no.. = TRUE)
+  files <- files[!.skill_excluded(basename(files))]
+  if (!identical(files, "SKILL.md")) return(FALSE)
+  history <- .skill_history()[[name]]
+  if (length(history) == 0) return(FALSE)
+  raw <- readBin(file.path(target, "SKILL.md"), "raw", n = file.info(file.path(target, "SKILL.md"))$size)
+  # A checkout with CRLF line endings is the same text
+  lf <- raw[!(raw == as.raw(13) & c(utils::tail(raw, -1), as.raw(0)) == as.raw(10))]
+  any(c(.skill_sha(raw), .skill_sha(lf)) %in% unlist(history))
+}
+
+.skill_history <- function() {
+  path <- system.file("templates", "skill-history.json", package = "framework")
+  if (!nzchar(path)) return(list())
+  tryCatch(jsonlite::read_json(path, simplifyVector = FALSE)$skills, error = function(e) list())
+}
+
 .skill_package_install <- function(source, root, relative, name) {
   lock <- .skill_acquire(root); on.exit(unlink(lock, recursive = TRUE))
   target <- .skill_path(root, relative); state <- .skill_load(root)
@@ -224,7 +263,10 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   if (!is.null(entry$skill_id) && !startsWith(entry$skill_id, "framework:")) return(FALSE)
   files <- .skill_scan(source); fresh <- .skill_hash(files)
   current <- if (dir.exists(target)) .skill_hash(.skill_scan(target)) else NULL
-  if (!is.null(current) && !identical(current, entry$hash %||% fresh)) return(FALSE)
+  if (!is.null(current) && !identical(current, entry$hash %||% fresh)) {
+    # No lock entry, but the folder holds a version the package shipped
+    if (!is.null(entry$hash) || !.skill_released_copy(target, name)) return(FALSE)
+  }
   if (!identical(current, fresh)) .skill_install(root, relative, files, current)
   entry$paths <- as.list(unique(c(unlist(entry$paths), relative)))
   entry$hash <- fresh; entry$origin <- list(skill_id = paste0("framework:", name), hash = fresh)

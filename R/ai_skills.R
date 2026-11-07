@@ -132,7 +132,10 @@ NULL
 #' package to pick up improved skill instructions.
 #'
 #' Locally edited skills and account-owned forks are preserved. Unchanged
-#' package skills receive the new package version. Custom skills are left alone.
+#' package skills receive the new package version, including skills installed
+#' before `.framework/skills.lock.json` existed whose `SKILL.md` matches any
+#' version the package has shipped. Replaced skills are backed up to
+#' `.framework/skills-backups/`. Custom skills are left alone.
 #'
 #' @param project_path Path to the project directory (default: current directory)
 #' @return Invisible character vector of the package skills now in the

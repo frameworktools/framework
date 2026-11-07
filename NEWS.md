@@ -178,6 +178,11 @@ Adopting and upgrading projects:
   TRUE)`, or saying yes to its offer, calls it. Before, `adopt()` registered a
   name-only project and dropped its token, leaving a Cloud project the folder
   couldn't link to.
+* `ai_skills_update()` updates a skill installed before
+  `.framework/skills.lock.json` existed when its `SKILL.md` matches any
+  version the package has shipped (recorded in
+  `inst/templates/skill-history.json`), instead of keeping it as "locally
+  edited" forever. A skill with real local edits is still kept.
 
 # framework 2.0.0
 

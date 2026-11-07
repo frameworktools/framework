@@ -22,7 +22,10 @@ package to pick up improved skill instructions.
 }
 \details{
 Locally edited skills and account-owned forks are preserved. Unchanged
-package skills receive the new package version. Custom skills are left alone.
+package skills receive the new package version, including skills installed
+before \code{.framework/skills.lock.json} existed whose \code{SKILL.md} matches any
+version the package has shipped. Replaced skills are backed up to
+\verb{.framework/skills-backups/}. Custom skills are left alone.
 }
 \examples{
 \donttest{

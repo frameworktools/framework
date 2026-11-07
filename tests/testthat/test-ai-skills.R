@@ -115,3 +115,35 @@ test_that("ai_skills_update() reports what it actually did", {
   expect_identical(tail(edited, 1),
                    sprintf("[ok] Framework skills: %d already up to date, 1 locally edited, kept", n - 1L))
 })
+
+test_that("a skill from an older release without a lock entry is updated, not kept", {
+  test_dir <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project"), file.path(test_dir, "settings.yml"))
+  old <- testthat::test_path("skill-fixtures", "framework-data-SKILL-6f2521a.md")
+  for (skill in c("framework-data", "framework-outputs")) {
+    dir.create(file.path(test_dir, ".claude", "skills", skill), recursive = TRUE)
+  }
+  file.copy(old, file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md"))
+  # The same old version with a local edit stays
+  writeLines(c(readLines(old), "", "Our lab's note."),
+             file.path(test_dir, ".claude", "skills", "framework-outputs", "SKILL.md"))
+  expect_false(file.exists(file.path(test_dir, ".framework", "skills.lock.json")))
+
+  status <- framework:::.skill_package_status(
+    system.file("templates", "skills", "framework-data", package = "framework"),
+    test_dir, ".claude/skills/framework-data", "framework-data"
+  )
+  expect_identical(status, "update")
+
+  out <- capture.output(installed <- ai_skills_update(test_dir), type = "message")
+  statuses <- attr(installed, "status")
+  expect_identical(statuses[["framework-data"]], "Updated")
+  expect_identical(statuses[["framework-outputs"]], "Preserved")
+  current <- system.file("templates", "skills", "framework-data", "SKILL.md", package = "framework")
+  expect_identical(readLines(file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md")),
+                   readLines(current))
+  # Now in the lock, and backed up where git doesn't look
+  lock <- jsonlite::read_json(file.path(test_dir, ".framework", "skills.lock.json"))
+  expect_true(any(vapply(lock$skills, function(e) ".claude/skills/framework-data" %in% unlist(e$paths), logical(1))))
+  expect_length(list.files(file.path(test_dir, ".framework", "skills-backups")), 1)
+})
