@@ -195,3 +195,21 @@ test_that("git paths in MSYS and Cygwin form become Windows paths", {
   expect_identical(native(".git/hooks/pre-commit"), ".git/hooks/pre-commit")
   expect_identical(framework:::.fw_git_native_path("/d/temp", windows = FALSE), "/d/temp")
 })
+
+test_that("status() labels a nested project's commit count as its own", {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  outer <- withr::local_tempdir()
+  git <- function(...) system2("git", c("-C", shQuote(outer), ...), stdout = FALSE, stderr = FALSE)
+  git("init", "-q")
+  writeLines("x", file.path(outer, "README"))
+  git("add", "README")
+  git("-c", "user.name=T", "-c", "user.email=t@example.org", "commit", "-q", "-m", "first")
+  project <- file.path(outer, "examples", "study")
+  dir.create(project, recursive = TRUE)
+  writeLines(c("default:", "  project_type: project"), file.path(project, "settings.yml"))
+  withr::local_dir(project)
+
+  msgs <- capture.output(try(status(), silent = TRUE), type = "message")
+  expect_true(any(grepl("Commits touching this project: 0", msgs, fixed = TRUE)))
+  expect_false(any(grepl("^  Commits:", msgs)))
+})

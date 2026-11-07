@@ -100,7 +100,9 @@ status <- function() {
       uncommitted <- length(status_result)
 
       message(sprintf("  Branch: %s", branch))
-      message(sprintf("  Commits: %d", commit_count))
+      # Nested, the count is only the commits that touch this project
+      label <- if (!is.null(outer_top)) "Commits touching this project" else "Commits"
+      message(sprintf("  %s: %d", label, commit_count))
 
       if (uncommitted > 0) {
         message("  ", cli::style_bold(cli::col_red(sprintf("Uncommitted changes: %d", uncommitted))))
