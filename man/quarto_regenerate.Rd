@@ -4,18 +4,46 @@
 \alias{quarto_regenerate}
 \title{Regenerate Quarto Configurations}
 \usage{
-quarto_regenerate(project_path, backup = TRUE)
+quarto_regenerate(
+  project_path,
+  backup = TRUE,
+  overwrite = FALSE,
+  dry_run = FALSE
+)
 }
 \arguments{
 \item{project_path}{Character. Path to project root}
 
-\item{backup}{Logical. If TRUE, backs up existing files before overwriting. Default TRUE.}
+\item{backup}{Logical. If TRUE (default), copies each file before it is
+changed or removed.}
+
+\item{overwrite}{Logical. If TRUE, replace existing Quarto files instead of
+adding missing keys. Default FALSE.}
+
+\item{dry_run}{Logical. If TRUE, report what would change and change
+nothing.}
 }
 \value{
-List with success status, backed up files, and regenerated files
+List with \code{success}, \code{regenerated} (files written), \code{unchanged},
+\code{kept} (per-folder files left in place), \code{removed}, \code{backed_up},
+\code{backup_location}, and \code{count}.
 }
 \description{
-Regenerates all \verb{_quarto.yml} files in a project.
-\strong{WARNING: This will overwrite any manual edits.}
-Should only be called when user explicitly requests regeneration.
+Brings a project's Quarto files in line with its settings: one root
+\verb{_quarto.yml}, plus a \verb{_metadata.yml} or \verb{_quarto.yml} for render folders
+that need their own format or output folder.
+
+By default it never replaces your Quarto configuration. It creates the
+files that are missing and, in a file that exists, at most adds the keys
+Framework needs that it lacks (\verb{project:}, \verb{project: type:} and
+\verb{output-dir:}, and \verb{format:} when there is none), keeping every other key,
+value, and comment. Per-folder \verb{_quarto.yml} files from older projects are
+left in place and listed.
+
+With \code{overwrite = TRUE} it replaces the files with freshly generated ones
+(your theme, \verb{execute:}, and other custom keys are lost) and, with backups
+on, removes the per-folder files that the root configuration replaces.
+With \code{backup = FALSE} it never removes a file.
+
+Backups go to \verb{.framework/backups/<timestamp>/}, which git ignores.
 }

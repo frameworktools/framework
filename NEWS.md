@@ -22,6 +22,17 @@ Behavior changes:
   private folders". A notebook reads private data only when its code quotes
   a path with a private folder or a catalog name whose entry is private, not
   a settings key or a string such as `"private|public"`.
+* `quarto_regenerate()` no longer replaces your Quarto configuration. By
+  default it creates missing files and, in an existing file, adds only the
+  keys Framework needs that it lacks (`project:`, `type:`, `output-dir:`, or a
+  `format:` when there is none), keeping your theme, `execute:`, and comments.
+  Per-folder `_quarto.yml` files from older projects are kept and listed.
+  `overwrite = TRUE` replaces the files and, with backups on, removes the
+  per-folder files; with `backup = FALSE` it never removes a file (it used to
+  delete them even then). Backups go to `.framework/backups/<timestamp>/`,
+  which git ignores, instead of `.quarto_backups/`, and `dry_run = TRUE`
+  reports what would change. The `.gitignore` templates ignore
+  `.quarto_backups/` for backups made by earlier versions.
 
 New functions and arguments:
 
