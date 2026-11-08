@@ -205,6 +205,14 @@ test_that("a project that isn't sensitive and has no skills only gets a note", {
   expect_true(any(grepl("ai_skills_update\\(\\) installs the ones", plan$notes)))
 })
 
+test_that("a dry run's apply hint repeats type and move_settings", {
+  dir <- local_old_project(type = "project")
+  msgs <- testthat::capture_messages(upgrade(dir, type = "project_sensitive", move_settings = TRUE))
+  hint <- grep("Apply with framework::upgrade", msgs, value = TRUE)
+  expect_length(hint, 1)
+  expect_match(hint, 'dry_run = FALSE, type = "project_sensitive", move_settings = TRUE)', fixed = TRUE)
+})
+
 test_that("upgrade(type = 'project_sensitive') makes a project sensitive in one pass", {
   dir <- local_old_project(type = "project")
   lines <- readLines(file.path(dir, "settings.yml"))

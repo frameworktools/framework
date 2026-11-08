@@ -128,7 +128,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   .upgrade_spec(ctx)
 
   actions <- .upgrade_action_table(ctx)
-  .upgrade_print(ctx, actions, dry_run, path)
+  .upgrade_print(ctx, actions, dry_run, path, type = type, move_settings = move_settings)
 
   result <- list(actions = actions, notes = ctx$notes, applied = FALSE, backup_location = NULL)
   if (dry_run || nrow(actions) == 0) return(invisible(result))
@@ -1219,7 +1219,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
 }
 
 #' @keywords internal
-.upgrade_print <- function(ctx, actions, dry_run, path) {
+.upgrade_print <- function(ctx, actions, dry_run, path, type = NULL, move_settings = FALSE) {
   message("Upgrade plan for ", ctx$root)
   if (nrow(actions) == 0) {
     message("  Nothing to change: the project is up to date.")
@@ -1234,7 +1234,12 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
     for (note in ctx$notes) message("  - ", note)
   }
   if (dry_run && nrow(actions) > 0) {
+    extra <- paste0(
+      if (!is.null(type)) paste0(", type = \"", type, "\""),
+      if (isTRUE(move_settings)) ", move_settings = TRUE"
+    )
     message("Dry run: nothing was changed. Apply with framework::upgrade(\"", path,
-            "\", dry_run = FALSE); every file it rewrites is backed up to .framework/backups/ first.")
+            "\", dry_run = FALSE", extra,
+            "); every file it rewrites is backed up to .framework/backups/ first.")
   }
 }
