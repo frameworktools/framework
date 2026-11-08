@@ -51,6 +51,16 @@
 #' @param backup If TRUE (default), copy every file before it is rewritten or
 #'   removed. Skills replaced by an update are always backed up, to
 #'   `.framework/skills-backups/`.
+#' @param type Change the project's type: "project", "project_sensitive",
+#'   "course", "presentation", or "bare". NULL (default) keeps it. Making a
+#'   project `project_sensitive` sets `security: sensitive: true`, adds the
+#'   private and public folders of that layout it lacks (folders it has keep
+#'   their keys and paths), and then gets the sensitive `.gitignore` rules,
+#'   agent guards, and skill like any sensitive project. The plan says where
+#'   `save_table()`, `save_figure()`, `save_model()`, and `save_report()`
+#'   will write from then on (`outputs/private/...`), and lists the data and
+#'   render folders that aren't private. A sensitive project made another
+#'   type stays sensitive.
 #'
 #' @return Invisibly, a list with `actions` (a data frame: `step`, `path`,
 #'   `change`), `notes`, `applied`, and `backup_location`.
@@ -63,14 +73,16 @@
 #' if (FALSE) {
 #' upgrade("~/projects/old-study")                  # print the plan
 #' upgrade("~/projects/old-study", dry_run = FALSE) # apply it
+#' upgrade("~/projects/old-study", type = "project_sensitive") # plan making it sensitive
 #' }
 #' }
 #'
 #' @export
-upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
+upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
   checkmate::assert_directory_exists(path)
   checkmate::assert_flag(dry_run)
   checkmate::assert_flag(backup)
+  checkmate::assert_choice(type, .spec_types(), null.ok = TRUE)
   root <- normalizePath(path, winslash = "/", mustWork = TRUE)
 
   found <- .fw_settings_files(root)
@@ -86,6 +98,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
   ctx$skills <- list()
   ctx$notes <- character()
   ctx$main <- basename(found[1])
+  ctx$type <- type
 
   .upgrade_settings_file(ctx)
   .upgrade_settings(ctx)
@@ -233,9 +246,20 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
   }
   section <- .upgrade_section(raw)
   settings <- .upgrade_settings_raw(ctx)
+  ctx$before <- settings
   keys <- function(key) if (scoped) c("default", key) else key
   text <- paste(.upgrade_read(ctx, ctx$main), collapse = "\n")
   changes <- character()
+  to_sensitive <- identical(ctx$type, "project_sensitive")
+
+  if (!is.null(ctx$type) && !identical(settings$project_type %||% "project", ctx$type)) {
+    text <- .fw_yaml_set_text(text, keys("project_type"), ctx$type)
+    changes <- c(changes, sprintf("set project_type: %s (was %s)", ctx$type, settings$project_type %||% "project"))
+    if (.fw_settings_sensitive(settings) && !to_sensitive) {
+      .upgrade_note(ctx, "The project stays sensitive (security: sensitive: true): a type is only a label. ",
+                    "Set sensitive: false by hand once it holds no sensitive data.")
+    }
+  }
 
   if (is.null(section$tools)) {
     tools <- list(
@@ -247,13 +271,18 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
                                   tolower(tools$quarto), tolower(tools$renv)))
   }
 
-  sensitive <- .fw_settings_sensitive(settings)
+  sensitive <- .fw_settings_sensitive(settings) || to_sensitive
   flag <- if (is.list(section$security)) section$security$sensitive else NULL
-  if (is.null(section$security) || (is.list(section$security) && is.null(flag))) {
+  if (to_sensitive && isFALSE(flag)) {
+    security <- section$security
+    security$sensitive <- TRUE
+    text <- .fw_yaml_set_text(text, keys("security"), security)
+    changes <- c(changes, "set security.sensitive: true")
+  } else if (is.null(section$security) || (is.list(section$security) && is.null(flag))) {
     security <- if (is.list(section$security)) section$security else list()
     security$sensitive <- sensitive
     text <- .fw_yaml_set_text(text, keys("security"), security)
-    why <- if (identical(settings$project_type, "project_sensitive")) {
+    why <- if (identical(settings$project_type, "project_sensitive") || to_sensitive) {
       "; project_type is project_sensitive"
     } else if (sensitive) {
       "; the folders use the private layout"
@@ -270,7 +299,107 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
     lines <- strsplit(sub("\n$", "", text), "\n", fixed = TRUE)[[1]]
     .upgrade_write(ctx, "settings", ctx$main, lines, paste(changes, collapse = "; "))
   }
+  if (to_sensitive) .upgrade_private_directories(ctx)
+  .upgrade_sensitive_notes(ctx)
   invisible()
+}
+
+# A project becoming sensitive gets the private and public folders of the
+# project_sensitive layout it lacks. Folders it has keep their keys and
+# paths, so code that names them keeps working.
+#' @keywords internal
+.upgrade_private_directories <- function(ctx) {
+  settings <- .upgrade_settings_raw(ctx)
+  current <- .configured_directories(settings)
+  template <- spec_resolve(list(list(type = "project_sensitive")), name = "template", check = FALSE)$directories
+  wanted <- template[grepl("_(private|public)_", names(template)) & !names(template) %in% names(current) &
+                       !unlist(template) %in% unlist(current)]
+  if (length(wanted) == 0) return(invisible())
+  file <- .upgrade_split_file(ctx, "directories")
+  if (!is.null(file)) {
+    raw <- .upgrade_yaml(ctx, file)
+    keys <- if (is.list(raw) && "directories" %in% names(raw)) "directories" else NULL
+    existing <- if (is.null(keys)) raw else raw$directories
+  } else {
+    file <- ctx$main
+    raw <- .upgrade_yaml(ctx, file)
+    keys <- if (.has_environment_sections(raw)) c("default", "directories") else "directories"
+    existing <- .upgrade_section(raw)$directories
+  }
+  if (!is.list(existing)) existing <- list()
+  value <- c(existing, wanted)
+  text <- paste(.upgrade_read(ctx, file), collapse = "\n")
+  new <- if (is.null(keys)) .fw_as_yaml(value) else .fw_yaml_set_text(text, keys, value)
+  lines <- strsplit(sub("\n$", "", new), "\n", fixed = TRUE)[[1]]
+  .upgrade_write(ctx, "settings", file, lines,
+                 sprintf("add the private and public folders of the sensitive layout: %s",
+                         .fw_rules_summary(names(wanted), n = 4)))
+}
+
+# What changes for a project that becomes sensitive: where save_table()
+# and friends write, and the folders that hold data but aren't private
+#' @keywords internal
+.upgrade_sensitive_notes <- function(ctx) {
+  after <- .upgrade_settings_raw(ctx)
+  if (!.fw_settings_sensitive(after)) return(invisible())
+  before <- ctx$before
+  old <- .upgrade_old_spec(ctx)
+  if (is.null(ctx$type) && is.list(old) && is.list(old$security)) {
+    # Made sensitive by hand since the last upgrade(): compare with the spec
+    # that upgrade() recorded then
+    if (isTRUE(old$security$sensitive)) return(invisible())
+    before <- list(project_type = old$type, security = list(sensitive = FALSE),
+                   directories = old$directories)
+  } else if (.fw_settings_sensitive(before)) {
+    return(invisible())
+  }
+  before$security <- list(sensitive = FALSE)
+  if (identical(before$project_type, "project_sensitive")) before$project_type <- "project"
+
+  kinds <- c(tables = "save_table()", figures = "save_figure()", models = "save_model()",
+             reports = "save_report()")
+  moved <- character()
+  for (kind in names(kinds)) {
+    from <- .fw_output_dir_for(before, kind)
+    to <- .fw_output_dir_for(after, kind)
+    if (!identical(from, to)) moved <- c(moved, sprintf("%s to %s (was %s)", kinds[[kind]], to, from))
+  }
+  if (length(moved) > 0) {
+    .upgrade_note(ctx, "Sensitive projects keep outputs private by default, so these now write to private ",
+                  "folders: ", paste(moved, collapse = "; "), ". Code that reads the old folders reads stale ",
+                  "copies; point it at the new ones, or pass public = TRUE for output that may be shared.")
+  }
+
+  dirs <- .configured_directories(after)
+  keys <- names(dirs)
+  open <- dirs[(grepl("^(inputs|outputs)_", keys) | keys %in% c("cache", "scratch")) &
+                 !grepl("private|public", keys) &
+                 !vapply(dirs, function(p) any(.fw_is_private_folder_name(strsplit(p, "/", fixed = TRUE)[[1]])),
+                         logical(1))]
+  if (length(open) > 0) {
+    .upgrade_note(ctx, "These folders may hold restricted data but aren't private, so Framework's private-data ",
+                  "checks and agent guards don't cover them: ",
+                  paste(sprintf("%s (%s)", names(open), unlist(open)), collapse = ", "),
+                  ". Move their data under a private folder (inputs/private/..., outputs/private/...) and update ",
+                  "the code that reads it, or rename each key to its private form (inputs_raw to ",
+                  "inputs_private_raw) and keep the path.")
+  }
+  render <- Filter(function(p) is.character(p) && !any(.fw_is_private_folder_name(strsplit(p, "/", fixed = TRUE)[[1]])),
+                   after$render_dirs %||% list())
+  if (length(render) > 0) {
+    .upgrade_note(ctx, "Rendered notebooks can show restricted data, but these render folders aren't private: ",
+                  paste(sprintf("render_dirs.%s (%s)", names(render), unlist(render)), collapse = ", "),
+                  ". Point them under outputs/private/ (and the output-dir in each _quarto.yml).")
+  }
+  invisible()
+}
+
+# The spec recorded in .framework/spec.json (as on disk or planned), or NULL
+#' @keywords internal
+.upgrade_old_spec <- function(ctx) {
+  lines <- .upgrade_read(ctx, ".framework/spec.json")
+  if (is.null(lines)) return(NULL)
+  tryCatch(jsonlite::fromJSON(paste(lines, collapse = "\n"), simplifyVector = FALSE), error = function(e) NULL)
 }
 
 # Old connection layouts become connections: {default_database, databases,
@@ -451,7 +580,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
 
   if (!is.null(target)) {
     config <- tryCatch(suppressWarnings(suppressMessages(
-      .upgrade_in_dir(ctx$root, settings_read(file.path(ctx$root, .upgrade_on_disk_settings(ctx))))
+      .upgrade_in_dir(ctx$root, .upgrade_planned_settings(ctx))
     )), error = function(e) NULL)
     if (!is.null(config)) {
       lines <- .upgrade_read(ctx, target)
@@ -474,11 +603,25 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
   invisible()
 }
 
-# The settings file on disk to read for regenerating (the renamed config.yml
-# isn't on disk yet in a dry run)
+# The settings as they will be after the plan (settings_read() on a copy
+# of the settings files with the planned changes), so regenerated sections
+# describe the upgraded project in one pass
 #' @keywords internal
-.upgrade_on_disk_settings <- function(ctx) {
-  if (file.exists(file.path(ctx$root, ctx$main))) ctx$main else basename(.fw_settings_files(ctx$root)[1])
+.upgrade_planned_settings <- function(ctx) {
+  tmp <- tempfile("fw-upgrade-settings-")
+  dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  split <- list.files(file.path(ctx$root, "settings"), pattern = "\\.ya?ml$", recursive = TRUE,
+                      ignore.case = TRUE)
+  files <- unique(c(ctx$main, if (length(split) > 0) file.path("settings", split),
+                    grep("^settings/", names(ctx$pending), value = TRUE)))
+  for (file in files) {
+    lines <- .upgrade_read(ctx, file)
+    if (is.null(lines)) next
+    dir.create(dirname(file.path(tmp, file)), recursive = TRUE, showWarnings = FALSE)
+    writeLines(lines, file.path(tmp, file), useBytes = TRUE)
+  }
+  settings_read(file.path(tmp, ctx$main))
 }
 
 #' @keywords internal

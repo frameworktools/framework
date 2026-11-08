@@ -4,7 +4,7 @@
 \alias{upgrade}
 \title{Bring an Older Framework Project Up to the Current Layout}
 \usage{
-upgrade(path = ".", dry_run = TRUE, backup = TRUE)
+upgrade(path = ".", dry_run = TRUE, backup = TRUE, type = NULL)
 }
 \arguments{
 \item{path}{The project folder (default: the working directory).}
@@ -14,6 +14,17 @@ upgrade(path = ".", dry_run = TRUE, backup = TRUE)
 \item{backup}{If TRUE (default), copy every file before it is rewritten or
 removed. Skills replaced by an update are always backed up, to
 \verb{.framework/skills-backups/}.}
+
+\item{type}{Change the project's type: "project", "project_sensitive",
+"course", "presentation", or "bare". NULL (default) keeps it. Making a
+project \code{project_sensitive} sets \code{security: sensitive: true}, adds the
+private and public folders of that layout it lacks (folders it has keep
+their keys and paths), and then gets the sensitive \code{.gitignore} rules,
+agent guards, and skill like any sensitive project. The plan says where
+\code{save_table()}, \code{save_figure()}, \code{save_model()}, and \code{save_report()}
+will write from then on (\code{outputs/private/...}), and lists the data and
+render folders that aren't private. A sensitive project made another
+type stays sensitive.}
 }
 \value{
 Invisibly, a list with \code{actions} (a data frame: \code{step}, \code{path},
@@ -73,6 +84,7 @@ Custom Quarto configuration is never replaced, and per-folder
 if (FALSE) {
 upgrade("~/projects/old-study")                  # print the plan
 upgrade("~/projects/old-study", dry_run = FALSE) # apply it
+upgrade("~/projects/old-study", type = "project_sensitive") # plan making it sensitive
 }
 }
 

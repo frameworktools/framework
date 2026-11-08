@@ -183,17 +183,33 @@ NULL
 # Table saving
 # -----------------------------------------------------------------------------
 
+# Whether settings split one kind of output into private and public
+# folders: sensitive data on, or an outputs_private_<kind> or
+# outputs_public_<kind> directory
+#' @keywords internal
+.fw_output_split <- function(cfg, kind) {
+  dirs <- if (is.list(cfg)) cfg$directories %||% list() else list()
+  .fw_settings_sensitive(cfg) ||
+    !is.null(dirs[[paste0("outputs_private_", kind)]]) ||
+    !is.null(dirs[[paste0("outputs_public_", kind)]])
+}
+
+# The folder save_table() and friends write one kind of output to, from
+# settings as written (no config() lookup), for upgrade()'s plan
+#' @keywords internal
+.fw_output_dir_for <- function(cfg, kind) {
+  dirs <- if (is.list(cfg)) cfg$directories %||% list() else list()
+  if (!.fw_output_split(cfg, kind)) return(dirs[[paste0("outputs_", kind)]] %||% file.path("outputs", kind))
+  dirs[[paste0("outputs_private_", kind)]] %||% file.path("outputs", "private", kind)
+}
+
 # The folder for one kind of output. A project with private and public
 # output folders (sensitive data on, or outputs_private_* directories) splits
 # by `public`; any other project has one folder per kind.
 #' @keywords internal
 .output_dir <- function(kind, public = FALSE) {
   cfg <- tryCatch(settings_read(), error = function(e) NULL)
-  dirs <- cfg$directories %||% list()
-  split <- .fw_settings_sensitive(cfg) ||
-    !is.null(dirs[[paste0("outputs_private_", kind)]]) ||
-    !is.null(dirs[[paste0("outputs_public_", kind)]])
-  if (!split) {
+  if (!.fw_output_split(cfg, kind)) {
     return(config(paste0("outputs_", kind)) %||% file.path("outputs", kind))
   }
   side <- if (public) "public" else "private"

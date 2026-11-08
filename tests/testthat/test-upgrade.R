@@ -204,3 +204,53 @@ test_that("a project that isn't sensitive and has no skills only gets a note", {
   expect_false(any(plan$actions$step == "skills"))
   expect_true(any(grepl("ai_skills_update\\(\\) installs the ones", plan$notes)))
 })
+
+test_that("upgrade(type = 'project_sensitive') makes a project sensitive in one pass", {
+  dir <- local_old_project(type = "project")
+  lines <- readLines(file.path(dir, "settings.yml"))
+  lines <- sub("notebooks: outputs/private/notebooks", "notebooks: outputs/notebooks", lines, fixed = TRUE)
+  lines <- lines[!grepl("private|public", lines)]
+  lines <- append(lines, c("    inputs_raw: inputs/raw", "    outputs_tables: outputs/tables"),
+                  after = grep("    notebooks: notebooks", lines, fixed = TRUE))
+  writeLines(lines, file.path(dir, "settings.yml"))
+
+  plan <- suppressMessages(upgrade(dir, type = "project_sensitive"))
+  settings_change <- plan$actions$change[plan$actions$path == "settings.yml"]
+  expect_true(any(grepl("set project_type: project_sensitive (was project)", settings_change, fixed = TRUE)))
+  expect_true(any(grepl("add the private and public folders", settings_change, fixed = TRUE)))
+  expect_true(any(grepl("save_table() to outputs/private/tables (was outputs/tables)", plan$notes, fixed = TRUE)))
+  expect_true(any(grepl("inputs_raw (inputs/raw)", plan$notes, fixed = TRUE)))
+  expect_true(any(grepl("render_dirs.notebooks (outputs/notebooks)", plan$notes, fixed = TRUE)))
+
+  suppressMessages(upgrade(dir, type = "project_sensitive", dry_run = FALSE))
+  settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
+  expect_identical(settings$project_type, "project_sensitive")
+  expect_true(settings$security$sensitive)
+  expect_identical(settings$directories$inputs_raw, "inputs/raw")
+  expect_identical(settings$directories$outputs_private_tables, "outputs/private/tables")
+  expect_identical(settings$directories$inputs_private_raw, "inputs/private/raw")
+  expect_true("/inputs/private/" %in% readLines(file.path(dir, ".gitignore")))
+  guards <- jsonlite::read_json(file.path(dir, ".claude", "settings.json"))
+  expect_true("Read(/inputs/private/**)" %in% unlist(guards$permissions$deny))
+  expect_true(file.exists(file.path(dir, ".claude", "skills", "framework-sensitive-data", "SKILL.md")))
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$type, "project_sensitive")
+  expect_true(spec$security$sensitive)
+  withr::with_dir(dir, expect_identical(suppressWarnings(framework:::.output_dir("tables")), "outputs/private/tables"))
+  expect_identical(nrow(suppressMessages(upgrade(dir))$actions), 0L)
+  expect_identical(nrow(suppressMessages(upgrade(dir, type = "project_sensitive"))$actions), 0L)
+})
+
+test_that("a project made sensitive by hand since the last upgrade() hears where outputs go", {
+  dir <- local_old_project(type = "project")
+  lines <- readLines(file.path(dir, "settings.yml"))
+  writeLines(lines[!grepl("private|public", lines)], file.path(dir, "settings.yml"))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  expect_false(jsonlite::read_json(file.path(dir, ".framework", "spec.json"))$security$sensitive)
+  lines <- readLines(file.path(dir, "settings.yml"))
+  writeLines(sub("sensitive: no", "sensitive: yes", sub("sensitive: false", "sensitive: true", lines)),
+             file.path(dir, "settings.yml"))
+  plan <- suppressMessages(upgrade(dir))
+  expect_true(any(grepl("save_figure() to outputs/private/figures (was outputs/figures)", plan$notes, fixed = TRUE)))
+  expect_error(upgrade(dir, type = "lab"), "type")
+})

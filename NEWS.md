@@ -228,6 +228,16 @@ Adopting and upgrading projects:
   `env("NAME")` and `env("NAME", "")` (single or double quotes) pass, and
   `env("NAME", "value")` counts as a written-out secret. `upgrade()` writes
   such a value into the spec as `env("NAME")`, keeping its variable.
+* `upgrade()` takes `type`, so `upgrade(type = "project_sensitive")` makes a
+  project sensitive in one pass: it sets the type and `security: sensitive:
+  true`, adds the private and public folders of that layout the project lacks
+  (folders it has keep their keys and paths), and adds the sensitive
+  `.gitignore` rules, agent guards, and skill. When a project becomes
+  sensitive, by `type` or by hand since the last `upgrade()`, the plan says
+  that `save_table()`, `save_figure()`, `save_model()`, and `save_report()`
+  now write to `outputs/private/...`, and lists data and render folders that
+  aren't private. AGENTS.md's regenerated sections describe the upgraded
+  settings in the same pass, so a second `upgrade()` changes nothing.
 
 # framework 2.0.0
 
