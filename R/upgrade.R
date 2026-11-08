@@ -17,7 +17,10 @@
 #'   connections listed flat, or the empty hybrid of both) are rewritten as
 #'   `connections:` with `default_database`, `databases`, and
 #'   `storage_buckets`. A password written into the settings is reported (by
-#'   key, never by value) and left where it is.
+#'   key, never by value) and left where it is. The spec refers to it as
+#'   `env("NAME")`, NAME being the variable the project already uses for it
+#'   (in `.env`, an example `.env`, or the code), else one made from the
+#'   connection's name; the plan names it and says to set it.
 #' - **Spec**: `.framework/spec.json` is written from the settings when it is
 #'   missing, and refreshed when its folders, type, author, security, tools,
 #'   connections, or copy of `.gitignore` no longer match, so `fw project push-spec` and
@@ -489,10 +492,111 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
 .upgrade_secret_note <- function(ctx, raw, file) {
   plain <- .upgrade_untag(raw)
   keys <- .fw_secret_keys(plain)
-  if (length(keys) > 0) {
-    .upgrade_note(ctx, file, " has a password or token written in (", paste(keys, collapse = ", "),
-                  "). Move the value to .env and write env(\"NAME\") instead; upgrade() leaves it as it is.")
+  if (length(keys) == 0) return(invisible())
+  for (path in keys) {
+    parts <- strsplit(path, ".", fixed = TRUE)[[1]]
+    value <- tryCatch(plain[[parts]], error = function(e) NULL)
+    in_section <- length(parts) >= 4 && parts[2] %in% c("databases", "storage_buckets")
+    conn <- if (in_section) parts[3] else parts[max(1, length(parts) - 1)]
+    driver <- tryCatch(plain[[parts[-length(parts)]]]$driver, error = function(e) NULL)
+    found <- .upgrade_secret_env_name(ctx, conn, parts[length(parts)], value, driver)
+    where <- switch(found$source,
+                    derived = "no .env, .env example, or code names one, so it is made from the connection's name",
+                    paste0("the name ", found$source, " uses"))
+    what <- if (!is.null(.fw_env_call(value))) {
+      "gives env() a default that looks like a credential"
+    } else {
+      "has a password or token written in"
+    }
+    set <- if (identical(found$source, ".env")) {
+      paste0(found$name, " is set in .env, so write ")
+    } else {
+      paste0("Set ", found$name, " in .env, then write ")
+    }
+    .upgrade_note(ctx, file, ": ", path, " ", what, ". .framework/spec.json refers to it as env(\"",
+                  found$name, "\") (", where, "). ", set, parts[length(parts)], ": env(\"", found$name,
+                  "\") in ", file, " so the settings match; upgrade() leaves the settings as they are.")
   }
+  invisible()
+}
+
+# The environment variable a written-out credential belongs in: the name the
+# project already uses for it, else one made from the connection. Looks at
+# the names in .env, then in .env.example (.env.template, .env.sample), then
+# in the code (R, Quarto, R Markdown, Python, shell, and YAML files). A name
+# counts when it fits the key (PASSWORD or PWD for a password, TOKEN for a
+# token, ...). The best is the one whose value in .env (or an example file)
+# is the written-out value, compared without printing it, then the one that
+# names the connection and its driver (OMOP_POSTGRES_PASSWORD for the omop
+# postgres connection). Returns list(name, source), source being the file
+# that names it or "derived". Cached per connection and key, so the plan and
+# the spec agree. framework-py: _upgrade.secret_env_name().
+#' @keywords internal
+.upgrade_secret_env_name <- function(ctx, conn, key, value = NULL, driver = NULL) {
+  memo <- paste(conn, key, sep = "\r")
+  if (!is.null(ctx$secret_names[[memo]])) return(ctx$secret_names[[memo]])
+  call <- .fw_env_call(value)
+  derived <- toupper(gsub("[^A-Za-z0-9]+", "_", paste(conn, key, sep = "_")))
+  found <- if (!is.null(call) && nzchar(call$name)) {
+    list(name = call$name, source = "the setting")
+  } else {
+    .upgrade_find_env_name(ctx$root, conn, key, value, driver) %||% list(name = derived, source = "derived")
+  }
+  if (is.null(ctx$secret_names)) ctx$secret_names <- list()
+  ctx$secret_names[[memo]] <- found
+  found
+}
+
+#' @keywords internal
+.upgrade_find_env_name <- function(root, conn, key, value = NULL, driver = NULL) {
+  kind <- tolower(key)
+  fits <- if (grepl("pass|pwd", kind)) "PASS|PWD" else if (grepl("token", kind)) "TOKEN"
+          else if (grepl("secret", kind)) "SECRET" else if (grepl("private", kind)) "PRIVATE|KEY"
+          else if (grepl("access", kind)) "ACCESS|KEY" else if (grepl("api", kind)) "API|KEY"
+          else if (grepl("cred", kind)) "CRED" else toupper(gsub("[^A-Za-z0-9]", "", key))
+  literal <- if (is.character(value) && length(value) == 1 && is.null(.fw_env_call(value))) value else NULL
+
+  read_env <- function(file) {
+    path <- file.path(root, file)
+    if (!file.exists(path)) return(NULL)
+    lines <- readLines(path, warn = FALSE)
+    m <- regmatches(lines, regexec("^\\s*(?:export\\s+)?([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*)$", lines, perl = TRUE))
+    m <- Filter(length, m)
+    if (length(m) == 0) return(NULL)
+    values <- vapply(m, function(x) sub("^(['\"])(.*)\\1$", "\\2", trimws(x[3])), "")
+    stats::setNames(values, vapply(m, `[[`, "", 2))
+  }
+  candidates <- list()
+  add <- function(name, source, points) {
+    if (!grepl(fits, name)) return()
+    old <- candidates[[name]]
+    candidates[[name]] <<- list(name = name, source = old$source %||% source,
+                                points = (old$points %||% 0) + points)
+  }
+  env <- read_env(".env")
+  for (n in names(env)) add(n, ".env", 2 + if (!is.null(literal) && identical(env[[n]], literal)) 4 else 0)
+  for (example in c(".env.example", ".env.template", ".env.sample")) {
+    vals <- read_env(example)
+    for (n in names(vals)) add(n, example, 1 + if (!is.null(literal) && identical(vals[[n]], literal)) 2 else 0)
+  }
+  code <- list.files(root, pattern = "\\.(R|r|qmd|Rmd|py|sh|ya?ml)$", recursive = TRUE, full.names = FALSE)
+  code <- code[!grepl("(^|/)(\\.[^/]*|renv|node_modules|packrat|_site|_freeze|[^/]*_files|settings)/", code)]
+  code <- utils::head(code[file.size(file.path(root, code)) < 512 * 1024], 2000)
+  for (file in code) {
+    text <- tryCatch(readLines(file.path(root, file), warn = FALSE), error = function(e) character())
+    names <- unique(unlist(regmatches(text, gregexpr("[A-Z][A-Z0-9_]{2,}", text, perl = TRUE))))
+    for (n in names) add(n, file, 1)
+  }
+  if (length(candidates) == 0) return(NULL)
+  conn_tokens <- toupper(strsplit(conn, "[^A-Za-z0-9]+")[[1]])
+  driver_tokens <- toupper(driver %||% character())
+  if (identical(tolower(driver %||% ""), "postgres")) driver_tokens <- c(driver_tokens, "PG", "PGPASSWORD")
+  score <- vapply(candidates, function(c) {
+    parts <- strsplit(c$name, "_", fixed = TRUE)[[1]]
+    c$points + 2 * any(parts %in% conn_tokens) + any(parts %in% driver_tokens)
+  }, numeric(1))
+  best <- candidates[[which.max(score)]]
+  list(name = best$name, source = best$source)
 }
 
 # Values with !expr tags as "!expr ..." strings, as settings_read() sees them
@@ -884,7 +988,9 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
     packages[[pkg$name]] <- list(source = pkg$source %||% "cran", auto_attach = isTRUE(pkg$auto_attach))
   }
   spec$packages <- list(use_renv = isTRUE(settings$packages$use_renv), default_packages = .adopt_named(packages))
-  spec$connections <- .upgrade_spec_connections(settings$connections)
+  spec$connections <- .upgrade_spec_connections(settings$connections, namer = function(conn, key, value, driver) {
+    .upgrade_secret_env_name(ctx, conn, key, value, driver)$name
+  })
   if (is.list(settings$scaffold)) {
     spec$scaffold <- utils::modifyList(spec$scaffold %||% list(), .upgrade_spec_scaffold(settings$scaffold))
     if (!is.null(spec$scaffold$notebook_format)) spec$scaffold$workflow <- NULL
@@ -930,9 +1036,11 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
 }
 
 # Connections for the spec: env() and !expr stay as written; a password or
-# token written in becomes env("<NAME>_<KEY>"), since specs travel to Cloud
+# token written in becomes env("NAME"), since specs travel to Cloud. NAME
+# comes from `namer(connection, key, value, driver)` when given (upgrade()
+# finds the name the project uses), else <CONNECTION>_<KEY>.
 #' @keywords internal
-.upgrade_spec_connections <- function(connections) {
+.upgrade_spec_connections <- function(connections, namer = NULL) {
   connections <- .upgrade_untag(connections %||% list())
   if (.upgrade_legacy_connections(list(connections = connections))) {
     connections <- .upgrade_migrate_connections(list(connections = connections))
@@ -947,7 +1055,8 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
           # env("NAME", "default") keeps its variable and loses the default,
           # which Framework Cloud refuses on a credential
           call <- .fw_env_call(conn[[key]])
-          var <- call$name %||% toupper(gsub("[^A-Za-z0-9]+", "_", paste(name, key, sep = "_")))
+          var <- call$name %||% if (!is.null(namer)) namer(name, key, conn[[key]], conn$driver)
+          var <- var %||% toupper(gsub("[^A-Za-z0-9]+", "_", paste(name, key, sep = "_")))
           conn[[key]] <- sprintf('env("%s")', var)
         }
       }

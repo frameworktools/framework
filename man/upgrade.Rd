@@ -49,7 +49,10 @@ which Framework ignores, are reported, not moved.
 connections listed flat, or the empty hybrid of both) are rewritten as
 \verb{connections:} with \code{default_database}, \code{databases}, and
 \code{storage_buckets}. A password written into the settings is reported (by
-key, never by value) and left where it is.
+key, never by value) and left where it is. The spec refers to it as
+\code{env("NAME")}, NAME being the variable the project already uses for it
+(in \code{.env}, an example \code{.env}, or the code), else one made from the
+connection's name; the plan names it and says to set it.
 \item \strong{Spec}: \code{.framework/spec.json} is written from the settings when it is
 missing, and refreshed when its folders, type, author, security, tools,
 connections, or copy of \code{.gitignore} no longer match, so \verb{fw project push-spec} and

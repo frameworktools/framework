@@ -262,6 +262,13 @@ Adopting and upgrading projects:
   file, and updates Framework skills in `.agents/skills` as well as the
   assistants' folders. A second copy of a skill (`.agents/skills` beside
   `.claude/skills`) is no longer kept as "edited" once the first is updated.
+* When `upgrade()` keeps a written-out connection password out of the spec,
+  it refers to it by the variable the project already uses: a name in `.env`
+  (preferring the one that holds the value, compared without printing it),
+  `.env.example`, or the code, that fits the key and names the connection.
+  Only when none does it makes one from the connection's name. The plan names
+  the variable, says where it came from, and tells you to set it in `.env`
+  and refer to it in the settings.
 
 # framework 2.0.0
 

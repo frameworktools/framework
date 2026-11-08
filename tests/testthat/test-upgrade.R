@@ -284,3 +284,29 @@ test_that("upgrade() refreshes the spec's author and .gitignore copy, and skills
   expect_identical(framework:::.spec_schema_problems(spec), character())
   expect_identical(nrow(suppressMessages(upgrade(dir))$actions), 0L)
 })
+
+test_that("a written-out password goes into the spec under the name the project uses", {
+  dir <- local_old_project()
+  writeLines(c("# Local database", "WAREHOUSE_DB_PASSWORD=", "PGPASSWORD=changeme"), file.path(dir, ".env.example"))
+  dir.create(file.path(dir, "scripts"))
+  writeLines('pw <- Sys.getenv("WAREHOUSE_PG_PASSWORD")', file.path(dir, "scripts", "load.R"))
+  writeLines(c("WAREHOUSE_PG_PASSWORD=hunter2", "OTHER_TOKEN=x"), file.path(dir, ".env"))
+  plan <- suppressMessages(upgrade(dir))
+  note <- grep("warehouse.password", plan$notes, value = TRUE)
+  expect_match(note, 'refers to it as env("WAREHOUSE_PG_PASSWORD") (the name .env uses)', fixed = TRUE)
+  expect_match(note, "WAREHOUSE_PG_PASSWORD is set in .env", fixed = TRUE)
+  expect_false(any(grepl("hunter2|changeme", plan$notes)))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$connections$databases$warehouse$password, 'env("WAREHOUSE_PG_PASSWORD")')
+
+  # Without .env: the example file's name for the connection, then a made-up name
+  dir <- local_old_project()
+  writeLines(c("WAREHOUSE_DB_PASSWORD=", "PGPASSWORD="), file.path(dir, ".env.example"))
+  note <- grep("warehouse.password", suppressMessages(upgrade(dir))$notes, value = TRUE)
+  expect_match(note, 'env("WAREHOUSE_DB_PASSWORD") (the name .env.example uses). Set WAREHOUSE_DB_PASSWORD in .env',
+               fixed = TRUE)
+  dir <- local_old_project()
+  note <- grep("warehouse.password", suppressMessages(upgrade(dir))$notes, value = TRUE)
+  expect_match(note, 'env("WAREHOUSE_PASSWORD") (no .env, .env example, or code names one', fixed = TRUE)
+})
