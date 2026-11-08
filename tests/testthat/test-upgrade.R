@@ -351,3 +351,18 @@ test_that("the Claude Code guard covers private keys and render folders, whateve
   deny <- unlist(jsonlite::read_json(file.path(dir, ".claude", "settings.json"))$permissions$deny)
   expect_true(all(c("Read(/inputs/raw/**)", "Read(/outputs/private/**)", "Read(/.env)") %in% deny))
 })
+
+test_that("upgrade() appends no negations, so data folders stay fully ignored (fore)", {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  dir <- local_old_project()
+  writeLines(c(".env", "inputs/**", "!inputs/*/", "!inputs/*/.gitkeep"), file.path(dir, ".gitignore"))
+  dir.create(file.path(dir, "inputs", "raw"), recursive = TRUE)
+  writeLines("# Vizient extract", file.path(dir, "inputs", "raw", "README.md"))
+  system2("git", c("-C", shQuote(dir), "init", "-q"), stdout = FALSE, stderr = FALSE)
+  plan <- suppressMessages(upgrade(dir, dry_run = FALSE))
+  rules <- readLines(file.path(dir, ".gitignore"))
+  expect_false(any(startsWith(rules[-(1:4)], "!")))
+  expect_true("/inputs/private/" %in% rules)
+  expect_true(any(grepl(".gitignore: left out !/inputs/**/README.md", plan$notes, fixed = TRUE)))
+  expect_true(framework:::.fw_gitignored("inputs/raw/README.md", dir))
+})

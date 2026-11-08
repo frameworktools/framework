@@ -707,6 +707,11 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
                                                              plan$skipped), collapse = ", "),
                   " so no tracked file is hidden.")
   }
+  if (length(plan$negations) > 0) {
+    .upgrade_note(ctx, ".gitignore: left out ", .fw_rules_summary(plan$negations), ". Added after your own ",
+                  "rules, they would win over them and could make files in folders you ignore (README files ",
+                  "in data folders) committable.")
+  }
   if (length(plan$add) == 0) return(invisible())
   lines <- .upgrade_read(ctx, ".gitignore") %||% character()
   if (length(lines) > 0 && nzchar(trimws(lines[length(lines)]))) lines <- c(lines, "")

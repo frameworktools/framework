@@ -284,6 +284,11 @@ Adopting and upgrading projects:
   name no private folder to guard. The plan warns when git ignores
   `.claude/`, since the guard and skills then stay on one computer.
   `project_create()` uses the same rule for its guards and AGENTS.md notice.
+* `upgrade()` and `adopt()` no longer append negations (`!/inputs/**/README.md`)
+  to a `.gitignore` that already has rules: after the project's own rules
+  they won, and could make README files in ignored data folders committable.
+  They are reported instead. A new or empty `.gitignore` still gets the whole
+  template.
 
 # framework 2.0.0
 

@@ -466,6 +466,10 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   if (length(plan$add) > 0) {
     message("  Added to .gitignore (", length(plan$add), " rules): ", .fw_rules_summary(plan$add))
   }
+  if (length(plan$negations) > 0) {
+    message("  Left out of .gitignore: ", .fw_rules_summary(plan$negations), ". Added after the folder's ",
+            "own rules, they could make files in ignored folders committable.")
+  }
   if (length(plan$skipped) > 0) {
     message("  Left out of .gitignore because git tracks files they match: ",
             paste(sprintf("%s (%s)", names(plan$skipped), plan$skipped), collapse = ", "))

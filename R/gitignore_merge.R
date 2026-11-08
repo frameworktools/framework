@@ -9,8 +9,13 @@
 #   the tool, never removed, reordered, or rewritten.
 # - A rule that would ignore a file git already tracks is left out and
 #   reported, so the merge never hides files the project keeps in git (a
-#   tracked .Rprofile, rendered *_files/ on GitHub Pages). Negations (!...)
-#   are never left out.
+#   tracked .Rprofile, rendered *_files/ on GitHub Pages).
+# - Negations (!...) are left out and reported when the .gitignore already
+#   has rules: appended after the project's own rules they would win over
+#   them, and could make files in folders the project ignores committable
+#   (fore's `inputs/**` with `!inputs/*/`, where the template's
+#   `!/inputs/**/README.md` re-included inputs/raw/README.md). Into a new or
+#   empty .gitignore the template goes whole, negations included.
 
 # The rules in .gitignore text: lines that are neither blank nor comments,
 # trimmed, in order, once each
@@ -21,14 +26,17 @@
 }
 
 # The rules in `wanted` that the project's .gitignore lacks. Returns a list:
-# `add`, the rules to append in order, and `skipped`, a named character
-# vector of rules left out because they match tracked files (rule -> one
-# such file).
+# `add`, the rules to append in order, `skipped`, a named character vector
+# of rules left out because they match tracked files (rule -> one such
+# file), and `negations`, the negations left out because the .gitignore
+# already has rules.
 #' @keywords internal
 .fw_gitignore_missing <- function(root, wanted) {
   path <- file.path(root, ".gitignore")
   have <- if (file.exists(path)) .fw_gitignore_rules(readLines(path, warn = FALSE)) else character()
   add <- setdiff(.fw_gitignore_rules(wanted), have)
+  negations <- if (length(have) > 0) add[startsWith(add, "!")] else character()
+  add <- setdiff(add, negations)
   skipped <- character()
   if (length(add) > 0 && .fw_git_work_tree(root)) {
     for (rule in add[!startsWith(add, "!")]) {
@@ -37,7 +45,7 @@
     }
     add <- setdiff(add, names(skipped))
   }
-  list(add = add, skipped = skipped)
+  list(add = add, skipped = skipped, negations = negations)
 }
 
 # The text of .gitignore after appending `add` in a block under `header`
