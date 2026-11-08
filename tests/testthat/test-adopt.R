@@ -347,3 +347,21 @@ test_that("adopt() leaves out a .gitignore rule that would hide tracked files", 
   expect_true(".env" %in% lines)
   expect_true(any(grepl("Left out of .gitignore.*\\.Rprofile", msgs)))
 })
+
+test_that("adopt() turns Quarto on for a _quarto.yml or .qmd file up to three folders deep", {
+  quarto_of <- function(files) {
+    dir <- withr::local_tempdir()
+    for (f in files) {
+      dir.create(dirname(file.path(dir, f)), recursive = TRUE, showWarnings = FALSE)
+      writeLines("x", file.path(dir, f))
+    }
+    suppressWarnings(suppressMessages(adopt(dir, yes = TRUE)))
+    c(settings = yaml::read_yaml(file.path(dir, "settings.yml"))$default$tools$quarto,
+      spec = jsonlite::read_json(file.path(dir, ".framework", "spec.json"))$tools$quarto)
+  }
+  expect_identical(quarto_of(c("notebooks/_quarto.yml", "notebooks/a.qmd")), c(settings = TRUE, spec = TRUE))
+  expect_identical(quarto_of("report-template.qmd"), c(settings = TRUE, spec = TRUE))
+  expect_identical(quarto_of("a/b/c/deep.qmd"), c(settings = TRUE, spec = TRUE))
+  expect_identical(quarto_of(c("a/b/c/d/too-deep.qmd", "a/run.R")), c(settings = FALSE, spec = FALSE))
+  expect_identical(quarto_of(c("renv/x.qmd", "analysis/run.R")), c(settings = FALSE, spec = FALSE))
+})

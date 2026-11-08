@@ -289,6 +289,9 @@ Adopting and upgrading projects:
   they won, and could make README files in ignored data folders committable.
   They are reported instead. A new or empty `.gitignore` still gets the whole
   template.
+* `adopt()` sets `tools: quarto: true` when the folder has a `_quarto.yml`
+  or a `.qmd` file at most three folders deep, not only a `_quarto.yml` at
+  the root, so a Quarto project in `notebooks/` or loose `.qmd` files count.
 
 # framework 2.0.0
 

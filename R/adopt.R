@@ -5,7 +5,9 @@
 #' contents, and at most three levels deep), proposes which Framework
 #' directory each one is, and lets you accept, change a role, or leave a
 #' folder out. It then writes `settings.yml` (a single file) and
-#' `.framework/spec.json` describing the folders as they are, and adds the
+#' `.framework/spec.json` describing the folders as they are (with
+#' `tools: quarto: true` when a `_quarto.yml` or `.qmd` file is at most three
+#' folders deep), and adds the
 #' rules of the type's `.gitignore` template that the folder's `.gitignore`
 #' lacks (`.env`, `framework.db`, private folders, Quarto's lines), in one
 #' block at the end. It never removes a `.gitignore` line, and leaves out a
@@ -86,7 +88,8 @@ adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud 
   mapping <- .adopt_review(.adopt_map(.adopt_scan(path), type = type), yes = yes,
                            allow_empty = TRUE, sensitive = sensitive)
   name <- basename(normalizePath(path))
-  spec <- .adopt_spec(mapping, name, use_git = file.exists(file.path(path, ".git")))
+  spec <- .adopt_spec(mapping, name, use_git = file.exists(file.path(path, ".git")),
+                      quarto = .adopt_detect_quarto(path))
 
   args <- .spec_to_create_args(spec)
   .create_project_config(
@@ -419,17 +422,18 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 }
 
 # The spec adopt() records: a project of the mapped type with exactly the
-# mapped folders, no tools, no default packages, and no AI files. Git is on
+# mapped folders, Quarto on when the folder uses it, no other tools, no
+# default packages, and no AI files. Git is on
 # when the folder is a git repository (.git is a folder, or a file in a
 # worktree). The type's
 # own folders and render folders are not added: the spec describes the folder
 # as it is.
 #' @keywords internal
-.adopt_spec <- function(mapping, name, use_git = FALSE) {
+.adopt_spec <- function(mapping, name, use_git = FALSE, quarto = FALSE) {
   type <- mapping$type %||% "bare"
   layer <- list(
     type = type, core_files = FALSE, settings_layout = "flat",
-    tools = list(quarto = FALSE, renv = FALSE),
+    tools = list(quarto = isTRUE(quarto), renv = FALSE),
     directories = mapping$directories,
     extra_directories = mapping$extra_directories,
     git = list(use_git = isTRUE(use_git)),
@@ -444,6 +448,23 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   spec$skills <- stats::setNames(list(), character())
   spec$source <- list(origin = "r", adopted = TRUE)
   spec
+}
+
+# Whether the folder uses Quarto: a _quarto.yml (or _quarto.yaml) or a .qmd
+# file in it or in a folder adopt() scans (at most the rules' max_depth
+# deep, skipping the folders it skips), so a Quarto project in notebooks/
+# counts. framework-py and fw: the same rule.
+#' @keywords internal
+.adopt_detect_quarto <- function(path) {
+  folders <- c("", .adopt_scan(path))
+  for (folder in folders) {
+    dir <- if (nzchar(folder)) file.path(path, folder) else path
+    files <- list.files(dir, all.files = FALSE, recursive = FALSE)
+    if (any(tolower(files) %in% c("_quarto.yml", "_quarto.yaml")) || any(grepl("\\.qmd$", files, ignore.case = TRUE))) {
+      return(TRUE)
+    }
+  }
+  FALSE
 }
 
 # An empty list that serializes as a JSON object

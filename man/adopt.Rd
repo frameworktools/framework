@@ -35,7 +35,9 @@ anything. \code{adopt()} looks at the folder names (never file names or
 contents, and at most three levels deep), proposes which Framework
 directory each one is, and lets you accept, change a role, or leave a
 folder out. It then writes \code{settings.yml} (a single file) and
-\code{.framework/spec.json} describing the folders as they are, and adds the
+\code{.framework/spec.json} describing the folders as they are (with
+\code{tools: quarto: true} when a \verb{_quarto.yml} or \code{.qmd} file is at most three
+folders deep), and adds the
 rules of the type's \code{.gitignore} template that the folder's \code{.gitignore}
 lacks (\code{.env}, \code{framework.db}, private folders, Quarto's lines), in one
 block at the end. It never removes a \code{.gitignore} line, and leaves out a
