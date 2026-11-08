@@ -526,3 +526,314 @@ files. `backup = FALSE` never removes a file. Backups go to
   keep `adopted: true`).
 - B25: replace the registration offer with `cloud_register()`.
 - B1: the sensitive rule in every Python check.
+
+---
+
+# Real adoption pass: R fixes and what framework-py and fw must mirror
+
+Source: the "Package bugs" lists in `framework-ports/ADOPT-REPORT.md`, from
+adopting Erik's ten real projects. Branch `fix/adopt-pass` in the R package
+(version 2.0.1, unreleased; NEWS bullets under "# framework 2.0.1"). Nothing
+was pushed or tagged, and Framework Cloud was not called. framework-cloud
+decided two points during the work: spec.v1 is not extended (drop the keys,
+record no upgrade provenance in the spec), and a credential key may hold
+`env("NAME")` or `env("NAME", "")` but not a non-empty default.
+
+## Commits
+
+| Item | Commit | Subject |
+|---|---|---|
+| 1 | 362a53b | specs R writes hold only what spec.v1 allows |
+| Cloud's env() rule | a34a4d6 | credentials in env() follow Framework Cloud's rule |
+| 2 | c70c4f2 | upgrade(type =) changes a project's type, including to project_sensitive |
+| 3 | 6eda2b8 | a fresh checkout's private folders are created when needed |
+| 4 | fb03c6d | audit false positives on placeholders, negated gitignore rules, and reviewed data |
+| 5 | 893c886 | upgrade() refreshes the spec's author and .gitignore copy, and .agents/skills |
+| 6 | 771c79c | upgrade() names a spec's password variable the way the project does |
+| 7 | 7531598 | upgrade(move_settings = TRUE) moves ignored settings keys into settings/ |
+| 8 | 746be39 | upgrade()'s Claude Code guard covers all private folders, whatever the AI settings |
+| 9 | 0ae41d0 | merged .gitignore rules never re-include files in ignored data folders |
+| 10 | ff30223 | adopt() detects Quarto in subfolders and from .qmd files |
+| 11 | cae4d6c | a sensitive adopt() offers to mark restricted-data folders private |
+| this section | (last commit) | parity spec and results |
+
+Every item was reproduced on the copies before it was fixed; none was
+already fixed. Not R's, and not changed here: fore bug 6 (upgrade() runs in
+the project's renv library, which pins framework 1.1.0) and ohdsi bug 2 (the
+server's env() default rule, now decided above).
+
+## Test results
+
+- macOS, full suite (`NOT_CRAN=true`, `testthat::test_local(".")`) at
+  cae4d6c: 3755 passed, 0 failed, 0 errors, 19 skipped (3606 before this
+  branch).
+- macOS, `R CMD check --as-cran --no-manual` (with
+  `_R_CHECK_FORCE_SUGGESTS_=false`, since 12 suggested packages aren't
+  installed here): Status 1 NOTE, CRAN incoming feasibility ("Days since
+  last update: 0").
+- Windows, R-devel, `R CMD check --as-cran --no-manual` with `NOT_CRAN`
+  unset and the CRAN incoming check off: Status OK.
+  <https://github.com/frameworktools/framework/actions/runs/42430174300>.
+  The throwaway branch `ci/windows-check-pass` was deleted after the run.
+
+## The test copies
+
+Structure-only copies of the `framework-adopt` branch state of
+syphillis-poc-test-analysis, fore, a2cps-ehr-omop, and a2cps-ehr-data-quality
+are in `/tmp/fwfix3/pass-tests/orig` (`rsync --max-size=2m`; data
+extensions, `.env`, HTML renders, private folders, `inputs/`, a2cps's
+`reports/`, `data-files/`, `export-data/`, and a2cps-ehr-omop's Postgres data
+folder left out; `.git` whole). The repros used each project's
+pre-upgrade commit from the same `.git` (a2cps-ehr-omop 9473d48, fore
+e5610ee, a2cps-ehr-data-quality master).
+
+On the `framework-adopt` state, `git_security_audit()` now passes all eight
+checks on all four (before: fore failed gitignore_coverage and
+private_data_exposure, syphilis failed private_data_exposure on its
+`.gitkeep` files). The dry-run plans:
+
+- syphillis-poc-test-analysis: `spec: refresh author from the settings;
+  drop scaffold.positron, source.upgraded_from`. (The settings' email
+  changed after the spec was written.)
+- fore: `ai .claude/settings.json: keep Claude Code out of inputs/final,
+  inputs/intermediate, inputs/raw, outputs/private` (its private keys map
+  to `inputs/raw` etc.), and `spec: refresh git.gitignore_content; drop
+  scaffold.positron, source.upgraded_from`.
+- a2cps-ehr-omop: `spec: refresh author; drop scaffold.positron,
+  source.upgraded_from`, with a note that git ignores `.claude/`.
+- a2cps-ehr-data-quality: `ai .claude/settings.json: keep Claude Code out
+  of data-files, export-data, reports` (AI is off; the plan says the guard
+  is added anyway), `spec: refresh author, git.gitignore_content`, and the
+  `.claude/` note.
+
+Repros, before and after:
+
+- a2cps-ehr-omop at 9473d48, `upgrade(dry_run = FALSE)`: the spec had
+  `source.upgraded_from`, `scaffold.positron`, and
+  `password: env("OMOP_PASSWORD")`. Now it matches spec.v1, and the password
+  is `env("POSTGRES_PASSWORD")` (the copy has no `.env`; `.env.example`
+  names it and holds the same value). With a `.env` like the real one
+  (`OMOP_POSTGRES_PASSWORD` holding the value, `POSTGRES_PASSWORD` empty) it
+  is `env("OMOP_POSTGRES_PASSWORD")`, as Erik chose by hand.
+- Same, `upgrade(type = "project_sensitive", dry_run = FALSE)`: one pass;
+  a second `upgrade()` changes nothing.
+- Same, `upgrade(move_settings = TRUE, dry_run = FALSE)`: `ehr_source` and
+  `person` move to `settings/*.yml`; `settings_read()` returns identical
+  values and no longer warns.
+- fore at e5610ee: `inputs/raw/README.md` was ignored before and
+  re-included after `upgrade()`; now it stays ignored and the plan lists the
+  left-out negations.
+- a2cps-ehr-data-quality at master, `adopt(yes = TRUE, sensitive = TRUE)`:
+  `tools.quarto` is now true, and the plan lists `reports, data-files,
+  export-data` as possibly restricted. With `private = c(...)` they map to
+  `outputs_private_reports`, `inputs_private_data_files`, and
+  `outputs_private_export_data`, and the audit passes.
+
+## Shared rules framework-py and fw must mirror
+
+### Spec writing (item 1)
+
+- Every spec a package writes holds only what `spec.v1.json` allows. Before
+  writing, drop keys at any object whose schema has
+  `additionalProperties: false` and that isn't in `properties` (never inside
+  `anyOf`/`oneOf`), report the dropped dot paths, then validate; any other
+  problem stops the write with every problem listed. R:
+  `R/spec_schema.R` (`.spec_schema_prune()`, `.spec_schema_problems()`), a
+  JavaScript-free validator for the draft-07 subset the schema uses.
+  framework-py can use `jsonschema` directly for the check, but needs the
+  same prune step.
+- upgrade() writes no `source.upgraded_from` and no provenance anywhere in
+  the spec. An old `scaffold:` block keeps only the schema's keys, with
+  values coerced to the schema's type when they are scalars (`seed: 123`
+  becomes `"123"`). `positron: yes` becomes `ide: positron` when no `ide` is
+  set; every other unknown scaffold key stays in the settings only.
+- Refreshing an existing spec also drops keys the schema doesn't allow, so
+  specs an earlier upgrade() wrote are repaired; the plan says
+  `drop scaffold.positron, source.upgraded_from (not part of spec.v1, ...)`.
+- The author block keeps only the schema's author fields.
+- `cloud_register()` (fw: `project link --create`, `push-spec`) validates
+  `.framework/spec.json` before sending and stops with the problems and
+  "run upgrade()". fw should do the same instead of relaying the server's
+  422.
+
+### Credentials in connections (Cloud's rule)
+
+- Credential key: matches (any case)
+  `password|passwd|pwd|secret|token|access_?key|api_?key|private_?key|credential`.
+  Cloud's list is password, secret, token, access_key, api_key, private_key,
+  credential; passwd and pwd are R's additions and stricter.
+- A value passes when it is missing, empty, a mapping or list, a boolean,
+  `env("NAME")`, `env("NAME", "")` (single or double quotes, spaces
+  allowed), or `!expr Sys.getenv("NAME")` with no or an empty default. A
+  non-empty default (`env("NAME", "x")`) is a written-out secret. framework-py:
+  the audit's connection-secrets check and `_upgrade`'s spec scrub.
+- In the spec, a written-out credential becomes `env("NAME")`; an
+  `env("NAME", "default")` becomes `env("NAME")`, keeping its variable.
+
+### Choosing the variable name (item 6)
+
+For connection `conn` (driver `driver`) and credential key `key` with a
+written-out value:
+
+1. A name fits the key when it contains `PASS` or `PWD` (password keys),
+   `TOKEN`, `SECRET`, `PRIVATE`/`KEY`, `ACCESS`/`KEY`, `API`/`KEY`, or `CRED`.
+2. Candidates and points: each `NAME=` in `.env`, 2 points, plus 4 when its
+   value equals the written-out value; each name in `.env.example`,
+   `.env.template`, `.env.sample`, 1 point, plus 2 when its value equals it;
+   each upper-case token `[A-Z][A-Z0-9_]{2,}` in code files (`.R`, `.qmd`,
+   `.Rmd`, `.py`, `.sh`, `.yml`, under 512 KB, at most 2000 files, skipping
+   hidden, `renv`, `node_modules`, `packrat`, `_site`, `_freeze`, `*_files`,
+   and `settings/`), 1 point per file. Points add up across sources.
+3. Score = points + 2 when one of the name's `_`-separated parts equals a
+   part of the connection name (upper case) + 1 when a part equals the
+   driver (`POSTGRES`; for postgres also `PG`, `PGPASSWORD`). The highest
+   score wins; ties go to the first found (`.env`, then examples, then code).
+4. With no candidate: `<CONN>_<KEY>` upper-cased, non-alphanumerics as `_`.
+5. Values are compared, never printed. The plan note names the variable,
+   where it came from (`the name .env uses`, `the name scripts/x.R uses`,
+   or "made from the connection's name"), says to set it in `.env` (or that
+   `.env` already sets it), and to write `key: env("NAME")` in the settings
+   file. upgrade() still leaves the settings unchanged.
+
+### upgrade(type =) (item 2)
+
+- `type` is one of project, project_sensitive, course, presentation, bare.
+  It sets `project_type`. To `project_sensitive`: set
+  `security.sensitive: true` (also when it was false), and add the
+  directories of the project_sensitive template whose key has `_private_` or
+  `_public_`, skipping keys or paths the project already has. Existing keys
+  and paths stay (code that names them keeps working). Gitignore rules,
+  guards, skills, and the spec follow from the new settings in the same
+  pass. From a sensitive project to another type: the flag stays true, with
+  a note.
+- When a project becomes sensitive (by `type`, or by hand since the last
+  spec, i.e. the spec says `security.sensitive: false` and the settings now
+  say sensitive), the plan lists, per kind (tables, figures, models,
+  reports), where `save_*()` wrote before and writes now when they differ:
+  outputs split into private/public when the project is sensitive or has an
+  `outputs_private_<kind>`/`outputs_public_<kind>` key; the private folder is
+  `outputs_private_<kind>` or `outputs/private/<kind>`. It also lists
+  `inputs_*`, `outputs_*`, `cache`, and `scratch` folders whose key and path
+  aren't private, and render dirs that aren't under a private folder.
+- Regenerated AGENTS.md/CLAUDE.md sections read the planned settings (a
+  temporary copy of the settings files with the planned changes), so one
+  pass is enough.
+
+### Private folders in a fresh checkout (item 3)
+
+- `scaffold()` creates every `directories` entry whose key contains
+  `private` and not `public` and whose path is inside the project, and says
+  which it created. (framework-py: `scaffold()`; fw has no runtime.)
+- `data_save()` creates a missing folder without `force` when it is a
+  settings folder (`directories`, `extra_directories`, `render_dirs`) or
+  inside one; any other missing folder still needs `force = TRUE`.
+  `save_table()` and friends already created theirs.
+
+### Security audit (item 4)
+
+- Placeholders: a tracked file in a private folder doesn't count as exposed
+  when it is a `.gitkeep` or `.keep` holding only whitespace (empty, in
+  practice), or a `.gitignore` of at most 4 KB. a2cps's placeholders were
+  `*`, `*/`, `!.gitignore` (16 bytes), so "zero bytes" alone would not have
+  covered them. Sizes come from the working tree, or from the index
+  (`git cat-file -s :path`) when the file is deleted there.
+- Gitignore coverage: in a git work tree, ask git with
+  `git check-ignore --no-index --stdin`, testing each private folder (as is
+  and with a probe file inside it) and each data file in it. Outside git,
+  match the root `.gitignore` as before.
+- Reviewed files: `security: reviewed:` in the settings, a list of paths
+  from the project root, folders (everything inside counts), or globs (`*`
+  within a folder name, `**` across folders, `?` one character; a leading
+  `./` or `/` is ignored). The git_history, private_data_exposure, and
+  identifier_columns checks drop matching files from their findings and add
+  them to `findings$reviewed` (`file`, `check`, `pattern`); the printed
+  report has one line, `REVIEWED: N file(s) marked safe in settings ...`.
+  Statuses come from what is left. `reviewed` is a settings key only; it is
+  not part of spec.v1 (security allows only `sensitive`), so specs never
+  carry it.
+
+### upgrade() spec refresh and skills (item 5)
+
+- The refreshed keys are name, type, author, tools, directories,
+  extra_directories, render_dirs, security, connections, and
+  `git.gitignore_content` (the planned `.gitignore`, joined with `\n`).
+  Other git keys stay.
+- Skills are updated (and missing ones added) in each assistant's skills
+  folder and in `.agents/skills` whenever that folder exists.
+- Skill lock: a lock entry's hash describes only the paths it lists. A copy
+  at another path with no entry is updated when it matches a released
+  version, instead of being kept as edited.
+
+### upgrade(move_settings = TRUE) (item 7)
+
+- Keys outside the environment sections (`.fw_ignored_settings_keys()`)
+  each move to `settings/<key>.yml`: the key's text as written, from its
+  line to the line before the next top-level key, with trailing blank lines
+  and left-edge comments left for the next key, and left-edge comments right
+  above it carried along. The main file names it under `default:`
+  (`<key>: settings/<key>.yml`). A key whose file exists is left, with a
+  note. Without the option, the note mentions it.
+
+### Claude Code guards (item 8)
+
+- Restricted paths (`.spec_restricted_paths()`, used by create and upgrade):
+  for every path in `directories`, `extra_directories`, and `render_dirs`,
+  the prefix up to its first segment named `private` or ending in
+  `_private`; plus every `directories` path whose key contains `private` and
+  not `public`, as configured. Drop `.`, paths outside the project, and
+  paths inside another restricted path; sort; add `/`.
+- upgrade() writes the guard in every sensitive project, whatever
+  `ai.enabled` and `ai.assistants` say, and notes it when AI is off or claude
+  isn't an assistant. With nothing to restrict, it notes that no guard was
+  added and how to map private folders.
+- When git ignores `.claude/settings.json` (or `.claude/skills/`, when
+  skills are there or planned), the plan says the guard stays on this
+  computer and how to share it (`.claude/*` plus `!.claude/settings.json`
+  and `!.claude/skills/`).
+
+### .gitignore merge (item 9)
+
+- Merging template rules into a `.gitignore` that already has rules leaves
+  out every negation (`!...`) and reports them; appended after the
+  project's rules, they win. A new or empty `.gitignore` gets the template
+  whole. Applies to adopt() and upgrade() (framework-py
+  `_gitignore.missing_rules()`, fw adopt).
+- Also: never emit `paste0("/", <nothing>, "/")`; R's adopt wrote a stray
+  `//` rule when every private-looking folder was already ignored.
+
+### adopt() Quarto detection (item 10)
+
+- `tools.quarto` is true when the root or any folder adopt() scans (depth at
+  most `max_depth`, 3, skipping the rules' skip list and hidden folders) has
+  a `_quarto.yml`, a `_quarto.yaml`, or a `.qmd` file. Same rule in fw's
+  adopt, which records the tools too.
+
+### adopt() restricted-data folders (item 11)
+
+- Only when the adopt is sensitive. Candidates, in mapping order: folders
+  mapped to keys `inputs_*`/`outputs_*` (not private or public), `data`,
+  `cache`, `scratch`; then extra folders whose base name (lower case)
+  contains data, export, extract, report, result, output, raw, table,
+  figure, submission, download, or cohort. Folders with a private-named
+  segment don't count.
+- The plan prints `May hold restricted data (mark private?): a, b, c.`; an
+  interactive review asks about each (default yes); `private = c(...)`
+  (fw: `--private <folder>`, repeatable) marks them without asking. An
+  unknown folder is an error.
+- Marking keeps the path and changes the key: `inputs_x`/`outputs_x` become
+  `inputs_private_x`/`outputs_private_x`; other folders become
+  `outputs_private_<slug>` when the base name contains report, result,
+  output, export, table, or figure, else `inputs_private_<slug>`, slug as
+  for extra-directory keys (`data-files` -> `data_files`), with `_2` and so
+  on when taken. Marked paths are gitignored like private-looking folders
+  (`/<path>/` unless git already ignores it).
+
+## What fw must do
+
+- `fw project link --create` and `push-spec`: validate the spec against
+  spec.v1 first and point to `upgrade()` (R) or the Python equivalent
+  instead of sending a spec the server refuses.
+- `fw adopt`: Quarto detection (item 10), the restricted-data list and
+  `--private` (item 11), and no appended negations (item 9).
+- fw scaffolds Stata projects: create the configured private folders when
+  it scaffolds, as `scaffold()` now does.
