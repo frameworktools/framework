@@ -366,7 +366,8 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
 }
 
 # Record how the project was made. The generating package version goes in
-# source.framework_version.
+# source.framework_version. Keys spec.v1 doesn't allow are left out, and a
+# spec that doesn't match it otherwise is never written.
 .spec_write_record <- function(project_dir, spec) {
   .spec_write_text(project_dir, ".framework/spec.json", .spec_record_lines(spec))
   message("  Created: .framework/spec.json")
@@ -379,6 +380,8 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   record$source <- record$source %||% list(origin = "r")
   record$source$framework_version <- as.character(utils::packageVersion("framework"))
   record <- .spec_mark_maps(record)
+  # Only what spec.v1 allows, so Framework Cloud accepts the spec as written
+  record <- .spec_schema_ready(record)$spec
   json <- jsonlite::toJSON(record, auto_unbox = TRUE, pretty = 2, null = "null")
   strsplit(as.character(json), "\n", fixed = TRUE)[[1]]
 }

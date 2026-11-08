@@ -42,7 +42,10 @@ key, never by value) and left where it is.
 \item \strong{Spec}: \code{.framework/spec.json} is written from the settings when it is
 missing, and refreshed when its folders, type, security, tools, or
 connections no longer match, so \verb{fw project push-spec} and
-\code{\link[=cloud_register]{cloud_register()}} work.
+\code{\link[=cloud_register]{cloud_register()}} work. It holds only what \code{spec.v1} allows (see
+\code{inst/schema/spec.v1.json}), so keys an earlier \code{upgrade()} wrote that
+Framework Cloud refuses (\code{scaffold.positron}, \code{source.upgraded_from})
+are dropped.
 \item \strong{.gitignore}: the rules of the current template for the project's type
 that it lacks (Quarto's \verb{/.quarto/} and \verb{**/*.quarto_ipynb},
 \code{framework.db}, private folders) and folder publishing destinations are

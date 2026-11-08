@@ -21,7 +21,10 @@
 #' - **Spec**: `.framework/spec.json` is written from the settings when it is
 #'   missing, and refreshed when its folders, type, security, tools, or
 #'   connections no longer match, so `fw project push-spec` and
-#'   [cloud_register()] work.
+#'   [cloud_register()] work. It holds only what `spec.v1` allows (see
+#'   `inst/schema/spec.v1.json`), so keys an earlier `upgrade()` wrote that
+#'   Framework Cloud refuses (`scaffold.positron`, `source.upgraded_from`)
+#'   are dropped.
 #' - **.gitignore**: the rules of the current template for the project's type
 #'   that it lacks (Quarto's `/.quarto/` and `**/*.quarto_ipynb`,
 #'   `framework.db`, private folders) and folder publishing destinations are
@@ -650,11 +653,24 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
     derived <- c("name", "type", "tools", "directories", "extra_directories", "render_dirs",
                  "security", "connections")
     stale <- derived[!vapply(derived, function(k) .upgrade_same_json(old[[k]], built[[k]]), logical(1))]
-    if (length(stale) == 0) return(invisible())
     for (k in stale) spec[k] <- list(built[[k]])
-    change <- paste("refresh", paste(stale, collapse = ", "), "from the settings")
+    # Keys an earlier upgrade() wrote that spec.v1 has no place for, which
+    # Framework Cloud refuses (scaffold.positron, source.upgraded_from)
+    pruned <- .spec_schema_prune(spec)
+    spec <- pruned$spec
+    if (length(stale) == 0 && length(pruned$dropped) == 0) return(invisible())
+    change <- paste(c(
+      if (length(stale) > 0) paste("refresh", paste(stale, collapse = ", "), "from the settings"),
+      if (length(pruned$dropped) > 0) paste("drop", paste(pruned$dropped, collapse = ", "),
+                                            "(not part of spec.v1, so Framework Cloud refuses them)")
+    ), collapse = "; ")
   }
-  .upgrade_write(ctx, "spec", file, .spec_record_lines(spec), change)
+  lines <- tryCatch(suppressMessages(.spec_record_lines(spec)), error = function(e) e)
+  if (inherits(lines, "error")) {
+    .upgrade_note(ctx, ".framework/spec.json was not written: ", conditionMessage(lines))
+    return(invisible())
+  }
+  .upgrade_write(ctx, "spec", file, lines, change)
   invisible()
 }
 
@@ -717,8 +733,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
   spec$packages <- list(use_renv = isTRUE(settings$packages$use_renv), default_packages = .adopt_named(packages))
   spec$connections <- .upgrade_spec_connections(settings$connections)
   if (is.list(settings$scaffold)) {
-    spec$scaffold <- utils::modifyList(spec$scaffold %||% list(),
-                                       settings$scaffold[setdiff(names(settings$scaffold), "workflow")])
+    spec$scaffold <- utils::modifyList(spec$scaffold %||% list(), .upgrade_spec_scaffold(settings$scaffold))
     if (!is.null(spec$scaffold$notebook_format)) spec$scaffold$workflow <- NULL
   }
   if (is.list(settings$quarto)) spec$quarto <- settings$quarto
@@ -728,10 +743,30 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
   spec$files <- .adopt_named(list())
   gitignore <- .upgrade_read(ctx, ".gitignore")
   spec$git$gitignore_content <- paste(gitignore %||% character(), collapse = "\n")
-  spec$source <- list(origin = "r", upgraded_from = .upgrade_detected_version(ctx))
-  problems <- spec_check(spec)
-  if (length(problems) > 0) stop(paste(problems, collapse = "; "), call. = FALSE)
+  spec$source <- list(origin = "r")
+  problems <- c(spec_check(spec), .spec_schema_problems(spec))
+  if (length(problems) > 0) stop(paste(unique(problems), collapse = "; "), call. = FALSE)
   spec
+}
+
+# The settings' scaffold options that spec.v1 holds, with values of the
+# schema's types. Older settings/scaffold.yml files carry options the spec
+# has no place for (positron: yes); positron: yes becomes ide: positron
+# when no IDE is set, and the rest stay in the settings only.
+#' @keywords internal
+.upgrade_spec_scaffold <- function(scaffold) {
+  schema <- .spec_schema()
+  props <- schema$properties$scaffold$properties
+  if (isTRUE(scaffold$positron) && is.null(scaffold$ide)) scaffold$ide <- "positron"
+  out <- list()
+  for (key in setdiff(intersect(names(scaffold), names(props)), "workflow")) {
+    value <- scaffold[[key]]
+    if (identical(props[[key]]$type, "string") && (is.numeric(value) || is.logical(value)) && length(value) == 1) {
+      value <- as.character(value)
+    }
+    if (length(.spec_schema_check(value, props[[key]], schema)) == 0) out[key] <- list(value)
+  }
+  out
 }
 
 # Connections for the spec: env() and !expr stay as written; a password or
@@ -781,21 +816,6 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
     if (present) skills[[skill]] <- list(package = TRUE)
   }
   .adopt_named(skills)
-}
-
-# What made the project, for source.upgraded_from
-#' @keywords internal
-.upgrade_detected_version <- function(ctx) {
-  existing <- .upgrade_read(ctx, ".framework/spec.json")
-  if (!is.null(existing)) {
-    old <- tryCatch(jsonlite::fromJSON(paste(existing, collapse = "\n"), simplifyVector = FALSE),
-                    error = function(e) NULL)
-    if (!is.null(old$source$framework_version)) return(paste("framework", old$source$framework_version))
-  }
-  if (file.exists(file.path(ctx$root, "config.yml")) && !file.exists(file.path(ctx$root, "settings.yml"))) {
-    return("framework 1.x (config.yml)")
-  }
-  "framework before 2.0 (no spec.json)"
 }
 
 # --- Output --------------------------------------------------------------------

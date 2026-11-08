@@ -125,7 +125,8 @@ test_that("upgrade(dry_run = FALSE) applies the plan, backs up, and is idempoten
   expect_identical(spec$directories$inputs_private_raw, "inputs/private/raw")
   expect_identical(spec$connections$databases$warehouse$password, 'env("WAREHOUSE_PASSWORD")')
   expect_false(grepl("hunter2", paste(readLines(file.path(dir, ".framework", "spec.json")), collapse = "\n")))
-  expect_match(spec$source$upgraded_from, "before 2.0")
+  expect_null(spec$source$upgraded_from)
+  expect_identical(framework:::.spec_schema_problems(spec), character())
 
   # Backups of every rewritten file, ignored by git
   backup <- res$backup_location

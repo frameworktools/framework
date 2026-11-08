@@ -81,6 +81,15 @@ cloud_register <- function(path = ".", name = NULL, slug = NULL, description = N
   spec <- tryCatch(jsonlite::fromJSON(spec_json, simplifyVector = FALSE), error = function(e) {
     stop(".framework/spec.json is not valid JSON: ", conditionMessage(e), call. = FALSE)
   })
+  # Framework Cloud refuses a spec that doesn't match spec.v1; say so here,
+  # with the fix, before anything is sent
+  problems <- .spec_schema_problems(spec)
+  if (length(problems) > 0) {
+    stop(".framework/spec.json doesn't match spec.v1, so Framework Cloud would refuse it: ",
+         paste(utils::head(problems, 5), collapse = "; "),
+         ". Run framework::upgrade(\"", path, "\", dry_run = FALSE) to rewrite it, then cloud_register() again.",
+         call. = FALSE)
+  }
   .fw_refuse_tracked_env(root)
   .cloud_register_private_check(root, include_private)
 

@@ -214,6 +214,14 @@ Adopting and upgrading projects:
   `framework-sensitive-data` in the skills folder its assistants read
   (`.claude/skills` when none is set). Other projects without skills get a
   note pointing to `ai_skills_update()`.
+* Every `.framework/spec.json` R writes (`project_create()`, `adopt()`,
+  `upgrade()`) holds only what `spec.v1` allows and is checked against it
+  before it is written, so Framework Cloud no longer refuses it (HTTP 422) on
+  `fw project link --create` or `push-spec`. `upgrade()` no longer writes
+  `source.upgraded_from` or old scaffold options such as `positron` (`positron:
+  yes` becomes `ide: positron` when no IDE is set), and drops both from a spec
+  an earlier `upgrade()` wrote. `cloud_register()` stops before sending a spec
+  that doesn't match and says to run `upgrade()`.
 
 # framework 2.0.0
 
