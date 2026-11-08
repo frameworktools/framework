@@ -1018,3 +1018,84 @@ test_that("upgrade() keeps the variable of env() with a default and drops the de
   expect_identical(conns$databases$db$password, 'env("DB_PASSWORD")')
   expect_identical(conns$databases$db$token, "env('DB_TOKEN', '')")
 })
+
+test_that("gitignore coverage asks git, so negated folders still ignore their files (fore)", {
+  local_audit_repo()
+  writeLines(c(".env", "inputs/**", "!inputs/*/", "!inputs/*/.gitkeep"), ".gitignore")
+  writeLines(c("default:", "  project_type: project_sensitive", "  directories:",
+               "    inputs_private_raw: inputs/raw"), "settings.yml")
+  dir.create("inputs/raw", recursive = TRUE)
+  writeLines("a,b", "inputs/raw/dictionary.csv")
+  file.create("inputs/raw/.gitkeep")
+  system2("git", c("add", "-f", "inputs/raw/.gitkeep"), stdout = FALSE, stderr = FALSE)
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
+  expect_identical(nrow(audit$findings$gitignore_issues), 0L)
+  expect_identical(nrow(audit$findings$private_data_exposure), 0L)
+
+  # A rule that really leaves a data file out of .gitignore still fails
+  writeLines(c(".env", "inputs/**", "!inputs/*/", "!inputs/raw/*.csv"), ".gitignore")
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
+  expect_identical(audit$findings$gitignore_issues$file, "inputs/raw/dictionary.csv")
+})
+
+test_that("placeholders in private folders aren't exposed data, but other tracked files are", {
+  local_audit_repo()
+  writeLines(c("default:", "  project_type: project_sensitive", "  directories:",
+               "    inputs_private_raw: data-files", "    outputs_private_figures: outputs/private/figures"),
+             "settings.yml")
+  dir.create("data-files")
+  dir.create("outputs/private/figures", recursive = TRUE)
+  writeLines(c("*", "*/", "!.gitignore"), "data-files/.gitignore")
+  file.create("outputs/private/figures/.gitkeep")
+  writeLines("not empty", "outputs/private/figures/notes.txt")
+  system2("git", c("add", "-f", "data-files/.gitignore", "outputs/private/figures"), stdout = FALSE, stderr = FALSE)
+  audit <- git_security_audit(check_git_history = FALSE, verbose = FALSE)
+  expect_identical(audit$findings$private_data_exposure$file, "outputs/private/figures/notes.txt")
+
+  expect_identical(framework:::.fw_placeholder_file(c("data-files/.gitignore", "outputs/private/figures/.gitkeep",
+                                                      "outputs/private/figures/notes.txt")),
+                   c(TRUE, TRUE, FALSE))
+})
+
+test_that("files marked reviewed in the settings are reported as reviewed, not failures", {
+  local_audit_repo()
+  writeLines(".env", ".gitignore")
+  writeLines(c("default:", "  project_type: project_sensitive",
+               "  directories:", "    inputs_public_raw: inputs/public/raw",
+               "    inputs_private_raw: inputs/private/raw",
+               "  security:", "    sensitive: true", "    reviewed:",
+               "      - inputs/public/", "      - \"**/*_synthetic_*.csv\""), "settings.yml")
+  dir.create("inputs/public/raw", recursive = TRUE)
+  dir.create("inputs/private/raw", recursive = TRUE)
+  dir.create("synthetic", recursive = TRUE)
+  writeLines("site,patient_count", "inputs/public/raw/lookup.csv")
+  writeLines("id,dob", "synthetic/peanuts_synthetic_patients.csv")
+  writeLines("id,dob", "inputs/private/raw/real.csv")
+  system2("git", c("add", "-f", "."), stdout = FALSE, stderr = FALSE)
+  system2("git", c("-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-q", "-m", "data"),
+          stdout = FALSE, stderr = FALSE)
+
+  msgs <- capture_messages(audit <- git_security_audit())
+  history <- audit$findings$git_history_issues
+  expect_identical(history$file, "inputs/private/raw/real.csv")
+  expect_identical(audit$findings$private_data_exposure$file, "inputs/private/raw/real.csv")
+  reviewed <- audit$findings$reviewed
+  expect_setequal(unique(reviewed$file), c("inputs/public/raw/lookup.csv", "synthetic/peanuts_synthetic_patients.csv"))
+  expect_true("git_history" %in% reviewed$check)
+  expect_true("identifier_columns" %in% reviewed$check)
+  expect_identical(reviewed$pattern[reviewed$file == "synthetic/peanuts_synthetic_patients.csv"][1],
+                   "**/*_synthetic_*.csv")
+  expect_match(paste(msgs, collapse = ""), "REVIEWED: 2 file(s) marked safe in settings", fixed = TRUE)
+  expect_false(any(audit$findings$identifier_columns$file == "synthetic/peanuts_synthetic_patients.csv"))
+})
+
+test_that("reviewed patterns match files, folders, and globs", {
+  match <- framework:::.fw_reviewed_match
+  paths <- c("inputs/public/raw/a.csv", "vocab/CONCEPT.csv", "x/y/omop_vocab.csv", "notes.csv", "inputs/publication.csv")
+  expect_identical(match(paths, c("inputs/public", "vocab/*.csv", "**/omop_*.csv")),
+                   c("inputs/public", "vocab/*.csv", "**/omop_*.csv", NA, NA))
+  expect_identical(match("notes.csv", "./notes.csv"), NA_character_)
+  expect_identical(match("notes.csv", framework:::.fw_reviewed_patterns(list(security = list(reviewed = list("./notes.csv"))))),
+                   "notes.csv")
+  expect_identical(match("a/b/c.csv", "a/*.csv"), NA_character_)
+})

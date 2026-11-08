@@ -245,6 +245,18 @@ Adopting and upgrading projects:
   or that is inside one, without `force = TRUE`. `save_table()`,
   `save_figure()`, `save_model()`, and `save_report()` already created
   theirs. Tracked `.gitkeep` files in private folders are no longer needed.
+* `git_security_audit()` false positives from adopting real projects:
+  - The private-data-exposure check no longer counts placeholders that keep a
+    folder in git: an empty `.gitkeep` or `.keep`, or a `.gitignore` of at
+    most 4 KB.
+  - The gitignore-coverage check asks git (`git check-ignore --no-index`) in a
+    git repository instead of matching `.gitignore` patterns itself, so rules
+    such as `inputs/**` with `!inputs/*/` count as git reads them.
+  - Files someone has reviewed can be listed under `security: reviewed:` in the
+    settings (paths, folders, or globs such as `"**/*_synthetic_*.csv"`). The
+    history, private-data-exposure, and identifier-column checks report them
+    as reviewed (`findings$reviewed`, and REVIEWED in the printed report)
+    instead of failing.
 
 # framework 2.0.0
 

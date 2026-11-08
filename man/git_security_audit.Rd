@@ -33,7 +33,7 @@ or numeric for specific commit count (default: "all")}
 A structured list containing:
 \describe{
 \item{summary}{Data frame with check names, status (pass/warning/fail), and counts}
-\item{findings}{List of data frames with detailed findings for each check}
+\item{findings}{List of data frames with detailed findings for each check, and \code{reviewed}: files the settings mark as reviewed that a check would otherwise count}
 \item{recommendations}{Character vector of actionable recommendations}
 \item{audit_metadata}{List with audit timestamp, Framework version, config info,
 and \code{skipped_directories} (key -> path of folders outside the project)}
@@ -80,6 +80,28 @@ is read (Parquet needs arrow, Stata and SPSS need haven; files are
 skipped without them). A warning, never a failure: a header can't tell
 real data from synthetic.
 }
+
+Files someone has reviewed and may commit (public lookup tables, OMOP
+vocabulary files, synthetic data) can be listed in the settings under
+\verb{security: reviewed:}, as paths from the project root, folders, or globs
+(\code{*} within a folder name, \verb{**} across folders):
+
+\preformatted{
+security:
+  sensitive: true
+  reviewed:
+    - inputs/public/
+    - "**/*_synthetic_*.csv"
+}
+
+The git_history, private_data_exposure, and identifier_columns checks don't
+count them; they are listed in \code{findings$reviewed} (\code{file}, \code{check},
+\code{pattern}) and as REVIEWED in the printed report. Tracked placeholders
+that keep a folder in git (an empty \code{.gitkeep} or \code{.keep}, or a \code{.gitignore}
+of at most 4 KB) don't count as exposed private data. In a git repository
+the gitignore_coverage check asks git (\verb{git check-ignore --no-index}), so
+every \code{.gitignore} rule, negations and nested files included, counts as
+git reads it.
 
 The audit watches the settings' \code{directories} whose key starts with
 \code{inputs_} or \code{outputs_}, \code{cache}, \code{scratch}, \code{logs}, and any key or path

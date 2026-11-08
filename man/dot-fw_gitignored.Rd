@@ -4,12 +4,15 @@
 \alias{.fw_gitignored}
 \title{Which paths git ignores}
 \usage{
-.fw_gitignored(paths, root = ".")
+.fw_gitignored(paths, root = ".", no_index = FALSE)
 }
 \arguments{
 \item{paths}{Paths relative to \code{root}}
 
 \item{root}{The folder the paths are relative to (default: the working directory)}
+
+\item{no_index}{If TRUE, a tracked path counts as ignored when the rules
+match it (\verb{git check-ignore --no-index})}
 }
 \value{
 Logical vector, TRUE where the path is ignored

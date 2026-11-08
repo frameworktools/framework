@@ -15,7 +15,7 @@
 #' @return A structured list containing:
 #'   \describe{
 #'     \item{summary}{Data frame with check names, status (pass/warning/fail), and counts}
-#'     \item{findings}{List of data frames with detailed findings for each check}
+#'     \item{findings}{List of data frames with detailed findings for each check, and `reviewed`: files the settings mark as reviewed that a check would otherwise count}
 #'     \item{recommendations}{Character vector of actionable recommendations}
 #'     \item{audit_metadata}{List with audit timestamp, Framework version, config info,
 #'       and `skipped_directories` (key -> path of folders outside the project)}
@@ -57,6 +57,28 @@
 #'     skipped without them). A warning, never a failure: a header can't tell
 #'     real data from synthetic.
 #' }
+#'
+#' Files someone has reviewed and may commit (public lookup tables, OMOP
+#' vocabulary files, synthetic data) can be listed in the settings under
+#' `security: reviewed:`, as paths from the project root, folders, or globs
+#' (`*` within a folder name, `**` across folders):
+#'
+#' \preformatted{
+#' security:
+#'   sensitive: true
+#'   reviewed:
+#'     - inputs/public/
+#'     - "**/*_synthetic_*.csv"
+#' }
+#'
+#' The git_history, private_data_exposure, and identifier_columns checks don't
+#' count them; they are listed in `findings$reviewed` (`file`, `check`,
+#' `pattern`) and as REVIEWED in the printed report. Tracked placeholders
+#' that keep a folder in git (an empty `.gitkeep` or `.keep`, or a `.gitignore`
+#' of at most 4 KB) don't count as exposed private data. In a git repository
+#' the gitignore_coverage check asks git (`git check-ignore --no-index`), so
+#' every `.gitignore` rule, negations and nested files included, counts as
+#' git reads it.
 #'
 #' The audit watches the settings' `directories` whose key starts with
 #' `inputs_` or `outputs_`, `cache`, `scratch`, `logs`, and any key or path
@@ -168,6 +190,12 @@ git_security_audit <- function(config_file = NULL,
       columns = character(),
       kinds = character(),
       stringsAsFactors = FALSE
+    ),
+    reviewed = data.frame(
+      file = character(),
+      check = character(),
+      pattern = character(),
+      stringsAsFactors = FALSE
     )
   )
 
@@ -206,6 +234,20 @@ git_security_audit <- function(config_file = NULL,
   data_dirs <- .get_data_directories(config, verbose, root = root)
   skipped_dirs <- .outside_directories(config, root)
   tracked_files <- if (git_available) .fw_tracked_files(root) else character()
+  reviewed <- .fw_reviewed_patterns(config)
+  # Files the settings mark as reviewed (security: reviewed:) are listed
+  # under findings$reviewed instead of failing a check
+  set_aside <- function(issues, column, check) {
+    if (nrow(issues) == 0 || length(reviewed) == 0) return(issues)
+    matched <- .fw_reviewed_match(issues[[column]], reviewed)
+    hit <- !is.na(matched)
+    if (any(hit)) {
+      rows <- data.frame(file = issues[[column]][hit], check = check, pattern = matched[hit],
+                         stringsAsFactors = FALSE)
+      findings$reviewed <<- unique(rbind(findings$reviewed, rows))
+    }
+    issues[!hit, , drop = FALSE]
+  }
 
   # Check 1: gitignore coverage
   if (verbose) message("Checking .gitignore coverage...")
@@ -218,8 +260,8 @@ git_security_audit <- function(config_file = NULL,
   # Check 2: Private data exposure (git tracking)
   if (verbose) message("Checking for exposed private data...")
   exposure_findings <- .check_private_data_exposure(data_dirs, git_available, verbose, extensions)
-  findings$private_data_exposure <- exposure_findings$issues
-  if (nrow(exposure_findings$issues) > 0) {
+  findings$private_data_exposure <- set_aside(exposure_findings$issues, "file", "private_data_exposure")
+  if (nrow(findings$private_data_exposure) > 0) {
     recommendations <- c(recommendations, exposure_findings$recommendations)
   }
 
@@ -227,8 +269,8 @@ git_security_audit <- function(config_file = NULL,
   if (check_git_history && git_available) {
     if (verbose) message("Scanning git history for data file leaks...")
     history_findings <- .check_git_history(data_dirs, extensions, history_depth, verbose)
-    findings$git_history_issues <- history_findings$issues
-    if (nrow(history_findings$issues) > 0) {
+    findings$git_history_issues <- set_aside(history_findings$issues, "file", "git_history")
+    if (nrow(findings$git_history_issues) > 0) {
       recommendations <- c(recommendations, history_findings$recommendations)
     }
   }
@@ -269,8 +311,10 @@ git_security_audit <- function(config_file = NULL,
   # Check 7: Tracked data files whose header has identifier-like columns
   if (verbose) message("Checking tracked data files for identifier-like columns...")
   identifier_findings <- .check_identifier_columns(root, tracked_files)
-  findings$identifier_columns <- identifier_findings$issues
-  recommendations <- c(recommendations, identifier_findings$recommendations)
+  findings$identifier_columns <- set_aside(identifier_findings$issues, "file", "identifier_columns")
+  if (nrow(findings$identifier_columns) > 0) {
+    recommendations <- c(recommendations, identifier_findings$recommendations)
+  }
 
   # Build summary
   summary <- data.frame(
@@ -582,6 +626,15 @@ git_security_audit <- function(config_file = NULL,
   }
 
   gitignore_patterns <- readLines(".gitignore", warn = FALSE)
+  # In a git work tree git decides (git check-ignore --no-index: by the
+  # rules alone, every .gitignore and excludes file, tracked or not);
+  # elsewhere the root .gitignore's patterns are matched here
+  in_git <- .fw_git_work_tree(".")
+  ignored <- function(paths) {
+    if (length(paths) == 0) return(logical())
+    if (in_git) return(.fw_gitignored(paths, ".", no_index = TRUE))
+    vapply(paths, .check_path_ignored, logical(1), gitignore_patterns = gitignore_patterns, USE.NAMES = FALSE)
+  }
 
   # Check each private data directory, deepest first, reporting each folder
   # and file once under the deepest key: settings keys and the fallbacks can
@@ -600,8 +653,8 @@ git_security_audit <- function(config_file = NULL,
     # Check if directory itself is ignored. A pattern such as
     # `**/scratch/**` ignores only what is inside the folder, which git
     # treats as ignoring the folder, so test a path inside it too.
-    is_ignored <- .check_path_ignored(dir_path, gitignore_patterns) ||
-      .check_path_ignored(file.path(sub("/+$", "", dir_path), ".framework-probe"), gitignore_patterns)
+    is_ignored <- any(ignored(c(sub("^\\./", "", dir_path),
+                                file.path(sub("^\\./", "", sub("/+$", "", dir_path)), ".framework-probe"))))
 
     if (!is_ignored) {
       issues <- rbind(issues, data.frame(
@@ -617,18 +670,16 @@ git_security_audit <- function(config_file = NULL,
     files <- list.files(dir_path, recursive = TRUE, full.names = TRUE)
     files <- files[!files %in% reported]
     reported <- c(reported, files[vapply(files, .is_data_file, logical(1), extensions = extensions)])
-    for (file in files) {
-      if (.is_data_file(file, extensions)) {
-        if (!.check_path_ignored(file, gitignore_patterns)) {
-          issues <- rbind(issues, data.frame(
-            file = file,
-            directory = dir_name,
-            severity = "critical",
-            reason = "Private data file not in .gitignore",
-            stringsAsFactors = FALSE
-          ))
-        }
-      }
+    data_files <- files[vapply(files, .is_data_file, logical(1), extensions = extensions)]
+    not_ignored <- data_files[!ignored(sub("^\\./", "", data_files))]
+    for (file in not_ignored) {
+      issues <- rbind(issues, data.frame(
+        file = file,
+        directory = dir_name,
+        severity = "critical",
+        reason = "Private data file not in .gitignore",
+        stringsAsFactors = FALSE
+      ))
     }
   }
 
@@ -685,6 +736,8 @@ git_security_audit <- function(config_file = NULL,
     dir_prefix <- paste0(sub("/+$", "", sub("^\\./", "", dir_path)), "/")
     exposed_files <- tracked_files[startsWith(tracked_files, dir_prefix)]
     exposed_files <- exposed_files[!exposed_files %in% issues$file]
+    # Placeholders that keep a folder in git aren't data
+    exposed_files <- exposed_files[!.fw_placeholder_file(exposed_files)]
 
     for (file in exposed_files) {
       issues <- rbind(issues, data.frame(
@@ -1004,9 +1057,11 @@ git_security_audit <- function(config_file = NULL,
 #'
 #' @param paths Paths relative to `root`
 #' @param root The folder the paths are relative to (default: the working directory)
+#' @param no_index If TRUE, a tracked path counts as ignored when the rules
+#'   match it (`git check-ignore --no-index`)
 #' @return Logical vector, TRUE where the path is ignored
 #' @keywords internal
-.fw_gitignored <- function(paths, root = ".") {
+.fw_gitignored <- function(paths, root = ".", no_index = FALSE) {
   if (length(paths) == 0) return(logical())
   git <- Sys.which("git")
   if (nzchar(git)) {
@@ -1014,7 +1069,7 @@ git_security_audit <- function(config_file = NULL,
                                        stdout = TRUE, stderr = FALSE))
     if (identical(inside, "true")) {
       # Exit status 1 means nothing is ignored, so no warning
-      ignored <- .fw_git_check_ignore(paths, root = root)
+      ignored <- .fw_git_check_ignore(paths, root = root, no_index = no_index)
       return(paths %in% ignored)
     }
   }
@@ -1451,6 +1506,13 @@ git_security_audit <- function(config_file = NULL,
                    check$count))
   }
 
+  reviewed <- result$findings$reviewed
+  if (is.data.frame(reviewed) && nrow(reviewed) > 0) {
+    files <- unique(reviewed$file)
+    message(sprintf("\u2713 REVIEWED: %d file(s) marked safe in settings (security: reviewed:), not counted: %s",
+                    length(files), .fw_rules_summary(files, n = 5)))
+  }
+
   # Show detailed findings for issues
   has_issues <- FALSE
 
@@ -1639,4 +1701,68 @@ git_security_audit <- function(config_file = NULL,
   .set_metadata("last_audit_issues", sum(result$summary$count))
 
   invisible(NULL)
+}
+
+# Whether tracked paths are placeholders that keep a folder in git, not
+# data: an empty .gitkeep or .keep (whitespace only), or a .gitignore of at
+# most 4 KB (it holds ignore rules, such as "*" and "!.gitignore"). Sizes
+# come from the working tree, or from the index for a file deleted there.
+# framework-py: _security.placeholder_file().
+#' @keywords internal
+.fw_placeholder_file <- function(paths, root = ".") {
+  vapply(paths, function(path) {
+    base <- tolower(basename(path))
+    if (!base %in% c(".gitkeep", ".keep", ".gitignore")) return(FALSE)
+    full <- file.path(root, path)
+    size <- if (file.exists(full)) file.info(full)$size else {
+      out <- suppressWarnings(system2("git", c("-C", shQuote(root), "cat-file", "-s", shQuote(paste0(":", path))),
+                                      stdout = TRUE, stderr = FALSE))
+      suppressWarnings(as.numeric(out[1]))
+    }
+    if (is.na(size)) return(FALSE)
+    if (identical(base, ".gitignore")) return(size <= 4096)
+    if (size == 0) return(TRUE)
+    if (size > 64 || !file.exists(full)) return(FALSE)
+    !nzchar(trimws(paste(readLines(full, warn = FALSE), collapse = "")))
+  }, logical(1), USE.NAMES = FALSE)
+}
+
+# The settings' reviewed paths (security: reviewed:): files or folders, as
+# paths from the project root or globs, that someone checked and that may be
+# committed (public lookup tables, vocabulary files, synthetic data)
+#' @keywords internal
+.fw_reviewed_patterns <- function(config) {
+  reviewed <- if (is.list(config$security)) config$security$reviewed else NULL
+  reviewed <- as.character(unlist(reviewed, use.names = FALSE))
+  reviewed <- sub("^\\./", "", sub("^/", "", trimws(reviewed)))
+  unique(reviewed[nzchar(reviewed)])
+}
+
+# For each path, the first reviewed pattern that covers it, or NA. A pattern
+# without wildcards is a file or a folder (everything inside it counts). In
+# a glob, * matches within one folder name, ** across folders, and ? one
+# character. framework-py: _security.reviewed_match().
+#' @keywords internal
+.fw_reviewed_match <- function(paths, patterns) {
+  out <- rep(NA_character_, length(paths))
+  if (length(patterns) == 0 || length(paths) == 0) return(out)
+  paths <- sub("^\\./", "", gsub("\\\\", "/", paths))
+  for (pattern in patterns) {
+    if (!grepl("[*?]", pattern)) {
+      folder <- sub("/+$", "", pattern)
+      hit <- paths == folder | startsWith(paths, paste0(folder, "/"))
+    } else {
+      rx <- gsub("([.+^$(){}|\\[\\]\\\\])", "\\\\\\1", pattern)
+      rx <- gsub("**/", "\001", rx, fixed = TRUE)
+      rx <- gsub("**", "\002", rx, fixed = TRUE)
+      rx <- gsub("*", "[^/]*", rx, fixed = TRUE)
+      rx <- gsub("?", "[^/]", rx, fixed = TRUE)
+      rx <- gsub("\001", "(.*/)?", rx, fixed = TRUE)
+      rx <- gsub("\002", ".*", rx, fixed = TRUE)
+      rx <- paste0("^", sub("/$", "/.*", rx), "(/.*)?$")
+      hit <- grepl(rx, paths, perl = TRUE)
+    }
+    out[is.na(out) & hit] <- pattern
+  }
+  out
 }
