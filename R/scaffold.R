@@ -132,6 +132,10 @@ scaffold <- function(config_file = NULL) {
   # Load configuration for internal use
   config_obj <- .load_configuration(config_file)
 
+  # Private folders are ignored by git, so a fresh checkout lacks them;
+  # create them so code that saves into them works
+  .fw_create_private_folders(project_root, config_obj)
+
   # Mark as scaffolded with timestamp
   .mark_scaffolded(project_root)
 
@@ -837,4 +841,25 @@ scaffold <- function(config_file = NULL) {
   }
 
   invisible(NULL)
+}
+
+# Create the settings' private folders that don't exist: directories whose
+# key contains "private" and not "public" (inputs_private_raw), inside the
+# project. Returns the folders created, invisibly.
+#' @keywords internal
+.fw_create_private_folders <- function(project_root, config) {
+  if (is.null(project_root) || !is.list(config)) return(invisible(character()))
+  dirs <- .configured_directories(config)
+  keys <- tolower(names(dirs))
+  dirs <- dirs[grepl("private", keys, fixed = TRUE) & !grepl("public", keys, fixed = TRUE)]
+  dirs <- dirs[!vapply(dirs, function(p) .fw_outside_root(project_root, p), logical(1))]
+  made <- character()
+  for (folder in unique(unlist(dirs, use.names = FALSE))) {
+    path <- .fw_folder_abs(project_root, folder)
+    if (!dir.exists(path) && dir.create(path, recursive = TRUE, showWarnings = FALSE)) {
+      made <- c(made, .fw_relative_folder(project_root, folder))
+    }
+  }
+  if (length(made) > 0) message("Created private folders: ", paste(made, collapse = ", "))
+  invisible(made)
 }

@@ -368,3 +368,27 @@ test_that("a new project's scaffold() seeds from its settings", {
   config <- settings_read(file.path(location, "settings.yml"))
   expect_message(framework:::.set_random_seed(config), "Random seed set to 2024.", fixed = TRUE)
 })
+
+test_that("scaffold() creates the settings' private folders a fresh checkout lacks", {
+  tmp_dir <- withr::local_tempdir()
+  withr::local_dir(tmp_dir)
+  writeLines(c(
+    "default:",
+    "  project_type: project_sensitive",
+    "  directories:",
+    "    notebooks: notebooks",
+    "    inputs_private_intermediate: inputs/private/intermediate",
+    "    inputs_public_raw: inputs/public/raw",
+    "    outputs_private_figures: outputs/private/figures",
+    "    elsewhere_private: ../outside_private"
+  ), "settings.yml")
+  writeLines("", ".env")
+  msgs <- capture_messages(expect_no_error(scaffold()))
+  expect_true(dir.exists("inputs/private/intermediate"))
+  expect_true(dir.exists("outputs/private/figures"))
+  expect_false(dir.exists("inputs/public/raw"))
+  expect_false(dir.exists("notebooks"))
+  expect_false(dir.exists(file.path("..", "outside_private")))
+  expect_true(any(grepl("Created private folders: inputs/private/intermediate, outputs/private/figures",
+                        msgs, fixed = TRUE)))
+})

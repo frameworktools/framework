@@ -42,7 +42,11 @@ TRUE. Saving again over locked data with different contents replaces it
 with a warning naming both hashes; the same contents save silently. Pass
 \code{locked = FALSE} for data a pipeline rebuilds.}
 
-\item{force}{If TRUE, creates missing directories. If FALSE (default), errors if directory doesn't exist.}
+\item{force}{If TRUE, creates any missing folder. If FALSE (default), a
+missing folder is created only when it is a folder named in the settings
+(\code{directories}, \code{extra_directories}, \code{render_dirs}) or inside one, such
+as \code{inputs/private/intermediate} in a fresh checkout; any other missing
+folder is an error.}
 }
 \value{
 Invisibly returns the saved data.

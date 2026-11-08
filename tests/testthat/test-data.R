@@ -839,3 +839,20 @@ test_that("data_info(columns = TRUE) errors for a missing file", {
   # Without columns it still describes where the file would be
   expect_equal(data_info("inputs/raw/none.csv")$type, "csv")
 })
+
+test_that("data_save creates a missing settings folder, or one inside it, without force", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  settings <- yaml::read_yaml("settings.yml")
+  settings$default$directories$inputs_private_intermediate <- "inputs/private/intermediate"
+  yaml::write_yaml(settings, "settings.yml")
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  test_data <- data.frame(x = 1:5)
+  expect_false(dir.exists("inputs/private/intermediate"))
+  suppressMessages(data_save(test_data, "inputs.private.intermediate.built", locked = FALSE))
+  expect_true(file.exists("inputs/private/intermediate/built.rds"))
+  suppressMessages(data_save(test_data, "inputs/private/intermediate/nested/built.csv", locked = FALSE))
+  expect_true(file.exists("inputs/private/intermediate/nested/built.csv"))
+  expect_error(data_save(test_data, "elsewhere/built.csv"), "isn't a settings folder")
+})

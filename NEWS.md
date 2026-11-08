@@ -238,6 +238,13 @@ Adopting and upgrading projects:
   now write to `outputs/private/...`, and lists data and render folders that
   aren't private. AGENTS.md's regenerated sections describe the upgraded
   settings in the same pass, so a second `upgrade()` changes nothing.
+* A fresh checkout of a sensitive project has no private folders, since git
+  ignores them, and saving into one failed. `scaffold()` now creates the
+  settings' private folders (`directories` keys with `private`, inside the
+  project), and `data_save()` creates a missing folder that the settings name
+  or that is inside one, without `force = TRUE`. `save_table()`,
+  `save_figure()`, `save_model()`, and `save_report()` already created
+  theirs. Tracked `.gitkeep` files in private folders are no longer needed.
 
 # framework 2.0.0
 

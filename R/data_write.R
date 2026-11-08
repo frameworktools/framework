@@ -22,7 +22,11 @@
 #'   TRUE. Saving again over locked data with different contents replaces it
 #'   with a warning naming both hashes; the same contents save silently. Pass
 #'   `locked = FALSE` for data a pipeline rebuilds.
-#' @param force If TRUE, creates missing directories. If FALSE (default), errors if directory doesn't exist.
+#' @param force If TRUE, creates any missing folder. If FALSE (default), a
+#'   missing folder is created only when it is a folder named in the settings
+#'   (`directories`, `extra_directories`, `render_dirs`) or inside one, such
+#'   as `inputs/private/intermediate` in a fresh checkout; any other missing
+#'   folder is an error.
 #' @return Invisibly returns the saved data.
 #' @details
 #' After writing, `data_save()` warns when the file's folder (from the
@@ -137,14 +141,17 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = TRU
   # Validate type after resolution
   checkmate::assert_choice(type, c("csv", "rds"))
 
-  # Check if directory exists
+  # A missing folder is created when it is a settings folder or inside one
+  # (git doesn't keep empty or ignored folders, so a fresh checkout of a
+  # sensitive project has no inputs/private/...), or with force = TRUE.
+  # Anywhere else a missing folder is more likely a typo.
   if (!dir.exists(dir_path)) {
-    if (force) {
+    if (force || .fw_in_settings_folder(dir_path)) {
       dir.create(dir_path, recursive = TRUE, showWarnings = FALSE)
       message(sprintf("Created directory: %s", dir_path))
     } else {
       stop(sprintf(
-        "Directory '%s' does not exist. Use force = TRUE to create it.",
+        "Directory '%s' does not exist and isn't a settings folder. Use force = TRUE to create it.",
         dir_path
       ))
     }
@@ -700,4 +707,19 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   }
 
   DBI::dbDisconnect(con)
+}
+
+# Whether a folder (absolute, or relative to the project root) is a folder
+# the settings name, or inside one
+#' @keywords internal
+.fw_in_settings_folder <- function(path) {
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  if (is.null(root)) return(FALSE)
+  cfg <- tryCatch(suppressWarnings(settings_read()), error = function(e) NULL)
+  if (!is.list(cfg)) return(FALSE)
+  folders <- .fw_all_project_folders(cfg, root)
+  folders <- folders[nzchar(folders) & folders != "."]
+  if (length(folders) == 0) return(FALSE)
+  full <- .fw_full_path(.fw_folder_abs(root, path))
+  any(.fw_path_under(full, .fw_full_path(file.path(root, folders))))
 }
