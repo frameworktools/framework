@@ -254,3 +254,33 @@ test_that("a project made sensitive by hand since the last upgrade() hears where
   expect_true(any(grepl("save_figure() to outputs/private/figures (was outputs/figures)", plan$notes, fixed = TRUE)))
   expect_error(upgrade(dir, type = "lab"), "type")
 })
+
+test_that("upgrade() refreshes the spec's author and .gitignore copy, and skills in .agents/skills", {
+  dir <- local_old_project()
+  dir.create(file.path(dir, ".agents", "skills", "framework-data"), recursive = TRUE)
+  file.copy(file.path(dir, ".claude", "skills", "framework-data", "SKILL.md"),
+            file.path(dir, ".agents", "skills", "framework-data", "SKILL.md"))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  shipped <- readLines(system.file("templates", "skills", "framework-data", "SKILL.md", package = "framework"))
+  expect_identical(readLines(file.path(dir, ".agents", "skills", "framework-data", "SKILL.md")), shipped)
+  spec_file <- file.path(dir, ".framework", "spec.json")
+  expect_identical(jsonlite::read_json(spec_file)$git$gitignore_content,
+                   paste(readLines(file.path(dir, ".gitignore")), collapse = "\n"))
+
+  # Settings change after the first upgrade: the author is filled in and a
+  # .gitignore rule added by hand
+  writeLines(c("author:", "  name: Ada Lovelace", "  email: ada@example.org", "  affiliation: JHU",
+               "  github: ada"), file.path(dir, "settings", "author.yml"))
+  lines <- readLines(file.path(dir, "settings.yml"))
+  writeLines(append(lines, "  author: settings/author.yml", after = 1), file.path(dir, "settings.yml"))
+  cat("/exports/\n", file = file.path(dir, ".gitignore"), append = TRUE)
+  plan <- suppressMessages(upgrade(dir))
+  expect_match(plan$actions$change[plan$actions$path == ".framework/spec.json"], "author.*git.gitignore_content")
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  spec <- jsonlite::read_json(spec_file)
+  expect_identical(spec$author$name, "Ada Lovelace")
+  expect_null(spec$author$github)
+  expect_match(spec$git$gitignore_content, "/exports/", fixed = TRUE)
+  expect_identical(framework:::.spec_schema_problems(spec), character())
+  expect_identical(nrow(suppressMessages(upgrade(dir))$actions), 0L)
+})

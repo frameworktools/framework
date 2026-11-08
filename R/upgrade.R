@@ -19,8 +19,8 @@
 #'   `storage_buckets`. A password written into the settings is reported (by
 #'   key, never by value) and left where it is.
 #' - **Spec**: `.framework/spec.json` is written from the settings when it is
-#'   missing, and refreshed when its folders, type, security, tools, or
-#'   connections no longer match, so `fw project push-spec` and
+#'   missing, and refreshed when its folders, type, author, security, tools,
+#'   connections, or copy of `.gitignore` no longer match, so `fw project push-spec` and
 #'   [cloud_register()] work. It holds only what `spec.v1` allows (see
 #'   `inst/schema/spec.v1.json`), so keys an earlier `upgrade()` wrote that
 #'   Framework Cloud refuses (`scaffold.positron`, `source.upgraded_from`)
@@ -36,7 +36,8 @@
 #'   left alone and reported. Sensitive projects get the Claude Code guards
 #'   that keep agents out of private folders.
 #' - **Skills**: Framework skills that match a version the package has
-#'   shipped are updated; missing ones for the project type are added;
+#'   shipped are updated, in the assistants' skills folders and in
+#'   `.agents/skills`; missing ones for the project type are added;
 #'   locally edited ones are kept and listed. A project with no skills folder
 #'   gets none, except that a sensitive project gets
 #'   `framework-sensitive-data` (in its assistants' skills folder, or
@@ -697,6 +698,9 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
   table <- .ai_assistant_table()
   assistants <- intersect(unlist(settings$ai$assistants), names(table))
   dirs <- if (length(assistants) == 0) ".agents/skills" else unique(vapply(table[assistants], `[[`, "", "skills_dir"))
+  # Skills copied to .agents/skills (read by Codex and others) are kept
+  # current too, whatever the assistants
+  if (dir.exists(file.path(ctx$root, ".agents", "skills"))) dirs <- unique(c(dirs, ".agents/skills"))
   # A project with no skills folder never used skills; installing them is
   # ai_skills_update()'s job, not an upgrade's
   skills <- .ai_skills_for_type(type)
@@ -793,10 +797,16 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
     }
     # Refresh what the settings decide; keep the rest (files, skills, env)
     spec <- old
-    derived <- c("name", "type", "tools", "directories", "extra_directories", "render_dirs",
+    derived <- c("name", "type", "author", "tools", "directories", "extra_directories", "render_dirs",
                  "security", "connections")
     stale <- derived[!vapply(derived, function(k) .upgrade_same_json(old[[k]], built[[k]]), logical(1))]
     for (k in stale) spec[k] <- list(built[[k]])
+    # The copy of .gitignore follows the file; git's other settings stay
+    if (!identical(old$git$gitignore_content, built$git$gitignore_content)) {
+      if (!is.list(spec$git)) spec$git <- built$git
+      spec$git$gitignore_content <- built$git$gitignore_content
+      stale <- c(stale, "git.gitignore_content")
+    }
     # Keys an earlier upgrade() wrote that spec.v1 has no place for, which
     # Framework Cloud refuses (scaffold.positron, source.upgraded_from)
     pruned <- .spec_schema_prune(spec)
@@ -880,13 +890,20 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
     if (!is.null(spec$scaffold$notebook_format)) spec$scaffold$workflow <- NULL
   }
   if (is.list(settings$quarto)) spec$quarto <- settings$quarto
-  if (is.list(settings$author)) spec$author <- utils::modifyList(spec$author, Filter(Negate(is.null), settings$author))
+  if (is.list(settings$author)) {
+    author <- Filter(function(v) !is.null(v) && !(is.character(v) && length(v) == 1 && is.na(v)), settings$author)
+    author <- lapply(author, function(v) if (is.character(v) || is.list(v)) v else as.character(v))
+    spec$author <- utils::modifyList(spec$author, author)
+  }
   spec$skills <- .upgrade_spec_skills(ctx, assistants)
   spec$env <- .adopt_named(list())
   spec$files <- .adopt_named(list())
   gitignore <- .upgrade_read(ctx, ".gitignore")
   spec$git$gitignore_content <- paste(gitignore %||% character(), collapse = "\n")
   spec$source <- list(origin = "r")
+  # Settings may hold more than the spec has room for (an author's extra
+  # fields); the spec keeps what spec.v1 allows
+  spec <- .spec_schema_prune(spec)$spec
   problems <- c(spec_check(spec), .spec_schema_problems(spec))
   if (length(problems) > 0) stop(paste(unique(problems), collapse = "; "), call. = FALSE)
   spec

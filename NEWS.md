@@ -257,6 +257,11 @@ Adopting and upgrading projects:
     history, private-data-exposure, and identifier-column checks report them
     as reviewed (`findings$reviewed`, and REVIEWED in the printed report)
     instead of failing.
+* `upgrade()` refreshes the spec's `author` and its copy of `.gitignore`
+  (`git.gitignore_content`) when they no longer match the settings and the
+  file, and updates Framework skills in `.agents/skills` as well as the
+  assistants' folders. A second copy of a skill (`.agents/skills` beside
+  `.claude/skills`) is no longer kept as "edited" once the first is updated.
 
 # framework 2.0.0
 

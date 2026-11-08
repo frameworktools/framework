@@ -51,8 +51,8 @@ connections listed flat, or the empty hybrid of both) are rewritten as
 \code{storage_buckets}. A password written into the settings is reported (by
 key, never by value) and left where it is.
 \item \strong{Spec}: \code{.framework/spec.json} is written from the settings when it is
-missing, and refreshed when its folders, type, security, tools, or
-connections no longer match, so \verb{fw project push-spec} and
+missing, and refreshed when its folders, type, author, security, tools,
+connections, or copy of \code{.gitignore} no longer match, so \verb{fw project push-spec} and
 \code{\link[=cloud_register]{cloud_register()}} work. It holds only what \code{spec.v1} allows (see
 \code{inst/schema/spec.v1.json}), so keys an earlier \code{upgrade()} wrote that
 Framework Cloud refuses (\code{scaffold.positron}, \code{source.upgraded_from})
@@ -68,7 +68,8 @@ guide; the marked sections are regenerated. A hand-written AGENTS.md is
 left alone and reported. Sensitive projects get the Claude Code guards
 that keep agents out of private folders.
 \item \strong{Skills}: Framework skills that match a version the package has
-shipped are updated; missing ones for the project type are added;
+shipped are updated, in the assistants' skills folders and in
+\code{.agents/skills}; missing ones for the project type are added;
 locally edited ones are kept and listed. A project with no skills folder
 gets none, except that a sensitive project gets
 \code{framework-sensitive-data} (in its assistants' skills folder, or

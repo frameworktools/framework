@@ -263,9 +263,12 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   if (!is.null(entry$skill_id) && !startsWith(entry$skill_id, "framework:")) return(FALSE)
   files <- .skill_scan(source); fresh <- .skill_hash(files)
   current <- if (dir.exists(target)) .skill_hash(.skill_scan(target)) else NULL
-  if (!is.null(current) && !identical(current, entry$hash %||% fresh)) {
+  # The lock's hash describes the copies at its paths; another copy of the
+  # same skill (.agents/skills beside .claude/skills) has no entry yet
+  expected <- if (relative %in% unlist(entry$paths)) entry$hash else NULL
+  if (!is.null(current) && !identical(current, expected %||% fresh)) {
     # No lock entry, but the folder holds a version the package shipped
-    if (!is.null(entry$hash) || !.skill_released_copy(target, name)) return(FALSE)
+    if (!is.null(expected) || !.skill_released_copy(target, name)) return(FALSE)
   }
   if (!identical(current, fresh)) .skill_install(root, relative, files, current)
   entry$paths <- as.list(unique(c(unlist(entry$paths), relative)))
