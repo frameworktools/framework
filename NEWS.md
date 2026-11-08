@@ -269,6 +269,12 @@ Adopting and upgrading projects:
   Only when none does it makes one from the connection's name. The plan names
   the variable, says where it came from, and tells you to set it in `.env`
   and refer to it in the settings.
+* `upgrade(move_settings = TRUE)` moves top-level settings keys that no
+  environment reads (`ehr_source:` beside `default:`) into
+  `settings/<key>.yml`, with their text and comments, and names each file
+  under `default:`, so `settings_read()` and `settings()` read them and the
+  warning on every `scaffold()` stops. Without it, the plan says the option
+  exists.
 
 # framework 2.0.0
 

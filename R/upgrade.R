@@ -12,7 +12,8 @@
 #'   sections are added: `tools:` (Quarto and renv, from the files present)
 #'   and `security:`. A `project_sensitive` project, or one with the private
 #'   folder layout, gets `security: sensitive: true`. Keys outside `default:`,
-#'   which Framework ignores, are reported, not moved.
+#'   which Framework ignores, are reported, or moved into `settings/` with
+#'   `move_settings = TRUE`.
 #' - **Connections**: the old layouts (`options: default_connection:` with
 #'   connections listed flat, or the empty hybrid of both) are rewritten as
 #'   `connections:` with `default_database`, `databases`, and
@@ -55,6 +56,12 @@
 #' @param backup If TRUE (default), copy every file before it is rewritten or
 #'   removed. Skills replaced by an update are always backed up, to
 #'   `.framework/skills-backups/`.
+#' @param move_settings If TRUE, move top-level keys of the settings file that
+#'   no environment reads (`ehr_source:` beside `default:`) into
+#'   `settings/<key>.yml`, keeping their text and comments, and name each
+#'   file under `default:` (`ehr_source: settings/ehr_source.yml`), so
+#'   [settings_read()] and [settings()] read them. FALSE (default) reports
+#'   them.
 #' @param type Change the project's type: "project", "project_sensitive",
 #'   "course", "presentation", or "bare". NULL (default) keeps it. Making a
 #'   project `project_sensitive` sets `security: sensitive: true`, adds the
@@ -82,11 +89,12 @@
 #' }
 #'
 #' @export
-upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
+upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move_settings = FALSE) {
   checkmate::assert_directory_exists(path)
   checkmate::assert_flag(dry_run)
   checkmate::assert_flag(backup)
   checkmate::assert_choice(type, .spec_types(), null.ok = TRUE)
+  checkmate::assert_flag(move_settings)
   root <- normalizePath(path, winslash = "/", mustWork = TRUE)
 
   found <- .fw_settings_files(root)
@@ -103,6 +111,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
   ctx$notes <- character()
   ctx$main <- basename(found[1])
   ctx$type <- type
+  ctx$move_settings <- move_settings
 
   .upgrade_settings_file(ctx)
   .upgrade_settings(ctx)
@@ -241,12 +250,11 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
     return(invisible())
   }
   scoped <- .has_environment_sections(raw)
-  if (scoped) {
-    ignored <- .fw_ignored_settings_keys(raw, "default")
-    if (length(ignored) > 0) {
-      .upgrade_note(ctx, ctx$main, " has keys outside default: (", paste(ignored, collapse = ", "),
-                    "). Framework ignores them; move them under default: to use them.")
-    }
+  ignored <- if (scoped) .fw_ignored_settings_keys(raw, "default") else character()
+  if (length(ignored) > 0 && !isTRUE(ctx$move_settings)) {
+    .upgrade_note(ctx, ctx$main, " has keys outside default: (", paste(ignored, collapse = ", "),
+                  "). Framework ignores them. upgrade(move_settings = TRUE) moves each into ",
+                  "settings/<key>.yml, named under default:, so settings_read() and settings() read it.")
   }
   section <- .upgrade_section(raw)
   settings <- .upgrade_settings_raw(ctx)
@@ -299,6 +307,14 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
                   "Framework treats the project as sensitive; set it to true to match.")
   }
 
+  if (length(ignored) > 0 && isTRUE(ctx$move_settings)) {
+    moved <- .upgrade_move_ignored_keys(ctx, text, ignored)
+    text <- moved$text
+    if (length(moved$keys) > 0) {
+      changes <- c(changes, sprintf("move %s under default: (into settings/)", paste(moved$keys, collapse = ", ")))
+    }
+  }
+
   if (length(changes) > 0) {
     lines <- strsplit(sub("\n$", "", text), "\n", fixed = TRUE)[[1]]
     .upgrade_write(ctx, "settings", ctx$main, lines, paste(changes, collapse = "; "))
@@ -306,6 +322,60 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL) {
   if (to_sensitive) .upgrade_private_directories(ctx)
   .upgrade_sensitive_notes(ctx)
   invisible()
+}
+
+# Move top-level keys that no environment reads into settings/<key>.yml,
+# their text as written (comments kept), and name each file under
+# default: (ehr_source: settings/ehr_source.yml), as Framework's own split
+# files are. A key whose file exists is left and reported. Returns
+# list(text, keys moved).
+#' @keywords internal
+.upgrade_move_ignored_keys <- function(ctx, text, keys) {
+  moved <- character()
+  for (key in keys) {
+    file <- file.path("settings", paste0(key, ".yml"))
+    if (!is.null(.upgrade_read(ctx, file))) {
+      .upgrade_note(ctx, file, " already exists, so ", key, ": was left outside default:. Merge it by hand.")
+      next
+    }
+    lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+    start <- which(startsWith(lines, paste0(key, ":")))
+    if (length(start) != 1) {
+      .upgrade_note(ctx, "Couldn't find ", key, ": in ", ctx$main, " to move; move it under default: by hand.")
+      next
+    }
+    top <- grep("^[^[:space:]#]", lines)
+    end <- min(c(top[top > start], length(lines) + 1)) - 1
+    # Blank lines and comments at the left edge before the next key belong
+    # to that key
+    while (end > start && (!nzchar(trimws(lines[end])) || grepl("^#", lines[end]))) end <- end - 1
+    block <- lines[start:end]
+    # Comments right above the key travel with it
+    above <- start - 1
+    while (above >= 1 && grepl("^#", lines[above])) above <- above - 1
+    lead <- if (above < start - 1) lines[(above + 1):(start - 1)] else character()
+    remaining <- lines[-c((above + 1):end)]
+    while (length(remaining) > 0 && !nzchar(trimws(remaining[length(remaining)]))) {
+      remaining <- remaining[-length(remaining)]
+    }
+    rest <- paste(remaining, collapse = "\n")
+    check <- tryCatch(yaml::yaml.load(paste(block, collapse = "\n"), handlers = .fw_yaml_read_handlers()),
+                      error = function(e) NULL)
+    if (!is.list(check) || !identical(names(check), key)) {
+      .upgrade_note(ctx, "Couldn't move ", key, ": out of ", ctx$main, " cleanly; move it under default: by hand.")
+      next
+    }
+    .upgrade_write(ctx, "settings", file, c(lead, block),
+                   sprintf("create from %s's top-level %s: (named under default:)", ctx$main, key))
+    text <- .fw_yaml_set_text(rest, c("default", key), file)
+    moved <- c(moved, key)
+  }
+  if (length(moved) > 0) {
+    .upgrade_note(ctx, "Moved ", paste(moved, collapse = ", "), " into settings/. settings_read() and ",
+                  "settings(\"", moved[1], "...\") read them; code that read them from ", ctx$main,
+                  " with yaml::read_yaml() should use framework::settings_read().")
+  }
+  list(text = text, keys = moved)
 }
 
 # A project becoming sensitive gets the private and public folders of the

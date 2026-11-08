@@ -4,7 +4,13 @@
 \alias{upgrade}
 \title{Bring an Older Framework Project Up to the Current Layout}
 \usage{
-upgrade(path = ".", dry_run = TRUE, backup = TRUE, type = NULL)
+upgrade(
+  path = ".",
+  dry_run = TRUE,
+  backup = TRUE,
+  type = NULL,
+  move_settings = FALSE
+)
 }
 \arguments{
 \item{path}{The project folder (default: the working directory).}
@@ -25,6 +31,13 @@ agent guards, and skill like any sensitive project. The plan says where
 will write from then on (\code{outputs/private/...}), and lists the data and
 render folders that aren't private. A sensitive project made another
 type stays sensitive.}
+
+\item{move_settings}{If TRUE, move top-level keys of the settings file that
+no environment reads (\verb{ehr_source:} beside \verb{default:}) into
+\verb{settings/<key>.yml}, keeping their text and comments, and name each
+file under \verb{default:} (\code{ehr_source: settings/ehr_source.yml}), so
+\code{\link[=settings_read]{settings_read()}} and \code{\link[=settings]{settings()}} read them. FALSE (default) reports
+them.}
 }
 \value{
 Invisibly, a list with \code{actions} (a data frame: \code{step}, \code{path},
@@ -44,7 +57,8 @@ The plan covers:
 sections are added: \verb{tools:} (Quarto and renv, from the files present)
 and \verb{security:}. A \code{project_sensitive} project, or one with the private
 folder layout, gets \code{security: sensitive: true}. Keys outside \verb{default:},
-which Framework ignores, are reported, not moved.
+which Framework ignores, are reported, or moved into \verb{settings/} with
+\code{move_settings = TRUE}.
 \item \strong{Connections}: the old layouts (\verb{options: default_connection:} with
 connections listed flat, or the empty hybrid of both) are rewritten as
 \verb{connections:} with \code{default_database}, \code{databases}, and

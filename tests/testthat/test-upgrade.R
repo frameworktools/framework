@@ -310,3 +310,23 @@ test_that("a written-out password goes into the spec under the name the project 
   note <- grep("warehouse.password", suppressMessages(upgrade(dir))$notes, value = TRUE)
   expect_match(note, 'env("WAREHOUSE_PASSWORD") (no .env, .env example, or code names one', fixed = TRUE)
 })
+
+test_that("upgrade(move_settings = TRUE) moves keys outside default: into settings/", {
+  dir <- local_old_project()
+  cat("\n# Partner sites\nsites:\n  - north # main\n  - south\n", file = file.path(dir, "settings.yml"), append = TRUE)
+  plan <- suppressMessages(upgrade(dir))
+  expect_true(any(grepl("upgrade(move_settings = TRUE) moves each", plan$notes, fixed = TRUE)))
+
+  plan <- suppressMessages(upgrade(dir, move_settings = TRUE, dry_run = FALSE))
+  expect_true(any(grepl("move ehr_source, sites under default:", plan$actions$change, fixed = TRUE)))
+  expect_identical(readLines(file.path(dir, "settings", "sites.yml")),
+                   c("# Partner sites", "sites:", "  - north # main", "  - south"))
+  main <- yaml::read_yaml(file.path(dir, "settings.yml"))
+  expect_identical(names(main), "default")
+  expect_identical(main$default$ehr_source, "settings/ehr_source.yml")
+  cfg <- withr::with_dir(dir, settings_read())
+  expect_identical(cfg$ehr_source$partner, "north")
+  expect_identical(unlist(cfg$sites), c("north", "south"))
+  withr::with_dir(dir, expect_no_warning(settings_read()))
+  expect_identical(nrow(suppressMessages(upgrade(dir, move_settings = TRUE))$actions), 0L)
+})
