@@ -985,3 +985,36 @@ test_that("the orphan scan counts plain folders as known and leaves out JSON, te
   out <- capture_messages(framework:::.print_audit_summary(audit))
   expect_true(any(grepl("loose/ (2 files)", out, fixed = TRUE)))
 })
+
+test_that("env() on a credential passes with no default or an empty one, as on Framework Cloud", {
+  literal <- framework:::.fw_literal_secret
+  expect_false(literal('env("DB_PASSWORD")'))
+  expect_false(literal("env('DB_PASSWORD')"))
+  expect_false(literal('env("DB_PASSWORD", "")'))
+  expect_false(literal("env('DB_PASSWORD', '')"))
+  expect_false(literal(' env( "DB_PASSWORD" ,  "" ) '))
+  expect_true(literal('env("DB_PASSWORD", "hunter2")'))
+  expect_true(literal("env('DB_PASSWORD', 'hunter2')"))
+  expect_true(literal("hunter2"))
+  expect_true(literal("env(DB_PASSWORD)"))
+
+  key <- framework:::.fw_credential_key
+  expect_true(all(key(c("password", "db_passwd", "pwd", "client_secret", "token", "access_key",
+                        "accessKey", "api_key", "apikey", "private_key", "credential", "credentials_file"))))
+  expect_false(any(key(c("user", "host", "database", "schema", "keyring"))))
+
+  found <- framework:::.fw_secret_keys(list(connections = list(databases = list(db = list(
+    password = "env('DB_PASSWORD', '')",
+    private_key = 'env("DB_KEY", "-----BEGIN")',
+    credential = "env('DB_CRED')"
+  )))))
+  expect_identical(found, "connections.databases.db.private_key")
+})
+
+test_that("upgrade() keeps the variable of env() with a default and drops the default in the spec", {
+  conns <- framework:::.upgrade_spec_connections(list(databases = list(db = list(
+    driver = "postgres", password = 'env("DB_PASSWORD", "fallback")', token = "env('DB_TOKEN', '')"
+  ))))
+  expect_identical(conns$databases$db$password, 'env("DB_PASSWORD")')
+  expect_identical(conns$databases$db$token, "env('DB_TOKEN', '')")
+})

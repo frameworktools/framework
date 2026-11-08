@@ -782,9 +782,13 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE) {
       conn <- conns[[name]]
       if (!is.list(conn)) next
       for (key in names(conn)) {
-        if (grepl("password|passwd|pwd|secret|token|api_?key|access_key", key, ignore.case = TRUE) &&
+        if (.fw_credential_key(key) &&
             .fw_literal_secret(conn[[key]])) {
-          conn[[key]] <- sprintf('env("%s")', toupper(gsub("[^A-Za-z0-9]+", "_", paste(name, key, sep = "_"))))
+          # env("NAME", "default") keeps its variable and loses the default,
+          # which Framework Cloud refuses on a credential
+          call <- .fw_env_call(conn[[key]])
+          var <- call$name %||% toupper(gsub("[^A-Za-z0-9]+", "_", paste(name, key, sep = "_")))
+          conn[[key]] <- sprintf('env("%s")', var)
         }
       }
       conns[[name]] <- conn

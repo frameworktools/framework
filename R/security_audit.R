@@ -1176,21 +1176,42 @@ git_security_audit <- function(config_file = NULL,
 }
 
 
+# Whether a settings key holds a credential. The rule Framework Cloud uses
+# for specs (password, secret, token, access_key, api_key, private_key,
+# credential), plus passwd and pwd. framework-py: _security.credential_key().
+#' @keywords internal
+.fw_credential_key <- function(key) {
+  grepl("password|passwd|pwd|secret|token|access_?key|api_?key|private_?key|credential",
+        key, ignore.case = TRUE)
+}
+
+# A value of the form env("NAME") or env("NAME", "default"), with single or
+# double quotes: list(name, default), default NULL when there is none. NULL
+# when the value is something else.
+#' @keywords internal
+.fw_env_call <- function(value) {
+  if (!is.character(value) || length(value) != 1 || is.na(value)) return(NULL)
+  m <- regmatches(value, regexec(
+    "^\\s*env\\(\\s*(['\"])([^'\"]*)\\1\\s*(?:,\\s*(['\"])(.*?)\\3\\s*)?\\)\\s*$",
+    value, perl = TRUE
+  ))[[1]]
+  if (length(m) == 0) return(NULL)
+  list(name = m[3], default = if (nzchar(m[4])) m[5] else NULL)
+}
+
 # Whether a credential value is written out: anything but missing, empty, a
-# mapping or list, a boolean, env("VAR"), or !expr Sys.getenv("VAR"). A
-# default (env("VAR", "x"), Sys.getenv("VAR", "x")) is written out too, as
-# are numbers.
+# mapping or list, a boolean, env("VAR") or env("VAR", "") (single or double
+# quotes), or !expr Sys.getenv("VAR"). A non-empty default (env("VAR", "x"),
+# Sys.getenv("VAR", "x")) is written out too, as are numbers. The same rule
+# as Framework Cloud's spec check. framework-py: _security.literal_secret().
 #' @keywords internal
 .fw_literal_secret <- function(value) {
   if (is.null(value) || is.list(value) || is.logical(value) || length(value) == 0) return(FALSE)
   if (!is.character(value)) return(TRUE)
   value <- value[1]
   if (is.na(value) || !nzchar(value)) return(FALSE)
-  text <- trimws(value)
-  env_call <- regmatches(text, regexec('^env\\("(.*?)"(?:,\\s*"(.*?)")?\\)$', text, perl = TRUE))[[1]]
-  if (length(env_call) > 0) {
-    return(length(env_call) >= 3 && !is.na(env_call[3]) && nzchar(env_call[3]))
-  }
+  call <- .fw_env_call(value)
+  if (!is.null(call)) return(!is.null(call$default) && nzchar(call$default))
   if (grepl("^!expr\\s+", value)) {
     code <- trimws(sub("^!expr\\s+", "", value))
     system <- regmatches(code, regexec(
@@ -1213,7 +1234,7 @@ git_security_audit <- function(config_file = NULL,
       value <- node[[i]]
       here <- if (nzchar(path)) paste0(path, ".", key) else key
       within <- inside || identical(key, "connections")
-      if (within && grepl("password|passwd|pwd|secret|token|api_?key|access_key", key, ignore.case = TRUE) &&
+      if (within && .fw_credential_key(key) &&
           .fw_literal_secret(value)) {
         found <- c(found, here)
       } else {
@@ -1233,9 +1254,10 @@ git_security_audit <- function(config_file = NULL,
 #' Reads the settings file the audit read and every `.yml`/`.yaml` file under
 #' the project's `settings/` folder, without evaluating anything (`!expr`
 #' stays text). Under any key named `connections`, a key whose name matches
-#' `password|passwd|pwd|secret|token|api_?key|access_key` (any case) is a
-#' finding when its value is written out rather than read from the
-#' environment. Values are never stored or printed.
+#' `password|passwd|pwd|secret|token|access_?key|api_?key|private_?key|credential`
+#' (any case) is a finding when its value is written out rather than read
+#' from the environment: `env("VAR")` and `env("VAR", "")` pass, while
+#' `env("VAR", "value")` is a finding, as on Framework Cloud. Values are never stored or printed.
 #' @keywords internal
 .check_connection_secrets <- function(config_file, root = ".", tracked = character()) {
   issues <- data.frame(file = character(), key = character(), tracked = logical(),

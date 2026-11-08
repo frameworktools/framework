@@ -10,8 +10,9 @@
 Reads the settings file the audit read and every \code{.yml}/\code{.yaml} file under
 the project's \verb{settings/} folder, without evaluating anything (\code{!expr}
 stays text). Under any key named \code{connections}, a key whose name matches
-\code{password|passwd|pwd|secret|token|api_?key|access_key} (any case) is a
-finding when its value is written out rather than read from the
-environment. Values are never stored or printed.
+\code{password|passwd|pwd|secret|token|access_?key|api_?key|private_?key|credential}
+(any case) is a finding when its value is written out rather than read
+from the environment: \code{env("VAR")} and \code{env("VAR", "")} pass, while
+\code{env("VAR", "value")} is a finding, as on Framework Cloud. Values are never stored or printed.
 }
 \keyword{internal}

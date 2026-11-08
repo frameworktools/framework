@@ -222,6 +222,12 @@ Adopting and upgrading projects:
   yes` becomes `ide: positron` when no IDE is set), and drops both from a spec
   an earlier `upgrade()` wrote. `cloud_register()` stops before sending a spec
   that doesn't match and says to run `upgrade()`.
+* `git_security_audit()`'s connection-secrets check and `upgrade()` follow
+  Framework Cloud's rule for credentials: on a key named like a password,
+  secret, token, access key, API key, private key, or credential,
+  `env("NAME")` and `env("NAME", "")` (single or double quotes) pass, and
+  `env("NAME", "value")` counts as a written-out secret. `upgrade()` writes
+  such a value into the spec as `env("NAME")`, keeping its variable.
 
 # framework 2.0.0
 
