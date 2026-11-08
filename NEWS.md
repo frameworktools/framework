@@ -292,6 +292,15 @@ Adopting and upgrading projects:
 * `adopt()` sets `tools: quarto: true` when the folder has a `_quarto.yml`
   or a `.qmd` file at most three folders deep, not only a `_quarto.yml` at
   the root, so a Quarto project in `notebooks/` or loose `.qmd` files count.
+* In a sensitive `adopt()`, the plan lists mapped folders that may hold
+  restricted data but aren't private (data, exports, reports, results, and
+  `inputs_*`/`outputs_*` folders), an interactive review asks about each,
+  and the new `private` argument marks folders private in a non-interactive
+  adopt: each keeps its path under a private key (`outputs_reports` becomes
+  `outputs_private_reports`, `data-files` becomes
+  `inputs_private_data_files`) and is added to `.gitignore`. `adopt()` no
+  longer writes a stray `//` rule when every private-looking folder is
+  already ignored.
 
 # framework 2.0.0
 

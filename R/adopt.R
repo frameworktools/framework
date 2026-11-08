@@ -41,6 +41,13 @@
 #' @param type The project type: "project", "project_sensitive", "course",
 #'   "presentation", or "bare". NULL (default) infers it from the folders.
 #'   "project_sensitive" implies `sensitive = TRUE`.
+#' @param private Folders (paths from the project folder) to map to private
+#'   keys, keeping their paths: `inputs_raw` becomes `inputs_private_raw`,
+#'   `outputs_reports` becomes `outputs_private_reports`, and another folder
+#'   becomes `outputs_private_<name>` or `inputs_private_<name>`. Their paths
+#'   are added to `.gitignore`. In a sensitive adopt, folders that may hold
+#'   restricted data (data, exports, reports, results, ...) and aren't
+#'   private are listed in the plan; an interactive review asks about each.
 #' @param cloud If TRUE, register the adopted project on Framework Cloud and
 #'   link it ([cloud_register()]); FALSE never does. NULL (default) asks in an
 #'   interactive session when you are signed in.
@@ -59,13 +66,16 @@
 #' adopt("~/projects/old-study")
 #' adopt(yes = TRUE)
 #' adopt("~/projects/cohort-study", yes = TRUE, sensitive = TRUE)
+#' adopt("~/projects/ehr-checks", yes = TRUE, sensitive = TRUE,
+#'       private = c("reports", "data-files"))
 #' adopt("~/teaching/methods", yes = TRUE, type = "course")
 #' }
 #' }
 #'
 #' @export
-adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud = NULL) {
+adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud = NULL, private = NULL) {
   checkmate::assert_directory_exists(path)
+  checkmate::assert_character(private, any.missing = FALSE, null.ok = TRUE)
   checkmate::assert_flag(yes)
   checkmate::assert_flag(cloud, null.ok = TRUE)
   checkmate::assert_flag(sensitive, null.ok = TRUE)
@@ -85,8 +95,9 @@ adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud 
          call. = FALSE)
   }
 
-  mapping <- .adopt_review(.adopt_map(.adopt_scan(path), type = type), yes = yes,
-                           allow_empty = TRUE, sensitive = sensitive)
+  mapping <- .adopt_map(.adopt_scan(path), type = type)
+  for (folder in private %||% character()) mapping <- .adopt_mark_private(mapping, folder)
+  mapping <- .adopt_review(mapping, yes = yes, allow_empty = TRUE, sensitive = sensitive)
   name <- basename(normalizePath(path))
   spec <- .adopt_spec(mapping, name, use_git = file.exists(file.path(path, ".git")),
                       quarto = .adopt_detect_quarto(path))
@@ -375,6 +386,14 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
           default = FALSE
         ))
       }
+      if (isTRUE(mapping$sensitive)) {
+        for (folder in .adopt_restricted_candidates(mapping)) {
+          if (isTRUE(.adopt_ask(paste0("'", folder, "' may hold restricted data. Mark it private?"),
+                                default = TRUE))) {
+            mapping <- .adopt_mark_private(mapping, folder)
+          }
+        }
+      }
       return(mapping)
     }
     if (answer %in% c("q", "c")) stop("Cancelled: nothing was changed.", call. = FALSE)
@@ -400,7 +419,69 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
   message("Proposed mapping (type: ", mapping$type %||% "bare",
           if (isTRUE(mapping$sensitive)) ", sensitive data" else "", "):")
   for (i in seq_len(nrow(rows))) message(sprintf("  %2d. %-30s %s", i, rows$path[i], rows$role[i]))
+  candidates <- if (isTRUE(mapping$sensitive)) .adopt_restricted_candidates(mapping) else character()
+  if (length(candidates) > 0) {
+    message("May hold restricted data (mark private?): ", paste(candidates, collapse = ", "), ". ",
+            "Accept to be asked about each, or pass private = c(\"", paste(candidates, collapse = "\", \""),
+            "\") (fw adopt --private <folder>) to map them to private keys, which Framework's checks and ",
+            "agent guards cover.")
+  }
   rows
+}
+
+# In a sensitive project, the mapped folders that may hold restricted data
+# but aren't private: inputs_*/outputs_* keys and data, cache, and scratch,
+# and other folders named like data, exports, extracts, reports, results,
+# outputs, raw, tables, figures, or submissions. Folders already private by
+# key or by a private-named segment don't count. framework-py and fw: the
+# same rule.
+#' @keywords internal
+.adopt_restricted_candidates <- function(mapping) {
+  private_path <- function(p) any(.fw_is_private_folder_name(strsplit(p, "/", fixed = TRUE)[[1]]))
+  keys <- names(mapping$directories)
+  from_keys <- unlist(mapping$directories[
+    (grepl("^(inputs|outputs)_", keys) | keys %in% c("data", "cache", "scratch")) & !grepl("private|public", keys)
+  ], use.names = FALSE)
+  extras <- vapply(mapping$extra_directories, `[[`, "", "path", USE.NAMES = FALSE)
+  pattern <- "data|export|extract|report|result|output|raw|table|figure|submission|download|cohort"
+  from_extras <- extras[grepl(pattern, tolower(basename(extras)))]
+  out <- unique(c(from_keys, from_extras))
+  out[!vapply(out, private_path, logical(1))]
+}
+
+# Map a folder to a private key, keeping its path: inputs_raw becomes
+# inputs_private_raw, outputs_reports becomes outputs_private_reports, and
+# any other folder becomes outputs_private_<name> when it is named like
+# outputs (reports, results, exports, tables, figures) and
+# inputs_private_<name> otherwise. Its path is gitignored like the other
+# private folders.
+#' @keywords internal
+.adopt_mark_private <- function(mapping, folder) {
+  folder <- sub("/+$", "", sub("^\\./", "", folder))
+  in_dirs <- names(mapping$directories)[unlist(mapping$directories) == folder]
+  extras <- vapply(mapping$extra_directories, `[[`, "", "path")
+  in_extras <- names(mapping$extra_directories)[extras == folder]
+  if (length(in_dirs) + length(in_extras) == 0) {
+    stop("'", folder, "' isn't a folder adopt() maps here, so it can't be marked private. Folders: ",
+         paste(c(unlist(mapping$directories), extras), collapse = ", "), call. = FALSE)
+  }
+  old <- c(in_dirs, in_extras)[1]
+  if (grepl("private", old) && !grepl("public", old)) return(mapping)
+  slug <- .adopt_extra_key(basename(folder), character())
+  key <- if (length(in_dirs) > 0 && grepl("^(inputs|outputs)_", old)) {
+    sub("^(inputs|outputs)_", "\\1_private_", old)
+  } else if (grepl("report|result|output|export|table|figure", tolower(basename(folder)))) {
+    paste0("outputs_private_", slug)
+  } else {
+    paste0("inputs_private_", slug)
+  }
+  taken <- c(names(mapping$directories), names(mapping$extra_directories))
+  if (key %in% taken) key <- .adopt_extra_key(key, taken)
+  mapping$directories <- mapping$directories[setdiff(names(mapping$directories), in_dirs)]
+  mapping$extra_directories <- mapping$extra_directories[setdiff(names(mapping$extra_directories), in_extras)]
+  mapping$directories[[key]] <- folder
+  mapping$marked_private <- unique(c(mapping$marked_private, folder))
+  mapping
 }
 
 #' @keywords internal
@@ -477,10 +558,11 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
 # .gitignore lacks, plus each folder whose path looks private. Returns the .gitignore's lines afterwards.
 #' @keywords internal
 .adopt_gitignore <- function(path, spec, mapping) {
-  private <- vapply(mapping$warnings, `[[`, "", "path")
+  private <- c(vapply(mapping$warnings, `[[`, "", "path"), mapping$marked_private)
+  unignored <- if (length(private) > 0) .fw_unignored_folders(path, private) else character()
   wanted <- c(
     .fw_gitignore_rules(spec$git$gitignore_content),
-    if (length(private) > 0) paste0("/", .fw_unignored_folders(path, private), "/")
+    if (length(unignored) > 0) paste0("/", unignored, "/")
   )
   plan <- .fw_gitignore_missing(path, wanted)
   .fw_gitignore_append(path, plan$add, "# Added by framework::adopt()")

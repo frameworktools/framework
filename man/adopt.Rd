@@ -4,7 +4,14 @@
 \alias{adopt}
 \title{Adopt an Existing Project Folder}
 \usage{
-adopt(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud = NULL)
+adopt(
+  path = ".",
+  yes = FALSE,
+  sensitive = NULL,
+  type = NULL,
+  cloud = NULL,
+  private = NULL
+)
 }
 \arguments{
 \item{path}{The project folder (default: the working directory).}
@@ -24,6 +31,14 @@ an interactive review when folders look private, and is FALSE otherwise.}
 \item{cloud}{If TRUE, register the adopted project on Framework Cloud and
 link it (\code{\link[=cloud_register]{cloud_register()}}); FALSE never does. NULL (default) asks in an
 interactive session when you are signed in.}
+
+\item{private}{Folders (paths from the project folder) to map to private
+keys, keeping their paths: \code{inputs_raw} becomes \code{inputs_private_raw},
+\code{outputs_reports} becomes \code{outputs_private_reports}, and another folder
+becomes \verb{outputs_private_<name>} or \verb{inputs_private_<name>}. Their paths
+are added to \code{.gitignore}. In a sensitive adopt, folders that may hold
+restricted data (data, exports, reports, results, ...) and aren't
+private are listed in the plan; an interactive review asks about each.}
 }
 \value{
 Invisibly, a list with \code{type}, \code{directories}, and
@@ -68,6 +83,8 @@ if (FALSE) {
 adopt("~/projects/old-study")
 adopt(yes = TRUE)
 adopt("~/projects/cohort-study", yes = TRUE, sensitive = TRUE)
+adopt("~/projects/ehr-checks", yes = TRUE, sensitive = TRUE,
+      private = c("reports", "data-files"))
 adopt("~/teaching/methods", yes = TRUE, type = "course")
 }
 }

@@ -365,3 +365,51 @@ test_that("adopt() turns Quarto on for a _quarto.yml or .qmd file up to three fo
   expect_identical(quarto_of(c("a/b/c/d/too-deep.qmd", "a/run.R")), c(settings = FALSE, spec = FALSE))
   expect_identical(quarto_of(c("renv/x.qmd", "analysis/run.R")), c(settings = FALSE, spec = FALSE))
 })
+
+test_that("a sensitive adopt lists folders that may hold restricted data and marks them private on request", {
+  dir <- withr::local_tempdir()
+  for (f in c("reports", "data-files", "export-data", "misc", "R")) dir.create(file.path(dir, f))
+  msgs <- capture_messages(suppressWarnings(adopt(dir, yes = TRUE, sensitive = TRUE)))
+  expect_true(any(grepl("May hold restricted data (mark private?): reports, data-files, export-data.",
+                        msgs, fixed = TRUE)))
+  unlink(c(file.path(dir, "settings.yml"), file.path(dir, ".framework")), recursive = TRUE)
+  unlink(file.path(dir, ".gitignore"))
+
+  msgs <- capture_messages(suppressWarnings(
+    adopt(dir, yes = TRUE, type = "project_sensitive", private = c("reports", "data-files", "export-data/"))
+  ))
+  expect_false(any(grepl("May hold restricted data", msgs)))
+  dirs <- yaml::read_yaml(file.path(dir, "settings.yml"))$default$directories
+  expect_identical(dirs$outputs_private_reports, "reports")
+  expect_identical(dirs$inputs_private_data_files, "data-files")
+  expect_identical(dirs$outputs_private_export_data, "export-data")
+  rules <- readLines(file.path(dir, ".gitignore"))
+  expect_true(all(c("/reports/", "/data-files/", "/export-data/") %in% rules))
+  expect_false("//" %in% rules)
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(spec$directories$outputs_private_reports, "reports")
+  expect_identical(framework:::.spec_restricted_paths(spec), c("data-files/", "export-data/", "reports/"))
+
+  other <- withr::local_tempdir()
+  dir.create(file.path(other, "R"))
+  expect_error(suppressMessages(adopt(other, yes = TRUE, private = "nope")), "isn't a folder adopt\\(\\) maps")
+})
+
+test_that("an interactive sensitive adopt asks about each folder that may hold restricted data", {
+  dir <- withr::local_tempdir()
+  for (f in c("reports", "data", "R")) dir.create(file.path(dir, f))
+  withr::local_options(rlang_interactive = TRUE)
+  asked <- character()
+  local_mocked_bindings(
+    .adopt_readline = function(prompt) "a",
+    .adopt_ask = function(msg, default = FALSE) {
+      asked <<- c(asked, msg)
+      grepl("'reports'", msg)
+    }
+  )
+  suppressWarnings(suppressMessages(adopt(dir, sensitive = TRUE, cloud = FALSE)))
+  expect_true(any(grepl("'reports' may hold restricted data. Mark it private?", asked, fixed = TRUE)))
+  dirs <- yaml::read_yaml(file.path(dir, "settings.yml"))$default$directories
+  expect_identical(dirs$outputs_private_reports, "reports")
+  expect_false(any(grepl("private", setdiff(names(dirs), "outputs_private_reports"))))
+})
