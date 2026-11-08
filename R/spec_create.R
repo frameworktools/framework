@@ -352,17 +352,31 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
 }
 
 # Directories AI agents must not read in a sensitive project: every
-# configured path with a "private" segment, collapsed to that segment, plus
-# .env (secrets).
+# configured folder (directories, extra_directories, render_dirs) with a
+# segment named "private" or ending in "_private", collapsed to that
+# segment, and every directories entry whose key marks it private
+# (inputs_private_raw: inputs/raw), as configured. Folders inside another
+# restricted folder are left out. .env (secrets) is added by the callers.
+# framework-py: _spec.restricted_paths().
 .spec_restricted_paths <- function(spec) {
-  paths <- unlist(c(spec$directories, lapply(spec$extra_directories, `[[`, "path")), use.names = FALSE)
+  clean <- function(x) {
+    x <- as.character(unlist(x, use.names = FALSE))
+    x <- sub("/+$", "", sub("^\\./", "", x[!is.na(x) & nzchar(x)]))
+    x[vapply(x, .spec_is_safe_path, logical(1))]
+  }
+  paths <- clean(c(spec$directories, lapply(spec$extra_directories, `[[`, "path"), spec$render_dirs))
   restricted <- character()
   for (p in paths) {
     parts <- strsplit(p, "/", fixed = TRUE)[[1]]
-    i <- match("private", parts)
-    if (!is.na(i)) restricted <- c(restricted, paste0(paste(parts[seq_len(i)], collapse = "/"), "/"))
+    i <- which(.fw_is_private_folder_name(parts))
+    if (length(i) > 0) restricted <- c(restricted, paste(parts[seq_len(i[1])], collapse = "/"))
   }
-  sort(unique(restricted))
+  keys <- tolower(names(spec$directories) %||% character())
+  private_keys <- spec$directories[grepl("private", keys, fixed = TRUE) & !grepl("public", keys, fixed = TRUE)]
+  restricted <- unique(c(restricted, clean(private_keys)))
+  restricted <- restricted[restricted != "."]
+  inside <- vapply(restricted, function(p) any(startsWith(p, paste0(setdiff(restricted, p), "/"))), logical(1))
+  paste0(sort(restricted[!inside]), "/")
 }
 
 # Record how the project was made. The generating package version goes in

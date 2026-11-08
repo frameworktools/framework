@@ -275,6 +275,15 @@ Adopting and upgrading projects:
   under `default:`, so `settings_read()` and `settings()` read them and the
   warning on every `scaffold()` stops. Without it, the plan says the option
   exists.
+* `upgrade()`'s Claude Code guard (`.claude/settings.json`) covers every
+  private folder: those with a `private` or `*_private` segment, those whose
+  key marks them private (`inputs_private_raw: inputs/raw`), and private
+  render folders (`render_dirs: notebooks: outputs/private/notebooks`). A
+  sensitive project gets it whatever its AI settings, and the plan says so
+  when AI is off or Claude isn't among the assistants, and when the settings
+  name no private folder to guard. The plan warns when git ignores
+  `.claude/`, since the guard and skills then stay on one computer.
+  `project_create()` uses the same rule for its guards and AGENTS.md notice.
 
 # framework 2.0.0
 

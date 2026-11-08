@@ -83,7 +83,11 @@ ignore files git tracks is left out and reported.
 CLAUDE.md a one-line \verb{@AGENTS.md} pointer, when CLAUDE.md held the full
 guide; the marked sections are regenerated. A hand-written AGENTS.md is
 left alone and reported. Sensitive projects get the Claude Code guards
-that keep agents out of private folders.
+(\code{.claude/settings.json}) that keep agents out of private folders, whatever
+the AI settings say: folders with a \code{private} (or \verb{*_private}) segment,
+folders whose key marks them private (\code{inputs_private_raw: inputs/raw}),
+and private render folders. The plan says when git ignores \verb{.claude/}, so
+the guards would stay on one computer.
 \item \strong{Skills}: Framework skills that match a version the package has
 shipped are updated, in the assistants' skills folders and in
 \code{.agents/skills}; missing ones for the project type are added;

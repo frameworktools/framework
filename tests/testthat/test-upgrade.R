@@ -330,3 +330,24 @@ test_that("upgrade(move_settings = TRUE) moves keys outside default: into settin
   withr::with_dir(dir, expect_no_warning(settings_read()))
   expect_identical(nrow(suppressMessages(upgrade(dir, move_settings = TRUE))$actions), 0L)
 })
+
+test_that("the Claude Code guard covers private keys and render folders, whatever the AI settings", {
+  skip_if(!nzchar(Sys.which("git")), "git not installed")
+  dir <- local_old_project()
+  lines <- readLines(file.path(dir, "settings.yml"))
+  lines <- sub("inputs_private_raw: inputs/private/raw", "inputs_private_raw: inputs/raw", lines, fixed = TRUE)
+  writeLines(lines[!grepl("inputs_public_raw", lines)], file.path(dir, "settings.yml"))
+  writeLines(c("ai:", "  enabled: no", "  canonical_file: CLAUDE.md"), file.path(dir, "settings", "ai.yml"))
+  cat(".claude/\n", file = file.path(dir, ".gitignore"), append = TRUE)
+  system2("git", c("-C", shQuote(dir), "init", "-q"), stdout = FALSE, stderr = FALSE)
+
+  plan <- suppressMessages(upgrade(dir))
+  guard <- plan$actions[plan$actions$path == ".claude/settings.json", ]
+  expect_identical(guard$change, "keep Claude Code out of inputs/raw, outputs/private")
+  expect_true(any(grepl("AI assistants are off in the settings, but .claude/settings.json gets the guards",
+                        plan$notes, fixed = TRUE)))
+  expect_true(any(grepl("Git ignores files in .claude/ (.claude/settings.json", plan$notes, fixed = TRUE)))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  deny <- unlist(jsonlite::read_json(file.path(dir, ".claude", "settings.json"))$permissions$deny)
+  expect_true(all(c("Read(/inputs/raw/**)", "Read(/outputs/private/**)", "Read(/.env)") %in% deny))
+})

@@ -38,7 +38,11 @@
 #'   CLAUDE.md a one-line `@AGENTS.md` pointer, when CLAUDE.md held the full
 #'   guide; the marked sections are regenerated. A hand-written AGENTS.md is
 #'   left alone and reported. Sensitive projects get the Claude Code guards
-#'   that keep agents out of private folders.
+#'   (`.claude/settings.json`) that keep agents out of private folders, whatever
+#'   the AI settings say: folders with a `private` (or `*_private`) segment,
+#'   folders whose key marks them private (`inputs_private_raw: inputs/raw`),
+#'   and private render folders. The plan says when git ignores `.claude/`, so
+#'   the guards would stay on one computer.
 #' - **Skills**: Framework skills that match a version the package has
 #'   shipped are updated, in the assistants' skills folders and in
 #'   `.agents/skills`; missing ones for the project type are added;
@@ -119,6 +123,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   .upgrade_gitignore(ctx)
   .upgrade_ai(ctx)
   .upgrade_skills(ctx)
+  .upgrade_guards(ctx)
   .upgrade_quarto(ctx)
   .upgrade_spec(ctx)
 
@@ -770,10 +775,34 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
       }
     }
   }
+  invisible()
+}
 
+# A sensitive project gets the Claude Code guards whatever its AI settings:
+# anyone may open it in Claude Code. The plan says when .claude/ is
+# gitignored, since the guards then stay on this computer.
+#' @keywords internal
+.upgrade_guards <- function(ctx) {
+  settings <- .upgrade_settings_raw(ctx)
+  if (!.fw_settings_sensitive(settings)) return(invisible())
+  added <- .upgrade_agent_guards(ctx, settings)
   assistants <- unlist(settings$ai$assistants)
-  if (.fw_settings_sensitive(settings) && "claude" %in% assistants) {
-    .upgrade_agent_guards(ctx, settings)
+  if (isTRUE(added) && (!isTRUE(settings$ai$enabled) || !"claude" %in% assistants)) {
+    .upgrade_note(ctx, "AI assistants are ", if (!isTRUE(settings$ai$enabled)) "off" else "set without claude",
+                  " in the settings, but .claude/settings.json gets the guards anyway: anyone can open a ",
+                  "sensitive project in Claude Code. Other assistants have no such file; the AGENTS.md rule ",
+                  "and the framework-sensitive-data skill are their guard.")
+  }
+  skills_planned <- any(vapply(ctx$actions, function(a) startsWith(a$path, ".claude/skills/"), logical(1)))
+  shared <- c(".claude/settings.json",
+              if (skills_planned || dir.exists(file.path(ctx$root, ".claude", "skills"))) ".claude/skills/SKILL.md")
+  ignored <- shared[tryCatch(.fw_gitignored(shared, ctx$root), error = function(e) rep(FALSE, length(shared)))]
+  ignored <- sub("SKILL.md$", "", ignored)
+  if (length(ignored) > 0 && (isTRUE(added) || file.exists(file.path(ctx$root, ".claude", "settings.json")))) {
+    .upgrade_note(ctx, "Git ignores files in .claude/ (", paste(ignored, collapse = ", "),
+                  "), so they stay on this ",
+                  "computer: collaborators and fresh checkouts get none. To share them, ignore .claude/* ",
+                  "instead of .claude/ and add !.claude/settings.json and !.claude/skills/ to .gitignore.")
   }
   invisible()
 }
@@ -833,10 +862,17 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
 # Claude Code deny rules for the private folders of a sensitive project
 #' @keywords internal
 .upgrade_agent_guards <- function(ctx, settings) {
-  dirs <- unlist(.configured_directories(settings), use.names = FALSE)
-  spec <- list(directories = as.list(dirs), extra_directories = list())
+  extra <- Filter(function(e) is.list(e) && is.character(e$path), settings$extra_directories %||% list())
+  render <- Filter(function(p) is.character(p) && length(p) == 1, settings$render_dirs %||% list())
+  spec <- list(directories = .configured_directories(settings), extra_directories = unname(extra),
+               render_dirs = render)
   restricted <- sub("/$", "", .spec_restricted_paths(spec))
-  if (length(restricted) == 0) return(invisible())
+  restricted <- restricted[!vapply(restricted, function(p) .fw_outside_root(ctx$root, p), logical(1))]
+  if (length(restricted) == 0) {
+    .upgrade_note(ctx, "No Claude Code guard was added: the settings name no private folders. Map the ",
+                  "folders that hold restricted data to private keys (inputs_private_raw, ...) and run upgrade() again.")
+    return(invisible(FALSE))
+  }
   deny <- c(unlist(lapply(restricted, function(p) c(sprintf("Read(/%s/**)", p), sprintf("Edit(/%s/**)", p)))),
             "Read(/.env)")
   sandbox_deny <- c(paste0("./", restricted), "./.env")
@@ -848,17 +884,18 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   }
   if (is.null(current)) {
     .upgrade_note(ctx, ".claude/settings.json isn't valid JSON, so the guards for private folders weren't added.")
-    return(invisible())
+    return(invisible(FALSE))
   }
   new <- current
   new$permissions$deny <- as.list(unique(c(unlist(current$permissions$deny), deny)))
   new$sandbox$enabled <- TRUE
   new$sandbox$failIfUnavailable <- TRUE
   new$sandbox$filesystem$denyRead <- as.list(unique(c(unlist(current$sandbox$filesystem$denyRead), sandbox_deny)))
-  if (identical(new, current)) return(invisible())
+  if (identical(new, current)) return(invisible(FALSE))
   json <- strsplit(as.character(jsonlite::toJSON(new, auto_unbox = TRUE, pretty = 2)), "\n", fixed = TRUE)[[1]]
   .upgrade_write(ctx, "ai", ".claude/settings.json", json,
                  paste("keep Claude Code out of", paste(restricted, collapse = ", ")))
+  invisible(TRUE)
 }
 
 # Framework skills: update shipped versions, add missing ones, list edits.
