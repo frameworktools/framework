@@ -355,3 +355,22 @@ test_that("empty folders keep a .gitkeep, and a custom skill's description fills
   agents <- readLines(file.path(dir, "AGENTS.md"))
   expect_true(any(grepl("| `plot-style` | House style for course figures \\| ggplot2 |", agents, fixed = TRUE)))
 })
+
+test_that("core_files false leaves out only .env and scaffold.R", {
+  skip_on_cran()
+  dir <- withr::local_tempdir()
+  dir.create(file.path(dir, ".framework"))
+  layers <- list(
+    list(kind = "base", key = "project", layer = list(type = "project")),
+    list(kind = "blueprint", key = "course", layer = list(core_files = FALSE, settings_layout = "flat", scaffold = list(ide = "both")))
+  )
+  suppressMessages(project_create_from_layers(write_layers(dir, layers), path = dir, interactive = FALSE))
+
+  expect_false(file.exists(file.path(dir, "scaffold.R")))
+  expect_false(file.exists(file.path(dir, ".env")))
+  expect_false(dir.exists(file.path(dir, "settings")))
+  expect_true(file.exists(file.path(dir, "AGENTS.md")))
+  expect_true(file.exists(file.path(dir, "_quarto.yml")))
+  expect_length(Sys.glob(file.path(dir, "*.code-workspace")), 1)
+  expect_length(Sys.glob(file.path(dir, "*.Rproj")), 1)
+})

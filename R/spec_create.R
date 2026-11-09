@@ -84,7 +84,11 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   message("Creating project in: ", project_dir)
 
   type <- spec$type
-  is_bare <- !.spec_core_files(spec)
+  # The bare structure gets no agent files, workspace, or Quarto config;
+  # core_files false leaves out only Framework's runtime files, .env and
+  # scaffold.R, so a project need not use the framework package
+  is_bare <- identical(type, "bare")
+  core <- .spec_core_files(spec)
   use_split_files <- identical(.spec_settings_layout(spec), "split")
   tools <- spec$tools %||% list()
   tools$renv <- .spec_tool_on(spec, "renv")
@@ -120,7 +124,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     .create_connections_file(project_dir, spec$connections, connections_rel_path)
   }
 
-  if (!is_bare) {
+  if (core) {
     .create_env_file(project_dir, list(variables = spec$env))
   }
   .create_gitignore(project_dir, spec$git$gitignore_content)
@@ -130,7 +134,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     .spec_write_ai(project_dir, spec)
   }
 
-  if (!is_bare) {
+  if (core) {
     .create_scaffold_file(project_dir, spec$scaffold)
   }
   editors <- .ide_files(spec$scaffold$ide)
