@@ -194,7 +194,7 @@ ai_skills_update <- function(project_path = ".") {
 #' @return Character string with the skills section content
 #' @keywords internal
 .generate_skills_section <- function(project_type = "project", skills = NULL,
-                                     skills_dir = ".claude/skills") {
+                                     skills_dir = ".claude/skills", project_dir = ".") {
   skills <- skills %||% .ai_skills_for_type(project_type)
 
   descriptions <- c(
@@ -209,7 +209,8 @@ ai_skills_update <- function(project_path = ".") {
 
   rows <- vapply(skills, function(skill) {
     sprintf("| `%s` | %s | `%s/%s/SKILL.md` |",
-            skill, descriptions[skill] %|NA|% "", skills_dir, skill)
+            skill, descriptions[skill] %|NA|% .skill_description(project_dir, skills_dir, skill),
+            skills_dir, skill)
   }, character(1))
 
   paste(c(
@@ -221,4 +222,21 @@ ai_skills_update <- function(project_path = ".") {
     "|-------|--------|------|",
     rows
   ), collapse = "\n")
+}
+
+# A skill's own description, from its SKILL.md front matter, for skills
+# Framework has no line for (such as a person's own). One line, with pipes
+# escaped so the table holds.
+#' @keywords internal
+.skill_description <- function(project_dir, skills_dir, skill) {
+  path <- file.path(project_dir, skills_dir, skill, "SKILL.md")
+  if (!file.exists(path)) return("")
+  lines <- tryCatch(readLines(path, warn = FALSE, encoding = "UTF-8"), error = function(e) character())
+  if (length(lines) < 2 || trimws(lines[1]) != "---") return("")
+  end <- which(trimws(lines[-1]) == "---")[1]
+  if (is.na(end)) return("")
+  meta <- tryCatch(yaml::yaml.load(paste(lines[2:end], collapse = "\n")), error = function(e) NULL)
+  text <- meta$description
+  if (!is.character(text) || length(text) != 1) return("")
+  gsub("|", "\\|", trimws(gsub("\\s+", " ", text)), fixed = TRUE)
 }

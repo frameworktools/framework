@@ -189,6 +189,6 @@
     "skills": {}
   },
   "expected": {
-    "paths": [".framework/", ".framework/spec.json", ".gitignore", "settings.yml"]
+    "paths": [".framework/", ".framework/spec.json", ".gitignore", "fixture-study.Rproj", "settings.yml"]
   }
 }

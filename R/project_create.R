@@ -783,14 +783,15 @@ duplicate its content in this file.
   result
 }
 
-# Which editor files scaffold.ide asks for. "rstudio" and "both" get an
-# .Rproj; "vscode", "positron", and "both" get a .code-workspace. A missing
-# value keeps the old behavior: an .Rproj and no workspace file.
+# Which editor files scaffold.ide asks for. Every choice but "none" gets an
+# .Rproj: it is also how here::here() and RStudio find the project root when
+# there is no .git, as in a Download ZIP. "vscode", "positron", and "both"
+# add a .code-workspace. A missing value means an .Rproj and no workspace file.
 #' @keywords internal
 .ide_files <- function(ide, positron = FALSE) {
   ide <- tolower(ide %||% "rstudio")
   list(
-    rproj = ide %in% c("rstudio", "both"),
+    rproj = ide != "none",
     workspace = ide %in% c("vscode", "positron", "both") || isTRUE(positron)
   )
 }

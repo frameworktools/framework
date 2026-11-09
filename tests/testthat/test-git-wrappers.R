@@ -88,6 +88,8 @@ test_that(".check_path_ignored treats dir/** as ignoring the folder", {
 test_that("the shared pre-commit hook runs R in a project with no .Rproj or renv.lock", {
   skip_on_os("windows")
   dir <- local_default_project()
+  # Projects get an .Rproj now; the hook must still work without one
+  unlink(Sys.glob("*.Rproj"))
   expect_false(any(file.exists(c("renv.lock", ".Rprofile"))))
   expect_length(Sys.glob("*.Rproj"), 0)
   hook <- readLines(system.file("hooks", "pre-commit", package = "framework"))

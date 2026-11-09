@@ -61,7 +61,8 @@ if (is.null(project_name)) {
   # 2. Skills index (static per type) - detailed instructions live in skills
   sections$skills <- paste0(
     "## Skills\n\n",
-    .generate_skills_section(project_type, skills = skills, skills_dir = skills_dir)
+    .generate_skills_section(project_type, skills = skills, skills_dir = skills_dir,
+                             project_dir = project_path)
   )
 
   # 3. Framework Environment (regeneratable) - add heading with marker

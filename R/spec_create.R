@@ -163,6 +163,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     }
   }
 
+  .spec_keep_folders(project_dir)
   .spec_write_record(project_dir, spec)
 
   project_id <- NULL
@@ -181,6 +182,22 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
 
   message("[ok] Project created: ", project_dir)
   list(success = TRUE, path = project_dir, id = project_id)
+}
+
+# An empty folder holds a .gitkeep, so the folders creation made survive
+# git, GitHub, and its Download ZIP. (Outputs and render folders are still
+# made when first used, as in Python.)
+.spec_keep_folders <- function(project_dir) {
+  skip <- "(^|/)(\\.git|renv|\\.quarto|_freeze|node_modules|\\.venv)(/|$)"
+  dirs <- list.dirs(project_dir, full.names = FALSE, recursive = TRUE)
+  dirs <- dirs[nzchar(dirs) & !grepl(skip, dirs)]
+  for (dir_name in dirs) {
+    path <- file.path(project_dir, dir_name)
+    if (length(list.files(path, all.files = TRUE, no.. = TRUE)) == 0) {
+      file.create(file.path(path, ".gitkeep"))
+    }
+  }
+  invisible(TRUE)
 }
 
 .spec_assert_checkout <- function(project_dir) {
@@ -273,10 +290,6 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
 .spec_write_ai <- function(project_dir, spec) {
   targets <- .spec_assistant_targets(spec)
 
-  if (identical(spec$ai$agents_md, "stub") && !"AGENTS.md" %in% names(spec$files)) {
-    .spec_write_text(project_dir, "AGENTS.md", .spec_agents_md(project_dir, spec, targets$skills_dirs[1]))
-    message("  Created: AGENTS.md")
-  }
   for (stub in targets$stubs) {
     content <- if (identical(stub, "CLAUDE.md")) "@AGENTS.md" else .ai_pointer_stub(spec$name)
     .spec_write_text(project_dir, stub, content)
@@ -302,6 +315,12 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   }
   if (length(spec$skills) > 0) {
     message("  Installed ", length(spec$skills), " skill(s) in ", paste(targets$skills_dirs, collapse = ", "))
+  }
+
+  # After the skills, so the skills table can read their descriptions
+  if (identical(spec$ai$agents_md, "stub") && !"AGENTS.md" %in% names(spec$files)) {
+    .spec_write_text(project_dir, "AGENTS.md", .spec_agents_md(project_dir, spec, targets$skills_dirs[1]))
+    message("  Created: AGENTS.md")
   }
 
   if (isTRUE(spec$security$sensitive)) {

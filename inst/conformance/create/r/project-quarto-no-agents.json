@@ -235,6 +235,6 @@
     }
   },
   "expected": {
-    "paths": [".env", ".framework/", ".framework/spec.json", ".gitignore", "_quarto.yml", "docs/", "fixture-study.code-workspace", "functions/", "inputs/", "inputs/final/", "inputs/intermediate/", "inputs/raw/", "logs/", "notebooks/", "outputs/", "outputs/notebooks/", "scaffold.R", "scratch/", "scripts/", "settings.yml", "settings/", "settings/ai.yml", "settings/author.yml", "settings/connections.yml", "settings/data.yml", "settings/git.yml", "settings/packages.yml", "settings/quarto.yml", "settings/scaffold.yml"]
+    "paths": [".env", ".framework/", ".framework/spec.json", ".gitignore", "_quarto.yml", "docs/", "docs/.gitkeep", "fixture-study.Rproj", "fixture-study.code-workspace", "functions/", "functions/.gitkeep", "inputs/", "inputs/final/", "inputs/final/.gitkeep", "inputs/intermediate/", "inputs/intermediate/.gitkeep", "inputs/raw/", "inputs/raw/.gitkeep", "logs/", "logs/.gitkeep", "notebooks/", "notebooks/.gitkeep", "outputs/", "outputs/notebooks/", "outputs/notebooks/.gitkeep", "scaffold.R", "scratch/", "scratch/.gitkeep", "scripts/", "scripts/.gitkeep", "settings.yml", "settings/", "settings/ai.yml", "settings/author.yml", "settings/connections.yml", "settings/data.yml", "settings/git.yml", "settings/packages.yml", "settings/quarto.yml", "settings/scaffold.yml"]
   }
 }

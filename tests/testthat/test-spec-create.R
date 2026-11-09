@@ -287,8 +287,9 @@ test_that("scaffold.ide decides which editor files are written", {
   }
 
   expect_identical(editor_files("rstudio"), "Rproj")
-  expect_identical(editor_files("vscode"), "code-workspace")
-  expect_identical(editor_files("positron"), "code-workspace")
+  # Every choice but none keeps the .Rproj, the root marker here::here() needs
+  expect_identical(editor_files("vscode"), c("Rproj", "code-workspace"))
+  expect_identical(editor_files("positron"), c("Rproj", "code-workspace"))
   expect_identical(editor_files("both"), c("Rproj", "code-workspace"))
   expect_identical(editor_files("none"), character())
 })
@@ -336,4 +337,21 @@ test_that("folder publishing destinations are ignored in new projects", {
   expect_identical(lines[which(lines == "/published/") - 1L], "# Folder publishing destinations")
   expect_false("/docs/" %in% lines)
   expect_false(any(grepl("Volumes", lines)))
+})
+
+test_that("empty folders keep a .gitkeep, and a custom skill's description fills the skills table", {
+  skip_on_cran()
+  dir <- withr::local_tempdir()
+  dir.create(file.path(dir, ".framework"))
+  skill <- "---\nname: plot-style\ndescription: House style for course figures | ggplot2\n---\n\n# Plot style\n"
+  layers <- list(
+    list(kind = "base", key = "project", layer = list(type = "project")),
+    list(kind = "project", layer = list(skills = list(`plot-style` = list(content = skill))))
+  )
+  suppressMessages(project_create_from_layers(write_layers(dir, layers), path = dir, interactive = FALSE))
+
+  expect_true(file.exists(file.path(dir, "inputs", "raw", ".gitkeep")))
+  expect_false(file.exists(file.path(dir, ".framework", ".gitkeep")))
+  agents <- readLines(file.path(dir, "AGENTS.md"))
+  expect_true(any(grepl("| `plot-style` | House style for course figures \\| ggplot2 |", agents, fixed = TRUE)))
 })
