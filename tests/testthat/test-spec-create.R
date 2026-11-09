@@ -370,6 +370,13 @@ test_that("core_files false leaves out only .env and scaffold.R", {
   expect_false(file.exists(file.path(dir, ".env")))
   expect_false(dir.exists(file.path(dir, "settings")))
   expect_true(file.exists(file.path(dir, "AGENTS.md")))
+  # The guide doesn't ask for the framework package the project needn't have
+  agents <- paste(readLines(file.path(dir, "AGENTS.md")), collapse = "\n")
+  expect_false(grepl("MUST\nbegin with `scaffold()`", agents, fixed = TRUE))
+  expect_false(grepl("MUST use `data_read()`", agents, fixed = TRUE))
+  expect_false(grepl("## Installed Packages", agents, fixed = TRUE))
+  expect_false(grepl("Framework Environment", agents, fixed = TRUE))
+  expect_true(grepl("## Project Folders", agents, fixed = TRUE))
   expect_true(file.exists(file.path(dir, "_quarto.yml")))
   expect_length(Sys.glob(file.path(dir, "*.code-workspace")), 1)
   expect_length(Sys.glob(file.path(dir, "*.Rproj")), 1)

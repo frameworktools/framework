@@ -13,6 +13,9 @@
 #'   the skills table. NULL lists the default skills for `project_type`.
 #' @param skills_dir Folder the skills are installed in, for the paths in the
 #'   skills table.
+#' @param core FALSE for a project without Framework's core files (no
+#'   scaffold.R): the guide leaves out scaffold(), the package list, and the
+#'   data_read()/data_save() rules, which need the framework package.
 #'
 #' @return Character string with the complete AI context content
 #' @export
@@ -32,7 +35,8 @@ ai_generate_context <- function(project_path = ".",
                         project_type = NULL,
                         config = NULL,
                         skills = NULL,
-                        skills_dir = ".claude/skills") {
+                        skills_dir = ".claude/skills",
+                        core = TRUE) {
   # Read config if not provided
   if (is.null(config)) {
     config <- tryCatch(
@@ -56,7 +60,7 @@ if (is.null(project_name)) {
   sections <- list()
 
   # 1. Header (static, user-editable area)
-  sections$header <- .generate_header_section(project_name)
+  sections$header <- .generate_header_section(project_name, core = core)
 
   # 2. Skills index (static per type) - detailed instructions live in skills
   sections$skills <- paste0(
@@ -64,6 +68,27 @@ if (is.null(project_name)) {
     .generate_skills_section(project_type, skills = skills, skills_dir = skills_dir,
                              project_dir = project_path)
   )
+
+  if (!isTRUE(core)) {
+    # Without core files the project needn't use the framework package: no
+    # scaffold(), package list, or data_read() rules, just its folders
+    if (length(skills %||% character()) == 0) sections$skills <- NULL
+    sections$folders <- paste0(
+      "## Project Folders\n\n",
+      .build_directory_table(config$directories %||% list(), project_type)
+    )
+    if (.fw_settings_sensitive(config)) {
+      sections$type_specific <- paste0(
+        "## Privacy Requirements\n\n",
+        "**This is a privacy-sensitive project.** Never read data under a `private/` directory into a\n",
+        "conversation, and never commit or publish anything under one.",
+        if ("framework-sensitive-data" %in% skills) " Follow the `framework-sensitive-data` skill before any data operation." else "",
+        "\n"
+      )
+    }
+    sections$notes <- .generate_notes_section()
+    return(paste(unlist(sections), collapse = "\n\n"))
+  }
 
   # 3. Framework Environment (regeneratable) - add heading with marker
   sections$environment <- paste0(
@@ -241,14 +266,14 @@ ai_regenerate_context <- function(project_path = ".",
 
 #' Generate header section
 #' @keywords internal
-.generate_header_section <- function(project_name) {
+.generate_header_section <- function(project_name, core = TRUE) {
   sprintf("# %s
 
-This file provides guidance to AI assistants working with this Framework project.
+This file provides guidance to AI assistants working with this%s project.
 It is the canonical context file; detailed workflow instructions live in the
 skills listed below. Edit the sections without regeneration markers freely -
 they won't be overwritten.
-", project_name)
+", project_name, if (isTRUE(core)) " Framework" else "")
 }
 
 

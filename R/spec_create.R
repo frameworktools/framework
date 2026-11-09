@@ -339,7 +339,8 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   content <- if (!is.null(config)) {
     tryCatch(
       ai_generate_context(project_dir, project_name = spec$name, project_type = spec$type,
-                          config = config, skills = names(spec$skills), skills_dir = skills_dir),
+                          config = config, skills = names(spec$skills), skills_dir = skills_dir,
+                          core = .spec_core_files(spec)),
       error = function(e) NULL
     )
   }
