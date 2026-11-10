@@ -1,0 +1,54 @@
+{
+  "id": "easystats-r",
+  "name": "easystats",
+  "description": "The easystats packages: parameters, performance, effectsize, modelbased, correlation, bayestestR, and report to describe and check models, datawizard for data, and see for their plots.",
+  "language": [
+    "r"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "insight": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "datawizard": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "parameters": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "performance": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "effectsize": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "modelbased": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "correlation": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "bayestestR": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "report": {
+          "source": "cran",
+          "auto_attach": false
+        },
+        "see": {
+          "source": "cran",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}
