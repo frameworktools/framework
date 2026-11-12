@@ -28,13 +28,16 @@ registry_project <- function(env = parent.frame(), split = FALSE) {
       "  directories:",
       "    inputs_raw: inputs/raw",
       "  data:",
+      "    # Inputs from the field team",
       "    inputs:",
       "      raw:",
       "        survey:",
+      "          # Wave 1 only",
       "          path: inputs/raw/survey.csv",
       "          type: csv",
       "          locked: true",
       "          note: local only",
+      "        # The clinic sends visits monthly",
       "        visits: inputs/raw/visits.csv"
     ), file.path(root, "settings.yml"))
   }
@@ -114,7 +117,9 @@ test_that("pull_data_registry() lists the changes, then adds entries and keeps e
   out <- capture.output(result <- pull_data_registry(root, dry_run = TRUE), type = "message")
   expect_identical(out[1], "Data registry changes from Framework Cloud (revision rev-1):")
   expect_true("  Entries to add: inputs.final.analysis" %in% out)
-  expect_true(any(grepl("Entries that differ: inputs.raw.survey .*kept; pull_data_registry\\(overwrite = TRUE\\)", out)))
+  expect_true(paste0("  Entries that differ (local -> Cloud): inputs.raw.survey ",
+                     "(path inputs/raw/survey.csv -> inputs/raw/survey_v2.csv) \u2014 ",
+                     "kept; pull_data_registry(overwrite = TRUE) uses Cloud's") %in% out)
   expect_false(file.exists(file.path(root, ".framework/data.lock.json")))
 
   # Non-interactive without confirm: refused, nothing written
@@ -139,9 +144,45 @@ test_that("pull_data_registry() lists the changes, then adds entries and keeps e
   expect_identical(data$inputs$raw$survey$path, "inputs/raw/survey_v2.csv")
   # A field Cloud doesn't keep stays local
   expect_identical(data$inputs$raw$survey$note, "local only")
+  # Comments inside the data block stay
+  text <- readLines(file.path(root, "settings.yml"))
+  for (comment in c("    # Inputs from the field team", "          # Wave 1 only",
+                    "        # The clinic sends visits monthly", "  # Keep this comment")) {
+    expect_true(comment %in% text, info = comment)
+  }
+  expect_true("          path: inputs/raw/survey_v2.csv" %in% text)
 
   out <- capture.output(pull_data_registry(root, dry_run = TRUE), type = "message")
   expect_identical(out, "Data registry is up to date with Framework Cloud (revision rev-1).")
+})
+
+test_that("changes name the fields that differ", {
+  survey <- list(name = "inputs.raw.survey", path = "inputs/raw/survey.csv", type = "csv", locked = TRUE)
+  expect_identical(.data_registry_diff(survey, c(survey, list(description = "Wave 1"))), "description changed")
+  expect_identical(.data_registry_diff(survey, c(survey, list(stata_names = list(long_name = "short")))),
+                   "stata_names changed")
+  moved <- list(name = "inputs.raw.survey", path = "b.csv", locked = FALSE, description = "Wave 1")
+  expect_identical(.data_registry_diff(survey, moved),
+                   "path inputs/raw/survey.csv -> b.csv, type csv -> none, locked true -> false, description changed")
+
+  root <- registry_project()
+  cloud <- new.env(); cloud$revision <- "rev-1"
+  cloud$entries <- list(c(survey, list(description = "Wave 1")),
+                        list(name = "inputs.raw.visits", path = "inputs/raw/visits.csv", locked = FALSE))
+  cloud$reply <- function(body) list(applied = FALSE, revision = "rev-1", changes = list(
+    added = list(), changed = list(list(name = "inputs.raw.survey", from = cloud$entries[[1]], to = body$entries[[1]])),
+    removed = list(), kept = list()))
+  registry_mock(cloud)
+  out <- capture.output(pull_data_registry(root, dry_run = TRUE), type = "message")
+  expect_true(any(startsWith(out, "  Entries that differ (local -> Cloud): inputs.raw.survey (description changed)")))
+  out <- capture.output(push_data_registry(root, dry_run = TRUE), type = "message")
+  expect_true("  Entries to change: inputs.raw.survey (description changed)" %in% out)
+
+  # Pulled, the new description goes in without disturbing the entry's comment
+  suppressMessages(pull_data_registry(root, overwrite = TRUE, confirm = TRUE))
+  text <- readLines(file.path(root, "settings.yml"))
+  expect_true("          # Wave 1 only" %in% text)
+  expect_identical(settings_read(file.path(root, "settings.yml"))$data$inputs$raw$survey$description, "Wave 1")
 })
 
 test_that("pull_data_registry() writes into a split data file", {

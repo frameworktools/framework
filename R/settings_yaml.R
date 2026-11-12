@@ -97,14 +97,14 @@
 
 #' Set one section of a YAML settings file
 #'
-#' Replaces the value at `keys` (one or two levels, such as `"data"` or
-#' `c("default", "data")`) and rewrites only that block of lines; comments
-#' and formatting elsewhere in the file stay as they were. When the block
-#' can't be found safely (flow style, unusual layout), the whole file is
+#' Replaces the value at `keys` (such as `"data"`, `c("default", "data")`,
+#' or a deeper path) and rewrites only that block of lines; comments and
+#' formatting elsewhere in the file stay as they were. When the block can't
+#' be found safely (flow style, unusual layout), the whole file is
 #' rewritten instead.
 #'
 #' @param file Path to the YAML file.
-#' @param keys Character vector of one or two keys.
+#' @param keys Character vector of keys, outermost first.
 #' @param value The new value (NULL removes the key).
 #' @return Invisibly returns `file`.
 #' @keywords internal
@@ -114,27 +114,27 @@
   invisible(file)
 }
 
+# `x` with the value at `keys` replaced (NULL removes it), creating the maps
+# on the way
+.fw_yaml_assign <- function(x, keys, value) {
+  if (!is.list(x)) x <- list()
+  if (length(keys) == 1) {
+    x[keys] <- list(value)
+    if (is.null(value)) x[[keys]] <- NULL
+    return(x)
+  }
+  x[[keys[1]]] <- .fw_yaml_assign(x[[keys[1]]], keys[-1], value)
+  x
+}
+
 # .fw_yaml_set() on text: the YAML `text` (NULL for a new file) with the
 # value at `keys` replaced, changing only that block when it can, or
-# rewritten whole otherwise
+# rewritten whole otherwise. With `rewrite = FALSE`, NULL instead of a whole
+# rewrite.
 #' @keywords internal
-.fw_yaml_set_text <- function(text, keys, value) {
-  stopifnot(is.character(keys), length(keys) %in% c(1, 2))
+.fw_yaml_set_text <- function(text, keys, value, rewrite = TRUE) {
+  stopifnot(is.character(keys), length(keys) >= 1)
 
-  full <- if (!is.null(text)) yaml::yaml.load(text, handlers = .fw_yaml_read_handlers()) else NULL
-  if (!is.list(full)) full <- list()
-  if (length(keys) == 2) {
-    parent <- full[[keys[1]]]
-    if (!is.list(parent)) parent <- list()
-    parent[keys[2]] <- list(value)
-    if (is.null(value)) parent[[keys[2]]] <- NULL
-    full[[keys[1]]] <- parent
-  } else {
-    full[keys] <- list(value)
-    if (is.null(value)) full[[keys]] <- NULL
-  }
-
-  rewritten <- .fw_as_yaml(full)
   if (!is.null(text)) {
     original <- text
     candidate <- tryCatch(.fw_yaml_replace_block(original, keys, value), error = function(e) NULL)
@@ -147,22 +147,15 @@
         expected <- yaml::yaml.load(original)
         if (!is.list(expected)) expected <- list()
         new_value <- yaml::yaml.load(.fw_as_yaml(list(v = value)))$v
-        if (length(keys) == 2) {
-          parent <- expected[[keys[1]]]
-          if (!is.list(parent)) parent <- list()
-          parent[keys[2]] <- list(new_value)
-          if (is.null(value)) parent[[keys[2]]] <- NULL
-          expected[[keys[1]]] <- parent
-        } else {
-          expected[keys] <- list(new_value)
-          if (is.null(value)) expected[[keys]] <- NULL
-        }
+        expected <- .fw_yaml_assign(expected, keys, new_value)
         identical(yaml::yaml.load(candidate), expected)
       }, error = function(e) FALSE)
       if (same) return(candidate)
     }
   }
-  rewritten
+  if (!rewrite) return(NULL)
+  full <- if (!is.null(text)) yaml::yaml.load(text, handlers = .fw_yaml_read_handlers()) else NULL
+  .fw_as_yaml(.fw_yaml_assign(full, keys, value))
 }
 
 # Replace the block for `keys` in YAML `text`, returning the new text, or
@@ -208,17 +201,18 @@
   region_start <- 1L
   region_end <- length(lines)
   indent <- 0L
-  if (length(keys) == 2) {
-    p <- find_key(keys[1], 0L, 1L, length(lines))
+  for (parent in keys[-length(keys)]) {
+    p <- find_key(parent, indent, region_start, region_end)
     if (is.na(p)) return(NULL)
     # The parent must be a block mapping (nothing after the colon)
     if (!grepl(":\\s*(#.*)?$", lines[p])) return(NULL)
-    p_end <- block_end(p, 0L)
+    p_end <- block_end(p, indent)
     children <- if (p + 1 <= p_end - 1) (p + 1):(p_end - 1) else integer(0)
     children <- children[vapply(lines[children], is_content, logical(1))]
     if (length(children) == 0) return(NULL)
-    indent <- indent_of(lines[children[1]])
-    if (indent == 0) return(NULL)
+    child_indent <- indent_of(lines[children[1]])
+    if (child_indent <= indent) return(NULL)
+    indent <- child_indent
     region_start <- p + 1L
     region_end <- p_end - 1L
   }

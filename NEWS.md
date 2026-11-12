@@ -8,9 +8,10 @@ New features:
   the locked and private flags, descriptions, and Stata names. Data files
   never do, and file hashes stay in framework.db. `pull_data_registry()`
   reads `GET /api/v1/projects/data` with the project token, lists entries to
-  add, entries that differ, and entries only in the project, then asks
-  `Apply these changes? [y/n]`. It writes the new entries into the data
-  section, inline or in its split file, rewriting only that block. Local
+  add, entries that differ (naming the fields that differ), and entries only
+  in the project, then asks `Apply these changes? [y/n]`. It writes the new
+  entries into the data section, inline or in its split file, editing only
+  the fields that change, so comments in the data section stay. Local
   entries are never removed, and local definitions win unless
   `overwrite = TRUE`. `push_data_registry()` previews through
   `POST /api/v1/projects/data` with `dry_run` and asks

@@ -140,9 +140,18 @@
 
 .data_registry_same <- function(a, b) identical(.data_registry_key(a), .data_registry_key(b))
 
-.data_registry_describe <- function(row) {
-  parts <- c(row$path %||% "no path", row$type,
-             if (isTRUE(row$locked)) "locked", if (isTRUE(row$private)) "private")
+# How `to` differs from `from`, one item per field: "path a -> b" for the
+# short fields, "description changed" or "stata_names changed" for the long
+# ones
+.data_registry_diff <- function(from, to) {
+  a <- .data_registry_key(from)
+  b <- .data_registry_key(to)
+  shown <- function(x) if (nzchar(x)) x else "none"
+  parts <- vapply(which(a != b), function(i) {
+    field <- .data_registry_fields[i]
+    if (field %in% c("description", "stata_names")) paste(field, "changed")
+    else paste0(field, " ", shown(a[i]), " -> ", shown(b[i]))
+  }, "")
   paste(parts, collapse = ", ")
 }
 
@@ -183,11 +192,15 @@
 
 # Write Cloud's rows into the settings' data section, each where its entry
 # already is (nested, mixed, or flat keys), else nested by name. Fields that
-# don't travel (anything local-only) are kept. Only the data block of the
-# file is rewritten, so the rest keeps its comments and layout.
+# don't travel (anything local-only) are kept. Only the fields that change
+# are rewritten, so comments elsewhere in the file, the data block included,
+# stay. When an edit can't be made in place, the whole data block is
+# rewritten instead.
 .data_registry_write <- function(root, rows) {
   location <- .data_registry_location(root)
   catalog <- location$catalog
+  edits <- list()
+  edit <- function(keys, value) edits[[length(edits) + 1]] <<- list(keys = keys, value = value)
   for (row in rows) {
     parts <- strsplit(row$name, ".", fixed = TRUE)[[1]]
     keys <- .data_catalog_find(catalog, parts)
@@ -199,12 +212,38 @@
       if (!is.null(value)) entry[[field]] <- value
     }
     entry <- entry[c(intersect(.data_registry_fields, names(entry)), setdiff(names(entry), .data_registry_fields))]
+    if (is.list(before)) {
+      for (field in .data_registry_fields) {
+        if (!identical(before[[field]], entry[[field]])) edit(c(keys, field), entry[[field]])
+      }
+    } else if (!is.null(keys)) {
+      edit(keys, entry)
+    } else {
+      # A new entry goes into the deepest group that already exists
+      depth <- 0L
+      node <- catalog
+      while (depth < length(parts) - 1L && is.list(node[[parts[depth + 1L]]]) &&
+             is.null(node[[parts[depth + 1L]]]$path)) {
+        node <- node[[parts[depth + 1L]]]
+        depth <- depth + 1L
+      }
+      edit(parts[seq_len(depth + 1L)],
+           .data_catalog_set(list(), parts[-seq_len(depth)], entry)[[parts[depth + 1L]]])
+    }
     catalog <- .data_catalog_set(catalog, keys %||% parts, entry)
   }
-  if (length(location$keys)) {
+  if (!length(location$keys)) {
+    return(.fw_write_yaml(list(data = catalog), location$file))
+  }
+  text <- if (file.exists(location$file)) readChar(location$file, file.info(location$file)$size, useBytes = TRUE)
+  for (e in edits) {
+    if (is.null(text)) break
+    text <- .fw_yaml_set_text(text, c(location$keys, e$keys), e$value, rewrite = FALSE)
+  }
+  if (is.null(text)) {
     .fw_yaml_set(location$file, location$keys, catalog)
   } else {
-    .fw_write_yaml(list(data = catalog), location$file)
+    .fw_write_text(text, location$file)
   }
 }
 
@@ -296,10 +335,10 @@ pull_data_registry <- function(project_path = ".", overwrite = FALSE, confirm = 
   if (length(added)) lines <- c(lines, paste0("  Entries to add: ", .data_registry_names(added)))
   if (length(differ)) {
     details <- paste(vapply(differ, function(n) {
-      paste0(n, " (local ", .data_registry_describe(local[[n]]), "; Cloud ", .data_registry_describe(cloud[[n]]), ")")
-    }, ""), collapse = ", ")
+      paste0(n, " (", .data_registry_diff(local[[n]], cloud[[n]]), ")")
+    }, ""), collapse = "; ")
     tail <- if (overwrite) "Cloud's will be used" else "kept; pull_data_registry(overwrite = TRUE) uses Cloud's"
-    lines <- c(lines, paste0("  Entries that differ: ", details, " \u2014 ", tail))
+    lines <- c(lines, paste0("  Entries that differ (local -> Cloud): ", details, " \u2014 ", tail))
   }
   if (length(kept_local)) lines <- c(lines, paste0("  Only in this project (kept): ", paste(kept_local, collapse = ", ")))
   changes <- length(added) > 0 || (length(differ) > 0 && overwrite)
@@ -405,8 +444,8 @@ push_data_registry <- function(project_path = ".", remove = FALSE, force = FALSE
   if (length(added)) lines <- c(lines, paste0("  Entries to add: ", .data_registry_names(added)))
   if (length(changed)) {
     details <- paste(vapply(changed, function(c) {
-      paste0(c$name, " (", .data_registry_describe(c$from), " -> ", .data_registry_describe(c$to), ")")
-    }, ""), collapse = ", ")
+      paste0(c$name, " (", .data_registry_diff(c$from, c$to), ")")
+    }, ""), collapse = "; ")
     lines <- c(lines, paste0("  Entries to change: ", details))
   }
   if (length(removed)) lines <- c(lines, paste0("  Entries to remove: ", .data_registry_names(removed)))

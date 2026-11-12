@@ -9,7 +9,7 @@
 \arguments{
 \item{file}{Path to the YAML file.}
 
-\item{keys}{Character vector of one or two keys.}
+\item{keys}{Character vector of keys, outermost first.}
 
 \item{value}{The new value (NULL removes the key).}
 }
@@ -17,10 +17,10 @@
 Invisibly returns \code{file}.
 }
 \description{
-Replaces the value at \code{keys} (one or two levels, such as \code{"data"} or
-\code{c("default", "data")}) and rewrites only that block of lines; comments
-and formatting elsewhere in the file stay as they were. When the block
-can't be found safely (flow style, unusual layout), the whole file is
+Replaces the value at \code{keys} (such as \code{"data"}, \code{c("default", "data")},
+or a deeper path) and rewrites only that block of lines; comments and
+formatting elsewhere in the file stay as they were. When the block can't
+be found safely (flow style, unusual layout), the whole file is
 rewritten instead.
 }
 \keyword{internal}

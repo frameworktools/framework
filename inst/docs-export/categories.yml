@@ -44,6 +44,8 @@ Data:
     - data_add
     - data_list
     - data_info
+    - pull_data_registry
+    - push_data_registry
 
 Packages:
   description: Package management and renv integration
