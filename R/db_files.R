@@ -293,8 +293,13 @@ db_execute_file <- function(conn, path, transaction = TRUE) {
   if (opened$close) on.exit(DBI::dbDisconnect(con), add = TRUE)
   .fw_require_writable(con, opened$name, "db_execute_file()")
 
-  statements <- .fw_sql_split(.fw_read_text_utf8(source), .fw_connection_dialect(con))
+  dialect <- .fw_sql_dialect(.fw_connection_dialect(con))
+  statements <- .fw_sql_split(.fw_read_text_utf8(source), dialect)
   total <- length(statements)
+  if (dialect == "sqlserver") {
+    restore_nocount <- .fw_nocount_on(con, keep = !opened$close)
+    on.exit(restore_nocount(), add = TRUE)
+  }
   failure <- NULL
   run_all <- function() {
     for (number in seq_along(statements)) {
@@ -321,6 +326,25 @@ db_execute_file <- function(conn, path, transaction = TRUE) {
     run_all()
   }
   total
+}
+
+# SQL Server returns one result per statement in a batch, and the ODBC
+# driver reports a later statement's error only once that result is read.
+# DBI::dbExecute() reads the first, so a failure after a statement that ran
+# would go unnoticed and the file would commit. With SET NOCOUNT ON, statements
+# that succeed return no row count, and the batch's error is the first thing
+# the driver reads. The setting is the session's; the function returned puts
+# it back on a connection the caller keeps. It runs as its own batch, as
+# CREATE VIEW and CREATE PROCEDURE must start theirs.
+.fw_nocount_on <- function(con, keep) {
+  was_on <- keep && isTRUE(as.logical(
+    DBI::dbGetQuery(con, "SELECT CAST(@@OPTIONS & 512 AS INT) AS nocount")$nocount
+  ))
+  DBI::dbExecute(con, "SET NOCOUNT ON")
+  function() {
+    if (keep && !was_on) try(DBI::dbExecute(con, "SET NOCOUNT OFF"), silent = TRUE)
+    invisible()
+  }
 }
 
 #' Load a CSV file into an existing table
