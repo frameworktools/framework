@@ -17,6 +17,21 @@ test_that("skill bundles share the cross-language exact-byte hash", {
   }
 })
 
+test_that("text skill files hash with LF line endings and binary files hash raw", {
+  fixture <- jsonlite::fromJSON(test_path("skill-fixtures", "skill-bundle-crlf.json"), simplifyVector = FALSE)
+  expect_identical(.skill_hash(fixture$lf), fixture$hash)
+  expect_identical(.skill_hash(fixture$crlf), fixture$hash)
+  expect_identical(.skill_hash(fixture$binary_lf), fixture$binary_lf_hash)
+  # A package skill that git checked out with CRLF is still current
+  root <- tempfile(); dir.create(root)
+  source <- tempfile(); dir.create(source)
+  writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source, "SKILL.md"))
+  expect_true(.skill_package_install(source, root, ".agents/skills/example", "example"))
+  skill <- file.path(root, ".agents/skills/example/SKILL.md")
+  writeBin(charToRaw(gsub("\n", "\r\n", rawToChar(readBin(skill, "raw", 1000)))), skill)
+  expect_identical(.skill_package_status(source, root, ".agents/skills/example", "example"), "current")
+})
+
 test_that("package updates preserve edited and untracked skills", {
   root <- tempfile(); dir.create(root)
   source <- tempfile(); dir.create(source)

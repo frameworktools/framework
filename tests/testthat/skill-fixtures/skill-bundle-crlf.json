@@ -1,0 +1,56 @@
+{
+  "description": "Text files hash with LF line endings; files with a NUL byte hash raw. lf and crlf share hash; binary_lf (data.bin with CRLF removed) has binary_lf_hash.",
+  "lf": [
+    {
+      "path": "SKILL.md",
+      "content": "LS0tCm5hbWU6IHNoYXJlZApkZXNjcmlwdGlvbjogU2hhcmVkIHRhc2tzCi0tLQpVVEYtODogw6kKCkxhc3QgbGluZQo=",
+      "executable": false
+    },
+    {
+      "path": "references/notes.md",
+      "content": "T25lClR3bwo=",
+      "executable": false
+    },
+    {
+      "path": "scripts/data.bin",
+      "content": "AP8NCgENCg==",
+      "executable": false
+    }
+  ],
+  "crlf": [
+    {
+      "path": "SKILL.md",
+      "content": "LS0tDQpuYW1lOiBzaGFyZWQNCmRlc2NyaXB0aW9uOiBTaGFyZWQgdGFza3MNCi0tLQ0KVVRGLTg6IMOpDQoNCkxhc3QgbGluZQ0K",
+      "executable": false
+    },
+    {
+      "path": "references/notes.md",
+      "content": "T25lDQpUd28NCg==",
+      "executable": false
+    },
+    {
+      "path": "scripts/data.bin",
+      "content": "AP8NCgENCg==",
+      "executable": false
+    }
+  ],
+  "hash": "6b5d0fd801173e20bc90d746f66c189fbec26a9cf8848846db5fa39dd4cbd929",
+  "binary_lf": [
+    {
+      "path": "SKILL.md",
+      "content": "LS0tCm5hbWU6IHNoYXJlZApkZXNjcmlwdGlvbjogU2hhcmVkIHRhc2tzCi0tLQpVVEYtODogw6kKCkxhc3QgbGluZQo=",
+      "executable": false
+    },
+    {
+      "path": "references/notes.md",
+      "content": "T25lClR3bwo=",
+      "executable": false
+    },
+    {
+      "path": "scripts/data.bin",
+      "content": "AP8KAQo=",
+      "executable": false
+    }
+  ],
+  "binary_lf_hash": "4bd74b85910348319c275622b596a7c13ee773e2e209068b9dc2dc5a926d0684"
+}

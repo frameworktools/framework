@@ -25,10 +25,17 @@
 }
 
 .skill_sha <- function(raw) unclass(as.character(openssl::sha256(raw)))
+# Text files hash with LF line endings, so a CRLF checkout (git's
+# core.autocrlf on Windows) matches its LF twin. A file with a NUL byte is
+# binary and hashes raw. Python, Go, and Cloud normalize the same way.
+.skill_hash_bytes <- function(raw) {
+  if (any(raw == as.raw(0))) return(raw)
+  raw[!(raw == as.raw(13) & c(utils::tail(raw, -1), as.raw(0)) == as.raw(10))]
+}
 .skill_hash <- function(files) {
   manifest <- "framework-skill-bundle-v1\n"
   for (f in .skill_validate(files)) {
-    raw <- jsonlite::base64_dec(f$content)
+    raw <- .skill_hash_bytes(jsonlite::base64_dec(f$content))
     manifest <- paste0(manifest, f$path, "\t", .skill_sha(raw), "\t", if (isTRUE(f$executable)) "755" else "644", "\t", length(raw), "\n")
   }
   .skill_sha(charToRaw(manifest))
@@ -263,7 +270,7 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   if (length(history) == 0) return(FALSE)
   raw <- readBin(file.path(target, "SKILL.md"), "raw", n = file.info(file.path(target, "SKILL.md"))$size)
   # A checkout with CRLF line endings is the same text
-  lf <- raw[!(raw == as.raw(13) & c(utils::tail(raw, -1), as.raw(0)) == as.raw(10))]
+  lf <- .skill_hash_bytes(raw)
   any(c(.skill_sha(raw), .skill_sha(lf)) %in% unlist(history))
 }
 
