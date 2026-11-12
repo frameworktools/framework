@@ -10,7 +10,8 @@ ai_generate_context(
   project_type = NULL,
   config = NULL,
   skills = NULL,
-  skills_dir = ".claude/skills"
+  skills_dir = ".claude/skills",
+  core = TRUE
 )
 }
 \arguments{
@@ -27,6 +28,10 @@ the skills table. NULL lists the default skills for \code{project_type}.}
 
 \item{skills_dir}{Folder the skills are installed in, for the paths in the
 skills table.}
+
+\item{core}{FALSE for a project without Framework's core files (no
+scaffold.R): the guide leaves out scaffold(), the package list, and the
+data_read()/data_save() rules, which need the framework package.}
 }
 \value{
 Character string with the complete AI context content

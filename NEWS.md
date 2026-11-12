@@ -1,7 +1,7 @@
-# framework 2.0.1
+# framework 2.0.2
 
-Fixes and features found by porting real R projects to Python and Stata, so
-the three languages behave the same.
+Fixes and features from adopting and upgrading real projects, and an explicit
+location for new projects. Matches framework-py 0.1.0.dev15 and fw 0.4.9.
 
 Behavior changes:
 
@@ -19,15 +19,9 @@ Behavior changes:
   creating the Projects folder if needed. `setup("fw_...")` and
   `new(key = ...)` first use the project owner's Projects folder, which
   Framework Cloud sends with the project. A non-interactive session stops
-  and asks for `location =`; it never uses the Projects folder. Both print the absolute path before creating
-  the project and `Project ready at <path>` after.
-* `data_read()` trims leading and trailing whitespace from CSV and TSV values
-  and column names (`trim_ws = TRUE`), as `readr::read_csv()` does. A padded
-  value such as `"   1"` now reads as a number. Pass `trim_ws = FALSE` for the
-  old behavior.
-* `project_sensitive` projects turn on the `data_security` and
-  `check_sensitive_dirs` git hooks by default, and the pre-commit hook is
-  installed after the initial commit.
+  and asks for `location =`; it never uses the Projects folder. Both print
+  the absolute path before creating the project and `Project ready at <path>`
+  after.
 * The check before publishing matches folder names, not file names: a path
   is private when one of its folders is named `private` or ends in
   `_private`, as the `.gitignore` templates ignore, or when it is under a
@@ -49,55 +43,19 @@ Behavior changes:
   which git ignores, instead of `.quarto_backups/`, and `dry_run = TRUE`
   reports what would change. The `.gitignore` templates ignore
   `.quarto_backups/` for backups made by earlier versions.
-
-New functions and arguments:
-
-* `project_path()` builds an absolute path from the project root, like
-  `here::here()`, from any folder in the project.
-* `load_model()` reads back a model `save_model()` saved. `save_model(public =
-  TRUE)` warns when the model holds data rows.
-* `show_table()` prints a data frame as a Markdown table in Quarto and Jupyter.
-  With `digits`, a column of whole numbers stored as doubles, such as
-  counts, keeps no decimals (`12`, not `12.0`).
-* `db_execute_file()` runs a SQL file, `db_copy_from()` loads a CSV into an
-  existing table, and `db_connect()` and `db_query()` take `read_only = TRUE`
-  to open a SQLite or DuckDB file read-only for one call. A call can add
-  read-only but never remove it: `read_only = FALSE` on a connection with
-  `read_only: true` in its settings is an error. A job that rebuilds such a
-  database uses a second connection entry for the same file.
-* `cache_remember()` and `cache()` take `depends_on`: catalog names, files,
-  folders, or values. The entry is recomputed when any of them changes, and
-  the record is shared with framework-py. In a list of items, a named
-  element is a value, so `list("inputs.final.bp_long", formula = f)` tracks
-  the data and the formula. The out-of-date message names what changed:
+* `db_connect()` and `db_query()`'s `read_only = TRUE` opens a SQLite or
+  DuckDB file read-only for one call. A call can add read-only but never
+  remove it: `read_only = FALSE` on a connection with `read_only: true` in its
+  settings is an error. A job that rebuilds such a database uses a second
+  connection entry for the same file.
+* In `cache_remember()` and `cache()`'s `depends_on` list, a named element is
+  a value, so `list("inputs.final.bp_long", formula = f)` tracks the data and
+  the formula. The out-of-date message names what changed:
   "inputs.final.bp_long and formula changed", or "dependency 3 (a value)
   changed" for a value without a name.
-* `data_info(columns = TRUE)` summarizes column names, types, and missing
-  counts without showing any values.
-* `save_figure()` takes several formats at once, and adds `eps` and `emf`
-  (through devEMF).
-* `make_notebook()` and its wrappers take `title`, for acronyms in lowercase
-  file names.
-* Folder publishing destinations take `layout: site-root`, which keeps only the
-  latest publish at the folder's root, for a deck or site on GitHub Pages.
 
 Sensitive data:
 
-* `publish()`, `publish_notebook()`, and `publish_data()` ask for confirmation
-  before publishing a notebook or an object from a `security: sensitive: true`
-  project, and a notebook in any project that reads private data.
-* In a sensitive project, `save_table()`, `save_figure()`, and `save_model()`
-  with `public = TRUE` warn when the session has read private data.
-* `data_save()` warns about identifier-like columns (date of birth, ZIP code,
-  SSN, record number, names) saved outside a private folder.
-* The `check_sensitive_dirs` hook skips Framework's own skills.
-* `git_security_audit()` reports each file once, lists folders outside the
-  project instead of checking them, and adds three
-  checks: `published_outputs` (folder publishing destinations git doesn't
-  ignore), `connection_secrets` (passwords and tokens written into connection
-  settings), and `identifier_columns` (tracked data with identifier-like
-  columns). New projects add their folder publishing destinations to
-  `.gitignore`.
 * Projects with `project_type: project_sensitive` count as sensitive even
   without a `security:` block, as projects made before Framework 2 have. The
   type wins over `security: sensitive: false`. Without a `security:` block, an
@@ -119,16 +77,8 @@ Sensitive data:
 
 Fixes:
 
-* `data_save()` warns when it replaces locked data with different contents.
-* `data_read()` names a missing file by its path from the project root and
-  says where it looked.
-* Settings warn once about keys outside the environment sections, which are
-  ignored.
-* `package_add()` refreshes the package list in AGENTS.md.
-* `save_figure()`, `save_table()`, and `save_model()` create the subfolders a
-  `name` with `/` names.
-* `publish_data()`'s message shows the normalized slug, and `publish_dir()`
-  keeps the folder part of `dest` in the slug.
+* `show_table()` with `digits` keeps no decimals in a column of whole numbers
+  stored as doubles, such as counts (`12`, not `12.0`).
 * A `layout: site-root` folder counts versions per slug: publishing another
   slug there replaces the site, starts again at version 1, and the message
   names the slug it replaced. It never writes a notebook source (`.qmd`,
@@ -317,6 +267,74 @@ Adopting and upgrading projects:
   `inputs_private_data_files`) and is added to `.gitignore`. `adopt()` no
   longer writes a stray `//` rule when every private-looking folder is
   already ignored.
+
+# framework 2.0.1
+
+Fixes and features found by porting real R projects to Python and Stata, so
+the three languages behave the same.
+
+Behavior changes:
+
+* `data_read()` trims leading and trailing whitespace from CSV and TSV values
+  and column names (`trim_ws = TRUE`), as `readr::read_csv()` does. A padded
+  value such as `"   1"` now reads as a number. Pass `trim_ws = FALSE` for the
+  old behavior.
+* `project_sensitive` projects turn on the `data_security` and
+  `check_sensitive_dirs` git hooks by default, and the pre-commit hook is
+  installed after the initial commit.
+
+New functions and arguments:
+
+* `project_path()` builds an absolute path from the project root, like
+  `here::here()`, from any folder in the project.
+* `load_model()` reads back a model `save_model()` saved. `save_model(public =
+  TRUE)` warns when the model holds data rows.
+* `show_table()` prints a data frame as a Markdown table in Quarto and Jupyter.
+* `db_execute_file()` runs a SQL file, `db_copy_from()` loads a CSV into an
+  existing table, and `db_connect()` and `db_query()` take `read_only` to
+  override the connection's setting for SQLite and DuckDB.
+* `cache_remember()` and `cache()` take `depends_on`: catalog names, files,
+  folders, or values. The entry is recomputed when any of them changes, and
+  the record is shared with framework-py.
+* `data_info(columns = TRUE)` summarizes column names, types, and missing
+  counts without showing any values.
+* `save_figure()` takes several formats at once, and adds `eps` and `emf`
+  (through devEMF).
+* `make_notebook()` and its wrappers take `title`, for acronyms in lowercase
+  file names.
+* Folder publishing destinations take `layout: site-root`, which keeps only the
+  latest publish at the folder's root, for a deck or site on GitHub Pages.
+
+Sensitive data:
+
+* `publish()`, `publish_notebook()`, and `publish_data()` ask for confirmation
+  before publishing a notebook or an object from a `security: sensitive: true`
+  project, and a notebook in any project that reads private data.
+* In a sensitive project, `save_table()`, `save_figure()`, and `save_model()`
+  with `public = TRUE` warn when the session has read private data.
+* `data_save()` warns about identifier-like columns (date of birth, ZIP code,
+  SSN, record number, names) saved outside a private folder.
+* The `check_sensitive_dirs` hook skips Framework's own skills.
+* `git_security_audit()` reports each file once, lists folders outside the
+  project instead of checking them, and adds three
+  checks: `published_outputs` (folder publishing destinations git doesn't
+  ignore), `connection_secrets` (passwords and tokens written into connection
+  settings), and `identifier_columns` (tracked data with identifier-like
+  columns). New projects add their folder publishing destinations to
+  `.gitignore`.
+
+Fixes:
+
+* `data_save()` warns when it replaces locked data with different contents.
+* `data_read()` names a missing file by its path from the project root and
+  says where it looked.
+* Settings warn once about keys outside the environment sections, which are
+  ignored.
+* `package_add()` refreshes the package list in AGENTS.md.
+* `save_figure()`, `save_table()`, and `save_model()` create the subfolders a
+  `name` with `/` names.
+* `publish_data()`'s message shows the normalized slug, and `publish_dir()`
+  keeps the folder part of `dest` in the slug.
 
 # framework 2.0.0
 

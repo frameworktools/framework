@@ -4,7 +4,7 @@
 \alias{.generate_header_section}
 \title{Generate header section}
 \usage{
-.generate_header_section(project_name)
+.generate_header_section(project_name, core = TRUE)
 }
 \description{
 Generate header section

@@ -7,7 +7,8 @@
 .generate_skills_section(
   project_type = "project",
   skills = NULL,
-  skills_dir = ".claude/skills"
+  skills_dir = ".claude/skills",
+  project_dir = "."
 )
 }
 \arguments{
