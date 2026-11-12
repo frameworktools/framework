@@ -299,7 +299,7 @@ pull_data_registry <- function(project_path = ".", overwrite = FALSE, confirm = 
       paste0(n, " (local ", .data_registry_describe(local[[n]]), "; Cloud ", .data_registry_describe(cloud[[n]]), ")")
     }, ""), collapse = ", ")
     tail <- if (overwrite) "Cloud's will be used" else "kept; pull_data_registry(overwrite = TRUE) uses Cloud's"
-    lines <- c(lines, paste0("  Entries that differ: ", details, " — ", tail))
+    lines <- c(lines, paste0("  Entries that differ: ", details, " \u2014 ", tail))
   }
   if (length(kept_local)) lines <- c(lines, paste0("  Only in this project (kept): ", paste(kept_local, collapse = ", ")))
   changes <- length(added) > 0 || (length(differ) > 0 && overwrite)
@@ -328,7 +328,7 @@ pull_data_registry <- function(project_path = ".", overwrite = FALSE, confirm = 
   rows <- c(added, if (overwrite) unname(cloud[differ]))
   .data_registry_write(root, rows)
   .data_registry_lock_write(root, revision, connection$server)
-  message("✓ Data registry: ", length(rows), " ", if (length(rows) == 1) "entry" else "entries", " added or updated")
+  message("\u2713 Data registry: ", length(rows), " ", if (length(rows) == 1) "entry" else "entries", " added or updated")
   result$applied <- TRUE
   invisible(result)
 }
