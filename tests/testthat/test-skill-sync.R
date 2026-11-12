@@ -25,10 +25,12 @@ test_that("text skill files hash with LF line endings and binary files hash raw"
   # A package skill that git checked out with CRLF is still current
   root <- tempfile(); dir.create(root)
   source <- tempfile(); dir.create(source)
-  writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source, "SKILL.md"))
+  # Exact bytes: writeLines() writes CRLF on Windows
+  text <- "---\nname: example\ndescription: Example\n---\nFirst\n"
+  writeBin(charToRaw(text), file.path(source, "SKILL.md"))
   expect_true(.skill_package_install(source, root, ".agents/skills/example", "example"))
   skill <- file.path(root, ".agents/skills/example/SKILL.md")
-  writeBin(charToRaw(gsub("\n", "\r\n", rawToChar(readBin(skill, "raw", 1000)))), skill)
+  writeBin(charToRaw(gsub("\n", "\r\n", text, fixed = TRUE)), skill)
   expect_identical(.skill_package_status(source, root, ".agents/skills/example", "example"), "current")
 })
 
