@@ -22,8 +22,12 @@ new_project(
 \arguments{
 \item{name}{Project name. If NULL (default), prompts interactively.}
 
-\item{location}{Directory path where project will be created. If NULL (default),
-prompts interactively.}
+\item{location}{The project folder to create. \code{~} is expanded and a
+relative path is taken from the current directory. If NULL (default), an
+interactive session shows \verb{<current directory>/<project-name>} and asks
+\verb{Create the project here (<path>)? [y/n]}. Answering n asks for the
+folder to put the project in; leaving it blank uses the current
+directory. A non-interactive session stops and asks for \code{location}.}
 
 \item{type}{Project type: one of Framework's structures, "project",
 "project_sensitive", "course", "presentation", or "bare". NULL (default)
@@ -97,14 +101,15 @@ Global settings from \code{tools::R_user_dir("framework", "config")} are used fo
 \examples{
 \donttest{
 if (FALSE) {
-# Interactive - prompts for name and location
+# Interactive: prompts for the name, then offers a folder in the
+# current directory
 new_project()
 
 # With name and location specified
-new_project("my-analysis", "~/projects/my-analysis")
+new_project("my-analysis", "~/code/my-analysis")
 
 # Create a sensitive data project
-new_project("medical-study", "~/projects/medical", type = "project_sensitive")
+new_project("medical-study", "~/code/medical", type = "project_sensitive")
 }
 }
 

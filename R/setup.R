@@ -11,8 +11,11 @@
 #' @param token A project token from Framework Cloud. NULL (default) sets up
 #'   the global settings only.
 #' @param browse Open the new project's folder (default: TRUE)
-#' @param location Where to create the project (prompted interactively when
-#'   NULL)
+#' @param location The project folder to create. If NULL (default), an
+#'   interactive session asks `Create the project here (<path>)? [y/n]` for
+#'   a folder named for the project in the current directory, and on n asks
+#'   which folder to put it in (blank for the current directory). A
+#'   non-interactive session stops and asks for `location`.
 #' @param url The Framework Cloud server that issued the token. Defaults to
 #'   `FW_CLOUD_URL`, then the server you last logged in to with
 #'   [cloud_login()], then <https://framework.pub>.

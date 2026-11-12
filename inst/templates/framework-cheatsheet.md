@@ -9,15 +9,15 @@ Quick reference for the most commonly used Framework functions.
 ### Project Setup
 ```r
 new_project()                            # Create new Framework project (interactive)
-new_project("my-project", "~/projects/my-project", type = "project")  # Standard project
-new_course("stats-101", "~/projects/stats-101")               # Course
-new_presentation("talk", "~/projects/talk")                   # Presentation
-new_project("study", "~/projects/study", tools = c("targets", "renv"),
+new_project("my-project", "~/code/my-project", type = "project")  # Standard project
+new_course("stats-101", "~/code/stats-101")               # Course
+new_presentation("talk", "~/code/talk")                   # Presentation
+new_project("study", "~/code/study", tools = c("targets", "renv"),
             package_sets = "tidyverse-analysis")              # With tools and package sets
-new_project("study", "~/projects/study", workflow = "jupyter")  # Jupyter notebooks (or "scripts")
+new_project("study", "~/code/study", workflow = "jupyter")  # Jupyter notebooks (or "scripts")
 new_project(key = "1|fw_...")              # Project defined on Framework Cloud
 bootstrap()                      # Prepare a cloned project (.env, folders, packages, hooks)
-adopt("~/projects/old-study")    # Make an existing folder a Framework project, in place
+adopt("~/code/old-study")    # Make an existing folder a Framework project, in place
 adopt(yes = TRUE, sensitive = TRUE)  # Non-interactive, for a project with sensitive data
 upgrade()                        # Plan the update of an older Framework project
 upgrade(dry_run = FALSE)         # Apply it (files it rewrites are backed up)

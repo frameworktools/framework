@@ -14,8 +14,12 @@ new_project_sensitive(
 \arguments{
 \item{name}{Project name. If NULL (default), prompts interactively.}
 
-\item{location}{Directory path where project will be created. If NULL (default),
-prompts interactively.}
+\item{location}{The project folder to create. \code{~} is expanded and a
+relative path is taken from the current directory. If NULL (default), an
+interactive session shows \verb{<current directory>/<project-name>} and asks
+\verb{Create the project here (<path>)? [y/n]}. Answering n asks for the
+folder to put the project in; leaving it blank uses the current
+directory. A non-interactive session stops and asks for \code{location}.}
 
 \item{browse}{Whether to open the project folder after creation (default: TRUE in
 interactive sessions)}
@@ -32,7 +36,7 @@ with additional privacy protections for handling sensitive data.
 \examples{
 \donttest{
 if (FALSE) {
-new_project_sensitive("medical-study", "~/projects/medical")
+new_project_sensitive("medical-study", "~/code/medical")
 }
 }
 

@@ -47,7 +47,7 @@ A project created on Framework Cloud has a project token. Create the project loc
 framework::setup("fw_...")
 ```
 
-`setup()` fetches the project's definition and prompts for a location. Pass `location` to skip the prompt, and `url` for a self-hosted server. The token and server are saved in the project's `.env` file as `FW_PROJECT_TOKEN` and `FW_CLOUD_URL`, so publishing and the data ledger go back to that server. `new(key = "fw_...")` does the same.
+`setup()` fetches the project's definition and asks `Create the project here (<path>)? [y/n]` for a folder named for the project in the current directory. Answer `n` to type another folder; the project folder goes inside it. Pass `location` to skip the prompt. Non-interactive sessions must pass `location`. Pass `url` for a self-hosted server. The token and server are saved in the project's `.env` file as `FW_PROJECT_TOKEN` and `FW_CLOUD_URL`, so publishing and the data ledger go back to that server. `new(key = "fw_...")` does the same.
 
 ## Settings storage
 

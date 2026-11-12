@@ -156,10 +156,10 @@ framework::setup("fw_...")
 
 ```r
 # Create a standard project
-new_project("sales-analysis", "~/projects/sales-analysis")
+new_project("sales-analysis", "~/code/sales-analysis")
 
 # Create a privacy sensitive project
-new_project_sensitive("medical-study", "~/projects/medical")
+new_project_sensitive("medical-study", "~/code/medical")
 
 # Create a course
 new_course("data-science-101", "~/teaching/ds101")
@@ -168,7 +168,7 @@ new_course("data-science-101", "~/teaching/ds101")
 new_presentation("q4-report", "~/presentations/q4")
 
 # Create a bare project
-new_project("my-layout", "~/projects/my-layout", type = "bare")
+new_project("my-layout", "~/code/my-layout", type = "bare")
 ```
 
 ### Tools and sets
@@ -177,13 +177,13 @@ Add tools and sets to any structure:
 
 ```r
 new_project(
-  "study", "~/projects/study",
+  "study", "~/code/study",
   tools = "targets",
   package_sets = "tidyverse-analysis"
 )
 
 # Turn a structure's tool off
-new_project("study", "~/projects/study", tools = c(quarto = FALSE, renv = TRUE))
+new_project("study", "~/code/study", tools = c(quarto = FALSE, renv = TRUE))
 ```
 
 | Tool | Effect |

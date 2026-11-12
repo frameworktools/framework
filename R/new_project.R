@@ -5,8 +5,12 @@
 #' missing required values (name and location).
 #'
 #' @param name Project name. If NULL (default), prompts interactively.
-#' @param location Directory path where project will be created. If NULL (default),
-#'   prompts interactively.
+#' @param location The project folder to create. `~` is expanded and a
+#'   relative path is taken from the current directory. If NULL (default), an
+#'   interactive session shows `<current directory>/<project-name>` and asks
+#'   `Create the project here (<path>)? [y/n]`. Answering n asks for the
+#'   folder to put the project in; leaving it blank uses the current
+#'   directory. A non-interactive session stops and asks for `location`.
 #' @param type Project type: one of Framework's structures, "project",
 #'   "project_sensitive", "course", "presentation", or "bare". NULL (default)
 #'   uses your default blueprint on Framework Cloud when you are signed in,
@@ -62,14 +66,15 @@
 #' @examples
 #' \donttest{
 #' if (FALSE) {
-#' # Interactive - prompts for name and location
+#' # Interactive: prompts for the name, then offers a folder in the
+#' # current directory
 #' new_project()
 #'
 #' # With name and location specified
-#' new_project("my-analysis", "~/projects/my-analysis")
+#' new_project("my-analysis", "~/code/my-analysis")
 #'
 #' # Create a sensitive data project
-#' new_project("medical-study", "~/projects/medical", type = "project_sensitive")
+#' new_project("medical-study", "~/code/medical", type = "project_sensitive")
 #' }
 #' }
 #'
@@ -110,23 +115,11 @@ new_project <- function(name = NULL, location = NULL, type = NULL, browse = inte
     name <- trimws(name)
   }
 
-  # Prompt for location if not provided
+  # No location: ask, offering a folder in the current directory
   if (is.null(location)) {
-    if (!interactive()) {
-      stop("Project location is required in non-interactive mode")
-    }
-    # Suggest a default location based on name
-    suggested <- file.path("~", "projects", gsub(" ", "-", tolower(name)))
-    location <- readline(paste0("Project location [", suggested, "]: "))
-    if (nchar(trimws(location)) == 0) {
-      location <- suggested
-    }
-    location <- trimws(location)
+    location <- .fw_ask_location(.slugify(name))
   }
-
-  # Expand path
-
-  location <- path.expand(location)
+  location <- .fw_abs_path(location)
 
   # Framework's five structures, or any blueprint label (lowercase id)
   checkmate::assert_string(type, pattern = "^[a-z][a-z0-9_]*$", null.ok = TRUE)
@@ -203,7 +196,7 @@ new_project <- function(name = NULL, location = NULL, type = NULL, browse = inte
   }
 
   if (result$success) {
-    message("\nProject created successfully!")
+    message("\nProject ready at ", result$path)
     message("Next steps:")
     message("  1. Open the project in your IDE")
     message("  2. Run scaffold() to set up your environment")
@@ -228,7 +221,7 @@ new_project <- function(name = NULL, location = NULL, type = NULL, browse = inte
 #' @examples
 #' \donttest{
 #' if (FALSE) {
-#' new_project_sensitive("medical-study", "~/projects/medical")
+#' new_project_sensitive("medical-study", "~/code/medical")
 #' }
 #' }
 #'
@@ -252,7 +245,7 @@ new_project_sensitive <- function(name = NULL, location = NULL, browse = interac
 #' @examples
 #' \donttest{
 #' if (FALSE) {
-#' new_presentation("quarterly-review", "~/projects/q4-review")
+#' new_presentation("quarterly-review", "~/code/q4-review")
 #' }
 #' }
 #'
@@ -276,7 +269,7 @@ new_presentation <- function(name = NULL, location = NULL, browse = interactive(
 #' @examples
 #' \donttest{
 #' if (FALSE) {
-#' new_course("stats-101", "~/projects/stats-101")
+#' new_course("stats-101", "~/code/stats-101")
 #' }
 #' }
 #'
@@ -313,13 +306,13 @@ new_course <- function(name = NULL, location = NULL, browse = interactive(), ...
 #' \donttest{
 #' if (FALSE) {
 #' # Create different project types
-#' new("analysis", "~/projects/analysis")
-#' new("study", "~/projects/study", type = "project_sensitive")
-#' new("slides", "~/projects/slides", type = "presentation")
-#' new("course-materials", "~/projects/course", type = "course")
+#' new("analysis", "~/code/analysis")
+#' new("study", "~/code/study", type = "project_sensitive")
+#' new("slides", "~/code/slides", type = "presentation")
+#' new("course-materials", "~/code/course", type = "course")
 #'
 #' # A project defined on Framework Cloud
-#' new(key = "1|fw_abc123...", location = "~/projects/study")
+#' new(key = "1|fw_abc123...", location = "~/code/study")
 #' }
 #' }
 #'
@@ -350,6 +343,59 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
   }
   new_project(name = name, location = location, type = type, browse = browse, ...)
 }
+
+# Where a new project goes when no location was given. Interactive sessions
+# confirm a folder named for the project in the current directory, or take a
+# parent folder. Never a default elsewhere: the location is always explicit.
+#' @keywords internal
+.fw_ask_location <- function(slug) {
+  here <- getwd()
+  suggested <- file.path(here, slug)
+  if (!.fw_interactive()) {
+    stop(
+      "No project location given. Pass `location =`, the folder to create, ",
+      "such as location = \"", suggested, "\".",
+      call. = FALSE
+    )
+  }
+
+  repeat {
+    answer <- tolower(trimws(.fw_readline(
+      paste0("Create the project here (", suggested, ")? [y/n] ")
+    )))
+    if (answer %in% c("", "y", "yes")) {
+      return(suggested)
+    }
+    if (answer %in% c("n", "no")) {
+      break
+    }
+    message("Answer y or n.")
+  }
+
+  typed <- trimws(.fw_readline(paste0(
+    "Where should the project go? Leave blank to use the current directory (", here, "): "
+  )))
+  parent <- if (nzchar(typed)) .fw_abs_path(typed) else here
+  # A typed path that already names the project folder is used as is
+  if (identical(basename(parent), slug)) parent else file.path(parent, slug)
+}
+
+# Absolute form of a path, with ~ expanded and trailing slashes dropped
+#' @keywords internal
+.fw_abs_path <- function(path) {
+  path <- path.expand(trimws(path))
+  if (!grepl("^(/|[A-Za-z]:[/\\\\]|\\\\\\\\)", path)) {
+    path <- file.path(getwd(), path)
+  }
+  sub("(.)[/\\\\]+$", "\\1", path)
+}
+
+# Seams for tests
+#' @keywords internal
+.fw_interactive <- function() interactive()
+
+#' @keywords internal
+.fw_readline <- function(prompt) readline(prompt)
 
 # The layers new_project() resolves: the user's settings, the structure,
 # an older cloud blueprint when one is found, then tools and sets. Package

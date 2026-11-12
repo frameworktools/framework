@@ -12,8 +12,11 @@ the global settings only.}
 
 \item{browse}{Open the new project's folder (default: TRUE)}
 
-\item{location}{Where to create the project (prompted interactively when
-NULL)}
+\item{location}{The project folder to create. If NULL (default), an
+interactive session asks \verb{Create the project here (<path>)? [y/n]} for
+a folder named for the project in the current directory, and on n asks
+which folder to put it in (blank for the current directory). A
+non-interactive session stops and asks for \code{location}.}
 
 \item{url}{The Framework Cloud server that issued the token. Defaults to
 \code{FW_CLOUD_URL}, then the server you last logged in to with

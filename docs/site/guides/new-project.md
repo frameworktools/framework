@@ -11,7 +11,19 @@ description: 'Project creation from the R console and Framework Cloud'
 framework::new_project()
 ```
 
-`new_project()` prompts for a project name and location, then creates the project. The suggested location is `~/projects/<name>`.
+`new_project()` prompts for a project name, then shows where the project would go: a folder named for the project in the current directory. It asks:
+
+```text
+Create the project here (/Users/you/code/my-analysis)? [y/n]
+```
+
+Enter or `y` uses that folder. `n` asks for the folder to put the project in:
+
+```text
+Where should the project go? Leave blank to use the current directory (/Users/you/code):
+```
+
+The project folder is created inside the folder you type, unless that path already ends in the project's name. `~` is expanded. Framework prints the full path before it creates anything.
 
 Pass the name and location directly to skip the prompts:
 
@@ -19,7 +31,7 @@ Pass the name and location directly to skip the prompts:
 new_project("my-analysis", "~/code/my-analysis")
 ```
 
-Non-interactive sessions must pass both.
+Non-interactive sessions must pass both. Without `location`, they stop instead of choosing a folder.
 
 ## Tools and sets
 

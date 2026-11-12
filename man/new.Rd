@@ -17,8 +17,12 @@ new(
 \arguments{
 \item{name}{Project name. If NULL (default), prompts interactively.}
 
-\item{location}{Directory path where project will be created. If NULL (default),
-prompts interactively.}
+\item{location}{The project folder to create. \code{~} is expanded and a
+relative path is taken from the current directory. If NULL (default), an
+interactive session shows \verb{<current directory>/<project-name>} and asks
+\verb{Create the project here (<path>)? [y/n]}. Answering n asks for the
+folder to put the project in; leaving it blank uses the current
+directory. A non-interactive session stops and asks for \code{location}.}
 
 \item{type}{Project type, as in \code{\link[=new_project]{new_project()}}. NULL (default): signed
 in to Framework Cloud, your default blueprint is used. Not signed in,
@@ -55,13 +59,13 @@ existing scripts. Its name can mask \code{methods::new()} when attached.
 \donttest{
 if (FALSE) {
 # Create different project types
-new("analysis", "~/projects/analysis")
-new("study", "~/projects/study", type = "project_sensitive")
-new("slides", "~/projects/slides", type = "presentation")
-new("course-materials", "~/projects/course", type = "course")
+new("analysis", "~/code/analysis")
+new("study", "~/code/study", type = "project_sensitive")
+new("slides", "~/code/slides", type = "presentation")
+new("course-materials", "~/code/course", type = "course")
 
 # A project defined on Framework Cloud
-new(key = "1|fw_abc123...", location = "~/projects/study")
+new(key = "1|fw_abc123...", location = "~/code/study")
 }
 }
 

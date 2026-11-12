@@ -43,7 +43,7 @@ Publishing to Framework Cloud uses a project token. Create the project on Framew
 framework::setup("fw_...")
 
 # Or
-framework::new_project(key = "fw_...", location = "~/projects/study")
+framework::new_project(key = "fw_...", location = "~/code/study")
 ```
 
 Both write the token and its server to the project's `.env`:

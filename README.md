@@ -18,7 +18,7 @@ framework::setup()
 
 # Create projects using your saved defaults
 framework::new_project()
-framework::new_project("my-analysis", "~/projects/my-analysis")
+framework::new_project("my-analysis", "~/code/my-analysis")
 framework::new_presentation("quarterly-review", "~/talks/q4")
 framework::new_course("stats-101", "~/teaching/stats")
 

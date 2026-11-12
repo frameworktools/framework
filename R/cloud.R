@@ -1778,15 +1778,10 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
   message("Setting up cloud project: ", name, " (", spec$type, ")")
 
   if (is.null(location)) {
-    slug <- .fw_envelope_slug(layers) %||% .slugify(name)
-    suggested <- file.path("~", "projects", slug)
-    if (interactive()) {
-      answer <- readline(paste0("Location [", suggested, "]: "))
-      location <- if (nzchar(trimws(answer))) trimws(answer) else suggested
-    } else {
-      location <- suggested
-    }
+    location <- .fw_ask_location(.fw_envelope_slug(layers) %||% .slugify(name))
   }
+  location <- .fw_abs_path(location)
+  message("Creating the project at ", location)
 
   result <- .project_create_from_spec(spec, location)
 

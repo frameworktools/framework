@@ -5,6 +5,17 @@ the three languages behave the same.
 
 Behavior changes:
 
+* The location of a new project is always explicit. `setup("fw_...")`,
+  `new_project(key = ...)`, and `new_project()` no longer suggest
+  `~/projects/<name>`, and `setup()` no longer creates the project there
+  silently when not interactive. With no `location`, an interactive session
+  shows the folder it would create in the current directory and asks
+  `Create the project here (<path>)? [y/n]`. Enter or `y` uses it. `n` asks
+  `Where should the project go? Leave blank to use the current directory
+  (<dir>): `; the project folder goes inside the folder typed, unless that
+  path already ends in the project's name. A non-interactive session stops
+  and asks for `location =`. Both print the absolute path before creating
+  the project and `Project ready at <path>` after.
 * `data_read()` trims leading and trailing whitespace from CSV and TSV values
   and column names (`trim_ws = TRUE`), as `readr::read_csv()` does. A padded
   value such as `"   1"` now reads as a number. Pass `trim_ws = FALSE` for the
