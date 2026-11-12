@@ -1,3 +1,25 @@
+# framework (development version)
+
+Behavior changes:
+
+* `pull_all()` and `push_all()` replace `pull_setup()` and `push_setup()`,
+  and sync everything at once: packages, skills, and the data registry.
+  `pull_all()` lists every change, grouped by part (Packages, Skills, Data
+  registry), asks `Apply these changes? [y/n]` once, and applies each part.
+  `push_all()` previews each part with Cloud, lists the changes with what
+  each affects, asks `Push these changes? [y/n]` once, and pushes the
+  package list, edited tracked skills, and the data registry. Local edits
+  win unless `overwrite = TRUE`; entries only on Cloud stay unless
+  `remove = TRUE`. A part that changed on Cloud since the last pull stops
+  with "Pull first: pull_all()" unless `force = TRUE`. When one part fails,
+  the others still apply, and the error names which parts were applied and
+  which weren't. Edited skills need `cloud_login()` only when there are
+  some. Without a console, both need `confirm = TRUE` or `dry_run = TRUE`.
+  `pull_skills()` / `push_skills()` and `pull_data_registry()` /
+  `push_data_registry()` still sync one part. Lock files are unchanged.
+  Matches framework-py's `pull_all()` / `push_all()` and `fw pull` /
+  `fw push`.
+
 # framework 2.0.4
 
 Data registry sync with Framework Cloud: `pull_data_registry()` and

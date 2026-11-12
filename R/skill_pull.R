@@ -2,7 +2,7 @@
 # pull_skills() installs and updates the skills the Cloud setup lists;
 # push_skills() sends locally edited skills back. Both build on the
 # per-skill machinery in skill_sync.R. framework-py: skill_pull.py; fw:
-# fw skills pull / fw skills push.
+# fw skills pull / fw skills push. pull_all() and push_all() include them.
 
 .skill_pull_statuses <- c("added", "updated", "current", "edited", "replaced", "removed", "unavailable")
 # Which status names a skill when its copies in several folders differ
@@ -300,17 +300,29 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
                  message = summary, notes = notes))
 }
 
+# Tracked skills whose files changed since the last pull, each with its paths.
+# Reads only the project; checking them against Cloud needs your login.
+.skill_push_edited <- function(root) {
+  edited <- list()
+  for (entry in .skill_load(root)$skills) {
+    paths <- Filter(function(p) dir.exists(.skill_path(root, p)), unlist(entry$paths))
+    if (!length(paths)) next
+    hashes <- vapply(paths, function(p) .skill_hash(.skill_scan(.skill_path(root, p))), "")
+    if (all(hashes == (entry$hash %||% ""))) next
+    entry$present <- paths
+    edited[[length(edited) + 1L]] <- entry
+  }
+  edited
+}
+
 # Locally edited tracked skills and what pushing each would do, and untracked folders
 .skill_push_plan <- function(root, force) {
   state <- .skill_load(root)
   tracked <- unlist(lapply(state$skills, function(e) unlist(e$paths)))
   plans <- list()
-  for (entry in state$skills) {
-    paths <- Filter(function(p) dir.exists(.skill_path(root, p)), unlist(entry$paths))
-    if (!length(paths)) next
+  for (entry in .skill_push_edited(root)) {
+    paths <- entry$present
     name <- basename(paths[1])
-    hashes <- vapply(paths, function(p) .skill_hash(.skill_scan(.skill_path(root, p))), "")
-    if (all(hashes == (entry$hash %||% ""))) next
     builtin <- is.null(entry$skill_id) || startsWith(entry$skill_id, "framework:")
     action <- tryCatch(skills_sync(paths[1], root, direction = "status")$action, error = function(e) e)
     if (inherits(action, "error")) {
@@ -331,6 +343,24 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
     }
   }
   list(plans = plans, untracked = untracked)
+}
+
+# Push each planned skill; each plan's status becomes pushed, refused, or failed
+.skill_push_apply <- function(root, plans) {
+  for (i in seq_along(plans)) {
+    if (!identical(plans[[i]]$status, "push")) next
+    result <- tryCatch(
+      skills_sync(plans[[i]]$path, root, direction = "push", resolve = if (isTRUE(plans[[i]]$forced)) "local"),
+      error = function(e) e)
+    if (inherits(result, "error")) {
+      plans[[i]]$status <- "failed"; plans[[i]]$reason <- conditionMessage(result)
+    } else if (identical(result$action, "push")) {
+      plans[[i]]$status <- "pushed"; plans[[i]]$version <- result$version
+    } else {
+      plans[[i]]$status <- "refused"
+    }
+  }
+  plans
 }
 
 .skill_push_warning <- function(plan) {
@@ -400,18 +430,7 @@ push_skills <- function(project_path = ".", force = FALSE, confirm = NULL, dry_r
     if (!.fw_confirm(confirm, "Continue?", "push_skills()")) {
       for (i in pushes) plans[[i]]$status <- "cancelled"
     } else {
-      for (i in pushes) {
-        result <- tryCatch(
-          skills_sync(plans[[i]]$path, root, direction = "push", resolve = if (isTRUE(plans[[i]]$forced)) "local"),
-          error = function(e) e)
-        if (inherits(result, "error")) {
-          plans[[i]]$status <- "failed"; plans[[i]]$reason <- conditionMessage(result)
-        } else if (identical(result$action, "push")) {
-          plans[[i]]$status <- "pushed"; plans[[i]]$version <- result$version
-        } else {
-          plans[[i]]$status <- "refused"
-        }
-      }
+      plans <- .skill_push_apply(root, plans)
     }
   }
 

@@ -60,8 +60,8 @@ Packages:
     - packages_install
     - packages_list
     - packages_restore
-    - pull_setup
-    - push_setup
+    - pull_all
+    - push_all
     - packages_snapshot
     - packages_status
     - packages_update

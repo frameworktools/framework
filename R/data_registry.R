@@ -278,6 +278,115 @@
   )
 }
 
+# What pulling the data registry would change: entries to add, entries that
+# differ, and entries only in this project. `fn` is the call the overwrite
+# advice names.
+.data_registry_pull_plan <- function(root, connection, overwrite, fn = "pull_data_registry()") {
+  registry <- .data_registry_request("/api/v1/projects/data", connection)
+  revision <- as.character(registry$revision %||% "")
+  local <- .data_registry_local(root)
+  cloud <- list()
+  for (row in registry$entries %||% list()) cloud[[row$name]] <- row
+  added <- unname(cloud[setdiff(names(cloud), names(local))])
+  both <- intersect(names(cloud), names(local))
+  differ <- Filter(function(n) !.data_registry_same(local[[n]], cloud[[n]]), both)
+  kept_local <- setdiff(names(local), names(cloud))
+
+  lines <- character()
+  if (length(added)) lines <- c(lines, paste0("  Entries to add: ", .data_registry_names(added)))
+  if (length(differ)) {
+    details <- paste(vapply(differ, function(n) {
+      paste0(n, " (", .data_registry_diff(local[[n]], cloud[[n]]), ")")
+    }, ""), collapse = "; ")
+    tail <- if (overwrite) "Cloud's will be used" else paste0("kept; ", sub("()", "(overwrite = TRUE)", fn, fixed = TRUE), " uses Cloud's")
+    lines <- c(lines, paste0("  Entries that differ (local -> Cloud): ", details, " \u2014 ", tail))
+  }
+  if (length(kept_local)) lines <- c(lines, paste0("  Only in this project (kept): ", paste(kept_local, collapse = ", ")))
+  list(revision = revision, lines = lines, quiet = !length(lines),
+       pending = length(added) > 0 || (length(differ) > 0 && overwrite),
+       rows = c(added, if (overwrite) unname(cloud[differ])),
+       entries = list(added = vapply(added, `[[`, "", "name"),
+                      changed = if (overwrite) differ else character(),
+                      differ_kept = if (overwrite) character() else differ,
+                      kept_local = kept_local))
+}
+
+# Write a pull plan's entries and record the revision pulled
+.data_registry_pull_apply <- function(root, plan, connection) {
+  if (length(plan$rows)) .data_registry_write(root, plan$rows)
+  .data_registry_lock_write(root, plan$revision, connection$server)
+  n <- length(plan$rows)
+  if (n) message("\u2713 Data registry: ", n, " ", if (n == 1) "entry" else "entries", " added or updated")
+  invisible(TRUE)
+}
+
+# What pushing the data registry would change, from Cloud's dry run. A
+# registry that changed on Cloud since the last pull stops with "Pull first",
+# naming `pull_fn` and `push_fn`.
+.data_registry_push_plan <- function(root, connection, remove, force,
+                                     pull_fn = "pull_data_registry()", push_fn = "push_data_registry(force = TRUE)") {
+  local <- .data_registry_local(root)
+  # The base revision for a project that never pulled its registry
+  base <- .data_registry_lock_read(root)$revision
+  if (is.null(base)) base <- .data_registry_request("/api/v1/projects/data", connection)$revision
+
+  send <- function(dry) {
+    body <- list(base_revision = base, entries = unname(local), remove = remove, force = force, dry_run = dry)
+    tryCatch(
+      .data_registry_request("/api/v1/projects/data", connection, method = "POST", body = body),
+      httr2_http_409 = function(e) {
+        latest <- tryCatch(httr2::resp_body_json(e$resp)$revision, error = function(err) NULL)
+        stop("Framework Cloud's data registry changed since this project last pulled it (revision ", latest %||% "unknown",
+             "). Pull first: ", pull_fn, ". ", push_fn, " replaces Cloud's changes.", call. = FALSE)
+      })
+  }
+
+  preview <- send(TRUE)
+  changes <- preview$changes %||% list()
+  added <- changes$added %||% list(); changed <- changes$changed %||% list()
+  removed <- changes$removed %||% list(); kept <- changes$kept %||% list()
+
+  lines <- character()
+  if (length(added)) lines <- c(lines, paste0("  Entries to add: ", .data_registry_names(added)))
+  if (length(changed)) {
+    details <- paste(vapply(changed, function(c) {
+      paste0(c$name, " (", .data_registry_diff(c$from, c$to), ")")
+    }, ""), collapse = "; ")
+    lines <- c(lines, paste0("  Entries to change: ", details))
+  }
+  if (length(removed)) lines <- c(lines, paste0("  Entries to remove: ", .data_registry_names(removed)))
+  if (length(kept)) lines <- c(lines, paste0("  On Cloud only (kept): ", .data_registry_names(kept)))
+  pending <- length(added) + length(changed) + length(removed) > 0
+  warnings <- character()
+  if (pending) {
+    warnings <- paste0("This changes ", .setup_project_name(root), "'s data registry on Framework Cloud. ",
+                       "New copies of the project, zips, and Update on GitHub will use it. ",
+                       "Only definitions are sent: no data files and no hashes.")
+    if (force && !is.null(preview$revision) && !identical(base, preview$revision)) {
+      warnings <- c(warnings, "Cloud's newer data registry changes will be replaced by this project's entries.")
+    }
+  }
+  list(revision = preview$revision, lines = lines, warnings = warnings, quiet = !pending, pending = pending, send = send,
+       changes = list(added = added, changed = changed, removed = removed, kept = kept))
+}
+
+# Push a plan's entries and record the new revision
+.data_registry_push_apply <- function(root, plan, connection) {
+  reply <- plan$send(FALSE)
+  revision <- as.character(reply$revision %||% "")
+  .data_registry_lock_write(root, revision, connection$server)
+  done <- reply$changes %||% plan$changes
+  if (isTRUE(reply$applied)) {
+    parts <- unlist(lapply(c("added", "changed", "removed"), function(k) {
+      if (length(done[[k]])) paste(length(done[[k]]), k)
+    }))
+    message("Data registry pushed: revision ", revision, " (", paste(parts, collapse = ", "), ")")
+  } else {
+    message("Already up to date.")
+  }
+  list(applied = isTRUE(reply$applied), revision = revision)
+}
+
 #' Pull a Project's Data Registry from Framework Cloud
 #'
 #' Brings the project's data catalog (the `data` section of its settings)
@@ -320,54 +429,27 @@ pull_data_registry <- function(project_path = ".", overwrite = FALSE, confirm = 
   checkmate::assert_flag(dry_run)
   root <- .skill_pull_root(project_path)
   connection <- .setup_connection(root)
-  registry <- .data_registry_request("/api/v1/projects/data", connection)
-  revision <- as.character(registry$revision %||% "")
+  plan <- .data_registry_pull_plan(root, connection, overwrite)
 
-  local <- .data_registry_local(root)
-  cloud <- list()
-  for (row in registry$entries %||% list()) cloud[[row$name]] <- row
-  added <- unname(cloud[setdiff(names(cloud), names(local))])
-  both <- intersect(names(cloud), names(local))
-  differ <- Filter(function(n) !.data_registry_same(local[[n]], cloud[[n]]), both)
-  kept_local <- setdiff(names(local), names(cloud))
-
-  lines <- paste0("Data registry changes from Framework Cloud (revision ", revision, "):")
-  if (length(added)) lines <- c(lines, paste0("  Entries to add: ", .data_registry_names(added)))
-  if (length(differ)) {
-    details <- paste(vapply(differ, function(n) {
-      paste0(n, " (", .data_registry_diff(local[[n]], cloud[[n]]), ")")
-    }, ""), collapse = "; ")
-    tail <- if (overwrite) "Cloud's will be used" else "kept; pull_data_registry(overwrite = TRUE) uses Cloud's"
-    lines <- c(lines, paste0("  Entries that differ (local -> Cloud): ", details, " \u2014 ", tail))
-  }
-  if (length(kept_local)) lines <- c(lines, paste0("  Only in this project (kept): ", paste(kept_local, collapse = ", ")))
-  changes <- length(added) > 0 || (length(differ) > 0 && overwrite)
-  if (!length(added) && !length(differ) && !length(kept_local)) {
-    lines <- paste0("Data registry is up to date with Framework Cloud (revision ", revision, ").")
+  lines <- if (plan$quiet) {
+    paste0("Data registry is up to date with Framework Cloud (revision ", plan$revision, ").")
+  } else {
+    c(paste0("Data registry changes from Framework Cloud (revision ", plan$revision, "):"), plan$lines)
   }
   for (line in lines) message(line)
 
-  result <- list(
-    revision = revision,
-    entries = list(added = vapply(added, `[[`, "", "name"),
-                   changed = if (overwrite) differ else character(),
-                   differ_kept = if (overwrite) character() else differ,
-                   kept_local = kept_local),
-    applied = FALSE, dry_run = dry_run, message = paste(lines, collapse = "\n"))
+  result <- list(revision = plan$revision, entries = plan$entries,
+                 applied = FALSE, dry_run = dry_run, message = paste(lines, collapse = "\n"))
   if (dry_run) return(invisible(result))
-  if (!changes) {
-    .data_registry_lock_write(root, revision, connection$server)
+  if (!plan$pending) {
+    .data_registry_lock_write(root, plan$revision, connection$server)
     return(invisible(result))
   }
   if (!.fw_confirm(confirm, "Apply these changes?", "pull_data_registry()", dry_run_hint = TRUE)) {
     message("Nothing changed.")
     return(invisible(result))
   }
-
-  rows <- c(added, if (overwrite) unname(cloud[differ]))
-  .data_registry_write(root, rows)
-  .data_registry_lock_write(root, revision, connection$server)
-  message("\u2713 Data registry: ", length(rows), " ", if (length(rows) == 1) "entry" else "entries", " added or updated")
+  .data_registry_pull_apply(root, plan, connection)
   result$applied <- TRUE
   invisible(result)
 }
@@ -415,74 +497,23 @@ push_data_registry <- function(project_path = ".", remove = FALSE, force = FALSE
   checkmate::assert_flag(dry_run)
   root <- .skill_pull_root(project_path)
   connection <- .setup_connection(root)
-  local <- .data_registry_local(root)
-  # The base revision for a project that never pulled its registry
-  base <- .data_registry_lock_read(root)$revision
-  current <- NULL
-  if (is.null(base)) {
-    current <- .data_registry_request("/api/v1/projects/data", connection)$revision
-    base <- current
-  }
+  plan <- .data_registry_push_plan(root, connection, remove, force)
 
-  send <- function(dry) {
-    body <- list(base_revision = base, entries = unname(local), remove = remove, force = force, dry_run = dry)
-    tryCatch(
-      .data_registry_request("/api/v1/projects/data", connection, method = "POST", body = body),
-      httr2_http_409 = function(e) {
-        latest <- tryCatch(httr2::resp_body_json(e$resp)$revision, error = function(err) NULL)
-        stop("Framework Cloud's data registry changed since this project last pulled it (revision ", latest %||% "unknown",
-             "). Pull first: pull_data_registry(). push_data_registry(force = TRUE) replaces Cloud's changes.", call. = FALSE)
-      })
-  }
-
-  preview <- send(TRUE)
-  changes <- preview$changes %||% list()
-  added <- changes$added %||% list(); changed <- changes$changed %||% list()
-  removed <- changes$removed %||% list(); kept <- changes$kept %||% list()
-
-  lines <- "Data registry changes for Framework Cloud:"
-  if (length(added)) lines <- c(lines, paste0("  Entries to add: ", .data_registry_names(added)))
-  if (length(changed)) {
-    details <- paste(vapply(changed, function(c) {
-      paste0(c$name, " (", .data_registry_diff(c$from, c$to), ")")
-    }, ""), collapse = "; ")
-    lines <- c(lines, paste0("  Entries to change: ", details))
-  }
-  if (length(removed)) lines <- c(lines, paste0("  Entries to remove: ", .data_registry_names(removed)))
-  if (length(kept)) lines <- c(lines, paste0("  On Cloud only (kept): ", .data_registry_names(kept)))
-  pending <- length(added) + length(changed) + length(removed) > 0
-  if (!pending) {
-    lines[1] <- "Data registry on Framework Cloud already matches this project."
+  lines <- if (plan$pending) {
+    c("Data registry changes for Framework Cloud:", plan$lines, plan$warnings)
   } else {
-    lines <- c(lines, paste0("This changes ", .setup_project_name(root), "'s data registry on Framework Cloud. ",
-                             "New copies of the project, zips, and Update on GitHub will use it. ",
-                             "Only definitions are sent: no data files and no hashes."))
-    if (force && !is.null(preview$revision) && !identical(base, preview$revision)) {
-      lines <- c(lines, "Cloud's newer data registry changes will be replaced by this project's entries.")
-    }
+    c("Data registry on Framework Cloud already matches this project.", plan$lines)
   }
   for (line in lines) message(line)
-  result <- list(revision = preview$revision,
-                 changes = list(added = added, changed = changed, removed = removed, kept = kept),
+  result <- list(revision = plan$revision, changes = plan$changes,
                  applied = FALSE, dry_run = dry_run, message = paste(lines, collapse = "\n"))
-  if (!pending || dry_run) return(invisible(result))
+  if (!plan$pending || dry_run) return(invisible(result))
 
   if (!.fw_confirm(confirm, "Push these changes?", "push_data_registry()", dry_run_hint = TRUE)) {
     message("Data registry not pushed.")
     return(invisible(result))
   }
-  reply <- send(FALSE)
-  revision <- as.character(reply$revision %||% "")
-  result$applied <- isTRUE(reply$applied); result$revision <- revision
-  .data_registry_lock_write(root, revision, connection$server)
-  done <- reply$changes %||% changes
-  if (isTRUE(reply$applied)) {
-    parts <- unlist(lapply(c("added", "changed", "removed"), function(k) {
-      if (length(done[[k]])) paste(length(done[[k]]), k)
-    }))
-    message("Data registry pushed: revision ", revision, " (", paste(parts, collapse = ", "), ")")
-  } else {
-    message("Already up to date.")
-  }
+  reply <- .data_registry_push_apply(root, plan, connection)
+  result$applied <- reply$applied; result$revision <- reply$revision
   invisible(result)
 }

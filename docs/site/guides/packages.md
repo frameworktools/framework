@@ -72,45 +72,60 @@ package_set_add("tidy-omop", install = FALSE)
 
 Signed in to Framework Cloud, you can also add one of your account's sets by its handle, such as `package_set_add("@yourname/lab-tools")`.
 
-## Setup on Framework Cloud
+## Sync with Framework Cloud
 
-A project's setup on Framework Cloud is its packages and skills. Folders and structure are not part of it. `pull_setup()` brings Cloud's setup into the project, and `push_setup()` sends the project's packages and edited skills back. Both use the project token in `.env`.
+`pull_all()` and `push_all()` keep everything that syncs in step with the project on Framework Cloud: its packages, its skills, and its data registry. Folders and structure are not synced. Both use the project token in `.env`.
 
 ```r
-pull_setup(dry_run = TRUE)   # List the changes only
-pull_setup()
+pull_all(dry_run = TRUE)   # List the changes only
+pull_all()
 ```
 
-`pull_setup()` lists the changes first, then asks `Apply these changes? [y/n]`:
+`pull_all()` lists every change, grouped by part, then asks `Apply these changes? [y/n]` once:
 
 ```text
-Setup changes from Framework Cloud (revision 3f2a9c1e):
+Changes from Framework Cloud:
+Packages (revision 3f2a9c1e):
   Packages to add: tidyr
-  Packages that differ: janitor (local 2.2.0, Cloud 2.1.0) — kept; pull_setup(overwrite = TRUE) uses Cloud's
+  Packages that differ: janitor (local 2.2.0, Cloud 2.1.0) — kept; pull_all(overwrite = TRUE) uses Cloud's
   Only in this project (kept): here
-  Skills: 1 to add, 2 to update
+Skills:
+  1 to add, 2 to update
+Data registry (revision 8b1d0e44):
+  Entries to add: inputs.raw.visits
 ```
 
-Applying adds the new packages to `settings.yml` and installs them, with renv when the project uses it. Then it runs `pull_skills()`. Local packages are never removed. A package whose settings differ keeps the local ones unless `overwrite = TRUE`, which also replaces locally edited skills after backing them up.
+Applying adds the new packages to `settings.yml` and installs them, with renv when the project uses it. Skills are added and updated as `pull_skills()` does. New data entries go into the settings' data section, as `pull_data_registry()` does; data files never move. Nothing local is removed. Local edits win: a package or data entry whose settings differ, and a locally edited skill, stay as they are unless `overwrite = TRUE`. Edited skills are backed up before they are replaced.
 
 ```r
-push_setup(dry_run = TRUE)
-push_setup()
+push_all(dry_run = TRUE)
+push_all()
 ```
 
-`push_setup()` asks Cloud what the push would change, lists it with a warning, then asks `Push these changes? [y/n]`:
+`push_all()` asks Cloud what the push would change, lists it with what each part affects, then asks `Push these changes? [y/n]`:
 
 ```text
-Setup changes for Framework Cloud:
+Changes for Framework Cloud:
+Packages:
   Packages to add: here
   Packages to change: janitor (2.1.0 -> 2.2.0)
   On Cloud only (kept): tidyr
-This changes Test Project's setup on Framework Cloud. New setups, zips, and Update on GitHub will use it.
+  This changes Test Project's package list on Framework Cloud. New setups, zips, and Update on GitHub will use it.
+Skills:
+  Skills to push: analysis
+  This replaces the current version of analysis, used wherever it's attached.
+Data registry: up to date
 ```
 
-Packages only on Cloud stay there unless `remove = TRUE`. The revision last pulled is kept in `.framework/setup.lock.json`. When Cloud's setup changed since then, the push stops with "Pull first". `force = TRUE` replaces Cloud's changes. A push resolves the project again from its blueprint's latest version. Edited skills then go through `push_skills()`, with its own warning.
+Packages and data entries only on Cloud stay there unless `remove = TRUE`. The revisions last pulled are kept in `.framework/setup.lock.json` (packages) and `.framework/data.lock.json` (data registry), and each skill's in `.framework/skills.lock.json`. When a part changed on Cloud since then, that part stops with "Pull first: pull_all()". `force = TRUE` replaces Cloud's changes. Edited skills need `cloud_login()`. A push resolves the project again from its blueprint's latest version.
 
-Without a console, pass `confirm = TRUE`, or `dry_run = TRUE` to only see the changes. `fw setup pull` and `fw setup push` run the same steps from a terminal.
+When one part can't be applied, the others still are, and the error says which:
+
+```text
+Error: push_all() did not finish. Pushed: Skills, Data registry. Not pushed: Packages (Framework Cloud's package list changed since this project last pulled it (revision 3f2a9c1e). Pull first: pull_all(). push_all(force = TRUE) replaces Cloud's changes).
+```
+
+Without a console, pass `confirm = TRUE`, or `dry_run = TRUE` to only see the changes. `pull_skills()` / `push_skills()` and `pull_data_registry()` / `push_data_registry()` sync one part. `fw pull` and `fw push` run the same steps from a terminal.
 
 ## Installation and loading
 
