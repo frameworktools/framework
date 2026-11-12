@@ -177,10 +177,16 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   local_hash <- if (nzchar(hashes[1])) hashes[1] else NULL; files <- bundles[[1]]
   identity <- entry$skill_id %||% skill_id; remote <- NULL
   if (!is.null(identity)) remote <- .fw_api(paste0("/api/v1/skills/sync/", utils::URLencode(identity, reserved = TRUE), "?variant=", variant), token, url = server)
-  else if (!is.null(entry$origin)) remote <- .fw_api(paste0("/api/v1/skills/sync/", utils::URLencode(entry$origin$skill_id, reserved = TRUE), "?variant=", variant, "&hash=", entry$origin$hash), token, url = server)
+  else if (!is.null(entry$origin)) {
+    # Cloud answers 409 for a built-in copy it never published (the package
+    # shipped its own text): an edited one is pushed as a new skill of your own
+    remote <- tryCatch(
+      .fw_api(paste0("/api/v1/skills/sync/", utils::URLencode(entry$origin$skill_id, reserved = TRUE), "?variant=", variant, "&hash=", entry$origin$hash), token, url = server),
+      httr2_http_409 = function(e) NULL)
+  }
   if (!is.null(remote) && !identical(.skill_hash(remote$bundle), remote$hash)) stop("Cloud skill verification failed", call. = FALSE)
   base <- if (!is.null(entry$skill_id)) entry$hash else entry$origin$hash
-  action <- if (is.null(remote)) { if (is.null(files)) "missing" else "push" }
+  action <- if (is.null(remote)) { if (is.null(files)) "missing" else if (is.null(entry$skill_id) && identical(local_hash, base)) "unchanged" else "push" }
   else if (identical(local_hash, remote$hash)) { if (is.null(entry$skill_id)) "adopt" else "unchanged" }
   else if (is.null(local_hash)) { if (is.null(base) && !is.null(skill_id)) "pull" else "conflict" }
   else if (is.null(base)) "conflict"

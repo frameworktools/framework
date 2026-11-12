@@ -134,8 +134,12 @@
     keys <- names(Filter(function(e) relative %in% unlist(e$paths), state$skills))
     tracked <- if (length(keys)) state$skills[[keys[1]]] else list()
     clean <- c(tracked$hash, entry$setup_hash)
+    # The project already holds a newer version than the setup names, as after
+    # push_skills(); without your login the setup's older one would replace it
+    newer <- !is.null(entry$sync) && identical(tracked$skill_id, entry$sync$skill_id) &&
+      identical(current, tracked$hash) && isTRUE(as.integer(tracked$version %||% 0L) > as.integer(entry$sync$version %||% 0L))
     status <- if (is.null(current)) "added"
-      else if (identical(current, fresh)) "current"
+      else if (identical(current, fresh) || newer) "current"
       else if (!is.null(entry$sync) && current %in% clean) "updated"
       else "edited"
   }
@@ -147,6 +151,9 @@
   if (isTRUE(entry$package)) {
     .skill_package_install(.skill_pull_shipped(name), root, relative, name, force = force, lock = FALSE)
   } else if (!is.null(entry$sync)) {
+    # Current with other files: a newer version than the setup's, kept as it is
+    target <- .skill_path(root, relative)
+    if (identical(status, "current") && !identical(.skill_hash(.skill_scan(target)), entry$sync$hash)) return(invisible(FALSE))
     .skill_cloud_install(root, relative, entry, force = force, clean = entry$setup_hash, lock = FALSE)
   } else if (!identical(status, "current")) {
     target <- .skill_path(root, relative)

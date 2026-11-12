@@ -125,6 +125,27 @@ test_that("pull_skills() takes a Cloud skill's latest version when signed in", {
   expect_true(any(grepl("Not signed in", out)))
 })
 
+test_that("pull_skills() keeps a newer version than the setup's when signed out", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version one", 1L))))
+  suppressMessages(pull_skills(root))
+
+  # push_skills() made version 2; the project's setup still names version 1
+  pushed <- skill_pull_entry("Version two", 2L)
+  writeLines(rawToChar(jsonlite::base64_dec(pushed$bundle[[1]]$content)), file.path(root, ".claude/skills/lab-style/SKILL.md"), sep = "")
+  state <- .skill_load(root)
+  key <- names(Filter(function(e) ".claude/skills/lab-style" %in% unlist(e$paths), state$skills))
+  state$skills[[key]]$version <- 2L; state$skills[[key]]$hash <- pushed$sync$hash
+  .skill_save(root, state)
+
+  result <- suppressMessages(pull_skills(root))
+  statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
+  expect_identical(statuses[["lab-style"]], "current")
+  expect_identical(tail(read_skill(root, "lab-style"), 1), "Version two")
+  expect_identical(.skill_load(root)$skills[[key]]$version, 2L)
+})
+
 test_that("pull_skills() falls back to the package skills offline, and dry runs write nothing", {
   withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
   root <- skill_pull_project()
@@ -230,6 +251,36 @@ test_that("push_skills() saves an edited built-in skill as your own copy", {
   out <- capture.output(result <- push_skills(root, confirm = TRUE), type = "message")
   expect_identical(result$message, "Skills pushed: 1 pushed")
   expect_identical(cloud$posts, "framework:framework-data")
+  lock <- .skill_load(root)
+  expect_true(any(vapply(lock$skills, function(e) identical(e$skill_id, "own-copy"), logical(1))))
+})
+
+test_that("push_skills() saves an edited built-in skill Cloud never published as a new skill", {
+  root <- skill_push_setup()
+  posts <- list()
+  local_mocked_bindings(
+    .fw_cloud_url = function(...) "https://cloud.example",
+    .fw_require_token = function(...) "user-token",
+    .fw_api = function(path, token, method = "GET", body = NULL, ...) {
+      if (identical(method, "POST")) {
+        posts[[length(posts) + 1L]] <<- body
+        return(list(skill_id = "own-copy", version = 1L, bundle = body$bundle, hash = .skill_hash(body$bundle)))
+      }
+      if (grepl("hash=", path, fixed = TRUE)) {
+        rlang::abort("The installed source version is unavailable.", class = c("httr2_http_409", "httr2_http", "httr2_error"))
+      }
+      stop("unexpected request: ", path)
+    }
+  )
+  # Unedited, it has nothing to push
+  expect_identical(suppressMessages(push_skills(root, confirm = TRUE))$message, "Skills pushed: nothing to push")
+
+  cat("Our addition\n", file = file.path(root, ".claude/skills/framework-data/SKILL.md"), append = TRUE)
+  out <- capture.output(result <- push_skills(root, confirm = TRUE), type = "message")
+  expect_identical(result$message, "Skills pushed: 1 pushed")
+  expect_length(posts, 1L)
+  expect_null(posts[[1]]$skill_id)
+  expect_identical(posts[[1]]$expected_version, 0L)
   lock <- .skill_load(root)
   expect_true(any(vapply(lock$skills, function(e) identical(e$skill_id, "own-copy"), logical(1))))
 })

@@ -38,10 +38,26 @@
     httr2_http_404 = function(e) {
       stop("This Framework Cloud server has no setup endpoint yet. Nothing changed.", call. = FALSE)
     },
+    httr2_http_401 = function(e) .setup_refused(e),
+    httr2_http_403 = function(e) .setup_refused(e),
+    httr2_http_422 = function(e) {
+      stop(.setup_reason(e) %||% "Framework Cloud refused the setup", ". Nothing changed.", call. = FALSE)
+    },
     httr2_failure = function(e) {
       stop("Framework Cloud not reached (", sub("\\.$", "", conditionMessage(e)), "). Nothing changed.", call. = FALSE)
     }
   )
+}
+
+.setup_reason <- function(e) {
+  reason <- tryCatch(httr2::resp_body_json(e$resp)$message, error = function(err) NULL)
+  if (is.character(reason) && length(reason) == 1 && nzchar(reason)) sub("\\.$", "", reason) else NULL
+}
+
+# A revoked or mistyped project token
+.setup_refused <- function(e) {
+  stop("Framework Cloud refused the project token (", .setup_reason(e) %||% "not accepted",
+       "). Check FW_PROJECT_TOKEN in the project's .env. Nothing changed.", call. = FALSE)
 }
 
 # The project's packages as setup rows, by name
@@ -116,7 +132,9 @@
   for (row in rows) {
     ok <- tryCatch({
       .install_package(.setup_entry(row))
-      requireNamespace(row$name, quietly = TRUE)
+      # A pinned version that failed to build leaves the old one installed
+      requireNamespace(row$name, quietly = TRUE) &&
+        (.setup_empty(row$version) || identical(as.character(utils::packageVersion(row$name)), as.character(row$version)))
     }, error = function(e) FALSE)
     if (!isTRUE(ok)) failed <- c(failed, row$name)
   }

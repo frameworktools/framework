@@ -100,7 +100,8 @@ test_that("pull_setup() lists the changes, then adds packages and skills", {
   expect_identical(jsonlite::read_json(file.path(root, ".framework/setup.lock.json"))$revision, "rev-1")
 
   # overwrite takes Cloud's settings for the differing package
-  out <- capture.output(result <- pull_setup(root, overwrite = TRUE, confirm = TRUE), type = "message")
+  # The mocked install leaves janitor 2.1.0 uninstalled, which pull_setup() warns about
+  out <- capture.output(result <- suppressWarnings(pull_setup(root, overwrite = TRUE, confirm = TRUE)), type = "message")
   expect_true(any(grepl("janitor (local 2.2.0, Cloud 2.1.0) \u2014 Cloud's will be used", out, fixed = TRUE)))
   expect_identical(.setup_local_packages(root)$janitor$version, "2.1.0")
   expect_identical(names(.setup_local_packages(root)), c("dplyr", "janitor", "here", "tidyr"))
@@ -186,4 +187,30 @@ test_that("push_setup() reports a setup Cloud already has", {
   out <- capture.output(result <- push_setup(root, confirm = TRUE), type = "message")
   expect_identical(out[1], "Setup on Framework Cloud already matches this project.")
   expect_length(cloud$posts, 1L)
+})
+
+test_that("pull_setup() warns when a pinned version did not install", {
+  root <- setup_project()
+  cloud <- new.env(); cloud$revision <- "rev-1"
+  # The mocked install does nothing, so the installed jsonlite is not 0.0.1
+  cloud$packages <- list(list(name = "jsonlite", source = "cran", version = "0.0.1", auto_attach = FALSE, repo = NULL))
+  setup_mock(cloud)
+  expect_warning(suppressMessages(pull_setup(root, confirm = TRUE)), "Could not install jsonlite")
+  expect_identical(.setup_local_packages(root)$jsonlite$version, "0.0.1")
+})
+
+test_that("pull_setup() and push_setup() explain a refused token and Cloud's own refusals", {
+  root <- setup_project()
+  local_mocked_bindings(
+    .fw_project_cloud_url = function(...) "https://cloud.example",
+    .fw_api = function(path, ...) setup_http_error(401, list(message = "Unauthenticated."))
+  )
+  expect_error(pull_setup(root, dry_run = TRUE),
+               "Framework Cloud refused the project token (Unauthenticated). Check FW_PROJECT_TOKEN in the project's .env. Nothing changed.",
+               fixed = TRUE)
+  expect_error(push_setup(root, dry_run = TRUE), "refused the project token", fixed = TRUE)
+  local_mocked_bindings(
+    .fw_api = function(path, ...) setup_http_error(422, list(message = "Stata projects have no package list."))
+  )
+  expect_error(pull_setup(root, dry_run = TRUE), "Stata projects have no package list. Nothing changed.", fixed = TRUE)
 })
