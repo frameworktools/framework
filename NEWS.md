@@ -1,4 +1,9 @@
-# framework (development version)
+# framework 2.0.4
+
+Data registry sync with Framework Cloud: `pull_data_registry()` and
+`push_data_registry()` keep a project's data catalog in step with Cloud, and
+specs and layers take a `data` section. Matches framework-py 0.1.0.dev18 and
+fw 0.5.1.
 
 New features:
 
