@@ -6,12 +6,12 @@
 \alias{framework-package}
 \title{framework: Structured Data Science Project Scaffolding}
 \description{
-Project scaffolding and workflow tools for reproducible data science. Manages packages, tracks data integrity, handles database connections, generates notebooks, and publishes to S3-compatible storage. More information at \url{https://framework.table1.org}.
+Project scaffolding and workflow tools for reproducible data science. Manages packages, tracks data integrity, handles database connections, generates notebooks, and publishes to S3-compatible storage. More information at \url{https://r.framework.pub}.
 }
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://framework.table1.org}
+  \item \url{https://r.framework.pub}
   \item \url{https://github.com/frameworktools/framework}
   \item Report bugs at \url{https://github.com/frameworktools/framework/issues}
 }

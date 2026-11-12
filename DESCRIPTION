@@ -8,9 +8,9 @@ Maintainer: Erik Westlund <erik@framework.pub>
 Description: Project scaffolding and workflow tools for reproducible data science.
     Manages packages, tracks data integrity, handles database connections,
     generates notebooks, and publishes to S3-compatible storage.
-    More information at <https://framework.table1.org>.
+    More information at <https://r.framework.pub>.
 License: MIT + file LICENSE
-URL: https://framework.table1.org, https://github.com/frameworktools/framework
+URL: https://r.framework.pub, https://github.com/frameworktools/framework
 BugReports: https://github.com/frameworktools/framework/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE, roclets = c("rd", "namespace", "collate"))
