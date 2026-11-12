@@ -278,6 +278,8 @@ ai_regenerate_context()   # Refresh the generated sections of AGENTS.md
 ai_sync_context()         # Copy AGENTS.md to the other assistants' files
 pull_skills()             # Update the project's skills from its Cloud setup
 push_skills()             # Send locally edited skills to Cloud
+pull_setup()              # Bring the Cloud setup's packages and skills in
+push_setup()              # Send packages and edited skills to the Cloud setup
 ```
 
 ## Key Functions

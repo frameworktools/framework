@@ -338,10 +338,11 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
 }
 
 # Whether to go ahead: TRUE/FALSE as given, else ask in a console
-.fw_confirm <- function(confirm, question, fn) {
+.fw_confirm <- function(confirm, question, fn, dry_run_hint = FALSE) {
   if (!is.null(confirm)) return(isTRUE(confirm))
   if (!.fw_interactive()) {
-    stop(fn, " asks before changing anything. Without a console, pass confirm = TRUE.", call. = FALSE)
+    stop(fn, " asks before changing anything. Without a console, pass confirm = TRUE",
+         if (dry_run_hint) ", or dry_run = TRUE to only see the changes", ".", call. = FALSE)
   }
   tolower(trimws(.fw_readline(paste0(question, " [y/n] ")))) %in% c("y", "yes")
 }

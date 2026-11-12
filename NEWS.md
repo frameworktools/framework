@@ -25,6 +25,23 @@ New features:
   saved as your own copy. Matches framework-py's `push_skills()` and
   `fw skills push`.
 
+* `pull_setup()` and `push_setup()` keep a project's setup, its packages
+  and skills, in step with Framework Cloud. `pull_setup()` reads
+  `GET /api/v1/projects/setup` with the project token, lists packages to
+  add, packages whose settings differ, packages only in the project, and
+  skills to add, update, or keep, then asks `Apply these changes? [y/n]`.
+  It adds and installs the new packages (with renv when the project uses
+  it) and runs `pull_skills()`. Local packages are never removed, and local
+  settings win unless `overwrite = TRUE`. `push_setup()` previews its change
+  through `POST /api/v1/projects/setup/packages` with `dry_run`, warns that
+  new setups, zips, and Update on GitHub will use it, and asks
+  `Push these changes? [y/n]`. Packages only on Cloud stay unless
+  `remove = TRUE`. When Cloud's setup changed since the revision in
+  `.framework/setup.lock.json`, it stops with "Pull first" unless
+  `force = TRUE`. It then runs `push_skills()`. Both need `confirm = TRUE`
+  or `dry_run = TRUE` without a console. Matches framework-py's functions
+  and `fw setup pull` / `fw setup push`.
+
 Behavior changes:
 
 * `ai_skills_update()` is now `pull_skills()`: it uses the project's Cloud

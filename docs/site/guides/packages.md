@@ -72,6 +72,46 @@ package_set_add("tidy-omop", install = FALSE)
 
 Signed in to Framework Cloud, you can also add one of your account's sets by its handle, such as `package_set_add("@yourname/lab-tools")`.
 
+## Setup on Framework Cloud
+
+A project's setup on Framework Cloud is its packages and skills. Folders and structure are not part of it. `pull_setup()` brings Cloud's setup into the project, and `push_setup()` sends the project's packages and edited skills back. Both use the project token in `.env`.
+
+```r
+pull_setup(dry_run = TRUE)   # List the changes only
+pull_setup()
+```
+
+`pull_setup()` lists the changes first, then asks `Apply these changes? [y/n]`:
+
+```text
+Setup changes from Framework Cloud (revision 3f2a9c1e):
+  Packages to add: tidyr
+  Packages that differ: janitor (local 2.2.0, Cloud 2.1.0) — kept; pull_setup(overwrite = TRUE) uses Cloud's
+  Only in this project (kept): here
+  Skills: 1 to add, 2 to update
+```
+
+Applying adds the new packages to `settings.yml` and installs them, with renv when the project uses it. Then it runs `pull_skills()`. Local packages are never removed. A package whose settings differ keeps the local ones unless `overwrite = TRUE`, which also replaces locally edited skills after backing them up.
+
+```r
+push_setup(dry_run = TRUE)
+push_setup()
+```
+
+`push_setup()` asks Cloud what the push would change, lists it with a warning, then asks `Push these changes? [y/n]`:
+
+```text
+Setup changes for Framework Cloud:
+  Packages to add: here
+  Packages to change: janitor (2.1.0 -> 2.2.0)
+  On Cloud only (kept): tidyr
+This changes Test Project's setup on Framework Cloud. New setups, zips, and Update on GitHub will use it.
+```
+
+Packages only on Cloud stay there unless `remove = TRUE`. The revision last pulled is kept in `.framework/setup.lock.json`. When Cloud's setup changed since then, the push stops with "Pull first". `force = TRUE` replaces Cloud's changes. A push resolves the project again from its blueprint's latest version. Edited skills then go through `push_skills()`, with its own warning.
+
+Without a console, pass `confirm = TRUE`, or `dry_run = TRUE` to only see the changes. `fw setup pull` and `fw setup push` run the same steps from a terminal.
+
 ## Installation and loading
 
 When `scaffold()` runs:

@@ -58,6 +58,8 @@ Packages:
     - packages_install
     - packages_list
     - packages_restore
+    - pull_setup
+    - push_setup
     - packages_snapshot
     - packages_status
     - packages_update
