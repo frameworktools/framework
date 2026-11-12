@@ -30,6 +30,10 @@ Fixes:
 * `pull_data_registry()` adds an entry whose top group isn't in the data
   section yet, as in a new project's empty `data: []`, instead of failing
   with "node stack overflow".
+* `push_skills()` and `push_all()` name the project when they push a skill,
+  so Framework Cloud lists a pushed copy of a built-in skill in the
+  project's setup and the next `pull_all()` keeps it.
+* "Data registry pushed" carries the ✓ the other parts have.
 
 # framework 2.0.4
 

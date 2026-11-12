@@ -205,11 +205,13 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
     pending <- entry$pending
     if (is.null(pending) || !identical(pending$hash, local_hash) || !identical(pending$basis, basis)) pending <- list(request_id = .skill_uuid(), hash = local_hash, basis = basis)
     entry$pending <- pending; state$skills[[key]] <- entry; .skill_save(root, state)
-    remote <- .fw_api("/api/v1/skills/sync", token, method = "POST", url = server, body = list(
+    body <- list(
       request_id = pending$request_id, skill_id = remote$skill_id,
       expected_version = expected, variant = variant,
       bundle = files, client = list(app = "framework-r")
-    ))
+    )
+    body$project_token <- .skill_project_token(root, server)
+    remote <- .fw_api("/api/v1/skills/sync", token, method = "POST", url = server, body = body)
   }
   if (!is.null(remote)) {
     if (!identical(.skill_hash(remote$bundle), remote$hash)) stop("Cloud skill verification failed", call. = FALSE)
@@ -220,6 +222,16 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
     result$skill_id <- remote$skill_id; result$version <- remote$version
   }
   result
+}
+
+# The project's token when the project is on this server, else NULL. A push
+# that names the project lets Cloud list a pushed copy of a built-in skill in
+# the project's setup, so the next pull keeps it.
+.skill_project_token <- function(root, server) {
+  token <- .fw_project_token(root)
+  if (is.null(token) || !nzchar(token)) return(NULL)
+  project_server <- tryCatch(sub("/$", "", .fw_project_cloud_url(root)), error = function(e) NULL)
+  if (identical(project_server, server)) token else NULL
 }
 
 # What installing a package skill would do: "create" (missing), "current"

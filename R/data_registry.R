@@ -391,7 +391,7 @@
     parts <- unlist(lapply(c("added", "changed", "removed"), function(k) {
       if (length(done[[k]])) paste(length(done[[k]]), k)
     }))
-    message("Data registry pushed: revision ", revision, " (", paste(parts, collapse = ", "), ")")
+    message("\u2713 Data registry pushed: revision ", revision, " (", paste(parts, collapse = ", "), ")")
   } else {
     message("Already up to date.")
   }

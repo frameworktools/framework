@@ -287,7 +287,7 @@ test_that("push_all() previews every part, asks once, and pushes them all", {
   expect_true("  Packages to remove: tidyr" %in% out)
   expect_true("✓ Packages pushed: revision rev-2 (1 added, 1 changed, 1 removed)" %in% out)
   expect_true("✓ Skills pushed: analysis" %in% out)
-  expect_true("Data registry pushed: revision data-2 (1 added)" %in% out)
+  expect_true("\u2713 Data registry pushed: revision data-2 (1 added)" %in% out)
   expect_identical(result$applied, c("packages", "skills", "data_registry"))
   expect_true(cloud$posts[[length(cloud$posts)]]$remove)
   expect_false(cloud$posts[[length(cloud$posts)]]$dry_run)

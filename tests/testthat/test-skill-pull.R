@@ -177,11 +177,13 @@ skill_push_setup <- function(env = parent.frame()) {
 skill_push_mock <- function(cloud, env = parent.frame()) {
   local_mocked_bindings(
     .fw_cloud_url = function(...) "https://cloud.example",
+    .fw_project_cloud_url = function(...) "https://cloud.example",
     .fw_require_token = function(...) "user-token",
     .fw_interactive = function() FALSE,
     .fw_api = function(path, token, method = "GET", body = NULL, ...) {
       if (identical(method, "POST")) {
         cloud$posts <- c(cloud$posts, body$skill_id %||% "new")
+        cloud$project_tokens <- c(cloud$project_tokens, body$project_token %||% "none")
         id <- if (startsWith(body$skill_id, "framework:")) "own-copy" else body$skill_id
         cloud$remote[[id]] <- list(skill_id = id, version = body$expected_version + 1L,
                                    bundle = body$bundle, hash = .skill_hash(body$bundle))
@@ -252,6 +254,8 @@ test_that("push_skills() saves an edited built-in skill as your own copy", {
   out <- capture.output(result <- push_skills(root, confirm = TRUE), type = "message")
   expect_identical(result$message, "Skills pushed: 1 pushed")
   expect_identical(cloud$posts, "framework:framework-data")
+  # The project's token names the project, so Cloud lists the copy in its setup
+  expect_identical(cloud$project_tokens, "project-token")
   lock <- .skill_load(root)
   expect_true(any(vapply(lock$skills, function(e) identical(e$skill_id, "own-copy"), logical(1))))
 })
