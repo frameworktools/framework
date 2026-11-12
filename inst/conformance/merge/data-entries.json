@@ -1,0 +1,64 @@
+{
+  "description": "data entries are keyed by their dot-notation catalog name and replaced whole, never merged field by field. Null removes an entry.",
+  "layers": [
+    {
+      "kind": "blueprint",
+      "key": "survey-study",
+      "version": 2,
+      "layer": {
+        "data": {
+          "inputs.raw.survey": {
+            "path": "inputs/raw/survey.csv",
+            "type": "csv",
+            "delimiter": "semicolon",
+            "locked": true
+          },
+          "inputs.raw.visits": {
+            "path": "inputs/raw/visits.csv"
+          }
+        }
+      }
+    },
+    {
+      "kind": "project",
+      "layer": {
+        "data": {
+          "inputs.raw.survey": {
+            "path": "inputs/raw/survey_v2.csv",
+            "type": "csv"
+          },
+          "inputs.raw.visits": null,
+          "inputs.final.analysis": {
+            "path": "inputs/final/analysis.parquet",
+            "description": "Analysis file"
+          }
+        }
+      }
+    }
+  ],
+  "expected": {
+    "spec": {
+      "data": {
+        "inputs.raw.survey": {
+          "path": "inputs/raw/survey_v2.csv",
+          "type": "csv"
+        },
+        "inputs.final.analysis": {
+          "path": "inputs/final/analysis.parquet",
+          "description": "Analysis file"
+        }
+      }
+    },
+    "gitignore_blocks": [],
+    "conflicts": [
+      {
+        "path": "data/inputs.raw.survey",
+        "layers": "blueprint survey-study v2, project"
+      },
+      {
+        "path": "data/inputs.raw.visits",
+        "layers": "blueprint survey-study v2, project"
+      }
+    ]
+  }
+}

@@ -36,6 +36,13 @@ KEY <- "^[a-z][a-z0-9_]*$"
 REL_PATH <- "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
 SKILL_NAME <- "^[a-z0-9]+(-[a-z0-9]+)*$"
 ENV_NAME <- "^[A-Za-z_][A-Za-z0-9_]*$"
+# A data catalog name in dot notation, such as inputs.raw.survey
+DATA_NAME <- "^[A-Za-z0-9_][A-Za-z0-9_-]*([.][A-Za-z0-9_][A-Za-z0-9_-]*)*$"
+# The types data_read() reads, with the aliases it accepts
+DATA_TYPES <- list(
+  "csv", "tsv", "rds", "excel", "xlsx", "xls", "parquet", "stata", "dta",
+  "spss", "sav", "zsav", "spss_por", "por", "sas", "sas7bdat", "sas7bcat", "sas_xpt", "xpt"
+)
 
 definitions <- list(
   package = obj(
@@ -74,7 +81,21 @@ definitions <- list(
       required = c("content")
     )
   )),
-  connection = obj(list(driver = str(minLength = 1)), required = c("driver"), additional = TRUE)
+  connection = obj(list(driver = str(minLength = 1)), required = c("driver"), additional = TRUE),
+  # One data catalog entry, as the settings' data section holds it. The
+  # file's hash stays in framework.db, never here.
+  data_entry = obj(
+    list(
+      path = str(minLength = 1, pattern = REL_PATH),
+      type = str(enum = DATA_TYPES),
+      delimiter = str(enum = list("comma", "tab", "semicolon", "space")),
+      locked = bool(),
+      private = bool(),
+      description = str(),
+      stata_names = map_of(str(), description = "Column name in the file -> Stata variable name (fw_use)")
+    ),
+    required = c("path")
+  )
 )
 ref <- function(name) list(`$ref` = paste0("#/definitions/", name))
 
@@ -173,6 +194,8 @@ properties <- list(
   security = obj(list(sensitive = bool()), required = c("sensitive")),
   env = map_of(str(), key_pattern = ENV_NAME,
                description = "Variables written to .env. Secret-looking names must be empty."),
+  data = map_of(ref("data_entry"), key_pattern = DATA_NAME,
+                description = "The data catalog: dot-notation name -> entry. Each entry is replaced whole when a later layer sets it; project creation writes the names nested under data in the settings."),
   data_hooks = map_of(str(pattern = "^[^:]+\\.(R|py)::[A-Za-z_.][A-Za-z0-9._]*$"), key_pattern = KEY,
                       description = "Directory key -> 'path/to/file.R::function'"),
   files = map_of(ref("file"), key_pattern = REL_PATH),

@@ -117,7 +117,7 @@ spec_check <- function(spec) {
     "security", "env", "data_hooks", "files", "skills"
   )
   for (key in setdiff(required, names(spec))) add("missing section '%s'", key)
-  unknown <- setdiff(names(spec), c(required, "quarto", "source", "tools", "core_files", "settings_layout", "publish"))
+  unknown <- setdiff(names(spec), c(required, "quarto", "source", "tools", "core_files", "settings_layout", "publish", "data"))
   for (key in unknown) add("unknown section '%s'", key)
 
   tryCatch(.fw_publish_assert_secrets(spec$publish$destinations),
@@ -222,6 +222,7 @@ spec_check <- function(spec) {
       add("env.%s: secret-looking variables must be empty in a spec; set the value in .env", var)
     }
   }
+  for (problem in .data_registry_problems(spec$data)) add("%s", problem)
   for (key in names(spec$data_hooks)) {
     if (!grepl("^[^:]+\\.R::[A-Za-z.][A-Za-z0-9._]*$", spec$data_hooks[[key]])) {
       add("data_hooks.%s: expected 'path/to/file.R::function'", key)
@@ -311,7 +312,7 @@ spec_check <- function(spec) {
 # Entries whose values are replaced whole when a later layer sets them.
 .spec_atomic_maps <- c(
   "files", "skills", "extra_directories", "packages/default_packages",
-  "connections/databases", "connections/storage_buckets"
+  "connections/databases", "connections/storage_buckets", "data"
 )
 
 .spec_normalize_layers <- function(layers) {
@@ -423,7 +424,7 @@ spec_check <- function(spec) {
   order <- c(
     "spec_version", "name", "type", "language", "core_files", "settings_layout", "tools", "author", "directories", "extra_directories",
     "render_dirs", "packages", "git", "ai", "scaffold", "quarto", "connections", "publish",
-    "security", "env", "data_hooks", "files", "skills", "source"
+    "security", "env", "data", "data_hooks", "files", "skills", "source"
   )
   spec[c(intersect(order, names(spec)), setdiff(names(spec), order))]
 }
@@ -442,6 +443,8 @@ spec_check <- function(spec) {
     value <- spec[[path]]
     if (is.null(value) || length(value) == 0) spec[[path]] <- stats::setNames(list(), character())
   }
+  # data is optional: marked only when a layer set it
+  if ("data" %in% names(spec) && length(spec$data) == 0) spec$data <- stats::setNames(list(), character())
   spec
 }
 

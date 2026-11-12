@@ -24,7 +24,8 @@
   data_hooks = NULL,
   tools = NULL,
   settings_layout = NULL,
-  publish = NULL
+  publish = NULL,
+  data = NULL
 )
 }
 \description{

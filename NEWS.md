@@ -1,3 +1,33 @@
+# framework (development version)
+
+New features:
+
+* `pull_data_registry()` and `push_data_registry()` keep a project's data
+  registry, the catalog in the settings' `data` section, in step with
+  Framework Cloud. Only definitions move: names, paths, types, delimiters,
+  the locked and private flags, descriptions, and Stata names. Data files
+  never do, and file hashes stay in framework.db. `pull_data_registry()`
+  reads `GET /api/v1/projects/data` with the project token, lists entries to
+  add, entries that differ, and entries only in the project, then asks
+  `Apply these changes? [y/n]`. It writes the new entries into the data
+  section, inline or in its split file, rewriting only that block. Local
+  entries are never removed, and local definitions win unless
+  `overwrite = TRUE`. `push_data_registry()` previews through
+  `POST /api/v1/projects/data` with `dry_run` and asks
+  `Push these changes? [y/n]`. Entries only on Cloud stay unless
+  `remove = TRUE`. A stale revision in `.framework/data.lock.json` stops it
+  with "Pull first" unless `force = TRUE`. Both need `confirm = TRUE` or
+  `dry_run = TRUE` without a console. Matches framework-py's functions and
+  `fw data pull` / `fw data push`.
+
+* Specs and layers take a `data` section: dot-notation catalog names mapped
+  to entries (`path`, and optionally `type`, `delimiter`, `locked`,
+  `private`, `description`, and `stata_names`). Each entry is replaced whole
+  when a later layer sets it, and `null` removes it. Project creation writes
+  the entries nested into the settings' data catalog. `spec_check()`
+  refuses paths outside the project, unknown types and fields, and a name
+  that is also a group of other names.
+
 # framework 2.0.3
 
 Project setup sync with Framework Cloud: pull and push a project's skills,

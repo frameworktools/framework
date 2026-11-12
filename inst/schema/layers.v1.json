@@ -385,6 +385,69 @@
         "driver"
       ]
     },
+    "data_entry": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\]+$"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "csv",
+            "tsv",
+            "rds",
+            "excel",
+            "xlsx",
+            "xls",
+            "parquet",
+            "stata",
+            "dta",
+            "spss",
+            "sav",
+            "zsav",
+            "spss_por",
+            "por",
+            "sas",
+            "sas7bdat",
+            "sas7bcat",
+            "sas_xpt",
+            "xpt"
+          ]
+        },
+        "delimiter": {
+          "type": "string",
+          "enum": [
+            "comma",
+            "tab",
+            "semicolon",
+            "space"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "private": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "stata_names": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Column name in the file -> Stata variable name (fw_use)"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
     "layer": {
       "title": "Framework project spec layer",
       "description": "One unmerged layer of a project spec. Every field is optional, and a null map entry removes that key when spec_resolve() merges layers.",
@@ -794,6 +857,23 @@
           "description": "Variables written to .env. Secret-looking names must be empty.",
           "propertyNames": {
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          }
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/data_entry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "The data catalog: dot-notation name -> entry. Each entry is replaced whole when a later layer sets it; project creation writes the names nested under data in the settings.",
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]*([.][A-Za-z0-9_][A-Za-z0-9_-]*)*$"
           }
         },
         "data_hooks": {

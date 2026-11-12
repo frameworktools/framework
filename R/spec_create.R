@@ -116,6 +116,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     quarto = spec$quarto,
     security = spec$security,
     data_hooks = spec$data_hooks,
+    data = spec$data,
     tools = tools,
     settings_layout = .spec_settings_layout(spec),
     publish = spec$publish

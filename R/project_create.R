@@ -389,7 +389,8 @@ project_create <- function(
   data_hooks = NULL,
   tools = NULL,
   settings_layout = NULL,
-  publish = NULL
+  publish = NULL,
+  data = NULL
 ) {
   # Split settings files for project and project_sensitive by default, a
   # single settings.yml for the rest; a spec's settings_layout decides
@@ -471,8 +472,8 @@ project_create <- function(
     # Write quarto settings to split file
     .fw_write_yaml(list(quarto = quarto %||% list()), file.path(settings_dir, "quarto.yml"))
 
-    # Write empty data catalog to split file
-    .fw_write_yaml(list(data = list()), file.path(settings_dir, "data.yml"))
+    # The data catalog: the spec's entries nested by name, else empty
+    .fw_write_yaml(list(data = .data_catalog_nest(data)), file.path(settings_dir, "data.yml"))
 
     message("  Created: settings/ directory with split configuration files")
   } else {
@@ -526,7 +527,7 @@ project_create <- function(
         ),
 
         # Data catalog (inline for course/presentation)
-        data = list(),
+        data = .data_catalog_nest(data),
 
         # Connections (inline for course/presentation), in the layout
         # db_connect() reads: default_database plus databases
