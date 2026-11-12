@@ -1,4 +1,9 @@
-# framework (development version)
+# framework 2.0.5
+
+One call syncs everything with Framework Cloud: `pull_all()` and
+`push_all()` replace `pull_setup()` and `push_setup()` and cover packages,
+skills, and the data registry. Matches framework-py 0.1.0.dev19 and fw
+0.6.0.
 
 Behavior changes:
 
