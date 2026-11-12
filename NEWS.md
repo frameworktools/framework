@@ -1,4 +1,8 @@
-# framework (development version)
+# framework 2.0.3
+
+Project setup sync with Framework Cloud: pull and push a project's skills,
+and its packages and skills together. Matches framework-py 0.1.0.dev16 and
+fw 0.5.0.
 
 New features:
 
@@ -24,7 +28,6 @@ New features:
   refused with "Pull first" unless `force = TRUE`. Edited built-in skills are
   saved as your own copy. Matches framework-py's `push_skills()` and
   `fw skills push`.
-
 * `pull_setup()` and `push_setup()` keep a project's setup, its packages
   and skills, in step with Framework Cloud. `pull_setup()` reads
   `GET /api/v1/projects/setup` with the project token, lists packages to
@@ -48,6 +51,20 @@ Behavior changes:
   setup when it can, installs into the assistants' skills folders, and
   returns `pull_skills()`'s list instead of a character vector with a
   `status` attribute.
+
+Fixes:
+
+* `push_skills()` saves an edited built-in skill that Cloud never published
+  as a new skill of your own, instead of failing.
+* Signed out, `pull_skills()` keeps a newer version that `push_skills()`
+  pushed, instead of replacing it with the setup's older one.
+* `pull_setup()` and `push_setup()` explain a refused project token (check
+  `FW_PROJECT_TOKEN` in `.env`) and a setup Cloud refuses (422), and change
+  nothing.
+* `pull_setup()` reports a pinned package version that fails to install,
+  instead of counting the older installed version as up to date.
+* Run through `fw setup push`, the "Pull first" advice names
+  `fw setup pull` and `--force` (fw 0.5.0).
 
 # framework 2.0.2
 
