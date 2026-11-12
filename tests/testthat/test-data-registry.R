@@ -267,3 +267,36 @@ test_that("project creation writes the spec's data entries into the settings", {
   expect_identical(data$inputs$raw$survey$path, "inputs/raw/survey.csv")
   expect_true(data$inputs$raw$survey$locked)
 })
+
+test_that("pull_data_registry() writes into a new project's empty data section", {
+  for (split in c(TRUE, FALSE)) {
+    root <- withr::local_tempdir()
+    if (split) {
+      dir.create(file.path(root, "settings"))
+      writeLines(c("default:", "  project_name: Test Project", "  # The catalog lives in its own file",
+                   "  data: settings/data.yml"), file.path(root, "settings.yml"))
+      writeLines("data: []", file.path(root, "settings", "data.yml"))
+    } else {
+      writeLines(c("default:", "  project_name: Test Project", "  data: []"), file.path(root, "settings.yml"))
+    }
+    withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+    cloud <- new.env(); cloud$revision <- "rev-1"; cloud$entries <- registry_cloud_entries()[3]
+    registry_mock(cloud)
+    suppressMessages(pull_data_registry(root, confirm = TRUE))
+    file <- if (split) file.path(root, "settings/data.yml") else file.path(root, "settings.yml")
+    data <- .fw_read_yaml(file)
+    data <- if (split) data$data else data$default$data
+    expect_identical(data$inputs$final$analysis$type, "parquet")
+    expect_identical(names(.data_registry_local(root)), "inputs.final.analysis")
+  }
+})
+
+test_that("pull_data_registry() adds an entry whose top group doesn't exist yet", {
+  root <- registry_project()
+  cloud <- new.env(); cloud$revision <- "rev-1"
+  cloud$entries <- list(list(name = "outputs.tables.summary", path = "outputs/tables/summary.csv", type = "csv", locked = FALSE))
+  registry_mock(cloud)
+  suppressMessages(pull_data_registry(root, confirm = TRUE))
+  expect_identical(.data_registry_local(root)$outputs.tables.summary$path, "outputs/tables/summary.csv")
+  expect_true("  # Keep this comment" %in% readLines(file.path(root, "settings.yml")))
+})

@@ -176,9 +176,15 @@
       else if (is.list(content) && length(content)) character()
       else "data"
     catalog <- if (length(keys)) content[[keys]] else content
-    return(list(file = file, keys = keys, catalog = if (is.list(catalog)) catalog else list()))
+    return(list(file = file, keys = keys, catalog = .data_registry_map(catalog)))
   }
-  list(file = settings_file, keys = c(env_key, "data"), catalog = if (is.list(source)) source else list())
+  list(file = settings_file, keys = c(env_key, "data"), catalog = .data_registry_map(source))
+}
+
+# A data section as a map. An empty one may be read as a sequence (`data: []`).
+.data_registry_map <- function(x) {
+  if (!is.list(x) || !length(x)) return(list())
+  x
 }
 
 # The project's entries as registry rows, by name
@@ -227,15 +233,20 @@
         node <- node[[parts[depth + 1L]]]
         depth <- depth + 1L
       }
-      edit(parts[seq_len(depth + 1L)],
-           .data_catalog_set(list(), parts[-seq_len(depth)], entry)[[parts[depth + 1L]]])
+      # parts after the existing groups; parts[-seq_len(0)] would be empty
+      rest <- parts[seq.int(depth + 1L, length(parts))]
+      edit(parts[seq_len(depth + 1L)], .data_catalog_set(list(), rest, entry)[[rest[1]]])
     }
     catalog <- .data_catalog_set(catalog, keys %||% parts, entry)
   }
   if (!length(location$keys)) {
     return(.fw_write_yaml(list(data = catalog), location$file))
   }
-  text <- if (file.exists(location$file)) readChar(location$file, file.info(location$file)$size, useBytes = TRUE)
+  # An empty data section, such as a new project's `data: []`, has nothing to
+  # edit in place, so the whole block is written
+  text <- if (file.exists(location$file) && length(location$catalog)) {
+    readChar(location$file, file.info(location$file)$size, useBytes = TRUE)
+  }
   for (e in edits) {
     if (is.null(text)) break
     text <- .fw_yaml_set_text(text, c(location$keys, e$keys), e$value, rewrite = FALSE)
