@@ -146,7 +146,8 @@ settings_write(config, "file")   # Write settings back
 ```r
 ai_generate_context()            # Generate AGENTS.md (canonical AI context)
 ai_regenerate_context()          # Refresh dynamic sections of AGENTS.md
-ai_skills_update()               # Refresh .claude/skills/ after package upgrade
+pull_skills()                    # Update skills from the project's Cloud setup
+push_skills()                    # Send edited skills to Cloud
 ```
 
 ---
@@ -307,7 +308,9 @@ capture_output(expr)             # Capture console output
 |----------|---------|
 | `ai_generate_context()` | Generate AGENTS.md (canonical AI context) |
 | `ai_regenerate_context()` | Refresh dynamic sections of AGENTS.md |
-| `ai_skills_update()` | Refresh Framework skills in .claude/skills/ |
+| `ai_skills_update()` | Same as `pull_skills()` |
+| `pull_skills()` | Update skills from the project's Cloud setup |
+| `push_skills()` | Send locally edited skills to Cloud |
 | `ai_sync_context()` | Deprecated: sync legacy AI context files |
 | `bootstrap()` | Prepare a cloned project |
 | `adopt()` | Make an existing folder a Framework project |

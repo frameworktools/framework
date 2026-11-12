@@ -66,25 +66,20 @@ test_that(".ai_install_skills includes sensitive-data skill for sensitive projec
 
 test_that("ai_skills_update refreshes skills using project settings", {
   skip_on_cran()
+  withr::local_envvar(FW_PROJECT_TOKEN = "")
+  test_dir <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [claude]"),
+             file.path(test_dir, "settings.yml"))
 
-  test_dir <- file.path(tempdir(), "test-skills-update")
-  dir.create(test_dir, showWarnings = FALSE, recursive = TRUE)
-  on.exit(unlink(test_dir, recursive = TRUE))
-
-  writeLines(c(
-    "default:",
-    "  project_type: project"
-  ), file.path(test_dir, "settings.yml"))
-
-  installed <- suppressMessages(ai_skills_update(test_dir))
-  expect_true(length(installed) >= 4)
+  result <- suppressMessages(ai_skills_update(test_dir))
+  expect_identical(result$source, "package")
+  expect_true(result$counts$added >= 4)
 
   # Local edits survive package updates
   skill_file <- file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md")
   writeLines("stale content", skill_file)
   suppressMessages(ai_skills_update(test_dir))
-  content <- readLines(skill_file, warn = FALSE)
-  expect_identical(content, "stale content")
+  expect_identical(readLines(skill_file, warn = FALSE), "stale content")
 })
 
 
@@ -99,26 +94,30 @@ test_that(".generate_skills_section lists skills with paths", {
 
 test_that("ai_skills_update() reports what it actually did", {
   skip_on_cran()
+  withr::local_envvar(FW_PROJECT_TOKEN = "")
   test_dir <- withr::local_tempdir()
-  writeLines(c("default:", "  project_type: project"), file.path(test_dir, "settings.yml"))
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [claude]"),
+             file.path(test_dir, "settings.yml"))
 
-  first <- capture.output(installed <- ai_skills_update(test_dir), type = "message")
-  n <- length(installed)
-  expect_match(tail(first, 1), sprintf("[ok] Framework skills: %d created", n), fixed = TRUE)
+  first <- capture.output(result <- ai_skills_update(test_dir), type = "message")
+  n <- result$counts$added
+  expect_match(first[1], "Framework Cloud not reached (no project token); using the package skills", fixed = TRUE)
+  expect_identical(tail(first, 1), sprintf("Skills: %d added", n))
 
   again <- capture.output(ai_skills_update(test_dir), type = "message")
-  expect_identical(tail(again, 1), sprintf("[ok] Framework skills: %d already up to date", n))
-  expect_false(any(grepl("Updated", again)))
+  expect_identical(tail(again, 1), sprintf("Skills: %d up to date", n))
 
   writeLines("my edits", file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md"))
   edited <- capture.output(ai_skills_update(test_dir), type = "message")
-  expect_identical(tail(edited, 1),
-                   sprintf("[ok] Framework skills: %d already up to date, 1 locally edited, kept", n - 1L))
+  expect_true(sprintf("Skills: %d up to date, 1 locally edited (kept)", n - 1L) %in% edited)
+  expect_true(any(grepl("Kept (locally edited): framework-data", edited, fixed = TRUE)))
 })
 
 test_that("a skill from an older release without a lock entry is updated, not kept", {
   test_dir <- withr::local_tempdir()
-  writeLines(c("default:", "  project_type: project"), file.path(test_dir, "settings.yml"))
+  withr::local_envvar(FW_PROJECT_TOKEN = "")
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [claude]"),
+             file.path(test_dir, "settings.yml"))
   old <- testthat::test_path("skill-fixtures", "framework-data-SKILL-6f2521a.md")
   for (skill in c("framework-data", "framework-outputs")) {
     dir.create(file.path(test_dir, ".claude", "skills", skill), recursive = TRUE)
@@ -135,10 +134,10 @@ test_that("a skill from an older release without a lock entry is updated, not ke
   )
   expect_identical(status, "update")
 
-  out <- capture.output(installed <- ai_skills_update(test_dir), type = "message")
-  statuses <- attr(installed, "status")
-  expect_identical(statuses[["framework-data"]], "Updated")
-  expect_identical(statuses[["framework-outputs"]], "Preserved")
+  out <- capture.output(result <- ai_skills_update(test_dir), type = "message")
+  statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
+  expect_identical(statuses[["framework-data"]], "updated")
+  expect_identical(statuses[["framework-outputs"]], "edited")
   current <- system.file("templates", "skills", "framework-data", "SKILL.md", package = "framework")
   expect_identical(readLines(file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md")),
                    readLines(current))

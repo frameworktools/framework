@@ -126,21 +126,19 @@ NULL
 
 #' Update Framework Skills in a Project
 #'
-#' Re-copies the skill files Framework ships for the project's type (the
-#' `framework-*` skills and the ggplot2 skills) from the installed package
-#' version into `.claude/skills/`. Run this after upgrading the framework
-#' package to pick up improved skill instructions.
+#' Brings the project's skills up to date. Same as [pull_skills()]: the
+#' skills come from the project's setup on Framework Cloud, or, offline or
+#' without a project token, from this package for the project's type.
 #'
 #' Locally edited skills and account-owned forks are preserved. Unchanged
 #' package skills receive the new package version, including skills installed
 #' before `.framework/skills.lock.json` existed whose `SKILL.md` matches any
 #' version the package has shipped. Replaced skills are backed up to
-#' `.framework/skills-backups/`. Custom skills are left alone.
+#' `.framework/skills-backups/`. Skills no longer in the setup are kept.
 #'
 #' @param project_path Path to the project directory (default: current directory)
-#' @return Invisible character vector of the package skills now in the
-#'   project (created, updated, or already up to date). Its `status`
-#'   attribute names what happened to each skill, including preserved ones.
+#' @return Invisibly, the list [pull_skills()] returns.
+#' @seealso [pull_skills()]
 #' @export
 #'
 #' @examples
@@ -151,34 +149,7 @@ NULL
 #' }
 #' }
 ai_skills_update <- function(project_path = ".") {
-  checkmate::assert_string(project_path, min.chars = 1)
-  # A mistyped path must not create a new folder full of skills
-  if (!dir.exists(project_path) || !.has_settings_file(project_path)) {
-    stop("Not a Framework project (no settings.yml): ", project_path, call. = FALSE)
-  }
-  config <- tryCatch(
-    settings_read(file.path(project_path, "settings.yml")),
-    error = function(e) list()
-  )
-  project_type <- config$project_type %||% "project"
-
-  installed <- .ai_install_skills(project_path, project_type, verbose = TRUE)
-  statuses <- attr(installed, "status") %||% character(0)
-
-  if (length(statuses) == 0) {
-    message("Note: No skills installed (package skill templates not found)")
-  } else {
-    counts <- table(factor(statuses, levels = c("Updated", "Created", "Up to date", "Preserved")))
-    parts <- c(
-      if (counts[["Updated"]] > 0) paste(counts[["Updated"]], "updated"),
-      if (counts[["Created"]] > 0) paste(counts[["Created"]], "created"),
-      if (counts[["Up to date"]] > 0) paste(counts[["Up to date"]], "already up to date"),
-      if (counts[["Preserved"]] > 0) paste(counts[["Preserved"]], "locally edited, kept")
-    )
-    message("[ok] Framework skills: ", paste(parts, collapse = ", "))
-  }
-
-  invisible(installed)
+  pull_skills(project_path)
 }
 
 

@@ -1,3 +1,37 @@
+# framework (development version)
+
+New features:
+
+* `pull_skills()` brings a project's skills up to date with its setup on
+  Framework Cloud. It reads the project's current skill list with its project
+  token (`GET /api/v1/projects/pull`), so changes made with Edit project
+  arrive. Missing skills are added. Unedited skills get their latest
+  versions: Framework's from the package, and Cloud skills from Cloud (the
+  latest Cloud versions need `cloud_login()`; otherwise the setup's versions
+  are used). Locally edited skills are kept and listed;
+  `overwrite = TRUE` replaces them, after backing them up to
+  `.framework/skills-backups/`. Skills no longer in the setup are listed,
+  never deleted. The Skills table in `AGENTS.md` is refreshed. It prints
+  `Skills: 2 added, 3 updated, 5 up to date, 1 locally edited (kept)` and
+  returns the result as a list. Offline, or without a project token, it uses
+  the package skills for the project's type and says so. `dry_run = TRUE`
+  writes nothing. Matches framework-py's `pull_skills()` and
+  `fw skills pull`.
+* `push_skills()` sends locally edited skills to Cloud as new versions of
+  your own skills, through `skills_sync()`. It warns what each new version
+  replaces and asks `Continue? [y/n]`; without a console it needs
+  `confirm = TRUE`. A skill that changed on Cloud since the last pull is
+  refused with "Pull first" unless `force = TRUE`. Edited built-in skills are
+  saved as your own copy. Matches framework-py's `push_skills()` and
+  `fw skills push`.
+
+Behavior changes:
+
+* `ai_skills_update()` is now `pull_skills()`: it uses the project's Cloud
+  setup when it can, installs into the assistants' skills folders, and
+  returns `pull_skills()`'s list instead of a character vector with a
+  `status` attribute.
+
 # framework 2.0.2
 
 Fixes and features from adopting and upgrading real projects, and an explicit

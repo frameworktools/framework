@@ -72,7 +72,15 @@ commit (turn them off with `git_hooks_disable()`).
 
 ## Skill sync
 
-Sync a local skill and its companion files with your Framework Cloud account:
+Bring a project's skills up to date with its Framework Cloud setup, and send
+edited ones back:
+
+```r
+framework::pull_skills()
+framework::push_skills()
+```
+
+Sync one local skill and its companion files with your Framework Cloud account:
 
 ```r
 framework::skills_sync(".claude/skills/my-skill", dry_run = TRUE)
@@ -268,7 +276,8 @@ New projects can include instruction files for AI coding assistants
 ```r
 ai_regenerate_context()   # Refresh the generated sections of AGENTS.md
 ai_sync_context()         # Copy AGENTS.md to the other assistants' files
-ai_skills_update()        # Update the Framework skills after upgrading
+pull_skills()             # Update the project's skills from its Cloud setup
+push_skills()             # Send locally edited skills to Cloud
 ```
 
 ## Key Functions

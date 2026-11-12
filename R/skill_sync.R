@@ -255,18 +255,20 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   tryCatch(jsonlite::read_json(path, simplifyVector = FALSE)$skills, error = function(e) list())
 }
 
-.skill_package_install <- function(source, root, relative, name) {
-  lock <- .skill_acquire(root); on.exit(unlink(lock, recursive = TRUE))
+# force = TRUE replaces an edited copy too (backed up by .skill_install).
+# lock = FALSE when the caller already holds the sync lock.
+.skill_package_install <- function(source, root, relative, name, force = FALSE, lock = TRUE) {
+  if (lock) { held <- .skill_acquire(root); on.exit(unlink(held, recursive = TRUE)) }
   target <- .skill_path(root, relative); state <- .skill_load(root)
   keys <- names(Filter(function(e) relative %in% unlist(e$paths), state$skills)); key <- if (length(keys)) keys[1] else paste0("package:", name)
   entry <- state$skills[[key]] %||% list(paths = list(), variant = "r")
-  if (!is.null(entry$skill_id) && !startsWith(entry$skill_id, "framework:")) return(FALSE)
+  if (!force && !is.null(entry$skill_id) && !startsWith(entry$skill_id, "framework:")) return(FALSE)
   files <- .skill_scan(source); fresh <- .skill_hash(files)
   current <- if (dir.exists(target)) .skill_hash(.skill_scan(target)) else NULL
   # The lock's hash describes the copies at its paths; another copy of the
   # same skill (.agents/skills beside .claude/skills) has no entry yet
   expected <- if (relative %in% unlist(entry$paths)) entry$hash else NULL
-  if (!is.null(current) && !identical(current, expected %||% fresh)) {
+  if (!force && !is.null(current) && !identical(current, expected %||% fresh)) {
     # No lock entry, but the folder holds a version the package shipped
     if (!is.null(expected) || !.skill_released_copy(target, name)) return(FALSE)
   }
@@ -278,8 +280,10 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   TRUE
 }
 
-.skill_cloud_install <- function(root, relative, entry) {
-  lock <- .skill_acquire(root); on.exit(unlink(lock, recursive = TRUE))
+# force = TRUE replaces an edited copy too; clean names other hashes that
+# count as unedited (the version the project's setup recorded).
+.skill_cloud_install <- function(root, relative, entry, force = FALSE, clean = NULL, lock = TRUE) {
+  if (lock) { held <- .skill_acquire(root); on.exit(unlink(held, recursive = TRUE)) }
   source <- entry$sync; files <- .skill_validate(entry$bundle)
   if (!identical(.skill_hash(files), source$hash)) stop("Cloud skill verification failed", call. = FALSE)
   state <- .skill_load(root)
@@ -287,8 +291,8 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   key <- if (length(keys)) keys[1] else paste0("account:", source$server, ":", source$skill_id, ":", source$variant)
   tracked <- state$skills[[key]] %||% list(paths = list(), variant = source$variant)
   target <- .skill_path(root, relative); current <- if (dir.exists(target)) .skill_hash(.skill_scan(target)) else NULL
-  if (!is.null(current) && !identical(current, tracked$hash %||% source$hash)) return(FALSE)
-  .skill_install(root, relative, files, current)
+  if (!force && !is.null(current) && !current %in% c(tracked$hash %||% source$hash, clean)) return(FALSE)
+  if (!identical(current, source$hash)) .skill_install(root, relative, files, current)
   tracked$paths <- as.list(unique(c(unlist(tracked$paths), relative)))
   for (name in names(source)) tracked[[name]] <- source[[name]]
   state$skills[[key]] <- tracked; .skill_save(root, state)

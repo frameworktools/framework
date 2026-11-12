@@ -197,12 +197,14 @@ AI:
   display_name: AI
   description: AI assistant integration
   common:
-    - ai_skills_update
+    - pull_skills
   functions:
     - ai_generate_context
     - ai_regenerate_context
     - ai_skills_update
     - ai_sync_context
+    - pull_skills
+    - push_skills
 
 Cloud:
   description: Optional Framework Cloud accounts, settings, and the integrity ledger

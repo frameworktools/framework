@@ -43,17 +43,40 @@ Framework ships these skills:
 
 `AGENTS.md` lists the installed skills with their paths. Assistants that don't discover skills on their own can follow those paths.
 
-After upgrading the framework package, refresh the shipped skills:
+### Updating skills
+
+`pull_skills()` brings a project's skills up to date with its setup on Framework Cloud:
 
 ```r
-ai_skills_update()
+pull_skills(dry_run = TRUE)   # Show what would change
+pull_skills()
 ```
 
-Unchanged skills get the new version. Skills you edited locally are kept. Custom skills are left alone.
+The skill list comes from the project's current setup on Cloud, as edited there with Edit project. The project token in `.env` reads it. Missing skills are added. Unedited skills get their latest versions: Framework's from the installed package, and Cloud skills from Cloud. Getting a Cloud skill's latest version needs `cloud_login()`. Without it, the version in the project's setup is used.
+
+Skills you edited locally are kept and listed. `pull_skills(overwrite = TRUE)` replaces them too, after backing them up to `.framework/skills-backups/`. Skills no longer in the setup are never deleted, only listed. The Skills table in `AGENTS.md` is refreshed.
+
+```text
+Skills: 2 added, 3 updated, 5 up to date, 1 locally edited (kept)
+  Kept (locally edited): ggplot2-publishing — pull_skills(overwrite = TRUE) replaces it
+```
+
+Offline, or without a project token, `pull_skills()` uses the package skills for the project's type and says so. `ai_skills_update()` does the same as `pull_skills()`.
+
+### Sending edited skills to Cloud
+
+`push_skills()` sends locally edited skills to Cloud as new versions of your own skills. Sign in first with `cloud_login()`.
+
+```r
+push_skills(dry_run = TRUE)
+push_skills()
+```
+
+Before pushing, it names what each new version affects and asks `Continue? [y/n]`. Without a console, pass `confirm = TRUE`. A skill that changed on Cloud since the last pull is refused with "Pull first"; `force = TRUE` pushes it anyway. Built-in Framework skills never change: an edited one is saved as your own copy. Only skills recorded in `.framework/skills.lock.json` are pushed. `skills_sync()` adds another.
 
 ### Skill sync with Framework Cloud
 
-`skills_sync()` synchronizes a skill folder with your Framework Cloud account. Sign in first with `cloud_login()`.
+`skills_sync()` synchronizes one skill folder with your Framework Cloud account. Sign in first with `cloud_login()`.
 
 ```r
 skills_sync(".claude/skills/my-review-checklist")

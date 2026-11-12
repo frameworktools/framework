@@ -10,22 +10,19 @@ ai_skills_update(project_path = ".")
 \item{project_path}{Path to the project directory (default: current directory)}
 }
 \value{
-Invisible character vector of the package skills now in the
-project (created, updated, or already up to date). Its \code{status}
-attribute names what happened to each skill, including preserved ones.
+Invisibly, the list \code{\link[=pull_skills]{pull_skills()}} returns.
 }
 \description{
-Re-copies the skill files Framework ships for the project's type (the
-\verb{framework-*} skills and the ggplot2 skills) from the installed package
-version into \verb{.claude/skills/}. Run this after upgrading the framework
-package to pick up improved skill instructions.
+Brings the project's skills up to date. Same as \code{\link[=pull_skills]{pull_skills()}}: the
+skills come from the project's setup on Framework Cloud, or, offline or
+without a project token, from this package for the project's type.
 }
 \details{
 Locally edited skills and account-owned forks are preserved. Unchanged
 package skills receive the new package version, including skills installed
 before \code{.framework/skills.lock.json} existed whose \code{SKILL.md} matches any
 version the package has shipped. Replaced skills are backed up to
-\verb{.framework/skills-backups/}. Custom skills are left alone.
+\verb{.framework/skills-backups/}. Skills no longer in the setup are kept.
 }
 \examples{
 \donttest{
@@ -34,4 +31,7 @@ if (FALSE) {
 ai_skills_update()
 }
 }
+}
+\seealso{
+\code{\link[=pull_skills]{pull_skills()}}
 }
