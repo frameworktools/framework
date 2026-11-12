@@ -71,8 +71,9 @@ test_that("package_add() installs only when asked", {
   testthat::local_mocked_bindings(.install_package = function(pkg_spec) installed <<- pkg_spec)
   suppressMessages(package_add("janitor", install = FALSE))
   expect_null(installed)
-  suppressMessages(package_add("forcats"))
-  expect_identical(installed$name, "forcats")
+  # A package that is installed, so the check after the (mocked) install passes
+  suppressMessages(package_add("testthat"))
+  expect_identical(installed$name, "testthat")
 })
 
 test_that("package_set_add() adds what the project doesn't list and keeps the rest", {
@@ -191,6 +192,8 @@ test_that("skills, AI context, and the cheatsheet only call exported functions",
   # Inline code and code blocks only: calls written as name( with no namespace
   code <- unlist(regmatches(text, gregexpr("(?<![A-Za-z0-9_.:$])[a-z][a-z0-9_]*(?=\\()", text, perl = TRUE)))
   other <- c("dplyr", "ggplot2", "tidyr", "readr", "stringr", "lubridate", "glue", "here", "readxl")
+  # Their functions can only be looked up when they are installed
+  for (p in other) skip_if_not_installed(p)
   known <- function(f) {
     f %in% exports || exists(f, envir = baseenv()) ||
       any(vapply(c("utils", "stats", "graphics", "grDevices", "methods", "tools"), function(p) exists(f, envir = asNamespace(p)), logical(1))) ||

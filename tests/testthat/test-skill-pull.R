@@ -133,7 +133,8 @@ test_that("pull_skills() keeps a newer version than the setup's when signed out"
 
   # push_skills() made version 2; the project's setup still names version 1
   pushed <- skill_pull_entry("Version two", 2L)
-  writeLines(rawToChar(jsonlite::base64_dec(pushed$bundle[[1]]$content)), file.path(root, ".claude/skills/lab-style/SKILL.md"), sep = "")
+  # The pushed bytes exactly: writeLines() would write CRLF on Windows
+  writeBin(jsonlite::base64_dec(pushed$bundle[[1]]$content), file.path(root, ".claude/skills/lab-style/SKILL.md"))
   state <- .skill_load(root)
   key <- names(Filter(function(e) ".claude/skills/lab-style" %in% unlist(e$paths), state$skills))
   state$skills[[key]]$version <- 2L; state$skills[[key]]$hash <- pushed$sync$hash

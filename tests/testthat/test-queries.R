@@ -160,6 +160,7 @@ test_that("read_only: true opens an unwritable SQLite file and refuses writes", 
   DBI::dbDisconnect(con)
   Sys.chmod("study.sqlite", "444")
   withr::defer(Sys.chmod(file.path(dir, "study.sqlite"), "644"))
+  skip_if(file.access("study.sqlite", 2) == 0, "running as a user who can write read-only files")
   yaml::write_yaml(list(default = list(connections = list(databases = list(
     study = list(driver = "sqlite", database = "study.sqlite", read_only = TRUE),
     writable = list(driver = "sqlite", database = "study.sqlite")
