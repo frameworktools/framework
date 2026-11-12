@@ -213,7 +213,7 @@
 
 #' @keywords internal
 .fw_legacy_token_file <- function() {
-  path.expand(file.path("~", ".secrets", "framework", "token"))
+  file.path(.fw_home(), ".secrets", "framework", "token")
 }
 
 #' @keywords internal

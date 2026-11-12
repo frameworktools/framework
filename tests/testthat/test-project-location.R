@@ -63,7 +63,7 @@ test_that("n asks for a parent folder, and blank uses the current directory", {
 
 test_that("a typed folder is the parent, unless it already ends in the project name", {
   local_cwd()
-  withr::local_envvar(HOME = "/home/ada")
+  withr::local_envvar(HOME = "/home/ada", USERPROFILE = "/home/ada")
 
   local_answers(c("no", "~/work/"))
   expect_identical(.fw_ask_location("my-study"), "/home/ada/work/my-study")
@@ -78,7 +78,7 @@ test_that("a typed folder is the parent, unless it already ends in the project n
 
 test_that("a Projects folder from Framework Cloud is offered instead of the current directory", {
   here <- local_cwd()
-  withr::local_envvar(HOME = "/home/ada")
+  withr::local_envvar(HOME = "/home/ada", USERPROFILE = "/home/ada")
   prompts <- local_answers(c(""), projects_dir = "~/research")
   expect_identical(.fw_ask_location("my-study"), "/home/ada/research/my-study")
   expect_identical(prompts(), "Create the project in /home/ada/research/my-study? [y/n] ")
@@ -240,7 +240,7 @@ test_that("setup(token) with neither asks about the current directory", {
 test_that("setup(token) without a location stops when not interactive", {
   withr::local_envvar(FW_CONFIG_HOME = withr::local_tempdir(), FW_CLOUD_URL = NA, FW_CLOUD_TOKEN = NA)
   home <- withr::local_tempdir()
-  withr::local_envvar(HOME = home)
+  withr::local_envvar(HOME = home, USERPROFILE = home)
   testthat::local_mocked_bindings(
     .fw_api = function(...) cloud_envelope(),
     .fw_interactive = function() FALSE

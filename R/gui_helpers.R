@@ -29,8 +29,23 @@ fw_config_dir <- function() {
   if (nzchar(xdg)) {
     return(file.path(xdg, "framework"))
   }
-  home <- if (.Platform$OS.type == "windows") Sys.getenv("USERPROFILE", path.expand("~")) else path.expand("~")
-  file.path(home, ".config", "framework")
+  file.path(.fw_home(), ".config", "framework")
+}
+
+# The home folder fw and the Python package use: USERPROFILE on Windows,
+# where R's own ~ is usually Documents, and ~ elsewhere.
+#' @keywords internal
+.fw_home <- function() {
+  if (.Platform$OS.type == "windows") Sys.getenv("USERPROFILE", path.expand("~")) else path.expand("~")
+}
+
+# A path with a leading ~ expanded to .fw_home(), so a path shared with fw or
+# the Python package names the same folder in R.
+#' @keywords internal
+.fw_expand_home <- function(path) {
+  if (identical(path, "~")) return(.fw_home())
+  if (grepl("^~[/\\\\]", path)) return(file.path(.fw_home(), substring(path, 3)))
+  path.expand(path)
 }
 
 #' Sync Settings from the Python Package and fw

@@ -426,7 +426,7 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
 # Absolute form of a path, with ~ expanded and trailing slashes dropped
 #' @keywords internal
 .fw_abs_path <- function(path) {
-  path <- path.expand(trimws(path))
+  path <- .fw_expand_home(trimws(path))
   if (!grepl("^(/|[A-Za-z]:[/\\\\]|\\\\\\\\)", path)) {
     path <- file.path(getwd(), path)
   }
