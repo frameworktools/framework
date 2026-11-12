@@ -13,8 +13,13 @@ Behavior changes:
   `Create the project here (<path>)? [y/n]`. Enter or `y` uses it. `n` asks
   `Where should the project go? Leave blank to use the current directory
   (<dir>): `; the project folder goes inside the folder typed, unless that
-  path already ends in the project's name. A non-interactive session stops
-  and asks for `location =`. Both print the absolute path before creating
+  path already ends in the project's name. With a Projects folder set in
+  Framework Cloud Settings (`defaults.projects_dir` in your settings), the
+  offer is a folder there instead: `Create the project in <path>? [y/n]`,
+  creating the Projects folder if needed. `setup("fw_...")` and
+  `new(key = ...)` first use the project owner's Projects folder, which
+  Framework Cloud sends with the project. A non-interactive session stops
+  and asks for `location =`; it never uses the Projects folder. Both print the absolute path before creating
   the project and `Project ready at <path>` after.
 * `data_read()` trims leading and trailing whitespace from CSV and TSV values
   and column names (`trim_ws = TRUE`), as `readr::read_csv()` does. A padded

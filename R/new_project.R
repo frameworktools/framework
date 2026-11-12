@@ -8,9 +8,12 @@
 #' @param location The project folder to create. `~` is expanded and a
 #'   relative path is taken from the current directory. If NULL (default), an
 #'   interactive session shows `<current directory>/<project-name>` and asks
-#'   `Create the project here (<path>)? [y/n]`. Answering n asks for the
-#'   folder to put the project in; leaving it blank uses the current
-#'   directory. A non-interactive session stops and asks for `location`.
+#'   `Create the project here (<path>)? [y/n]`. With a Projects folder set in
+#'   Framework Cloud Settings, it offers `<Projects folder>/<project-name>`
+#'   instead and asks `Create the project in <path>? [y/n]`, creating the
+#'   Projects folder if needed. Answering n asks for the folder to put the
+#'   project in; leaving it blank uses the current directory. A
+#'   non-interactive session stops and asks for `location`.
 #' @param type Project type: one of Framework's structures, "project",
 #'   "project_sensitive", "course", "presentation", or "bare". NULL (default)
 #'   uses your default blueprint on Framework Cloud when you are signed in,
@@ -345,10 +348,12 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
 }
 
 # Where a new project goes when no location was given. Interactive sessions
-# confirm a folder named for the project in the current directory, or take a
-# parent folder. Never a default elsewhere: the location is always explicit.
+# confirm a folder named for the project in a Projects folder (projects_dir,
+# else the one in the person's Framework Cloud settings), or in the current
+# directory when neither is set, or take a parent folder. Never a default
+# elsewhere: the location is always explicit.
 #' @keywords internal
-.fw_ask_location <- function(slug) {
+.fw_ask_location <- function(slug, projects_dir = NULL) {
   here <- getwd()
   suggested <- file.path(here, slug)
   if (!.fw_interactive()) {
@@ -359,10 +364,16 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
     )
   }
 
+  projects_dir <- projects_dir %||% .fw_projects_dir()
+  question <- if (is.null(projects_dir)) {
+    paste0("Create the project here (", suggested, ")? [y/n] ")
+  } else {
+    suggested <- file.path(.fw_abs_path(projects_dir), slug)
+    paste0("Create the project in ", suggested, "? [y/n] ")
+  }
+
   repeat {
-    answer <- tolower(trimws(.fw_readline(
-      paste0("Create the project here (", suggested, ")? [y/n] ")
-    )))
+    answer <- tolower(trimws(.fw_readline(question)))
     if (answer %in% c("", "y", "yes")) {
       return(suggested)
     }
@@ -378,6 +389,38 @@ new <- function(name = NULL, location = NULL, type = NULL, browse = interactive(
   parent <- if (nzchar(typed)) .fw_abs_path(typed) else here
   # A typed path that already names the project folder is used as is
   if (identical(basename(parent), slug)) parent else file.path(parent, slug)
+}
+
+# The Projects folder set in Framework Cloud Settings (defaults.projects_dir
+# in the person's settings document), or NULL when unset. Signed in: the
+# cloud's document, or the mirror cloud_sync() keeps when the cloud can't be
+# reached. Not signed in: the mirror alone.
+#' @keywords internal
+.fw_projects_dir <- function() {
+  from_document <- function(doc) {
+    defaults <- if (is.list(doc)) doc$defaults
+    value <- if (is.list(defaults)) defaults$projects_dir
+    if (is.character(value) && length(value) == 1 && !is.na(value) && nzchar(trimws(value))) {
+      trimws(value)
+    }
+  }
+
+  token <- tryCatch(.fw_cloud_token(), error = function(e) NULL)
+  if (!is.null(token)) {
+    res <- tryCatch(
+      .fw_api("/api/v1/settings", token = token, timeout = 10),
+      error = function(e) NULL
+    )
+    if (is.list(res) && "document" %in% names(res)) {
+      return(from_document(res$document))
+    }
+  }
+
+  mirror <- .fw_sync_paths()$document
+  if (!file.exists(mirror)) {
+    return(NULL)
+  }
+  from_document(tryCatch(yaml::read_yaml(mirror), error = function(e) NULL))
 }
 
 # Absolute form of a path, with ~ expanded and trailing slashes dropped

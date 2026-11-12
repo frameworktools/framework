@@ -345,7 +345,8 @@
 }
 
 #' @keywords internal
-.fw_api <- function(path, token, method = "GET", body = NULL, url = .fw_cloud_url()) {
+.fw_api <- function(path, token, method = "GET", body = NULL, url = .fw_cloud_url(), timeout = NULL,
+                    headers = FALSE) {
   if (!requireNamespace("httr2", quietly = TRUE)) {
     stop(
       "Cloud features require the 'httr2' package. ",
@@ -368,6 +369,9 @@
   if (!is.null(body)) {
     req <- httr2::req_body_json(req, body)
   }
+  if (!is.null(timeout)) {
+    req <- httr2::req_timeout(req, timeout)
+  }
 
   # Local development against Herd's self-signed framework.test certificate
   if (nzchar(Sys.getenv("FW_CLOUD_INSECURE", ""))) {
@@ -382,7 +386,13 @@
     msg %||% paste0("Cloud request failed (HTTP ", httr2::resp_status(resp), ")")
   })
 
-  httr2::resp_body_json(httr2::req_perform(req))
+  resp <- httr2::req_perform(req)
+  out <- httr2::resp_body_json(resp)
+  # headers = TRUE keeps the response headers as the "headers" attribute
+  if (isTRUE(headers)) {
+    attr(out, "headers") <- httr2::resp_headers(resp)
+  }
+  out
 }
 
 # How to connect to a server: browser login first, a pasted token for
@@ -1744,6 +1754,23 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
   gsub("\\{ProjectName\\}", project_name, master)
 }
 
+# The Projects folder the cloud sends with a project's definition: the
+# Framework-Projects-Dir header, percent-encoded UTF-8, or NULL when absent.
+#' @keywords internal
+.fw_header_projects_dir <- function(headers) {
+  if (length(headers) == 0) {
+    return(NULL)
+  }
+  value <- unlist(headers[tolower(names(headers)) == "framework-projects-dir"], use.names = FALSE)[1]
+  if (!is.character(value) || is.na(value)) {
+    return(NULL)
+  }
+  value <- tryCatch(utils::URLdecode(value), error = function(e) NA_character_)
+  Encoding(value) <- "UTF-8"
+  value <- trimws(value)
+  if (is.na(value) || !nzchar(value)) NULL else value
+}
+
 # framework::setup("fw_...") and new(key = ...) land here: pull the project's
 # layers envelope (pull v2) by its project token, resolve it, and create the
 # project from the spec. The envelope carries the owner's author block and
@@ -1757,7 +1784,8 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
     "Fetching this project's definition from ", url,
     " (what is shared: ", url, "/privacy)"
   )
-  envelope <- .fw_api("/api/v1/projects/pull", token = token, url = url)
+  envelope <- .fw_api("/api/v1/projects/pull", token = token, url = url, headers = TRUE)
+  owner_projects_dir <- .fw_header_projects_dir(attr(envelope, "headers"))
   if (!is.list(envelope) || !identical(as.integer(envelope$spec_version %||% NA), 1L)) {
     stop("The server returned a project definition this version of framework cannot read.", call. = FALSE)
   }
@@ -1778,7 +1806,10 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
   message("Setting up cloud project: ", name, " (", spec$type, ")")
 
   if (is.null(location)) {
-    location <- .fw_ask_location(.fw_envelope_slug(layers) %||% .slugify(name))
+    location <- .fw_ask_location(
+      .fw_envelope_slug(layers) %||% .slugify(name),
+      projects_dir = owner_projects_dir
+    )
   }
   location <- .fw_abs_path(location)
   message("Creating the project at ", location)

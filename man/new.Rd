@@ -20,9 +20,12 @@ new(
 \item{location}{The project folder to create. \code{~} is expanded and a
 relative path is taken from the current directory. If NULL (default), an
 interactive session shows \verb{<current directory>/<project-name>} and asks
-\verb{Create the project here (<path>)? [y/n]}. Answering n asks for the
-folder to put the project in; leaving it blank uses the current
-directory. A non-interactive session stops and asks for \code{location}.}
+\verb{Create the project here (<path>)? [y/n]}. With a Projects folder set in
+Framework Cloud Settings, it offers \verb{<Projects folder>/<project-name>}
+instead and asks \verb{Create the project in <path>? [y/n]}, creating the
+Projects folder if needed. Answering n asks for the folder to put the
+project in; leaving it blank uses the current directory. A
+non-interactive session stops and asks for \code{location}.}
 
 \item{type}{Project type, as in \code{\link[=new_project]{new_project()}}. NULL (default): signed
 in to Framework Cloud, your default blueprint is used. Not signed in,

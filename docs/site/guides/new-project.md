@@ -17,7 +17,15 @@ framework::new_project()
 Create the project here (/Users/you/code/my-analysis)? [y/n]
 ```
 
-Enter or `y` uses that folder. `n` asks for the folder to put the project in:
+With a Projects folder set in Framework Cloud Settings, the offered folder is in your Projects folder instead:
+
+```text
+Create the project in /Users/you/research/my-analysis? [y/n]
+```
+
+Framework creates the Projects folder if it doesn't exist yet. Signed out or offline, it uses the copy of your settings from the last `cloud_sync()`.
+
+Enter or `y` uses the offered folder. `n` asks for the folder to put the project in:
 
 ```text
 Where should the project go? Leave blank to use the current directory (/Users/you/code):

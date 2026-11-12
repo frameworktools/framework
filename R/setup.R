@@ -13,9 +13,12 @@
 #' @param browse Open the new project's folder (default: TRUE)
 #' @param location The project folder to create. If NULL (default), an
 #'   interactive session asks `Create the project here (<path>)? [y/n]` for
-#'   a folder named for the project in the current directory, and on n asks
-#'   which folder to put it in (blank for the current directory). A
-#'   non-interactive session stops and asks for `location`.
+#'   a folder named for the project in the current directory, or
+#'   `Create the project in <path>? [y/n]` for one in a Projects folder: the
+#'   project owner's, sent by Framework Cloud with the project, else yours
+#'   from Framework Cloud Settings. On n it asks which folder to put it in
+#'   (blank for the current directory). A non-interactive session stops and
+#'   asks for `location`.
 #' @param url The Framework Cloud server that issued the token. Defaults to
 #'   `FW_CLOUD_URL`, then the server you last logged in to with
 #'   [cloud_login()], then <https://framework.pub>.

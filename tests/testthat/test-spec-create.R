@@ -181,7 +181,7 @@ test_that("setup(token) and new(key) create the project from pull v2", {
     source = list(origin = "cloud", blueprint = list(key = "study", version = 2L))
   )
   calls <- list()
-  testthat::local_mocked_bindings(.fw_api = function(path, token, method = "GET", body = NULL, url = NULL) {
+  testthat::local_mocked_bindings(.fw_api = function(path, token, method = "GET", body = NULL, url = NULL, ...) {
     calls[[length(calls) + 1]] <<- list(path = path, token = token, url = url)
     envelope
   })
