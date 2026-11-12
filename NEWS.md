@@ -1,4 +1,8 @@
-# framework (development version)
+# framework 2.0.6
+
+A skill that git checked out with CRLF line endings on Windows no longer
+looks locally edited, and skill pushes name the project. Matches
+framework-py 0.1.0.dev20 and fw 0.6.1.
 
 Fixes:
 
