@@ -54,11 +54,39 @@ check_database_roundtrip <- function(name, create_sql) {
   expect_equal(n, 2)
 }
 
+# db_execute_file() runs a file and rolls it back when a statement fails. SQL
+# Server runs a file as GO batches; a file without GO is one batch, so a
+# failing statement there follows one that already ran in the same batch.
+check_execute_file <- function(name, one_batch = FALSE) {
+  table <- paste0("fw_it_file_", format(Sys.time(), "%H%M%S"), sample.int(1e5, 1))
+  on.exit(try(db_execute(sprintf("DROP TABLE %s", table), name), silent = TRUE), add = TRUE)
+  dir.create("sql", showWarnings = FALSE)
+  total <- if (one_batch) 1L else 2L
+
+  writeLines(c(
+    sprintf("CREATE TABLE %s (id INTEGER, label VARCHAR(50));", table),
+    sprintf("INSERT INTO %s (id, label) VALUES (1, 'a; b');", table)
+  ), "sql/load.sql")
+  expect_equal(db_execute_file(name, "sql/load.sql"), total)
+  expect_equal(db_query(sprintf("SELECT label FROM %s", table), name)$label, "a; b")
+
+  writeLines(c(
+    sprintf("INSERT INTO %s (id, label) VALUES (2, 'dropped');", table),
+    sprintf("INSERT INTO %s_nowhere (id) VALUES (1);", table)
+  ), "sql/broken.sql")
+  expect_error(
+    db_execute_file(name, "sql/broken.sql"),
+    sprintf("Statement %d of %d in broken.sql .*rolled back", total, total)
+  )
+  expect_equal(db_query(sprintf("SELECT COUNT(*) AS n FROM %s", table), name)$n, 1)
+}
+
 test_that("PostgreSQL works end to end through settings.yml", {
   skip_if_not_installed("RPostgres")
   server <- skip_if_no_test_server("postgres")
   local_db_project("warehouse", server)
   check_database_roundtrip("warehouse", "CREATE TABLE %s (id INTEGER PRIMARY KEY, label TEXT)")
+  check_execute_file("warehouse")
 })
 
 test_that("SQL Server works end to end through settings.yml", {
@@ -80,6 +108,7 @@ test_that("SQL Server works end to end through settings.yml", {
     skip(msg)
   }
   check_database_roundtrip("mssql_db", "CREATE TABLE %s (id INT PRIMARY KEY, label NVARCHAR(100))")
+  check_execute_file("mssql_db", one_batch = TRUE)
 })
 
 test_that("MySQL works end to end through settings.yml", {
@@ -87,6 +116,7 @@ test_that("MySQL works end to end through settings.yml", {
   server <- skip_if_no_test_server("mysql")
   local_db_project("mysql_db", server)
   check_database_roundtrip("mysql_db", "CREATE TABLE %s (id INT PRIMARY KEY, label VARCHAR(100))")
+  check_execute_file("mysql_db")
 })
 
 test_that("MariaDB works end to end through settings.yml", {
@@ -94,6 +124,7 @@ test_that("MariaDB works end to end through settings.yml", {
   server <- skip_if_no_test_server("mariadb")
   local_db_project("maria_db", server)
   check_database_roundtrip("maria_db", "CREATE TABLE %s (id INT PRIMARY KEY, label VARCHAR(100))")
+  check_execute_file("maria_db")
 })
 
 test_that("S3 storage_test() and publish() work against a real S3 server", {
