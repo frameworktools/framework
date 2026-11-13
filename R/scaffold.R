@@ -383,7 +383,7 @@ scaffold <- function(config_file = NULL) {
   }
 
   # Get function directories from config (can be list or single value)
-  func_dirs <- config$options$functions_dir
+  func_dirs <- config$directories$functions %||% config$options$functions_dir
 
   # Default to "functions" if not configured
   if (is.null(func_dirs)) {
