@@ -1,55 +1,37 @@
 ---
 name: framework-packages
-description: Use when adding, installing, or managing R packages in this Framework project - package_add() is required instead of install.packages(), and auto-attached packages must not be re-loaded with library().
+description: Use when adding, installing, or managing R packages in a project that uses the Framework package. Covers package_add(), the project's package list, auto-attached packages, and renv.
 metadata:
-  title: Managing packages
+  title: "Framework: package management"
   summary: Add packages through Framework so the project records them.
 ---
 
-# Framework Package Management
+# Framework: package management
 
-Packages are declared in settings.yml and installed/attached by `scaffold()`.
+The project's packages are listed in the settings. `scaffold()` installs them
+and attaches the ones marked `auto_attach: true`. A package installed with
+`install.packages()` is not recorded, so the next machine will not have it.
 
-## Adding Packages
+## Adding packages
 
-**ALWAYS use Framework's package management:**
-
-```r
-# Add a CRAN package (recorded in settings and installed now)
-package_add("janitor")
-
-# Add and auto-attach (loaded automatically by scaffold)
-package_add("forcats", auto_attach = TRUE)
-
-# Add from GitHub
-package_add("tidyverse/dplyr@main")
-
-# Pin a version
-package_add("dplyr@1.1.0")
-
-# Record without installing
-package_add("arrow", install = FALSE)
-```
-
-`packages_list()` shows what the project declares, and `packages_install()`
-installs anything missing (for example after cloning on a new machine).
-
-**DO NOT** use `install.packages()` directly — it bypasses Framework's tracking
-and the package won't be recorded in settings.yml for reproducibility.
-
-## Auto-Attached vs Installed-Only
-
-- **Auto-attached** packages (marked `auto_attach: true` in settings.yml) are loaded
-  by `scaffold()`. **Never call `library()` for them** — see AGENTS.md for the current list.
-- **Installed-only** packages are available but not loaded; call `library()` when needed.
-
-## renv Integration (Optional)
-
-If the project has renv enabled, Framework routes installs through renv automatically.
-Snapshot/restore helpers:
+Prefer `package_add()`.
 
 ```r
-packages_snapshot()   # Record current versions
-packages_restore()    # Restore recorded versions
-packages_status()     # Check for drift
+package_add("janitor")                      # record and install
+package_add("forcats", auto_attach = TRUE)  # also attach in scaffold()
+package_add("tidyverse/dplyr@main")         # from GitHub
+package_add("dplyr@1.1.0")                  # a pinned version
+package_add("arrow", install = FALSE)       # record only
 ```
+
+`packages_list()` shows the project's packages. `packages_install()` installs
+any that are missing, for example after cloning.
+
+Packages without `auto_attach` are installed but not loaded. Load them with
+`library()` where they are used.
+
+## renv
+
+When the project uses renv, Framework installs through it.
+`packages_snapshot()` records versions, `packages_restore()` restores them,
+and `packages_status()` reports drift.

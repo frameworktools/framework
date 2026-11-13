@@ -36,10 +36,12 @@ Framework ships these skills:
 - `framework-workflow`: Project conventions and the scaffold workflow
 - `framework-data`: The data catalog, reading, and saving
 - `framework-packages`: Adding and installing packages
-- `framework-outputs`: Saving outputs, caching, database queries, and publishing
-- `ggplot2-exploring`: Quick, accurate figures for understanding data
-- `ggplot2-publishing`: Figures for papers, reports, and slides
-- `framework-sensitive-data`: Rules for restricted data (sensitive projects only)
+- `framework-outputs`: Saving tables, figures, models, and notebooks
+- `framework-cache`: Caching computations
+- `framework-databases`: Querying configured databases
+- `framework-publishing`: Publishing artifacts
+- `ggplot2-figures`: Accurate figures, from exploring data to publication
+- `framework-sensitive-data`: Private and public folders (sensitive projects only)
 
 `AGENTS.md` lists the installed skills with their paths. Assistants that don't discover skills on their own can follow those paths.
 

@@ -19,7 +19,7 @@ test_that("Framework's project structure keeps its layout, Quarto, and skills", 
   expect_true(settings$tools$quarto)
   expect_true(dir.exists(file.path(dir, "inputs", "raw")))
   expect_true(file.exists(file.path(dir, "AGENTS.md")))
-  expect_true(any(grepl("ggplot2-exploring", readLines(file.path(dir, "AGENTS.md")))))
+  expect_true(any(grepl("ggplot2-figures", readLines(file.path(dir, "AGENTS.md")))))
 })
 
 test_that("tools, package sets, and skill sets are applied", {
@@ -33,7 +33,7 @@ test_that("tools, package sets, and skill sets are applied", {
   expect_true(all(c("targets", "dplyr", "lubridate") %in% pkgs))
   skills <- list.files(file.path(dir, ".claude", "skills"))
   expect_true("framework-workflow" %in% skills)
-  expect_false("ggplot2-exploring" %in% skills)
+  expect_false("ggplot2-figures" %in% skills)
 })
 
 test_that("a named logical turns a structure's tool off", {

@@ -13,16 +13,15 @@ on a matching task.
 | Skill | Covers | Path |
 |-------|--------|------|
 | `framework-workflow` | scaffold() initialization, critical rules, creating notebooks/scripts | `.claude/skills/framework-workflow/SKILL.md` |
-| `framework-data` | reading and saving data (data_read/data_save are mandatory) | `.claude/skills/framework-data/SKILL.md` |
-| `framework-packages` | adding and managing R packages (package_add, never install.packages) | `.claude/skills/framework-packages/SKILL.md` |
+| `framework-data` | reading and saving data with data_read() and data_save() | `.claude/skills/framework-data/SKILL.md` |
+| `framework-packages` | adding and managing R packages with package_add() | `.claude/skills/framework-packages/SKILL.md` |
 | `framework-outputs` | results, caching, database queries, publishing | `.claude/skills/framework-outputs/SKILL.md` |
 
 ## Framework Environment
 
-This project uses the Framework R package. **Every notebook and script MUST
-begin with `scaffold()`**, which sets the working directory, loads `.env`,
-installs/attaches packages from settings.yml, and sources the functions
-directory. See the `framework-workflow` skill before writing any code.
+This project uses the Framework R package. Start each notebook and script with
+`scaffold()`, which sets the working directory, loads `.env`, installs and
+attaches the project's packages, and sources the functions folder.
 
 ## Project Notes
 

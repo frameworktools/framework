@@ -1,58 +1,45 @@
 ---
 name: framework-data
-description: Use whenever reading or writing data files (CSV, RDS, Excel, Stata, SPSS, SAS) in this Framework project - data_read() and data_save() are mandatory; base R and readr I/O functions are forbidden.
+description: Use when reading or writing data files (CSV, RDS, Excel, Stata, SPSS, SAS) in a project that uses the Framework package. Covers data_read(), data_save(), the data catalog, and the data folders.
 metadata:
-  title: Reading and saving data
+  title: "Framework: reading and saving data"
   summary: Read and save data files through Framework, which records each file's hash.
 ---
 
-# Framework Data Management
+# Framework: reading and saving data
 
-**CRITICAL: All data operations MUST go through Framework functions.**
-This ensures integrity tracking and reproducibility. Framework records a hash of
-every file read or written in the project's `framework.db`.
+`data_read()` and `data_save()` record a hash of each data file in the
+project's `framework.db`. A file read with `read.csv()`, readr, readxl, or
+haven skips that record, so a changed file goes unnoticed. Follow these
+conventions in code that calls `scaffold()`. Leave existing code as it is
+unless the user asks you to change it.
 
-## Reading Data
+## Reading
 
-**ALWAYS use `data_read()`.** It supports CSV, RDS, Excel, Stata, SPSS, and SAS files.
+Prefer `data_read()`. It reads CSV, RDS, Excel, Stata, SPSS, and SAS files.
 
 ```r
-# From the data catalog in settings.yml (preferred)
-survey <- data_read("inputs.raw.survey")
-
-# Direct path
-customers <- data_read("inputs/raw/customers.csv")
+survey <- data_read("inputs.raw.survey")            # by catalog name
+customers <- data_read("inputs/raw/customers.csv")  # by path
 ```
 
-**NEVER use these — they bypass integrity tracking:**
+Datasets listed in the settings (often `settings/data.yml`) have a dotted
+catalog name. Prefer it to the path when an entry exists.
 
-- `read.csv()`, `read_csv()`, `readRDS()`, `read_excel()`, `haven::read_*()`
+## Saving
 
-If you see code using these functions, replace it with `data_read()`.
-
-## Saving Data
-
-**ALWAYS use `data_save()`:**
+Prefer `data_save()` to `write.csv()`, `write_csv()`, and `saveRDS()` for
+project data.
 
 ```r
-# Save to final (locked by default: reads error if the file changes)
+# Locked by default: a later read stops if the file changed
 data_save(final_df, "inputs/final/analysis_ready.csv")
 
 # Data a pipeline rebuilds on every run: unlocked, so a rebuild doesn't warn
 data_save(cleaned_df, "inputs/intermediate/cleaned.csv", locked = FALSE)
 ```
 
-**NEVER use** `write.csv()`, `write_csv()`, or `saveRDS()` — no tracking.
+## Folders
 
-## Data Catalog
-
-Datasets can be declared in settings.yml and read by dot-notation name
-(e.g. `data_read("inputs.raw.survey")`). Prefer catalog names over raw paths
-when an entry exists.
-
-## Directory Conventions
-
-Data flows raw → intermediate → final. This project's exact directory layout is
-listed in AGENTS.md (it is configured in settings.yml under `directories`).
-Raw inputs are immutable; only Framework-tracked writes belong in intermediate
-and final directories.
+Data moves from raw to intermediate to final. AGENTS.md lists this project's
+folders. Raw inputs stay unchanged.

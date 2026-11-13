@@ -79,10 +79,10 @@ if (is.null(project_name)) {
     )
     if (.fw_settings_sensitive(config)) {
       sections$type_specific <- paste0(
-        "## Privacy Requirements\n\n",
-        "**This is a privacy-sensitive project.** Never read data under a `private/` directory into a\n",
-        "conversation, and never commit or publish anything under one.",
-        if ("framework-sensitive-data" %in% skills) " Follow the `framework-sensitive-data` skill before any data operation." else "",
+        "## Private Folders\n\n",
+        "This project was created as privacy sensitive. Private files go in the\n",
+        "`private/` folders, which Git ignores.",
+        if ("framework-sensitive-data" %in% skills) " The `framework-sensitive-data` skill describes the folders and the checks Framework runs." else "",
         "\n"
       )
     }
@@ -287,69 +287,49 @@ they won't be overwritten.
   theme_enabled <- config$scaffold$set_theme_on_scaffold %||% FALSE
   functions_dir <- config$directories$functions %||% "functions"
 
-  # Build scaffold steps description
+  # What scaffold() does, in order
   scaffold_steps <- c(
-    "1. **Sets the working directory** to the project root (handles nested notebook execution)",
-    "2. **Loads environment variables** from `.env` (database credentials, API keys)",
-    "3. **Installs missing packages** listed in settings.yml"
+    "Sets the working directory to the project root",
+    "Loads environment variables from `.env`",
+    "Installs missing packages listed in the settings",
+    "Attaches packages marked `auto_attach: true`",
+    sprintf("Sources the functions in `%s/`", functions_dir)
   )
-
-  # Add auto-attach step if packages exist
-  scaffold_steps <- c(scaffold_steps,
-    "4. **Attaches packages** marked with `auto_attach: true` (see Packages section below)"
-  )
-
-  # Add functions sourcing
-  scaffold_steps <- c(scaffold_steps,
-    sprintf("5. **Sources all functions** from `%s/` directory - they are globally available", functions_dir)
-  )
-
-  # Add seed step if enabled
   if (seed_enabled) {
-    scaffold_steps <- c(scaffold_steps,
-      sprintf("6. **Sets random seed to %s** for reproducibility", seed)
-    )
+    scaffold_steps <- c(scaffold_steps, sprintf("Sets the random seed to %s", seed))
   }
-
-  # Add theme step if enabled
   if (theme_enabled) {
-    next_num <- length(scaffold_steps) + 1
-    scaffold_steps <- c(scaffold_steps,
-      sprintf("%d. **Sets ggplot2 theme** to `%s()`", next_num, theme)
-    )
+    scaffold_steps <- c(scaffold_steps, sprintf("Sets the ggplot2 theme to `%s()`", theme))
   }
+  scaffold_steps <- sprintf("%d. %s", seq_along(scaffold_steps), scaffold_steps)
 
-  # Build critical rules
-  critical_rules <- c(
-    "**DO NOT** call `library()` for packages listed in the auto-attach section below.",
-    "They are already loaded by scaffold(). Calling library() again wastes time and clutters output."
+  conventions <- c(
+    "- Packages marked `auto_attach` are already loaded. Call `library()` only for the others.",
+    sprintf("- Call functions from `%s/` directly. `scaffold()` has already sourced them.", functions_dir)
   )
-
   if (seed_enabled) {
-    critical_rules <- c(critical_rules, "",
-      sprintf("**DO NOT** call `set.seed()` after scaffold(). The seed is already set to %s.", seed),
-      "If you need a different seed for a specific operation, document why."
-    )
+    conventions <- c(conventions,
+      "- Prefer the project's seed. When an operation needs its own seed, say why in a comment.")
   }
-
-  critical_rules <- c(critical_rules, "",
-    sprintf("**DO NOT** use `source()` to load functions from the %s/ directory.", functions_dir),
-    "They are auto-loaded by scaffold(). Just call them directly."
+  conventions <- c(conventions,
+    "- Ask before running a database statement that changes data.",
+    "- Ask before publishing anything public. GitHub Pages is public even from a private repository."
   )
 
-  sprintf('This project uses Framework for reproducible data analysis. **Every notebook and script
-MUST begin with `scaffold()`** which initializes the environment.
+  sprintf('This project uses the Framework R package. Follow its conventions in code
+that calls `scaffold()`. Leave existing code as it is unless the user asks you
+to change it.
 
-### What scaffold() Does
+### scaffold()
 
-When you call `scaffold()`, it automatically:
-
-%s
-
-### CRITICAL RULES
+Start each notebook and script with `scaffold()`. It:
 
 %s
-', paste(scaffold_steps, collapse = "\n"), paste(critical_rules, collapse = "\n"))
+
+### Conventions
+
+%s
+', paste(scaffold_steps, collapse = "\n"), paste(conventions, collapse = "\n"))
 }
 
 
@@ -405,8 +385,8 @@ When you call `scaffold()`, it automatically:
   # Build directory table dynamically from config
   dir_table <- .build_directory_table(dirs, project_type)
 
-  sprintf('**All data I/O MUST use `data_read()` and `data_save()`** - see the
-`framework-data` skill for the full rules. This project\'s data directories:
+  sprintf('Prefer `data_read()` and `data_save()` for project data. They record a hash
+of each file. This project\'s data directories:
 
 %s
 ', dir_table)
@@ -440,7 +420,7 @@ When you call `scaffold()`, it automatically:
     docs = "Documentation",
 
     # Sensitive project directories
-    inputs_private_raw = "Private raw data (PII/PHI)",
+    inputs_private_raw = "Private raw data",
     inputs_public_raw = "Public raw data",
     inputs_private_intermediate = "Private intermediate",
     inputs_public_intermediate = "Public intermediate",
@@ -619,11 +599,11 @@ make_script("data-processing")        # Creates scripts/data-processing.R
   # Sensitive data is a setting, whatever structure the project uses
   if (isTRUE(sensitive)) project_type <- "project_sensitive"
   switch(project_type,
-    "project_sensitive" = '## Privacy Requirements
+    "project_sensitive" = '## Private Folders
 
-**This is a privacy-sensitive project.** Before ANY data operation, output, or
-commit, follow the `framework-sensitive-data` skill. Never commit or publish
-anything under a `private/` directory.
+This project was created as privacy sensitive. Private files go in the
+`private/` folders, which Git ignores. The `framework-sensitive-data` skill
+describes the folders and the checks Framework runs.
 ',
     "course" = '## Course Structure
 

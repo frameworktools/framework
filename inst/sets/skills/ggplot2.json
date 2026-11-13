@@ -7,10 +7,7 @@
   ],
   "layer": {
     "skills": {
-      "ggplot2-exploring": {
-        "package": true
-      },
-      "ggplot2-publishing": {
+      "ggplot2-figures": {
         "package": true
       }
     },

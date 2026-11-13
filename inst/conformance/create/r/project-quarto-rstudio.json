@@ -223,15 +223,21 @@
       "framework-outputs": {
         "package": true
       },
-      "ggplot2-exploring": {
+      "framework-cache": {
         "package": true
       },
-      "ggplot2-publishing": {
+      "framework-databases": {
+        "package": true
+      },
+      "framework-publishing": {
+        "package": true
+      },
+      "ggplot2-figures": {
         "package": true
       }
     }
   },
   "expected": {
-    "paths": [".claude/", ".claude/skills/", ".claude/skills/framework-data/", ".claude/skills/framework-data/SKILL.md", ".claude/skills/framework-outputs/", ".claude/skills/framework-outputs/SKILL.md", ".claude/skills/framework-packages/", ".claude/skills/framework-packages/SKILL.md", ".claude/skills/framework-workflow/", ".claude/skills/framework-workflow/SKILL.md", ".claude/skills/ggplot2-exploring/", ".claude/skills/ggplot2-exploring/SKILL.md", ".claude/skills/ggplot2-publishing/", ".claude/skills/ggplot2-publishing/SKILL.md", ".env", ".framework/", ".framework/.gitignore", ".framework/skills.lock.json", ".framework/spec.json", ".gitignore", "AGENTS.md", "CLAUDE.md", "_quarto.yml", "docs/", "docs/.gitkeep", "fixture-study.Rproj", "functions/", "functions/.gitkeep", "inputs/", "inputs/final/", "inputs/final/.gitkeep", "inputs/intermediate/", "inputs/intermediate/.gitkeep", "inputs/raw/", "inputs/raw/.gitkeep", "logs/", "logs/.gitkeep", "notebooks/", "notebooks/.gitkeep", "outputs/", "outputs/notebooks/", "outputs/notebooks/.gitkeep", "scaffold.R", "scratch/", "scratch/.gitkeep", "scripts/", "scripts/.gitkeep", "settings.yml", "settings/", "settings/ai.yml", "settings/author.yml", "settings/connections.yml", "settings/data.yml", "settings/git.yml", "settings/packages.yml", "settings/quarto.yml", "settings/scaffold.yml"]
+    "paths": [".claude/", ".claude/skills/", ".claude/skills/framework-cache/", ".claude/skills/framework-cache/SKILL.md", ".claude/skills/framework-data/", ".claude/skills/framework-data/SKILL.md", ".claude/skills/framework-databases/", ".claude/skills/framework-databases/SKILL.md", ".claude/skills/framework-outputs/", ".claude/skills/framework-outputs/SKILL.md", ".claude/skills/framework-packages/", ".claude/skills/framework-packages/SKILL.md", ".claude/skills/framework-publishing/", ".claude/skills/framework-publishing/SKILL.md", ".claude/skills/framework-workflow/", ".claude/skills/framework-workflow/SKILL.md", ".claude/skills/ggplot2-figures/", ".claude/skills/ggplot2-figures/SKILL.md", ".env", ".framework/", ".framework/.gitignore", ".framework/skills.lock.json", ".framework/spec.json", ".gitignore", "AGENTS.md", "CLAUDE.md", "_quarto.yml", "docs/", "docs/.gitkeep", "fixture-study.Rproj", "functions/", "functions/.gitkeep", "inputs/", "inputs/final/", "inputs/final/.gitkeep", "inputs/intermediate/", "inputs/intermediate/.gitkeep", "inputs/raw/", "inputs/raw/.gitkeep", "logs/", "logs/.gitkeep", "notebooks/", "notebooks/.gitkeep", "outputs/", "outputs/notebooks/", "outputs/notebooks/.gitkeep", "scaffold.R", "scratch/", "scratch/.gitkeep", "scripts/", "scripts/.gitkeep", "settings.yml", "settings/", "settings/ai.yml", "settings/author.yml", "settings/connections.yml", "settings/data.yml", "settings/git.yml", "settings/packages.yml", "settings/quarto.yml", "settings/scaffold.yml"]
   }
 }

@@ -20,7 +20,7 @@ test_that("every tool and set definition is well formed", {
   }
 
   sets <- c(framework:::.fw_skill_sets(), framework:::.fw_package_sets())
-  expect_setequal(names(framework:::.fw_skill_sets()), c("framework", "ggplot2"))
+  expect_setequal(names(framework:::.fw_skill_sets()), c("framework", "framework-extras", "ggplot2"))
   shipped_sets <- sub("[.]json$", "", list.files(system.file("sets", "packages", package = "framework")))
   expect_setequal(names(framework:::.fw_package_sets()), shipped_sets)
   expect_true(all(c("tidyverse-analysis", "python-data-analysis", "bayes-r", "tidy-omop") %in% shipped_sets))
@@ -48,7 +48,7 @@ test_that("tools bring what they require and respect the language", {
   spec <- spec_resolve(c(list(list(kind = "base", key = "project", layer = list(type = "project"))), entries), name = "x")
   expect_true(spec$tools$jupyter)
   expect_true("IRkernel" %in% names(spec$packages$default_packages))
-  expect_true("ggplot2-publishing" %in% names(spec$skills))
+  expect_true("ggplot2-figures" %in% names(spec$skills))
   expect_identical(spec_check(spec), character())
 })
 

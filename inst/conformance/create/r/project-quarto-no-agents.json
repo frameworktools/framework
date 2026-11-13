@@ -226,10 +226,16 @@
       "framework-outputs": {
         "package": true
       },
-      "ggplot2-exploring": {
+      "framework-cache": {
         "package": true
       },
-      "ggplot2-publishing": {
+      "framework-databases": {
+        "package": true
+      },
+      "framework-publishing": {
+        "package": true
+      },
+      "ggplot2-figures": {
         "package": true
       }
     }

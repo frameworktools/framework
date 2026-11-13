@@ -33,7 +33,10 @@ NULL
     "framework-workflow",
     "framework-data",
     "framework-packages",
-    "framework-outputs"
+    "framework-outputs",
+    "framework-cache",
+    "framework-databases",
+    "framework-publishing"
   )
 
   if (identical(project_type, "project_sensitive")) {
@@ -42,7 +45,7 @@ NULL
 
   # Every R project type makes figures
   if (project_type %in% c("project", "project_sensitive", "course", "presentation")) {
-    base_skills <- c(base_skills, "ggplot2-exploring", "ggplot2-publishing")
+    base_skills <- c(base_skills, "ggplot2-figures")
   }
 
   base_skills
@@ -169,13 +172,15 @@ ai_skills_update <- function(project_path = ".") {
   skills <- skills %||% .ai_skills_for_type(project_type)
 
   descriptions <- c(
-    "framework-workflow" = "scaffold() initialization, critical rules, creating notebooks/scripts",
-    "framework-data" = "reading and saving data (data_read/data_save are mandatory)",
-    "framework-packages" = "adding and managing R packages (package_add, never install.packages)",
-    "framework-outputs" = "results, caching, database queries, publishing",
-    "framework-sensitive-data" = "PII/PHI handling and private/public directory rules",
-    "ggplot2-exploring" = "quick, accurate ggplot2 figures for understanding data",
-    "ggplot2-publishing" = "polished ggplot2 figures for papers, reports, and slides"
+    "framework-workflow" = "Framework package initialization and notebook or script creation",
+    "framework-data" = "reading and saving data with data_read() and data_save()",
+    "framework-packages" = "adding and managing R packages with package_add()",
+    "framework-outputs" = "saving results with the Framework package",
+    "framework-cache" = "caching computations with the Framework package",
+    "framework-databases" = "querying configured Framework databases",
+    "framework-publishing" = "publishing artifacts with the Framework package",
+    "framework-sensitive-data" = "private and public folders in a privacy-sensitive project",
+    "ggplot2-figures" = "accurate ggplot2 figures, from exploring data to publication"
   )
 
   rows <- vapply(skills, function(skill) {

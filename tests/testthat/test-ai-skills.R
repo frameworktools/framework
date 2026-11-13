@@ -1,6 +1,7 @@
 test_that(".ai_skills_for_type returns correct skills per project type", {
-  base <- c("framework-workflow", "framework-data", "framework-packages", "framework-outputs")
-  figures <- c("ggplot2-exploring", "ggplot2-publishing")
+  base <- c("framework-workflow", "framework-data", "framework-packages", "framework-outputs",
+            "framework-cache", "framework-databases", "framework-publishing")
+  figures <- "ggplot2-figures"
 
   expect_equal(.ai_skills_for_type("project"), c(base, figures))
   expect_equal(.ai_skills_for_type("course"), c(base, figures))

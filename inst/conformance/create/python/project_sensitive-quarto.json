@@ -181,6 +181,15 @@
       "framework-outputs": {
         "package": true
       },
+      "framework-cache": {
+        "package": true
+      },
+      "framework-databases": {
+        "package": true
+      },
+      "framework-publishing": {
+        "package": true
+      },
       "framework-sensitive-data": {
         "package": true
       }
@@ -191,12 +200,18 @@
       ".claude/",
       ".claude/settings.json",
       ".claude/skills/",
+      ".claude/skills/framework-cache/",
+      ".claude/skills/framework-cache/SKILL.md",
       ".claude/skills/framework-data/",
       ".claude/skills/framework-data/SKILL.md",
+      ".claude/skills/framework-databases/",
+      ".claude/skills/framework-databases/SKILL.md",
       ".claude/skills/framework-outputs/",
       ".claude/skills/framework-outputs/SKILL.md",
       ".claude/skills/framework-packages/",
       ".claude/skills/framework-packages/SKILL.md",
+      ".claude/skills/framework-publishing/",
+      ".claude/skills/framework-publishing/SKILL.md",
       ".claude/skills/framework-sensitive-data/",
       ".claude/skills/framework-sensitive-data/SKILL.md",
       ".claude/skills/framework-workflow/",
