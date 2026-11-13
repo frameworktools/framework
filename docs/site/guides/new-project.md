@@ -91,7 +91,7 @@ See [Setup](guide:setup).
 
 ## Project types
 
-Framework has five structures. Four have their own function, and all work as `type` in `new_project()`:
+Framework has several structures. Each works as `type` in `new_project()`, and some have their own function:
 
 ### Standard project
 

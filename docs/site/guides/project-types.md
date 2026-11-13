@@ -13,8 +13,8 @@ A project's type is a label for the blueprint it came from. Framework builds eac
 - **Tools**: Quarto, renv, targets, Jupyter, and others.
 - **Sets**: package sets and AI skill sets.
 
-Framework ships five structures with the package, and two R app structures
-on Framework Cloud:
+Framework ships several structures with the package, and more on Framework
+Cloud:
 
 | Type | Best For |
 |------|----------|
