@@ -1,3 +1,25 @@
+# framework 2.0.7
+
+The bundled skills are shorter, state only widely agreed practice, and phrase
+Framework's conventions as preferences. Matches framework-py 0.1.0.dev21 and
+fw 0.6.2.
+
+Changes:
+
+* `ggplot2-figures` replaces `ggplot2-exploring` and `ggplot2-publishing`. It
+  covers chart choice, accuracy, titles and labels, color, themes, and saving.
+  Titles follow the venue's style, and a shared theme is optional.
+* Caching, database queries, and publishing each have their own skill:
+  `framework-cache`, `framework-databases`, and `framework-publishing`. The
+  `framework-extras` skill set offers them together.
+* The Framework skills say to leave existing code as it is unless the user
+  asks for a change, and to ask before a database statement that changes data.
+* `framework-sensitive-data` describes the private and public folders and the
+  checks Framework runs.
+* AGENTS.md states the conventions without capitals, and lists the two
+  questions to ask first: before changing a database, and before publishing
+  anything public.
+
 # framework 2.0.6
 
 A skill that git checked out with CRLF line endings on Windows no longer
