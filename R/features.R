@@ -96,7 +96,8 @@
     unknown <- setdiff(ids, names(sets))
     if (length(unknown) > 0) {
       stop("Unknown ", label, ": ", paste(unknown, collapse = ", "),
-           ". Available: ", paste(names(sets), collapse = ", "), call. = FALSE)
+           ". Available offline: ", paste(names(sets), collapse = ", "),
+           ". Other sets require Framework Cloud; sign in and resolve the project online.", call. = FALSE)
     }
     lapply(ids, function(id) list(kind = "facet", key = paste0("framework/", prefix, id), layer = sets[[id]]$layer))
   }
