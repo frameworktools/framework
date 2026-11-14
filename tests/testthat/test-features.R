@@ -26,7 +26,14 @@ test_that("every tool and set definition is well formed", {
   expect_true(all(c("tidyverse-analysis", "python-data-analysis", "bayes-r", "tidy-omop") %in% shipped_sets))
   for (id in names(sets)) {
     expect_true(v$validate(as_json(sets[[id]]$layer)), info = id)
-    expect_true(all(unlist(sets[[id]]$language) %in% c("r", "python")), info = id)
+    expect_true(all(unlist(sets[[id]]$language) %in% c("r", "python", "stata")), info = id)
+  }
+  # Stata sets install with fw_packages, from SSC, GitHub, or a net address
+  stata_sets <- Filter(function(d) "stata" %in% unlist(d$language), framework:::.fw_package_sets())
+  expect_true(all(c("stata-tables", "stata-fixed-effects", "stata-graphs", "stata-data-tools") %in% names(stata_sets)))
+  for (id in names(stata_sets)) {
+    sources <- vapply(stata_sets[[id]]$layer$packages$default_packages, function(p) p$source, character(1))
+    expect_true(all(sources %in% c("ssc", "github", "net")), info = id)
   }
   shipped <- list.files(system.file("templates", "skills", package = "framework"))
   for (id in names(framework:::.fw_skill_sets())) {

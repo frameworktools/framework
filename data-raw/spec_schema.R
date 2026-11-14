@@ -47,11 +47,13 @@ DATA_TYPES <- list(
 definitions <- list(
   package = obj(
     list(
-      # Each engine accepts its own sources: R cran/github/bioc, Python pypi/github
-      source = str(enum = list("cran", "github", "bioc", "pypi")),
+      # Each engine accepts its own sources: R cran/github/bioc, Python
+      # pypi/github, Stata ssc/github/net
+      source = str(enum = list("cran", "github", "bioc", "pypi", "ssc", "net")),
       version = nullable(str()),
       repo = nullable(str()),
       ref = nullable(str()),
+      url = c(nullable(str()), list(description = "Stata net packages: the folder or web address that holds the .pkg file.")),
       auto_attach = bool()
     ),
     required = c("source", "auto_attach")
@@ -133,6 +135,7 @@ properties <- list(
   packages = obj(
     list(
       use_renv = bool(),
+      project_ado = bool(description = "Stata: install packages into ado/plus in the project folder."),
       default_packages = map_of(ref("package"), key_pattern = "^[A-Za-z0-9][A-Za-z0-9._-]*$",
                                 description = "Package name -> spec. JSON object key order is not kept (Postgres JSONB sorts keys).")
     ),
@@ -165,6 +168,8 @@ properties <- list(
       seed = str(),
       set_theme_on_scaffold = bool(),
       ggplot_theme = str(),
+      matplotlib_style = str(description = "Python: the matplotlib style scaffold() applies when set_theme_on_scaffold is on, such as seaborn-v0_8-whitegrid."),
+      stata_scheme = str(description = "Stata: the graph scheme fw_scaffold sets when set_theme_on_scaffold is on, such as s2color."),
       source_all_functions = bool(),
       notebook_format = str(enum = list("quarto", "rmarkdown", "jupyter", "script")),
       workflow = str(

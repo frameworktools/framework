@@ -1,0 +1,38 @@
+{
+  "id": "stata-graphs",
+  "name": "Stata graphs",
+  "description": "coefplot for coefficient plots, binscatter for binned scatterplots, and grstyle, palettes, colrspace, and schemepack for graph styles and colors.",
+  "language": [
+    "stata"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "coefplot": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "binscatter": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "grstyle": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "palettes": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "colrspace": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "schemepack": {
+          "source": "ssc",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

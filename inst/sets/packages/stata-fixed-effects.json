@@ -1,0 +1,38 @@
+{
+  "id": "stata-fixed-effects",
+  "name": "Stata fixed effects",
+  "description": "reghdfe and ftools for regressions with many fixed effects, ppmlhdfe for Poisson models, and ivreghdfe with ivreg2 and ranktest for instrumental variables.",
+  "language": [
+    "stata"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "reghdfe": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "ftools": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "ppmlhdfe": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "ivreghdfe": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "ivreg2": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "ranktest": {
+          "source": "ssc",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "stata-data-tools",
+  "name": "Stata data tools",
+  "description": "gtools for fast collapse, egen, and reshape on large data, and missings, distinct, and labutil to check and label data.",
+  "language": [
+    "stata"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "gtools": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "missings": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "distinct": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "labutil": {
+          "source": "ssc",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

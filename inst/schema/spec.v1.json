@@ -134,6 +134,10 @@
         "use_renv": {
           "type": "boolean"
         },
+        "project_ado": {
+          "type": "boolean",
+          "description": "Stata: install packages into ado/plus in the project folder."
+        },
         "default_packages": {
           "type": "object",
           "additionalProperties": {
@@ -225,6 +229,14 @@
         },
         "ggplot_theme": {
           "type": "string"
+        },
+        "matplotlib_style": {
+          "type": "string",
+          "description": "Python: the matplotlib style scaffold() applies when set_theme_on_scaffold is on, such as seaborn-v0_8-whitegrid."
+        },
+        "stata_scheme": {
+          "type": "string",
+          "description": "Stata: the graph scheme fw_scaffold sets when set_theme_on_scaffold is on, such as s2color."
         },
         "source_all_functions": {
           "type": "boolean"
@@ -545,7 +557,9 @@
             "cran",
             "github",
             "bioc",
-            "pypi"
+            "pypi",
+            "ssc",
+            "net"
           ]
         },
         "version": {
@@ -577,6 +591,17 @@
               "type": "null"
             }
           ]
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Stata net packages: the folder or web address that holds the .pkg file."
         },
         "auto_attach": {
           "type": "boolean"

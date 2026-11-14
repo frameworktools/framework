@@ -1,0 +1,22 @@
+{
+  "id": "stata-tables",
+  "name": "Stata regression tables",
+  "description": "estout for esttab and estpost tables, and outreg2 for Word and Excel tables of estimates.",
+  "language": [
+    "stata"
+  ],
+  "layer": {
+    "packages": {
+      "default_packages": {
+        "estout": {
+          "source": "ssc",
+          "auto_attach": false
+        },
+        "outreg2": {
+          "source": "ssc",
+          "auto_attach": false
+        }
+      }
+    }
+  }
+}

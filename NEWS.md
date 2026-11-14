@@ -1,3 +1,21 @@
+# framework (development version)
+
+Package lists can hold Stata packages, for Framework for Stata's
+`fw_packages`, and the scaffold settings name a Stata graph scheme and a
+matplotlib style.
+
+Changes:
+
+* The spec schemas take `ssc` and `net` package sources, a `url` for `net`
+  packages, and `packages.project_ado`, which installs Stata packages into
+  `ado/plus` in the project folder.
+* `scaffold.stata_scheme` and `scaffold.matplotlib_style` name the graph
+  scheme Framework for Stata's `fw_scaffold` sets and the matplotlib style
+  framework-py's `scaffold()` applies, when `set_theme_on_scaffold` is on.
+* Four Stata package sets: `stata-tables`, `stata-fixed-effects`,
+  `stata-graphs`, and `stata-data-tools`. R's `package_sets_list()` lists
+  only R sets, as before.
+
 # framework 2.0.7
 
 The bundled skills are shorter, state only widely agreed practice, and phrase
