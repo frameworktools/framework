@@ -1,8 +1,9 @@
-# framework (development version)
+# framework 2.0.8
 
 Package lists can hold Stata packages, for Framework for Stata's
 `fw_packages`, and the scaffold settings name a Stata graph scheme and a
-matplotlib style.
+matplotlib style. Matches framework-py 0.1.0.dev22, fw 0.6.3, and Framework
+for Stata 0.3.0.
 
 Changes:
 
@@ -15,6 +16,10 @@ Changes:
 * Four Stata package sets: `stata-tables`, `stata-fixed-effects`,
   `stata-graphs`, and `stata-data-tools`. R's `package_sets_list()` lists
   only R sets, as before.
+* `scaffold()` sources the functions folder named in the settings'
+  `directories`, and still reads the older `options.functions_dir`.
+* An unknown skill or package set lists the sets available offline and says
+  other sets need Framework Cloud.
 
 # framework 2.0.7
 
