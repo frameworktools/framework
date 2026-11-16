@@ -5,136 +5,130 @@ section: project_types
 position: 12
 description: 'Separate private and public data with stricter privacy controls'
 ---
-## Overview
+## Structure
 
-The **Privacy Sensitive Project** is designed for research involving sensitive or protected data. It separates private and public directories and uses stricter `.gitignore` rules that prevent private data from being committed.
-
-## Directory structure
+The privacy-sensitive project (`project_sensitive`) separates restricted inputs and outputs from shareable files and enables stricter `.gitignore`, pre-commit, publishing, and AI assistant rules.
 
 ```text
 my-study/
-├── docs/                # Project documents
-├── functions/           # Custom R functions (auto-loaded)
+├── docs/                # Project documentation
+├── functions/           # Reusable R functions sourced by scaffold()
 │   └── helpers.R
 ├── inputs/
-│   ├── private/         # Sensitive data (gitignored)
+│   ├── private/         # Restricted source data (gitignored)
 │   │   ├── raw/
 │   │   ├── intermediate/
 │   │   └── final/
-│   └── public/          # Non-sensitive data
+│   └── public/          # Shareable datasets
 │       ├── raw/
 │       ├── intermediate/
 │       └── final/
-├── logs/                # Logs (gitignored)
+├── logs/                # Run logs (gitignored)
 ├── notebooks/           # Analysis notebooks
 ├── outputs/
 │   └── private/
 │       └── notebooks/   # Rendered notebooks (gitignored)
-├── scratch/             # Throwaway work (gitignored)
-├── scripts/             # Automation scripts
-├── settings/            # Settings sections (packages, data, git, ...)
+├── scratch/             # Temporary work (gitignored)
+├── scripts/             # Standalone scripts
+├── settings/            # Split configuration files
 ├── _quarto.yml          # Quarto configuration
-├── AGENTS.md            # AI assistant guide
-├── framework.db         # Metadata database (created on first use)
-├── scaffold.R           # Project startup code
-└── settings.yml         # Project configuration
+├── AGENTS.md            # AI assistant context
+├── framework.db         # Local metadata database (created on first use)
+├── scaffold.R           # Project startup script
+└── settings.yml         # Root configuration
 ```
 
-Additional directories are created on first use:
-- `outputs/private/cache` - Cached computations
-- `outputs/private/tables`, `figures`, `models`, `reports` - Private outputs
-- `outputs/public/tables`, `figures`, `models`, `reports` - Shareable results
+Additional output directories are created on first save:
 
-## Privacy controls
+- `outputs/private/cache` for cached computations
+- `outputs/private/tables`, `figures`, `models`, and `reports` for restricted outputs
+- `outputs/public/tables`, `figures`, `models`, `reports`, and `notebooks` for shareable outputs
+
+## Privacy safeguards
 
 ### Gitignored paths
 
-The privacy sensitive `.gitignore` template excludes:
-- `inputs/private/` and `outputs/private/` - All private inputs and outputs
-- Any `private/`, `*_private/`, or `sensitive/` folder
-- `cache/`, `scratch/`, `logs/`, and temporary folders
-- `.env` and credential files such as `*.key` and `*.pem`
-- `framework.db` - Local metadata, including data hashes
+The `project_sensitive` `.gitignore` excludes:
 
-### AI assistant controls
+- `inputs/private/` and `outputs/private/`
+- Any `private/`, `*_private/`, or `sensitive/` directory
+- `cache/`, `scratch/`, `logs/`, and temporary directories
+- `.env` and credential files (`*.key`, `*.pem`)
+- `framework.db` and its SQLite journal files
 
-- `AGENTS.md` names the private folders agents must not read.
-- The `framework-sensitive-data` skill covers private and public data rules.
-- `.claude/settings.json` denies Claude Code access to `inputs/private/`, `outputs/private/`, and `.env`, and turns on its sandbox.
+### Pre-commit hooks
+
+New `project_sensitive` projects enable the `data_security` and `check_sensitive_dirs` Git pre-commit checks by default, installing the hook after the initial commit. `data_security` runs `git_security_audit()` before each commit and blocks commits that track private data or `.env`. Disable a check with `git_hooks_disable()` if needed.
+
+### AI assistant rules
+
+- `AGENTS.md` lists private directories that coding agents must not read.
+- `framework-sensitive-data` documents private and public output handling.
+- When Claude Code is enabled, `.claude/settings.json` denies access to `inputs/private/`, `outputs/private/`, and `.env` and enables sandboxing.
 
 ### Publishing checks
 
-`publish()` checks every file it would upload. A file in a private folder (named `private` or ending in `_private`) triggers a warning. Interactive sessions ask first. Scripts stop unless `include_private = TRUE`.
+`publish()` inspects source paths, sensitive-project status, and notebook references before uploading. Files in private directories, notebooks or R objects in projects with `security.sensitive: true`, and notebooks quoting private catalog entries trigger a warning and require confirmation in interactive sessions (or `include_private = TRUE` in non-interactive runs).
 
-### Public and private outputs
+### Private and public output routing
 
-`save_table()`, `save_figure()`, `save_model()`, `save_report()`, and `save_notebook()` save to private folders by default. Use `public = TRUE` for shareable results:
+`save_table()`, `save_figure()`, `save_model()`, `save_report()`, and `save_notebook()` write to `outputs/private/` by default. Pass `public = TRUE` to write to `outputs/public/`:
 
 ```r
-# Save to private (default)
+# Writes to outputs/private/tables/analysis_results.csv
 save_table(results, "analysis_results")
 
-# Save to public for sharing
+# Writes to outputs/public/tables/summary.csv
 save_table(summary_stats, "summary", public = TRUE)
 ```
 
-Any project splits outputs this way when `security.sensitive` is on or it lists `outputs_private_*` folders.
+Any project uses split output routing when `security.sensitive` is `true` or when `outputs_private_*` keys are defined in `directories`.
 
-## Workflow
+## Typical workflow
 
-### 1. Environment setup
+### Session setup
 
 ```r
 library(framework)
 scaffold()
 ```
 
-### 2. Data organization by sensitivity
+### Catalog entries by sensitivity
 
-Place sensitive data in private directories:
+Register restricted inputs under `inputs.private.*` and aggregated or de-identified datasets under `inputs.public.*`:
 
 ```yaml
 data:
-  # Private: contains PHI
   inputs.private.raw.patients:
     path: inputs/private/raw/patients.csv
     type: csv
     locked: true
 
-  # Public: aggregated, de-identified
   inputs.public.final.demographics:
     path: inputs/public/final/demographics.csv
     type: csv
 ```
 
-### 3. Private data
+### Aggregation and public outputs
+
+Read restricted data, aggregate or de-identify it in R, and explicitly mark shareable outputs with `public = TRUE`:
 
 ```r
-# Load private data
 patients <- data_read("inputs.private.raw.patients")
 
-# Process and de-identify
 demographics <- patients |>
   group_by(age_group, region) |>
   summarize(n = n())
 
-# Save de-identified data to public
 data_save(demographics, "inputs.public.final.demographics")
-```
 
-### 4. Public outputs
-
-```r
-# Private analysis output
 save_figure(detailed_plot, "patient_outcomes")
-
-# Public summary for publication
 save_figure(summary_plot, "figure_1", public = TRUE)
 ```
 
 ## Configuration
 
-Example `settings.yml` for a privacy sensitive project:
+Example `settings.yml` for a `project_sensitive` project:
 
 ```yaml
 default:
@@ -167,67 +161,17 @@ default:
     sensitive: true
 ```
 
-The data catalog lives in `settings/data.yml`:
+## Operational practices
 
-```yaml
-data:
-  inputs.private.raw.patients:
-    path: inputs/private/raw/patients.csv
-    type: csv
-    locked: true
-```
+### Locked source files
 
-## Best practices
+Keep `locked: true` on raw datasets so `data_read()` stops with an error if source files are altered on disk.
 
-### Locked source data
+### Repository audits
 
-Use `locked: true` to ensure source data hasn't changed. `data_read()` warns when an unlocked file changes and errors when a locked one does:
-
-```yaml
-data:
-  inputs.private.raw.patients:
-    path: inputs/private/raw/patients.csv
-    type: csv
-    locked: true  # Error if file changes
-```
-
-### De-identification before publishing
-
-Always aggregate or de-identify data before moving to public directories:
-
-```r
-# Never do this
-save_table(raw_patient_data, "patients", public = TRUE)
-
-# Do this instead
-public_summary <- raw_patient_data |>
-  group_by(category) |>
-  summarize(mean_value = mean(value), n = n())
-
-save_table(public_summary, "summary", public = TRUE)
-```
-
-### Pre-commit review
-
-Check `git status` before committing to ensure no private data is staged:
+Inspect working tree status and run security audits on demand:
 
 ```r
 git_status()
-```
-
-Audit the repository for private data, or block such commits with the pre-commit hook. The hook is off by default:
-
-```r
 git_security_audit()
-git_hooks_enable("data_security")
 ```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Standard project](guide:standard-project)
-
-[Course/Teaching →](guide:course-teaching)
-
-</div>

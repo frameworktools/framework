@@ -3,16 +3,14 @@ id: installation
 title: Installation
 section: getting_started
 position: 1
-description: 'Requirements, installation, and updates'
+description: 'Requirements, CRAN and GitHub installation, and package updates'
 ---
 ## Requirements
 
-- **R** version 4.1 or higher.
-- Any editor, including the console.
+- **R** version 4.1 or later.
+- Any R environment, including [Positron](https://positron.posit.co/), [VS Code](https://code.visualstudio.com/), [RStudio](https://posit.co/products/open-source/rstudio/), or a terminal console.
 
-Framework works with [Positron](https://positron.posit.co/), [VS Code](https://code.visualstudio.com/), and [RStudio](https://posit.co/products/open-source/rstudio/).
-
-## Installation
+## CRAN installation
 
 Install Framework from CRAN:
 
@@ -22,7 +20,7 @@ install.packages("framework")
 
 ## Development version
 
-The development version on GitHub has fixes and features not yet on CRAN. Install it with the `remotes` package:
+Install the development version from GitHub with `remotes`:
 
 ```r
 install.packages("remotes")
@@ -31,42 +29,30 @@ remotes::install_github("frameworktools/framework")
 
 ## Optional packages
 
-- **httr2**: required for Framework Cloud features, such as `cloud_login()`, `setup("fw_...")`, and publishing to Framework Cloud.
-- **keyring**: stores the Framework Cloud login in Windows Credential Manager or the Linux Secret Service. Without it, the login is kept in a permission-restricted file. macOS uses the Keychain directly.
+- **httr2**: required for Framework Cloud operations, including `cloud_login()`, `setup("fw_...")`, and Cloud publishing.
+- **keyring**: stores Framework Cloud credentials in Windows Credential Manager or the Linux Secret Service. Without `keyring`, Framework stores credentials in a permission-restricted file inside the configuration directory. macOS uses the system Keychain directly.
 
 ```r
 install.packages(c("httr2", "keyring"))
 ```
 
-## Installation check
+## Verification
 
-After installation, verify Framework is working:
+Load the package and check the installed version:
 
 ```r
 library(framework)
 packageVersion("framework")
 ```
 
-Framework 2.0 reports version 2.0.0 or later.
+Framework 2.0 reports version `2.0.0` or later.
 
-## Updates
+## Package updates
 
-Update from CRAN with your other packages:
+Update the CRAN release with `update.packages()`:
 
 ```r
 update.packages()
 ```
 
-For the development version, install from GitHub again:
-
-```r
-remotes::install_github("frameworktools/framework")
-```
-
----
-
-<div style="display: flex; justify-content: flex-end">
-
-[Setup →](guide:setup)
-
-</div>
+Re-run `remotes::install_github("frameworktools/framework")` to update a GitHub installation.

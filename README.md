@@ -1,207 +1,170 @@
-# Framework
+# Framework for R
 
-An R package for structured, reproducible data analysis projects.
+Structured, reproducible data analysis projects in R.
 
-**Status:** Version 2.0 is on CRAN and works with Framework Cloud.
+Version 2.0 is available on CRAN and integrates with [Framework Cloud](https://framework.pub).
 
-## Quick Start
+## Quick start
 
 ```r
 # Install from CRAN
 install.packages("framework")
 
-# Or the development version from GitHub
+# Or install the development version from GitHub
 remotes::install_github("frameworktools/framework")
 
-# One-time global setup (author info, preferences) in the GUI
-framework::setup()
+# Optional: sign in to Framework Cloud for blueprints, defaults, and publishing
+framework::cloud_login()
 
-# Create projects using your saved defaults
-framework::new_project()
+# Create projects
 framework::new_project("my-analysis", "~/code/my-analysis")
+framework::new_project_sensitive("medical-study", "~/code/medical-study")
 framework::new_presentation("quarterly-review", "~/talks/q4")
 framework::new_course("stats-101", "~/teaching/stats")
 
-# After cloning a project on another machine or a cluster
+# Create a local project from a Framework Cloud project token
+framework::setup("fw_...")
+
+# Initialize a cloned project on another machine or cluster
 framework::bootstrap()
 ```
 
-Manage your defaults and blueprints at [framework.pub](https://framework.pub)
-after `framework::cloud_login()`, or edit `settings.yml` directly. The local
-GUI (`gui()`) is retired.
+Edit project defaults and blueprints on Framework Cloud under **Settings > Project defaults** after running `framework::cloud_login()`, or edit `settings.yml` directly in each project. The local `gui()` interface is retired.
 
-### Project Types
+`new_project()` is the primary project creation function. `new()` remains available for existing scripts and can mask `methods::new()` when attached.
 
-- **project** (default): Full-featured research projects with notebooks, scripts, organized data management, and documentation
-- **project_sensitive**: Like project, but with additional privacy protections for sensitive data
-- **course**: Teaching materials with slides, assignments, and modules
-- **presentation**: Single talks with one Quarto file and minimal setup
+## Project types
 
-**Example project structure:**
+- `project` (default): research projects with notebooks, scripts, data directories, outputs, and documentation.
+- `project_sensitive`: separates private and public data directories and enables stricter Git and agent rules.
+- `course`: teaching materials with slides, assignments, readings, and modules.
+- `presentation`: single slide decks or reports with one Quarto file.
+- `bare`: minimal configuration (`settings.yml`, `.gitignore`, and `.framework/spec.json`) for custom layouts.
 
-```
+Standard project layout:
+
+```text
 project/
-├── notebooks/              # Exploratory analysis
-├── scripts/                # Production pipelines
+├── notebooks/              # Analysis notebooks
+├── scripts/                # Standalone scripts and pipelines
 ├── inputs/
-│   ├── raw/                # Raw data
+│   ├── raw/                # Read-only source data
 │   ├── intermediate/       # Cleaned datasets
-│   └── final/              # Curated analytic datasets
-├── outputs/                # Made on first save
+│   └── final/              # Analysis-ready datasets
+├── outputs/                # Save folders created on first save
+│   ├── notebooks/          # Rendered notebooks
 │   ├── tables/             # save_table()
 │   ├── figures/            # save_figure()
 │   ├── models/             # save_model()
 │   ├── reports/            # save_report()
 │   └── cache/              # cache_remember() (gitignored)
-├── functions/              # Custom functions
-├── docs/                   # Documentation
+├── functions/              # Reusable R functions
+├── docs/                   # Project documentation
 ├── scratch/                # Temporary files (gitignored)
-├── logs/                   # Run logs, cluster job output (gitignored)
-├── settings.yml            # Project configuration
-├── framework.db            # Metadata tracking database (gitignored)
-└── .env                    # Secrets (gitignored)
+├── logs/                   # Run logs and cluster output (gitignored)
+├── settings/               # Split configuration files
+├── settings.yml            # Root project configuration
+├── framework.db            # Local metadata database (gitignored)
+└── .env                    # Secrets and tokens (gitignored)
 ```
 
-The standard project's `.gitignore` does not ignore `inputs/` or `outputs/`:
-keep data that must not be committed in a folder named `private/` (any
-`private/` folder is ignored), or use the **project_sensitive** type, which
-splits inputs and outputs into ignored `private/` and committed `public/`
-folders. A project_sensitive project starts with the `data_security` and
-`check_sensitive_dirs` pre-commit checks on, installed after the initial
-commit (turn them off with `git_hooks_disable()`).
+A standard project's `.gitignore` does not ignore `inputs/` or `outputs/`. Store restricted files in a `private/` directory (every `private/` directory is ignored) or use `project_sensitive`, which splits inputs and outputs into ignored `private/` and tracked `public/` directories. A `project_sensitive` project starts with the `data_security` and `check_sensitive_dirs` pre-commit checks enabled. Disable individual checks with `git_hooks_disable()`.
 
-## Skill sync
+## Core features
 
-Bring a project's skills up to date with its Framework Cloud setup, and send
-edited ones back:
+- **Project scaffolding**: standard directory layouts and YAML configuration.
+- **Data catalog**: dot-notation data references (`inputs.raw.survey`) with SHA-256 hash verification.
+- **Package management**: declarative package lists, auto-attachment during `scaffold()`, and optional `renv` lockfiles.
+- **Computation caching**: disk caching in `framework.db` and RDS files with expiration and dependency tracking.
+- **Database and storage connections**: PostgreSQL, SQLite, DuckDB, MySQL, MariaDB, SQL Server, and S3-compatible object storage with `.env` credential lookups.
+- **Format readers**: CSV, TSV, RDS, Excel, Parquet, Stata (`.dta`), SPSS (`.sav`, `.por`), and SAS (`.sas7bdat`, `.xpt`).
+- **Publishing**: versioned artifacts on Framework Cloud, GitHub Pages, S3 buckets, and local or shared folders.
 
-```r
-framework::pull_skills()
-framework::push_skills()
-```
+## Workflow
 
-Sync one local skill and its companion files with your Framework Cloud account:
-
-```r
-framework::skills_sync(".claude/skills/my-skill", dry_run = TRUE)
-framework::skills_sync(".claude/skills/my-skill")
-```
-
-Local edits create account versions. Edited Framework skills become private
-forks with an exact source version. Concurrent edits stop for reconciliation.
-[Skill sync guide](https://framework.pub/docs/skill-sync).
-
-## Why Framework?
-
-Framework reduces boilerplate and enforces best practices:
-
-- **Project scaffolding**: Standardized directories, config-driven setup
-- **Data management**: Declarative data catalog and integrity tracking
-- **Auto-loading**: Load packages with one command; no more scattered `library()` calls
-- **Pain-free renv**: Reproducible package management without fighting renv
-- **Caching**: Smart caching for expensive computations
-- **Database helpers**: PostgreSQL, SQLite, DuckDB, MySQL with credential management
-- **File formats**: CSV, TSV, RDS, Stata (.dta), SPSS (.sav), SAS (.xpt, .sas7bdat)
-
-## Core Workflow
-
-### 1. Initialize Your Session
+### Session initialization
 
 ```r
 library(framework)
-scaffold()  # Loads packages, functions, config, standardizes working directory
+scaffold()
 ```
 
-### 2. Create Notebooks & Scripts
+`scaffold()` locates the project root, loads `.env` and `settings.yml`, prepares `framework.db`, installs missing project packages, attaches configured packages, sources `functions/*.R`, and runs `scaffold.R`.
+
+### Notebooks and scripts
 
 ```r
-# Quarto notebook (default)
-make_notebook("exploration")    # → notebooks/exploration.qmd
-make_qmd("analysis")            # Always Quarto
-make_qmd("bp-ldl", title = "BP and LDL")  # Title as typed, for acronyms
-make_rmd("report")              # RMarkdown
-
-# Presentations
-make_revealjs("slides")         # reveal.js presentation
-
-# Scripts
-make_script("process-data")     # → scripts/process-data.R
-
-# List available templates
-stubs_list()
+make_notebook("exploration")              # -> notebooks/exploration.qmd
+make_qmd("bp-ldl", title = "BP and LDL")  # Preserves acronym casing
+make_rmd("report")                        # R Markdown
+make_revealjs("slides")                   # RevealJS slides
+make_script("process-data")               # -> scripts/process-data.R
+stubs_list()                              # Available templates
 ```
 
-**Custom stubs:** Create a `stubs/` directory with your own templates.
+Add custom templates in a project's `stubs/` directory or in `fw_config_dir()` with `write_framework_template()`.
 
-### 3. Load Data
+### Data catalog and reads
 
-**Via config (recommended):**
+Register datasets in `settings/data.yml` or `settings.yml`:
 
 ```yaml
-# settings.yml
 data:
   inputs:
     raw:
       survey:
         path: inputs/raw/survey.csv
         type: csv
-        locked: true  # Errors if file changes
+        locked: true
 ```
+
+Read by catalog name or file path:
 
 ```r
 df <- data_read("inputs.raw.survey")
+df_dta <- data_read("inputs/raw/stata_file.dta")
+df_sav <- data_read("inputs/raw/spss_file.sav")
 ```
 
-**Direct path:**
+Every catalog read checks the file's SHA-256 hash against `framework.db`. Locked entries stop with an error when the file changes on disk.
 
-```r
-df <- data_read("inputs/raw/my_file.csv")       # CSV
-df <- data_read("inputs/raw/stata_file.dta")    # Stata
-df <- data_read("inputs/raw/spss_file.sav")     # SPSS
-```
-
-Every read is logged with a SHA-256 hash for integrity tracking.
-
-### 4. Cache Expensive Operations
+### Caching
 
 ```r
 model <- cache_remember("model_v1", {
   expensive_model_fit(df)
-}, expire_after = "1 day")  # or a number of hours, such as 24
+}, expire_after = "1 day")
 
-# Recompute when the data, the code, or a parameter changes
 model <- cache_remember("model_v2", {
   expensive_model_fit(data_read("inputs.final.cohort"), k = 4)
 }, depends_on = list("inputs.final.cohort", "functions/fit.R", k = 4))
 ```
 
-### 5. Save Results
+### Saving datasets and outputs
 
-**Save data files:**
+Save intermediate and final datasets to the catalog:
 
 ```r
 data_save(processed_df, "inputs.intermediate.cleaned_data")
-# → saves to inputs/intermediate/cleaned_data.rds
-
 data_save(final_df, "inputs.final.analysis_ready", type = "csv")
-# → saves to inputs/final/analysis_ready.csv
 ```
 
-**Save analysis outputs:**
+Save tables, figures, models, and rendered notebooks to `outputs/`:
 
 ```r
-save_table(summary_df, "summary")       # → outputs/tables/summary.csv
-save_figure(plot, "trend")              # → outputs/figures/trend.png
-save_figure(plot, "paper/fig2", format = c("pdf", "eps"))  # → outputs/figures/paper/fig2.pdf, .eps
-save_model(model, "regression_model")   # → outputs/models/regression_model.rds
-model <- load_model("regression_model")  # read it back
-show_table(summary_df, digits = 2)      # Markdown table in a Quarto or Jupyter notebook
+save_table(summary_df, "summary")
+save_figure(plot, "trend")
+save_figure(plot, "paper/fig2", format = c("pdf", "eps"))
+save_model(model, "regression_model")
+model <- load_model("regression_model")
+show_table(summary_df, digits = 2)
 ```
 
-### 6. Query Databases
+### Database queries
+
+Configure connections in `settings/connections.yml` or `settings.yml`:
 
 ```yaml
-# settings.yml
 connections:
   default_database: db
   databases:
@@ -213,27 +176,28 @@ connections:
       password: env("DB_PASS")
 ```
 
+Run queries and SQL scripts:
+
 ```r
 df <- db_query("SELECT * FROM users WHERE active = true", "db")
-
-# Build a database from SQL and CSV files, in one transaction each
 db_execute_file("db", "sql/schema.sql")
 db_copy_from("db", "cdm.concept", "inputs/raw/concept.csv")
 ```
 
-## Enhanced Data Viewing
+### Interactive inspection
 
-`view()` provides rich, browser-based data exploration:
+`view()` opens objects in a browser viewer across RStudio, Positron, VS Code, and terminals:
 
 ```r
-view(mtcars)                    # Interactive table with search/filter/export
-view(settings())                # Tabbed YAML + R structure for lists
-view(ggplot(mtcars, aes(mpg, hp)) + geom_point())  # Interactive plots
+view(mtcars)
+view(settings())
+view(ggplot(mtcars, aes(mpg, hp)) + geom_point())
 ```
 
 ## Configuration
 
-**Simple:**
+Single-file `settings.yml`:
+
 ```yaml
 default:
   packages:
@@ -243,7 +207,8 @@ default:
     example: data/example.csv
 ```
 
-**Advanced (split files):**
+Split files (`settings/*.yml`):
+
 ```yaml
 default:
   data: settings/data.yml
@@ -251,13 +216,15 @@ default:
   connections: settings/connections.yml
 ```
 
-**Secrets in `.env`:**
-```env
+Secrets in `.env`:
+
+```sh
 DB_HOST=localhost
 DB_PASS=secret
 ```
 
-**Reference in config:**
+Environment variable lookups in `settings.yml`:
+
 ```yaml
 connections:
   databases:
@@ -267,92 +234,78 @@ connections:
       password: env("DB_PASS", "default")
 ```
 
-### AI Assistant Support
+## AI assistants and Cloud sync
 
-New projects can include instruction files for AI coding assistants
-(AGENTS.md, with CLAUDE.md and GitHub Copilot copies) and Framework skills in
-`.claude/skills/`. To keep them current:
+New projects include `AGENTS.md`, pointer files for configured assistants (`CLAUDE.md` or `.github/copilot-instructions.md`), and skill files under `.claude/skills/` or `.agents/skills/`:
 
 ```r
-ai_regenerate_context()   # Refresh the generated sections of AGENTS.md
-ai_sync_context()         # Copy AGENTS.md to the other assistants' files
-pull_skills()             # Update the project's skills from its Cloud setup
-push_skills()             # Send locally edited skills to Cloud
-pull_all()                # Bring in Cloud's packages, skills, and data registry
-push_all()                # Send packages, edited skills, and the data registry
+ai_regenerate_context()   # Refresh generated sections of AGENTS.md
+pull_skills()             # Pull skills from the project's Cloud setup
+push_skills()             # Push locally edited skills to Cloud
+skills_sync(".claude/skills/my-skill")
+pull_all()                # Pull packages, skills, and data registry from Cloud
+push_all()                # Push packages, skills, and data registry to Cloud
 ```
 
-## Key Functions
+## Key functions
 
 | Function | Purpose |
 |----------|---------|
-| `scaffold()` | Initialize session (load packages, functions, config) |
-| `data_read()` | Read data from path or catalog |
-| `data_save()` | Save data with integrity tracking |
-| `project_path()` | A path from the project root, like `here::here()` |
-| `db_query()` | Execute SQL query, return data |
-| `db_execute()` | Execute SQL command |
-| `db_execute_file()`, `db_copy_from()` | Run a .sql file; load a CSV into a table |
-| `cache_remember()` | Lazy evaluation with caching |
-| `save_table()`, `save_figure()`, `save_model()` | Save analysis outputs (`load_model()` reads a model back) |
-| `result_list()` | List saved outputs |
+| `scaffold()` | Initialize the project session |
+| `data_read()` | Read data from a catalog entry or file path |
+| `data_save()` | Save data and record its SHA-256 hash |
+| `project_path()` | Resolve a path relative to the project root |
+| `db_query()` | Run a SQL query and return a data frame |
+| `db_execute()` | Execute a SQL statement |
+| `db_execute_file()`, `db_copy_from()` | Run a `.sql` file or load a CSV into a table |
+| `cache_remember()` | Evaluate and cache an expression |
+| `save_table()`, `save_figure()`, `save_model()` | Save analysis outputs (`load_model()` reads a saved model) |
+| `result_list()` | List tracked outputs in `framework.db` |
 | `package_add()` | Record a package in settings and install it |
-| `scratch_capture()` | Quick debug/temp file save |
-| `renv_enable()` | Enable renv for reproducibility |
-| `packages_snapshot()` | Save package versions to renv.lock |
-| `packages_restore()` | Restore packages from renv.lock |
-| `git_security_audit()` | Scan for data leaks and security issues |
+| `scratch_capture()` | Save an object to `scratch/` during debugging |
+| `renv_enable()` | Enable `renv` lockfile management |
+| `packages_snapshot()`, `packages_restore()` | Write or restore `renv.lock` |
+| `git_security_audit()` | Check for tracked private data and exposed secrets |
 
-## Data Integrity & Security
+## Data integrity and security
 
-- **Hash tracking**: All data files tracked with SHA-256 hashes
-- **Locked data**: Flag files as read-only, errors on modification
-- **Gitignore by default**: Any `private/` folder, `.env`, caches, scratch,
-  and logs are ignored
-- **Security audits**: `git_security_audit()` detects data leaks, publishing
-  folders git would commit, passwords written into connection settings, and
-  tracked data with identifier-like columns (`data_save()` warns about those too)
-
-Framework does not encrypt data files. Keep sensitive data in ignored
-`private/` folders, on encrypted storage, or both.
-
-### Security Auditing
+- **SHA-256 hashes**: `data_read()` and `data_save()` record and verify file hashes in `framework.db`.
+- **Locked entries**: `locked: true` raises an error if a source file changes.
+- **Gitignore rules**: every template ignores `private/`, `.env`, caches, `scratch/`, `logs/`, and `framework.db`.
+- **Security audit**: `git_security_audit()` checks `.gitignore` coverage, tracked private files, Git history, data files outside configured directories, `.env` tracking, and identifier-like column names.
 
 ```r
-audit <- git_security_audit()                  # Full audit
-audit <- git_security_audit(auto_fix = TRUE)   # Auto-fix .gitignore issues
+audit <- git_security_audit()
+audit <- git_security_audit(auto_fix = TRUE)
 ```
+
+Framework does not encrypt files on disk. Store restricted data in ignored `private/` directories on encrypted storage.
 
 ## Reproducibility with renv
 
-Optional renv integration (off by default):
+`renv` integration is optional and disabled by default:
 
 ```r
-renv_enable()           # Enable for this project
-packages_snapshot()     # Save current versions
-packages_restore()      # Restore from renv.lock
-renv_disable()          # Disable (keeps renv.lock)
+renv_enable()
+packages_snapshot()
+packages_restore()
+renv_disable()
 ```
 
-**Version pinning in settings.yml:**
+Version pinning in `settings.yml` or `settings/packages.yml`:
 
 ```yaml
 packages:
-  - dplyr                    # Latest from CRAN
-  - ggplot2@3.4.0           # Specific version
-  - tidyverse/dplyr@main    # GitHub with branch
+  - dplyr
+  - ggplot2@3.4.0
+  - tidyverse/dplyr@main
 ```
 
-## Roadmap
+## Publishing
 
-- Better database support (DuckDB, MySQL, SQL Server)
-- Results publishing to S3
-- Enhanced results tracking with blinding support
+`publish()` uploads tables, models, hypothesis tests, figures, rendered documents, and directories to Framework Cloud, GitHub Pages, S3-compatible buckets, or local and shared folders. Framework Cloud accounts on `framework.pub` include 1 GB of artifact hosting at no charge.
 
-### Publishing destinations
-
-`publish()` accepts tables, models, figures, rendered documents, and files.
-Choose a named destination in `settings.yml`:
+Configure named destinations in `settings.yml`:
 
 ```yaml
 default:
@@ -369,7 +322,7 @@ default:
         driver: cloud
       bucket:
         driver: s3
-        bucket: results
+        bucket: results      # a connections.storage_buckets name
 ```
 
 ```r
@@ -378,23 +331,4 @@ publish(lm(mpg ~ wt + hp, mtcars), to = "pages", slug = "fuel-economy-model")
 publish("outputs/report.html", to = "cloud")
 ```
 
-Folder and GitHub destinations include a site index, offline reader pages,
-SHA-256 file manifests, and version archives. Named S3 destinations upload
-immutable version folders and the latest bundle. An explicit `to` overrides
-`publish.default`. Without either, existing bucket and Cloud selection applies.
-Legacy bucket uploads retain their file paths and formats.
-
-Passwords and unlisted links require Cloud. Private folder and S3 destinations
-use `visibility: private` and destination access controls. The `private: true`
-configuration remains a compatibility alias. S3 also requires API confirmation of
-a non-public bucket policy and all Public Access Block settings.
-Private GitHub Pages requires confirmation from GitHub's Pages API through
-an authenticated `gh` command. Unsupported sharing options fail before delivery.
-
-External deliveries with a project token record metadata in Cloud. File contents
-and local folder paths stay at the destination. Tracking failures produce a warning
-and preserve the completed delivery. Legacy bucket metadata uses version 1;
-conflicting updates produce a tracking warning.
-
-`new_project()` is the preferred project creation function. `new()` remains
-available for existing scripts and can mask `methods::new()` when attached.
+Folder and GitHub destinations generate a site index, offline reader pages, SHA-256 manifests, and version archives. Named S3 destinations write immutable version directories alongside the latest bundle. Passwords, unlisted links, and collections require Framework Cloud. External deliveries in projects with `FW_PROJECT_TOKEN` record metadata in Framework Cloud while keeping file contents at the destination.

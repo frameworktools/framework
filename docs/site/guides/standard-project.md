@@ -5,78 +5,71 @@ section: project_types
 position: 11
 description: 'Default project type with organized data, work, and output directories'
 ---
-## Overview
+## Structure
 
-The **Standard Project** is Framework's default project structure. It is designed for data analysis, research, and reporting.
-
-## Directory structure
-
-An example project might look like:
+The standard project (`project`) is Framework's default layout for data analysis, pipelines, and reporting.
 
 ```text
 my-project/
-├── docs/                # Project documents
-├── functions/           # Custom R functions (auto-loaded)
+├── docs/                # Project documentation
+├── functions/           # Reusable R functions sourced by scaffold()
 │   └── helpers.R
-├── inputs/              # Data inputs
-│   ├── raw/             # Original data (never modify)
-│   ├── intermediate/    # Cleaned/processed data
+├── inputs/              # Input datasets
+│   ├── raw/             # Unmodified source files
+│   ├── intermediate/    # Cleaned pipeline datasets
 │   └── final/           # Analysis-ready datasets
-├── logs/                # Logs (gitignored)
+├── logs/                # Run logs (gitignored)
 ├── notebooks/           # Analysis notebooks
 │   ├── 01-exploration.qmd
 │   └── 02-modeling.qmd
 ├── outputs/
 │   └── notebooks/       # Rendered notebooks
-├── scratch/             # Throwaway work (gitignored)
-├── scripts/             # Automation scripts
+├── scratch/             # Temporary work (gitignored)
+├── scripts/             # Standalone scripts
 │   └── data-pipeline.R
-├── settings/            # Settings sections (packages, data, git, ...)
+├── settings/            # Split configuration files
 ├── _quarto.yml          # Quarto configuration
-├── AGENTS.md            # AI assistant guide
-├── framework.db         # Metadata database (created on first use)
-├── scaffold.R           # Project startup code
-└── settings.yml         # Project configuration
+├── AGENTS.md            # AI assistant context
+├── framework.db         # Local metadata database (created on first use)
+├── scaffold.R           # Project startup script
+└── settings.yml         # Root configuration
 ```
 
-Additional directories are created on first use:
-- `outputs/cache` - Cached computations
-- `outputs/tables` - Saved tables
-- `outputs/figures` - Saved figures
-- `outputs/models` - Saved models
-- `outputs/reports` - Saved reports
+Output subdirectories are created on first save:
 
-`framework.db` is created by the first `scaffold()`, `bootstrap()`, or saved output.
+- `outputs/cache` for cached computations
+- `outputs/tables` for `save_table()`
+- `outputs/figures` for `save_figure()`
+- `outputs/models` for `save_model()`
+- `outputs/reports` for `save_report()`
 
-## Workflow
+`framework.db` is created on the first call to `scaffold()`, `bootstrap()`, or a `save_*()` / `cache_*()` function.
 
-### 1. Environment setup
+## Typical workflow
 
-Start each session by running scaffold:
+### Session setup
+
+Initialize the session at the top of each notebook or script:
 
 ```r
 library(framework)
 scaffold()
 ```
 
-This loads:
-- Packages from `settings/packages.yml`
-- Custom functions from `functions/`
-- Project configuration
-- `scaffold.R`, if present
+`scaffold()` loads `.env` and `settings.yml`, attaches configured packages from `settings/packages.yml`, sources `functions/*.R`, and runs `scaffold.R`.
 
-### 2. Notebooks
+### Notebooks
 
-Create analysis notebooks:
+Create Quarto notebooks in `notebooks/` or a subdirectory:
 
 ```r
 make_notebook("exploration")
 make_notebook("modeling", subdir = "analysis")
 ```
 
-### 3. Data
+### Data catalog
 
-Define data in `settings/data.yml`:
+Register source files in `settings/data.yml`:
 
 ```yaml
 data:
@@ -85,15 +78,15 @@ data:
     type: csv
 ```
 
-Load and process:
+Read registered entries by name:
 
 ```r
 sales <- data_read("inputs.raw.sales")
 ```
 
-### 4. Caching
+### Computation caching
 
-Cache expensive computations:
+Cache expensive steps in `outputs/cache/`:
 
 ```r
 model_results <- cache_remember("sales_model", {
@@ -101,11 +94,12 @@ model_results <- cache_remember("sales_model", {
 })
 ```
 
-## Best practices
+## Project conventions
 
-### Notebook order
+### Numbered notebooks
 
-Number notebooks to indicate order:
+Prefix sequential notebooks with two-digit numbers so execution order is explicit:
+
 ```text
 notebooks/
 ├── 01-data-import.qmd
@@ -115,30 +109,15 @@ notebooks/
 └── 05-reporting.qmd
 ```
 
-### Subdirectories
+### Notebook subdirectories
 
-For complex projects:
+Group larger analyses into subdirectories under `notebooks/`:
+
 ```r
 make_notebook("eda", subdir = "exploration")
 make_notebook("regression", subdir = "modeling")
 ```
 
-### Raw and processed data
+### Immutable raw inputs
 
-Never modify raw data:
-```text
-inputs/
-├── raw/          # NEVER modify
-├── intermediate/ # Cleaned versions
-└── final/        # Ready for analysis
-```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Project types](guide:project-types)
-
-[Privacy-sensitive project →](guide:privacy-sensitive-project)
-
-</div>
+Keep files in `inputs/raw/` unmodified and write cleaned or derived datasets to `inputs/intermediate/` and `inputs/final/`.

@@ -3,33 +3,30 @@ id: plumber-api
 title: Plumber API
 section: project_types
 position: 16
-description: 'A Plumber API with endpoints in plumber.R and the logic in R/'
+description: 'Plumber HTTP API blueprint with plumber.R endpoints and R/ logic'
 ---
-## Overview
+## Blueprint overview
 
-The Plumber API type (`plumber`) starts a web API built with Plumber. It
-comes from Framework Cloud, so you need to be signed in to create one.
+The Plumber API blueprint (`plumber`) scaffolds an HTTP API powered by `plumber`. Because the blueprint is hosted on Framework Cloud, sign in with `cloud_login()` before creating one.
 
-## Creating the project
+## Project creation
 
-Sign in once, then create the project from R:
+Create the project from R after signing in:
 
 ```r
 framework::cloud_login()
 framework::new_project("my-api", type = "plumber")
 ```
 
-You can also open **Blueprints** on Framework Cloud, choose **Plumber API**,
-and select **New project**. Signed out, `type = "plumber"` builds Framework's
-default layout with a warning.
+You can also open **Blueprints** on Framework Cloud, select **Plumber API**, and click **Create project**. When signed out, `type = "plumber"` emits a warning and builds a layout with only the core project files, without the blueprint's folders or starter files.
 
 ## Starter files
 
 ```text
 my-api/
-├── plumber.R      # the endpoints
-├── run.R          # starts the API on port 8000
-├── R/             # the logic the endpoints call
+├── plumber.R      # Endpoint definitions
+├── run.R          # Launches the API on port 8000
+├── R/             # Functions called by endpoints
 ├── tests/
 ├── data/
 ├── scripts/
@@ -37,7 +34,7 @@ my-api/
 └── settings.yml
 ```
 
-`plumber.R` loads the functions in `R/` and defines two endpoints:
+Starter `plumber.R`:
 
 ```r
 #* @apiTitle my-api
@@ -59,10 +56,9 @@ function(msg = "") {
 }
 ```
 
-## Packages
+## Default packages
 
-The project starts with the **Plumber API** package set: plumber, jsonlite,
-httr2, and logger. To add the same set to an existing project:
+The blueprint includes the `plumber-r` package set (`plumber`, `jsonlite`, `httr2`, and `logger`). Add the same set to an existing project with:
 
 ```r
 framework::package_set_add("plumber-r")
@@ -70,11 +66,10 @@ framework::package_set_add("plumber-r")
 
 ## Running the API
 
-From the project folder:
+Start the server from the project root:
 
 ```sh
 Rscript run.R
 ```
 
-The API answers at `http://127.0.0.1:8000`, and its interactive docs are at
-`http://127.0.0.1:8000/__docs__/`.
+The API listens at `http://127.0.0.1:8000` and serves interactive OpenAPI documentation at `http://127.0.0.1:8000/__docs__/`. Keep business logic in `R/` so tests can invoke functions directly without starting the server.

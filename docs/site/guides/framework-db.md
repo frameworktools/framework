@@ -3,31 +3,29 @@ id: framework-db
 title: framework.db
 section: features
 position: 2
-description: 'The SQLite database that tracks project metadata and data integrity'
+description: 'Local SQLite metadata database for hashes, caches, and saved results'
 ---
-## Overview
+## Database role
 
-Every Framework project has a `framework.db` SQLite database for internal tracking. It stores metadata about your data sources, cached computations, saved outputs, and connections.
+Every Framework project uses a local `framework.db` SQLite database at the project root to record data integrity hashes, cache metadata, saved outputs, and connection bookkeeping.
 
-New projects don't include it. The first `scaffold()`, `bootstrap()`, or saved output creates it. Both `scaffold()` and `bootstrap()` add tables a newer version needs.
+New projects do not contain `framework.db` until the first `scaffold()`, `bootstrap()`, cache write, or `save_*()` call creates it. Both `scaffold()` and `bootstrap()` migrate missing tables when Framework is upgraded.
 
-You generally don't interact with `framework.db` directly. Framework updates it when you use functions like `data_read()`, `cache_remember()`, and `save_table()`.
+Project `.gitignore` templates exclude `framework.db`, `framework.db-wal`, and `framework.db-shm` because the database tracks machine-local state.
 
-New projects gitignore `framework.db`, along with its `-wal` and `-shm` files. It holds local state that differs between collaborators.
+## Schema tables
 
-## Database schema
+| Table | Contents |
+|-------|----------|
+| `data` | Catalog paths, formats, lock flags, and SHA-256 hashes |
+| `cache` | Cache keys, expiration timestamps, last-read times, and file hashes |
+| `results` | Saved outputs (`table`, `figure`, `model`, `report`, `notebook`) |
+| `connections` | Connection metadata |
+| `meta` | Internal project key-value pairs |
 
-| Table | Purpose |
-|-------|---------|
-| `data` | Tracks data sources, file paths, types, and integrity hashes |
-| `cache` | Manages cached computation metadata and expiration |
-| `results` | Registry of saved outputs (tables, figures, models) |
-| `connections` | Database connection metadata |
-| `meta` | Key-value store for project metadata |
+## Data hash tracking
 
-## Data integrity
-
-When you read a data file using `data_read()`, Framework stores a hash of the file contents.
+`data_read()`, `data_add()`, and `data_save()` store SHA-256 hashes in the `data` table:
 
 ```yaml
 data:
@@ -38,37 +36,25 @@ data:
 
 ```r
 patients <- data_read("inputs.raw.patients")
-
-# First read: computes and stores hash in framework.db
-# Later reads: compares hashes and warns if the file changed
 ```
 
-If you set `locked: true` in the data catalog, `data_read()` errors when the source file has changed. Unlocked entries warn and record the new hash.
+The first read computes and stores the file hash. Subsequent reads compare the file on disk against the stored hash. Entries with `locked: true` stop with an error on mismatch; entries with `locked: false` warn and update the stored hash.
 
-## Cache tracking
+## Cache metadata
 
-The cache table tracks what's cached, when it expires, and integrity hashes:
+`cache_remember()` and `cache()` write serialized objects to the project's cache directory (`outputs/cache` on standard projects, `outputs/private/cache` on privacy-sensitive projects, and `cache` on courses and presentations; overridden by `FW_CACHE_DIR`) and record metadata in the `cache` table:
 
 ```r
 result <- cache_remember("expensive_model", {
   fit_complex_model(data)
-}, expire = "7 days")  # Strings like "7 days" or numeric hours are accepted
-# Metadata stored in framework.db
-# Actual data stored in the cache folder: outputs/cache/expensive_model.rds
+}, expire_after = "7 days")
 ```
 
-Framework uses the database to:
-- Check if a cached result exists and is still valid
-- Track expiration times
-- Verify cached data hasn't been corrupted
-
-**Durations:** `expire_after` (or `expire`) accepts numeric hours (e.g., `4`) or strings like `"30 minutes"`, `"1 day"`, or `"7 days"` (seconds, minutes, hours, days, and weeks).
-
-The cache folder is the `cache` directory setting: `outputs/cache` in standard projects, `outputs/private/cache` in privacy-sensitive projects, and `cache/` in courses and presentations. `FW_CACHE_DIR` overrides it.
+`expire_after` (or `expire`) accepts numeric hours (such as `4`) or duration strings in seconds, minutes, hours, days, or weeks (`"30 minutes"`, `"1 day"`, `"7 days"`). On lookup, Framework checks expiration and verifies the `.rds` file's SHA-256 hash before returning the cached value.
 
 ## Results registry
 
-When you save outputs, Framework automatically records them:
+`save_table()`, `save_figure()`, `save_model()`, `save_report()`, and `save_notebook()` log each written file to the `results` table with its project-relative path, output type, `public` flag, SHA-256 hash, and creation and modification timestamps:
 
 ```r
 save_table(results, "analysis_results")
@@ -76,59 +62,24 @@ save_figure(plot, "summary_chart")
 save_model(model, "regression_v1")
 ```
 
-The results table tracks:
-- Output path from the project root, such as `outputs/tables/analysis_results.csv`, and type (table, figure, model, report, notebook)
-- Whether it's public or private (for sensitive projects)
-- File hash for integrity
-- Creation and update timestamps
-
-Use `result_list()` to query saved results:
+Query saved outputs with `result_list()`:
 
 ```r
-result_list()                        # All results
-result_list(type = "figure")         # Only figures
-result_list(type = "table", public = TRUE)  # Public tables only
+result_list()
+result_list(type = "figure")
+result_list(type = "table", public = TRUE)
 ```
 
-See [Saving work](guide:saving-work) and [Viewing work](guide:viewing-work) for complete documentation on saving and tracking outputs.
+See [Saving work](guide:saving-work) and [Viewing work](guide:viewing-work).
 
-## Direct queries
+## Direct SQL queries
 
-You can query `framework.db` directly with the built-in "framework" connection:
+Every new project defines a `framework` SQLite connection pointing to `framework.db`. Query its tables directly with `db_query()`:
 
 ```r
-# View cached items
 cache_entries <- db_query("SELECT name, expire_at FROM cache", "framework")
-
-# Check data registry
 data_registry <- db_query("SELECT name, path, hash, locked FROM data", "framework")
-
-# List saved results
 results <- db_query("SELECT name, type, created_at FROM results", "framework")
 ```
 
-New rows store timestamps as epoch seconds. Rows written before 2.0 hold local date-time text. `result_list()` reads both.
-
-The `framework` connection is defined in the connections settings of every new project.
-
-## Location
-
-The database lives at your project root:
-
-```text
-my-project/
-├── framework.db          # Project database
-├── settings.yml
-├── notebooks/
-└── ...
-```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← scaffold()](guide:scaffold)
-
-[Packages →](guide:packages)
-
-</div>
+Framework 2.0 writes timestamps as epoch seconds while continuing to parse local date-time strings written by 1.x releases.

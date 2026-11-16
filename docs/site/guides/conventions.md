@@ -3,34 +3,30 @@ id: conventions
 title: Conventions
 section: getting_started
 position: 3
-description: 'Framework conventions and project organization'
+description: 'Directory conventions, session initialization, and data integrity'
 ---
-## Philosophy
+## Defaults and configuration
 
-Framework favors **convention over configuration**. Its defaults work for most projects. Nearly everything about how Framework structures projects is customizable.
+Framework provides default directory layouts, package loading rules, and output paths so new projects share a consistent structure. Every directory path, package rule, and tool setting can be customized in Framework Cloud defaults or in a project's `settings.yml`.
 
-Once your defaults are set on Framework Cloud, new projects use them without further organizational decisions. Projects stay consistent with each other.
+## Session initialization with scaffold()
 
-This page describes Framework's basic features and conventions.
-
-## scaffold()
-
-Most notebooks or scripts in your project will start with:
+Start each notebook or script with `scaffold()`:
 
 ```r
 library(framework)
 scaffold()
 ```
 
-To namespace it fully, write `framework::scaffold()`.
+Or call `framework::scaffold()` directly without attaching `framework`.
 
-The `scaffold()` function loads `.env`, installs the packages your project uses, attaches specified packages to the environment, sources functions from the `functions/` directory, and runs the project's `scaffold.R`. Depending on your configuration, it also sets a random seed or `ggplot2` theme.
+`scaffold()` locates the project root, loads `.env` and `settings.yml`, prepares `framework.db`, applies configured seed or `ggplot2` theme settings, installs missing project packages, attaches configured packages, sources `.R` files in `functions/`, and runs `scaffold.R`.
 
 ## Package loading
 
-Scaffold will call `library()` on auto-attached packages. We recommend fully namespacing functions in packages not commonly used across your project. Alternatively, you can call `library()` for these uncommon packages after `scaffold()`.
+`scaffold()` calls `library()` on packages marked `auto_attach: true`. Packages marked `auto_attach: false` are installed without being attached; call their functions with `pkg::fn()` or attach them explicitly in the script that needs them.
 
-With an example `settings.yml`:
+Example `settings/packages.yml`:
 
 ```yaml
 packages:
@@ -41,7 +37,7 @@ packages:
       auto_attach: false
 ```
 
-Your code would look like:
+Corresponding R script:
 
 ```r
 library(framework)
@@ -52,137 +48,106 @@ df <- readr::read_csv("data.csv") |>
   mutate(y = x * 2)
 ```
 
-Here `dplyr` functions (`filter`, `mutate`) work directly because `auto_attach: true`. But `readr` is namespaced explicitly since it's installed but not auto-loaded.
+`dplyr` verbs (`filter()`, `mutate()`) are attached directly, whereas `readr::read_csv()` uses explicit namespacing.
 
-Add a package with `package_add("janitor")`. It records the package in settings and installs it.
+Run `package_add("janitor")` to record a package in project settings and install it.
 
-## Functions and auto-loading
+## Function sourcing
 
-Framework automatically sources all `.R` files in your `functions/` directory when `scaffold()` runs.
-
-For example, consider this `functions/` directory:
+`scaffold()` sources every `.R` file in `functions/` in alphabetical order:
 
 ```text
 functions/
-├── text_processing.R
 ├── model_prep.R
-└── plotting_helpers.R
+├── plotting_helpers.R
+└── text_processing.R
 ```
 
-Every file is sourced on scaffold, so all your functions are available without manual loading.
+Keep only function definitions inside `functions/*.R`. Top-level expressions outside `function()` blocks run on every `scaffold()` call.
 
-**Important:** Only include function definitions in these files. Any code outside a `function()` block will execute every time `scaffold()` runs.
-
-Auto-loading replaces manual `source()` calls such as:
-
-```r
-source("helpers/cleaning.R")
-source("helpers/plotting.R")
-source("utils/text_processing.R")
-```
-
-With auto-loading, you can reorganize your functions directory (rename files, move functions between files, or add new files) without updating the notebooks or scripts that use them.
-
-Set `source_all_functions: false` under `scaffold:` in `settings.yml` to turn this off.
-
-See [Functions](guide:functions) for full documentation.
+Automatic sourcing replaces manual `source()` calls at the top of notebooks and allows you to rename or reorganize files in `functions/` without editing callers. Set `source_all_functions: false` under `scaffold:` in `settings.yml` (or `settings/scaffold.yml`) to disable automatic sourcing. See [Functions](guide:functions).
 
 ## Inputs and outputs
 
-Framework separates **inputs** (read-only data) from **outputs** (generated files).
+Framework separates read-only or pipeline datasets (`inputs/`) from generated deliverables (`outputs/`).
 
-### Inputs
-
-Data you consume lives in `inputs/`, organized by stage:
+### Input stages
 
 ```text
 inputs/
-├── raw/           # External data, untouched
-├── intermediate/  # Mid-pipeline transformations
+├── raw/           # Unmodified external source files
+├── intermediate/  # Cleaned or transformed pipeline datasets
 └── final/         # Analysis-ready datasets
 ```
 
-- **raw/**: Data from outside sources, never modified
-- **intermediate/**: Cleaned or transformed data mid-pipeline
-- **final/**: Analysis-ready datasets
-
 ### Data catalog
 
-Framework tracks your data files in a catalog stored in `settings.yml` (`settings/data.yml` in split projects). As you work, register files with `data_add()`:
+The data catalog in `settings/data.yml` (or `settings.yml`) maps dot-notation names to file paths. Register existing files with `data_add()`:
 
 ```r
 data_add("inputs/raw/survey_2024.csv", name = "raw.survey")
 data_add("inputs/final/analysis.rds", name = "final.analysis")
 ```
 
-Or save and register in one step:
+Or write a dataset and register its catalog entry in one call:
 
 ```r
 data_save(clean_df, "inputs.intermediate.survey_clean")
 ```
 
-The name starts with a configured directory, so this writes `inputs/intermediate/survey_clean.rds`.
+Because `inputs.intermediate` matches the configured `inputs_intermediate` directory, `data_save()` writes `inputs/intermediate/survey_clean.rds`.
 
-The catalog lists the project's data files and their locations. Load data by name:
+Read catalog entries by name from any working directory inside the project:
 
 ```r
 survey <- data_read("raw.survey")
 ```
 
-See [Data management](guide:data-management) for full documentation.
+See [Data management](guide:data-management).
 
-### Outputs
+### Output directories
 
-Files your project creates live in `outputs/`, organized by type:
+Generated artifacts live under `outputs/` by type:
 
 ```text
 outputs/
-├── tables/    # Data tables, CSVs
-├── figures/   # Plots, charts
-├── models/    # Saved model objects
-├── reports/   # Finished reports
-├── notebooks/ # Rendered notebooks
-└── cache/     # Cached results
+├── tables/    # save_table()
+├── figures/   # save_figure()
+├── models/    # save_model()
+├── reports/   # save_report()
+├── notebooks/ # save_notebook() and Quarto renders
+└── cache/     # cache_remember() and cache()
 ```
 
-- **tables/**: `save_table()` writes here
-- **figures/**: `save_figure()` writes here
-- **models/**: `save_model()` writes here
-- **reports/**: `save_report()` copies files here
-- **notebooks/**: `save_notebook()` renders and saves here
-- **cache/**: `cache_remember()` and the other cache functions write here
+Output directories are created on first save. `save_notebook("notebooks/analysis.qmd")` renders a document into `outputs/notebooks/`, keeping rendered HTML and PDF files separate from `.qmd` sources.
 
-Folders are created on first save.
+## Working directories
 
-Use `save_notebook("notebooks/analysis.qmd")` to render and save in one step. Generated HTML/PDF files stay separate from source `.qmd` files, so outputs can be gitignored as a group.
+- `notebooks/`: Quarto, R Markdown, or Jupyter analysis notebooks.
+- `scripts/`: standalone R scripts and batch jobs.
+- `functions/`: reusable R functions sourced by `scaffold()`.
+- `scratch/`: temporary exploratory files (gitignored).
+- `docs/`: project documentation.
+- `logs/`: batch and cluster job logs (gitignored).
 
-## Work directories
+## Privacy-sensitive projects
 
-- **notebooks/**: Quarto/R Markdown analysis files
-- **scripts/**: Standalone R scripts
-- **functions/**: Reusable R functions (auto-loaded by `scaffold()`)
-- **scratch/**: One-off experiments, throwaway code (gitignored)
-- **docs/**: Project documentation
-- **logs/**: Run logs and cluster job output (gitignored)
-
-## Sensitive data projects
-
-For projects with privacy requirements, inputs and outputs split into private and public folders:
+Privacy-sensitive projects (`project_sensitive`) split `inputs/` and `outputs/` into ignored `private/` directories and tracked `public/` directories:
 
 ```text
 inputs/
-├── private/    # Sensitive data (gitignored): raw/, intermediate/, final/
-└── public/     # Shareable data: raw/, intermediate/, final/
+├── private/    # Gitignored: raw/, intermediate/, final/
+└── public/     # Tracked: raw/, intermediate/, final/
 outputs/
-├── private/    # tables/, figures/, models/, reports/, notebooks/, cache/
-└── public/     # tables/, figures/, models/, reports/, notebooks/
+├── private/    # Gitignored: tables/, figures/, models/, reports/, notebooks/, cache/
+└── public/     # Tracked: tables/, figures/, models/, reports/, notebooks/
 ```
 
-The directory structure marks the privacy boundary. The `save_*()` functions write to the private folders unless you pass `public = TRUE`. Claude Code deny rules keep the agent out of the private folders. See [Privacy-sensitive projects](guide:privacy-sensitive-project).
+`save_*()` functions write to `outputs/private/` by default and write to `outputs/public/` when passed `public = TRUE`. Claude Code projects also receive `.claude/settings.json` deny rules for private paths and `.env`. See [Privacy-sensitive project](guide:privacy-sensitive-project).
 
-## Data integrity
+## Data integrity hashes
 
-Framework automatically tracks data integrity. `data_add()` and `data_save()` record each file's hash in `framework.db`, which `scaffold()` creates. `data_read()` checks the hash. Entries are locked by default, so a changed file stops with an error:
+`data_add()`, `data_save()`, and the first `data_read()` record a SHA-256 hash for each catalog entry in `framework.db`. Entries saved with `locked = TRUE`, or marked `locked: true` in the catalog, cause `data_read()` to stop with an error if the file changes on disk:
 
 ```text
 Error: Hash mismatch for locked data 'raw.survey'
@@ -190,25 +155,13 @@ Expected hash: 95aecaa7399a
 Current hash:  5140963bf019
 ```
 
-Unlocked entries (`locked = FALSE`) give a warning instead. The check catches accidental changes to data files.
+Unlocked entries, the default, emit a warning and update the recorded hash.
 
-## Customization
+## Project structures
 
-All project types are fully customizable:
+- **Standard project** (`project`): general-purpose research and data analysis layout.
+- **Privacy-sensitive project** (`project_sensitive`): separated private and public input and output trees.
+- **Course** (`course`): slides, assignments, modules, readings, and course documents.
+- **Presentation** (`presentation`): single Quarto RevealJS slide deck or report.
 
-- **Standard projects**: Default, general purpose data projects and pipelines
-- **Sensitive data projects**: Private and public folders for restricted data
-- **Courses**: Structured for lectures, assignments, and course documents
-- **Presentations**: Minimal structure for RevealJS slides
-
-Set defaults on Framework Cloud, or change a project's own `settings.yml`. See [Setup](guide:setup).
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Setup](guide:setup)
-
-[settings.yml →](guide:settings-yml)
-
-</div>
+Configure user-wide defaults on Framework Cloud or edit a project's `settings.yml`. See [Setup](guide:setup).

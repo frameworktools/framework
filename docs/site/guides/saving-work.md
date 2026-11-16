@@ -3,161 +3,136 @@ id: saving-work
 title: Saving work
 section: features
 position: 9
-description: 'Saved outputs and their tracking in framework.db'
+description: 'Saving tables, figures, models, reports, and notebooks with framework.db tracking'
 ---
-## Overview
+## Output functions
 
-Framework saves tables, figures, models, reports, and notebooks. Each saved output is logged to `framework.db` with its metadata.
-
-## Output types
+Framework provides typed functions for saving tables, figures, models, reports, and rendered notebooks under `outputs/` while logging each file's SHA-256 hash and metadata to `framework.db`.
 
 ### Tables
 
-Save data frames in various formats:
+`save_table()` writes data frames as CSV by default, or as RDS, Parquet (`arrow`), or Excel (`writexl`):
 
 ```r
-# CSV (default)
 save_table(results, "analysis_results")
-
-# Other formats
 save_table(results, "analysis_results", format = "rds")
 save_table(results, "analysis_results", format = "parquet")
 save_table(results, "analysis_results", format = "xlsx")
 
-# Public output (for projects with split outputs)
+# Route to outputs/public/tables/ in split-output projects
 save_table(summary_stats, "public_summary", public = TRUE)
 ```
 
-`xlsx` needs the writexl package. `parquet` needs arrow.
-
-A name with `/` saves into subfolders of the output folder, which are created as needed: `save_table(df, "meeting-2026-10-16/cohort")` writes `outputs/tables/meeting-2026-10-16/cohort.csv`. The same holds for `save_figure()` and `save_model()`. Each file is listed in `result_list()` by its path from the project root.
+Names containing `/` create subdirectories inside the target output folder (`save_table(df, "meeting-2026-10-16/cohort")` writes `outputs/tables/meeting-2026-10-16/cohort.csv`). `save_figure()` and `save_model()` support `/` paths the same way.
 
 ### Figures
 
-Save ggplot2 plots, recorded plots, or the current base R plot:
+`save_figure()` writes `ggplot2` objects, recorded plots, or the active graphics device:
 
 ```r
-# Basic save
 save_figure(my_plot, "revenue_chart")
-
-# With dimensions
 save_figure(my_plot, "revenue_chart", width = 10, height = 6, dpi = 300)
-
-# Different formats
 save_figure(my_plot, "revenue_chart", format = "pdf")
 save_figure(my_plot, "revenue_chart", format = "svg")
 
-# Several formats at once, one file each
+# Export multiple formats in one call
 save_figure(my_plot, "journal/figure_2", format = c("pdf", "eps", "png"))
 
-# The current plot on a screen device
+# Capture the active base R graphics device
 plot(mtcars$mpg, mtcars$hp)
 save_figure(name = "mpg_vs_hp")
 ```
 
-Formats are `png` (the default), `pdf`, `svg`, `eps`, `jpg`, `jpeg`, `tiff`, and `emf`. The defaults are 8 by 6 inches at 300 dpi. With several formats, each file gets its own row in `result_list()`, and `save_figure()` returns the paths in the order given. Every format, and every existing file when `overwrite = FALSE`, is checked before anything is written, so a failed call writes nothing. `emf` needs the devEMF package; without it, save `svg` or `pdf` and convert them (for example with Inkscape or LibreOffice).
+Supported formats are `png` (default, 8 by 6 inches at 300 dpi), `pdf`, `svg`, `eps`, `jpg`, `jpeg`, `tiff`, and `emf` (requires `devEMF`; otherwise export `svg` or `pdf` and convert externally). When multiple formats are requested, `save_figure()` validates all formats and `overwrite = FALSE` targets before writing any file, records each file in `result_list()`, and returns the written paths in order.
 
 ### Models
 
-Save fitted model objects as `.rds` files:
+`save_model()` serializes fitted model objects as `.rds` files, and `load_model()` reads them back:
 
 ```r
 model <- lm(y ~ x, data = df)
 save_model(model, "regression_v1")
+restored <- load_model("regression_v1")
 ```
 
 ### Reports and notebooks
 
-Save rendered documents:
+`save_report()` copies or moves an existing rendered file into `outputs/reports/`. `save_notebook()` renders `.qmd`, `.Rmd`, or `.ipynb` documents with Quarto into `outputs/notebooks/`:
 
 ```r
-# Copy a rendered report to outputs
 save_report("outputs/analysis.html", "quarterly_report")
-
-# Move instead of copy
 save_report("outputs/analysis.html", "quarterly_report", move = TRUE)
 
-# Render and save a Quarto notebook
 save_notebook("notebooks/analysis.qmd", "final_analysis")
-
-# Render to PDF or Word
 save_notebook("notebooks/analysis.qmd", format = "pdf")
 ```
 
-`save_notebook()` renders `.qmd`, `.Rmd`, and `.ipynb` files with Quarto. HTML output embeds its resources by default. Quarto renders a Jupyter notebook from the outputs saved in it without running its cells, so run the notebook first.
+HTML renders embed resources by default. Execute Jupyter notebooks before calling `save_notebook()` because Quarto renders the outputs already stored in `.ipynb` cells.
 
-Every `save_*()` function overwrites an existing file unless you pass `overwrite = FALSE`. Output folders are created on first use.
+Every `save_*()` function creates missing output directories on demand and overwrites existing files unless `overwrite = FALSE`.
 
-## Automatic tracking
+## Results tracking in framework.db
 
-Every `save_*` function automatically logs to the `results` table in `framework.db`:
+Each `save_*()` call inside a Framework project writes a row to the `results` table in `framework.db`, even if `scaffold()` has not run yet:
 
-| Field | Description |
-|-------|-------------|
-| `name` | The file's path from the project root, such as `outputs/tables/summary.csv` |
-| `type` | Output type (table, figure, model, report, notebook) |
+| Column | Contents |
+|--------|----------|
+| `name` | Project-relative path, such as `outputs/tables/summary.csv` |
+| `type` | `table`, `figure`, `model`, `report`, or `notebook` |
 | `public` | Whether `public = TRUE` was passed |
-| `hash` | SHA-256 hash of the file |
-| `created_at` | When first saved |
-| `updated_at` | When last modified |
+| `hash` | SHA-256 digest of the saved file |
+| `created_at` | Initial save timestamp |
+| `updated_at` | Most recent save timestamp |
 
-Results are tracked from the first save, even before `scaffold()` has run. Saves outside a Framework project are not tracked.
+Saves outside a Framework project write the file without database tracking.
 
-## Public and private outputs
+## Private and public output routing
 
-Outputs split into private and public folders when the project has sensitive data on (`security.sensitive: true`) or lists `outputs_private_*` or `outputs_public_*` directories. This applies to any project type. In a split project, the `public` argument picks the folder:
+Projects split outputs into `outputs/private/` and `outputs/public/` whenever `security.sensitive` is `true` or `outputs_private_*` / `outputs_public_*` keys appear under `directories`:
 
 ```r
-# Private (default) - goes to outputs/private/tables/
+# Default: writes to outputs/private/tables/
 save_table(detailed_results, "patient_outcomes")
 
-# Public - goes to outputs/public/tables/
+# Public: writes to outputs/public/tables/
 save_table(aggregated_stats, "summary", public = TRUE)
 ```
 
-Privacy Sensitive projects gitignore `outputs/private/`. Public outputs can be shared and committed.
+Privacy-sensitive `.gitignore` files exclude `outputs/private/` while allowing `outputs/public/` to be committed. In single-tree projects, all outputs write to `outputs/<type>/` and the `public` flag is still recorded in `framework.db`. Run `project_info()` to inspect resolved output directories.
 
-In other projects, outputs go to one folder per type. The `public` flag is still recorded in `framework.db`. Run `project_info()` to see where each `save_*()` function writes.
+## Directory layout
 
-## Output directories
-
-Framework organizes outputs by type:
+Standard projects:
 
 ```text
 outputs/
-├── tables/           # save_table() output
-├── figures/          # save_figure() output
-├── models/           # save_model() output
-├── reports/          # save_report() output
-└── notebooks/        # save_notebook() output
+├── tables/
+├── figures/
+├── models/
+├── reports/
+└── notebooks/
 ```
 
-For Privacy Sensitive projects:
+Privacy-sensitive projects:
 
 ```text
 outputs/
 ├── private/
 │   ├── tables/
 │   ├── figures/
-│   └── ...
+│   ├── models/
+│   ├── reports/
+│   └── notebooks/
 └── public/
     ├── tables/
     ├── figures/
-    └── ...
+    ├── models/
+    ├── reports/
+    └── notebooks/
 ```
 
-Folder paths come from the `outputs_*` keys under `directories` in `settings.yml`. For example, `outputs_tables` or `outputs_private_tables`.
+Customize paths under `directories` in `settings.yml` (`outputs_tables`, `outputs_private_tables`, and related keys).
 
-## Publishing
+## Publishing saved outputs
 
-`save_*()` writes local files only. To share an output, use `publish()`. It takes a saved file or an R object. Framework Cloud receives data frames, models, and hypothesis tests as structured data that its readers can display. Before uploading a path containing "private", `publish()` warns and asks in interactive sessions. Non-interactive sessions stop unless you pass `include_private = TRUE`. See [Publishing](guide:publishing).
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Viewing work](guide:viewing-work)
-
-[Git integration →](guide:git)
-
-</div>
+`save_*()` writes local files only. Call `publish()` to upload saved files or R objects to Framework Cloud, GitHub Pages, S3, or a folder destination. Before uploading files from private paths, `publish()` warns and prompts in interactive sessions and stops in non-interactive runs unless `include_private = TRUE`. See [Publishing](guide:publishing).

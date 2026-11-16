@@ -7,84 +7,92 @@ description: 'Framework Cloud sign-in, project tokens, and user-wide settings'
 ---
 ## Framework Cloud sign-in
 
-Framework Cloud ([framework.pub](https://framework.pub)) holds your defaults for new projects. Sign in once per computer:
+Framework Cloud ([framework.pub](https://framework.pub)) stores project defaults, blueprints, and skills. Sign in once per computer:
 
 ```r
 framework::cloud_login()
 ```
 
-`cloud_login()` lists what connecting shares and asks for confirmation. It then opens the server's approval page in your browser. Sign in, or create a free account, and approve this computer. The token comes back to R and is stored in the macOS Keychain, Windows Credential Manager, or Linux Secret Service. Without a credential store, it goes in a permission-restricted file in the config folder.
+`cloud_login()` lists the metadata shared with the server, asks for confirmation, and opens the browser approval page. Sign in or create an account and approve the computer. R receives the device token and saves it in the macOS Keychain, Windows Credential Manager, or Linux Secret Service. When no credential store is available, R writes the token to a permission-restricted file in the configuration directory.
 
-To use a token from the Framework Cloud token page instead:
+To authenticate directly with a token created under **Account > Computers & API tokens**:
 
 ```r
 framework::cloud_login("fw_...")
 ```
 
-For a self-hosted server, pass its URL. Plain `http` works only for `localhost` and `127.0.0.1`.
+For a self-hosted server, pass `url`. Unencrypted `http` URLs are restricted to `localhost` and `127.0.0.1`.
 
 ```r
 framework::cloud_login(url = "https://framework.example.edu")
 ```
 
-The server you last signed in to becomes the default. The `FW_CLOUD_URL` environment variable overrides it. `cloud_status()` shows the server in use and the account. `cloud_logout()` revokes the stored token and removes it from this computer.
+The most recent server becomes the default. Set `FW_CLOUD_URL` to override it. `cloud_status()` displays the active server and account. `cloud_logout()` revokes the token and removes local credentials.
 
-Nothing contacts Framework Cloud until you sign in.
+### Server resolution
+
+Account calls (`cloud_status()`, `cloud_sync()`, `new_project()`, `setup("fw_...")`) use the first of:
+
+1. `url` argument
+2. `FW_CLOUD_URL` environment variable
+3. Last server saved by `cloud_login()`, `fw login`, or the Python package
+
+Project calls (`publish()`, `pull_all()`, `push_all()`, the data ledger) use the first of:
+
+1. `FW_CLOUD_URL` in the project's `.env`
+2. `FW_CLOUD_URL` environment variable
+3. Saved login server. When saved logins name different servers, the call stops and asks for `FW_CLOUD_URL` in `.env`.
+
+With none of these set, the call stops with an error. Framework never falls back to `https://framework.pub`. `cloud_login()` without `url`, `FW_CLOUD_URL`, or a saved login names `https://framework.pub` in its notice and asks before connecting.
+
+Framework makes no network requests to Framework Cloud until you sign in or pass a project token.
 
 ## Project defaults
 
-Edit your defaults on Framework Cloud under **Default settings**. Signed in, `new_project()` sends your choices to Framework Cloud and builds the project it resolves. Framework caches your defaults after each online creation. When Framework Cloud can't be reached, a project with no choices beyond its name uses the cached defaults.
+Configure your defaults on Framework Cloud under **Settings > Project defaults** (and author details under **Settings > Personal data**). When signed in, `new_project()` sends your selections to Framework Cloud, builds the resolved specification, and caches your defaults locally. If Framework Cloud is unreachable, `new_project()` falls back to the cached defaults when called without custom options.
 
-`cloud_sync()` mirrors your Cloud settings document to `cloud-settings.yml` in the config folder. Edit that file and run `cloud_sync()` again to push the changes.
+`cloud_sync()` mirrors your Cloud settings document to `cloud-settings.yml` in the local configuration directory. Edit that file and run `cloud_sync()` again to upload changes.
 
-Signed out, or with `offline = TRUE`, new projects use Framework's built-in defaults. See [New projects](guide:new-project).
+When signed out or called with `offline = TRUE`, `new_project()` uses Framework's built-in defaults. See [New projects](guide:new-project).
 
 ## Project tokens
 
-A project created on Framework Cloud has a project token. Create the project locally from it:
+Each project on Framework Cloud can issue a project token. Create the local project directory from that token:
 
 ```r
 framework::setup("fw_...")
 ```
 
-`setup()` fetches the project's definition and asks `Create the project here (<path>)? [y/n]` for a folder named for the project in the current directory. With a Projects folder set in Framework Cloud Settings, it asks `Create the project in <path>? [y/n]` for a folder in that Projects folder instead. The project owner's Projects folder, sent with the project, comes first; yours applies when the owner hasn't set one. Answer `n` to type another folder; the project folder goes inside it. Pass `location` to skip the prompt. Non-interactive sessions must pass `location`. Pass `url` for a self-hosted server. The token and server are saved in the project's `.env` file as `FW_PROJECT_TOKEN` and `FW_CLOUD_URL`, so publishing and the data ledger go back to that server. `new(key = "fw_...")` does the same.
+`setup()` downloads the project specification and prompts `Create the project here (<path>)? [y/n]` for a subdirectory of the current working directory. If a Projects folder is set in Framework Cloud Settings, `setup()` prompts `Create the project in <path>? [y/n]` inside that folder instead. The project owner's Projects folder takes precedence when present, followed by your own. Enter `n` to type another parent directory. Pass `location` to skip the prompt (required in non-interactive sessions) and `url` for a self-hosted server.
 
-## Settings storage
+`setup()` writes `FW_PROJECT_TOKEN` and `FW_CLOUD_URL` to the project's `.env` file so `publish()`, `pull_all()`, `push_all()`, and the data ledger use that server. `new_project(key = "fw_...")` performs the same setup.
 
-User-wide settings live in the folder `fw_config_dir()` returns. The default is `tools::R_user_dir("framework", "config")`. Set `FW_CONFIG_HOME` to use another folder.
+## Local configuration storage
+
+User-wide configuration files live in the directory returned by `fw_config_dir()` (by default `tools::R_user_dir("framework", "config")`). Set `FW_CONFIG_HOME` to override the location.
 
 ```text
 <config folder>/
 ├── settings.yml        # User-wide settings
-├── projects.yml        # Registry of your Framework projects
-├── templates/          # Your notebook, script, and slide templates
-├── cloud.yml           # The saved Framework Cloud server
-├── cloud-settings.yml  # Mirror of your Cloud settings (cloud_sync())
+├── projects.yml        # Local project registry
+├── templates/          # User notebook, script, and slide templates
+├── cloud.yml           # Default Framework Cloud server URL
+├── cloud-settings.yml  # Local mirror for cloud_sync()
 └── cache/defaults/     # Cached Framework Cloud defaults
 ```
 
-- **settings.yml**: read and updated with `configure_global()`.
-- **projects.yml**: projects you've created, listed by `project_list()`.
-- **templates/**: starter files for `make_notebook()`, `make_script()`, and `make_revealjs()`. Edit them with `write_framework_template()`. A project's own `stubs/` folder comes first.
-- **cloud.yml**, **cloud-settings.yml**, and **cache/**: written by the cloud functions.
+- `settings.yml`: read and updated by `configure_global()`.
+- `projects.yml`: local project list read by `project_list()`.
+- `templates/`: starter files for `make_notebook()`, `make_script()`, and `make_revealjs()`, managed with `write_framework_template()`. Project-level `stubs/` directories take precedence.
+- `cloud.yml`, `cloud-settings.yml`, and `cache/`: managed by the Cloud functions.
 
-Framework creates `settings.yml` and `projects.yml` the first time they are needed.
+Framework creates `settings.yml` and `projects.yml` on first use.
 
-## Settings from Python and fw
+## Cross-tool configuration sync
 
-The Python package and the `fw` command-line tool keep their settings in `~/.config/framework`. `config_sync()` copies user settings, the saved server, and token files from that folder into R's when they are missing or newer there. R never writes to their folder.
+Framework for Python and the `fw` CLI store user settings in `~/.config/framework`. `config_sync()` copies user settings, the saved Cloud server, and fallback token files from `~/.config/framework` into R's configuration directory when those files are missing or newer. R does not modify `~/.config/framework`.
 
 ```r
 framework::config_sync(dry_run = TRUE)
 framework::config_sync()
 ```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Installation](guide:installation)
-
-[Conventions →](guide:conventions)
-
-</div>

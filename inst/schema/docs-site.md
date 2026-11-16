@@ -1,26 +1,22 @@
-# Framework docs sites: the common format (v1)
+# Framework docs sites (v1)
 
-The R package, framework-py, fw, and the Stata package each publish a docs site from the same
-input. framework-cloud renders them in one style at:
+Framework for R, Framework for Python (`framework-py`), the Framework CLI (`fw`), and Framework for Stata publish documentation sites from one directory format. Framework Cloud renders them at:
 
 - `r.framework.pub` (product `r`)
 - `py.framework.pub` (product `py`)
 - `cli.framework.pub` (product `cli`)
 - `stata.framework.pub` (product `stata`)
 
-Each repository keeps its docs in `docs/site/`. A release attaches
-`docs-site.tar.gz` to its GitHub release, and framework-cloud imports it.
-`docs-reference.v1.json` is canonical in the R repository's
-`inst/schema/` and is copied by the other repositories' asset syncs.
+Each repository stores its site sources in `docs/site/`. Release workflows attach `docs-site.tar.gz` to the GitHub release, and Framework Cloud imports the archive. `docs-reference.v1.json` is canonical in the R repository under `inst/schema/` and copied into the other repositories by asset sync.
 
-## The folder
+## Directory layout
 
-```
+```text
 docs/site/
-  site.yml          # written by hand
-  guides/*.md       # written by hand
-  images/           # optional: png, jpg, svg, webp, or gif
-  reference.json    # generated at release; not committed
+  site.yml          # Hand-authored site metadata and section order
+  guides/*.md       # Hand-authored Markdown guides
+  images/           # Optional images: png, jpg, svg, webp, or gif
+  reference.json    # Generated at release; not committed
 ```
 
 ### site.yml
@@ -30,112 +26,86 @@ product: py                      # r, py, cli, or stata
 title: Framework for Python
 tagline: Structured data science projects in Python
 repository: https://github.com/frameworktools/framework-py
-install: uv add framework-py     # shown on the home page
-sections:                        # in order: top-bar dropdowns and sidebar groups
+install: uv add framework-py     # Displayed on the home page
+sections:                        # Ordered top-bar dropdowns and sidebar groups
   - id: getting_started
-    title: Getting Started
+    title: Getting started
   - id: features
     title: Features
   - id: reference
     title: Reference
-    reference: true              # lists reference.json's categories
+    reference: true              # Populated from reference.json categories
 ```
 
-Every section is a dropdown in the top bar and a group in the sidebar. A
-guides section lists its guides by `position`. Each item shows its title
-with its `description` under it. The reference section lists the
-categories from `reference.json`, each with its description. The product
-switcher (R, Python, CLI, Stata) is the cloud's and needs nothing here.
+Each section appears as a dropdown in the top bar and a group in the sidebar. Guide sections order their pages by `position` and display each guide's `title` and `description`. Reference sections list categories from `reference.json` with their descriptions. Framework Cloud renders the product switcher across R, Python, CLI, and Stata automatically.
 
 ### Guides
 
-`guides/<id>.md` is CommonMark with GFM tables, plus front matter:
+Each `guides/<id>.md` file uses CommonMark, GFM tables, and YAML frontmatter:
 
 ```markdown
 ---
-id: data-management                 # URL-safe, unique in the product: /guides/{id}
-title: Data Management
-description: Managing data files with the declarative data catalog   # one line
-section: features                   # a section id from site.yml
-position: 3                         # order within the section
+id: data-management                 # URL-safe slug: /guides/{id}
+title: Data management
+description: Data files and the declarative data catalog
+section: features                   # Section id from site.yml
+position: 3                         # Order within the section
 ---
 ```
 
-- Write h2 (`##`) and h3 (`###`) headings in the body. They build "On this
-  page". The page title comes from the front matter, so the body has no h1.
-- Every code fence names a language (`python`, `r`, `sh`, `yaml`, and so on).
-- Callouts use GitHub alert syntax: `> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`.
-- Previous and next links follow the sections and positions.
+- Use `##` (H2) and `###` (H3) headings in the body to populate page navigation. Omit `#` (H1) headings because the page title comes from frontmatter.
+- Name a language on every fenced code block (`python`, `r`, `sh`, `yaml`, `text`, and others).
+- Format callouts with GitHub alert syntax (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`).
+- Omit manual previous/next links; Framework Cloud generates them from `section` and `position`.
 
 ### Links
 
-Link targets use these forms in guides, in Markdown fields in
-`reference.json`, and as `see_also` strings:
+Guides, Markdown fields in `reference.json`, and `see_also` entries use these link forms:
 
 | Target | Form |
 |--------|------|
-| A guide in the same product | `guide:data-management` |
-| A reference entry in the same product | `ref:data_read` |
-| A heading on that page | `guide:data-management#saving-data` |
-| Another product | `r:guide:setup`, `py:ref:data_read`, `cli:ref:project-bootstrap`, `stata:ref:fw_use` |
-| Anything else | a full `https://` URL |
+| Guide in the same product | `guide:data-management` |
+| Reference entry in the same product | `ref:data_read` |
+| Section anchor on a page | `guide:data-management#saving-data` |
+| Page in another product | `r:guide:setup`, `py:ref:data_read`, `cli:ref:project-bootstrap`, `stata:ref:fw_use` |
+| External URL | Full `https://` URL |
 
-`ref:` takes the entry's `id`. framework-cloud rewrites these into URLs and
-reports any target it can't find when it imports the archive. A plain
-`see_also` string with no prefix is an entry name in the same product.
+`ref:` takes the entry's `id`. Framework Cloud rewrites these schemes into URLs and reports unresolved targets during import. An unprefixed `see_also` string resolves to a reference entry name in the same product.
 
 ### Images
 
-Images live in `docs/site/images/` and are linked relative to the guide:
-`![The data catalog](images/catalog.png)`. Always write alt text.
-framework-cloud serves them under `/images/`. Reference text may link them
-the same way.
+Place images in `docs/site/images/` and link them relative to the guide with alt text: `![Data catalog](images/catalog.png)`. Framework Cloud serves them from `/images/`. Reference entries can use the same relative paths.
 
 ### reference.json
 
-`reference.json` is generated at release time. It must validate against
-`docs-reference.v1.json`, and it contains public entries only.
+Release builds generate `reference.json` and validate it against `docs-reference.v1.json`. Only public exports appear in `reference.json`.
 
-- Top level: `schema` (`"docs-reference.v1"`), `product`, `version`,
-  `categories`, and `entries`.
-- `categories`: `id`, `title`, `description` (one line), `position`, and
-  `common` (entry names listed first).
-- `entries`: `id`, `name`, `kind` (`function`, `class`, or `command`),
-  `category`, and a one-line `summary` are required. The optional fields
-  are:
+- Top-level fields: `schema` (`"docs-reference.v1"`), `product`, `version`, `categories`, and `entries`.
+- `categories`: `id`, `title`, one-line `description`, `position`, and optional `common` entry names shown first.
+- `entries`: required `id`, `name`, `kind` (`function`, `class`, or `command`), `category`, and one-line `summary`. Optional fields:
   - `title`, `usage`, `description`, `details`, `returns`, and `note`
-  - `parameters` (`name`, `type`, `default`, `required`, `env`, and
-    `description`)
+  - `parameters` (`name`, `type`, `default`, `required`, `env`, and `description`)
   - `sections` (with `subsections`)
   - `examples` (`title`, `code`, and `runnable`)
-  - `see_also` (strings, or `{title, url}`)
-  - `aliases`, `lifecycle` (`stable`, `deprecated`, or `experimental`),
-    `replaced_by`, and `since`
-- Text fields hold Markdown.
+  - `see_also` (strings or `{title, url}` objects)
+  - `aliases`, `lifecycle` (`stable`, `deprecated`, or `experimental`), `replaced_by`, and `since`
+- Prose fields accept Markdown.
 
-How each product fills `reference.json`:
+Generator sources by product:
 
-- **R** fills it from roxygen through `docs_export()`:
-  - `@description` goes to `description` and `@details` to `details`.
-  - `\section` and `\subsection` go to `sections`.
-  - `\dontrun` makes `runnable: false`.
-  - Defaults come from the usage line, and there are no types.
-- **Python** fills it from the exported functions and classes:
-  - Google-style docstrings give `description` and `details`, and `Args:`
-    gives `parameters`.
-  - Type hints give `type`, and the signature gives `default`.
-- **fw** fills it from its command tree:
-  - Each command is an entry with `kind: command`. Its `id` replaces
-    spaces with `-`, so `project bootstrap` becomes `project-bootstrap`.
-  - Flags go to `parameters`, with `env` set when an environment variable
-    sets the flag.
+- **R** runs `docs_export()` over roxygen metadata:
+  - `@description` populates `description` and `@details` populates `details`.
+  - `\section` and `\subsection` populate `sections`.
+  - `\dontrun` sets `runnable: false`.
+  - Parameter defaults come from function usage; parameter types are omitted.
+- **Python** inspects exported functions and classes:
+  - Google-style docstrings populate `summary`, `description`, `details`, and `parameters` (`Args:`).
+  - Type annotations populate `type`, and signatures populate `default`.
+- **CLI (`fw`)** walks the Cobra command tree:
+  - Commands export with `kind: command` and hyphenated IDs (`project bootstrap` becomes `project-bootstrap`).
+  - Flags populate `parameters`, including `env` when an environment variable backs a flag.
+- **Stata** compiles `docs/site/reference.yml` and checks `.sthlp` coverage.
 
-## The archive
+## Release archive
 
-`docs-site.tar.gz` has a single top folder, `docs-site/`, with `site.yml`,
-`guides/`, `images/`, and the generated `reference.json`. The release
-workflow builds it, checks `reference.json` against the schema, and
-attaches it to the GitHub release. framework-cloud imports the newest
-release of each product and builds the ⌘K search index from guide titles,
-descriptions, and headings, and from reference names, summaries, and
-parameters. Docs for older versions can come later.
+`docs-site.tar.gz` contains a single top-level `docs-site/` directory with `site.yml`, `guides/`, optional `images/`, and `reference.json`. Each release workflow builds the archive, validates `reference.json` against the JSON schema, and uploads `docs-site.tar.gz` to the GitHub release. Framework Cloud imports the latest release per product and indexes guide titles, descriptions, headings, reference names, summaries, and parameters for `⌘K` search.

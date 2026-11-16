@@ -5,45 +5,47 @@ section: getting_started
 position: 5
 description: 'Project creation from the R console and Framework Cloud'
 ---
-## Project creation
+## Interactive creation
 
 ```r
 framework::new_project()
 ```
 
-`new_project()` prompts for a project name, then shows where the project would go: a folder named for the project in the current directory. It asks:
+`new_project()` prompts for a project name and proposes a folder named for the project in the current working directory:
 
 ```text
 Create the project here (/Users/you/code/my-analysis)? [y/n]
 ```
 
-With a Projects folder set in Framework Cloud Settings, the offered folder is in your Projects folder instead:
+When a Projects folder is set in Framework Cloud Settings, `new_project()` proposes a path inside that folder instead:
 
 ```text
 Create the project in /Users/you/research/my-analysis? [y/n]
 ```
 
-Framework creates the Projects folder if it doesn't exist yet. Signed out or offline, it uses the copy of your settings from the last `cloud_sync()`.
+Framework creates the Projects folder if it does not exist. When signed out or offline, `new_project()` reads the Projects folder from the last `cloud_sync()` mirror if available.
 
-Enter or `y` uses the offered folder. `n` asks for the folder to put the project in:
+Press Enter or `y` to accept the proposed path. Enter `n` to type another parent directory:
 
 ```text
 Where should the project go? Leave blank to use the current directory (/Users/you/code):
 ```
 
-The project folder is created inside the folder you type, unless that path already ends in the project's name. `~` is expanded. Framework prints the full path before it creates anything.
+Framework creates the project folder inside the directory you enter unless that path already ends with the project name. `~` expands to your home directory, and Framework prints the resolved path before writing files.
 
-Pass the name and location directly to skip the prompts:
+## Direct arguments
+
+Pass `name` and `location` to skip interactive prompts:
 
 ```r
 new_project("my-analysis", "~/code/my-analysis")
 ```
 
-Non-interactive sessions must pass both. Without `location`, they stop instead of choosing a folder.
+Non-interactive sessions require both `name` and `location`.
 
 ## Tools and sets
 
-Turn on tools and add Framework's package and skill sets:
+Enable tools and attach package or skill sets during project creation:
 
 ```r
 new_project(
@@ -53,111 +55,56 @@ new_project(
 )
 ```
 
-- `tools`: `quarto`, `quarto_manuscript`, `quarto_slides`, `targets`, `renv`, or `jupyter`. A tool's requirements are added with a message. A named logical such as `c(quarto = FALSE, targets = TRUE)` also turns a structure's tool off.
-- `package_sets`: package sets such as `tidyverse-analysis`.
-- `skill_sets`: AI skill sets. The default installs `framework` and `ggplot2`. Sensitive projects also get the sensitive-data skill.
+- `tools`: `"quarto"`, `"quarto_manuscript"`, `"quarto_slides"`, `"targets"`, `"renv"`, or `"jupyter"`. Required companion tools are added automatically with a message. Pass a named logical vector such as `c(quarto = FALSE, targets = TRUE)` to disable a structure's default tool.
+- `package_sets`: built-in or Cloud package sets such as `"tidyverse-analysis"`.
+- `skill_sets`: AI skill sets. Defaults to `"framework"` and `"ggplot2"`, plus the sensitive-data skill on sensitive projects.
 - `workflow`: `"quarto"`, `"jupyter"`, or `"scripts"`.
 
-Quarto is on for every structure except bare.
+Quarto is enabled by default for every built-in structure except `bare`.
 
-## Framework Cloud
+## Framework Cloud integration
 
-After `cloud_login()`, `new_project()` uses your Cloud defaults and registers the
-project with the same blueprint, tools, package sets, and skill sets used to
-create it locally. Without `type`, your default blueprint on Framework Cloud is
-used. It saves a project token in the ignored `.env` file so the
-project can publish results and share its data ledger. Bare projects are
-registered without creating a token file. Datasets stay on your machine.
+After `cloud_login()`, `new_project()` resolves your Cloud defaults and registers the project on Framework Cloud with the chosen blueprint, tools, package sets, and skill sets. When `type` is omitted, Framework uses your default Cloud blueprint. Registered projects, bare ones included, receive `FW_PROJECT_TOKEN` and `FW_CLOUD_URL` in `.env` for artifact publishing and data ledger sync. Data files remain local.
 
-When Framework Cloud can't be reached, a project with no choices beyond its name
-uses your cached Cloud defaults. Otherwise an interactive session asks before
-using Framework's built-in defaults, and a non-interactive session stops.
+If Framework Cloud cannot be reached, `new_project()` uses your cached Cloud defaults when no custom options were passed. Otherwise interactive sessions ask before falling back to built-in defaults, and non-interactive sessions stop with an error.
 
-Use `offline = TRUE` to create locally without contacting Cloud. If registration
-fails after the local project is created, Framework reports the failure and
-keeps the local project.
+Pass `offline = TRUE` to create a project locally without contacting Framework Cloud. If Cloud registration fails after local files are written, Framework reports the error and keeps the local project.
 
-Signed out, `new_project()` uses Framework's built-in defaults and creates a
-Standard Project unless you pass `type`.
+When signed out, `new_project()` uses built-in defaults and creates a `project` layout unless `type` is given.
 
-To create a project defined on Framework Cloud, pass its project token:
+To materialize a project already created in the Framework Cloud web interface, pass its project token:
 
 ```r
 new_project(key = "fw_...", location = "~/code/study")
 ```
 
-The name and type come from the cloud project. `setup("fw_...")` does the same.
-See [Setup](guide:setup).
+`setup("fw_...")` runs the same flow. See [Setup](guide:setup).
 
-## Project types
+## Built-in project types
 
-Framework has several structures. Each works as `type` in `new_project()`, and some have their own function:
-
-### Standard project
-
-The default type, with a full structure for data analysis:
+Each structure works as `type` in `new_project()`, and four have dedicated constructors:
 
 ```r
-new_project("my-analysis")
+new_project("my-analysis")                  # Standard project (type = "project")
+new_project_sensitive("medical-study")      # Privacy-sensitive (type = "project_sensitive")
+new_presentation("quarterly-review")        # RevealJS deck (type = "presentation")
+new_course("stats-101")                     # Course materials (type = "course")
+new_project("my-tool", type = "bare")       # Minimal files only
 ```
 
-### Sensitive data project
+Any lowercase blueprint identifier works as `type`. When signed out, an unknown `type` emits a warning and builds the standard `project` layout. See [Project types](guide:project-types).
 
-Separate private and public directories with stricter privacy controls:
+## Generated files
 
-```r
-new_project_sensitive("medical-study")
-```
+Creating a project performs these steps:
 
-### Presentation
+1. Creates the directory tree for the selected structure.
+2. Writes `settings.yml` (and `settings/*.yml` for `project` and `project_sensitive`).
+3. Writes `.env` (except on `bare`) and a type-specific `.gitignore` that excludes `.env`.
+4. Writes `scaffold.R` and a VS Code / Positron `.code-workspace` file.
+5. Writes `_quarto.yml` when the `quarto` tool is enabled.
+6. Writes `AGENTS.md`, assistant pointer files such as `CLAUDE.md`, and skill files in `.claude/skills/` or `.agents/skills/`.
+7. Records the resolved project specification in `.framework/spec.json`.
+8. Initializes a Git repository and creates the initial commit when `user.name` and `user.email` are configured. If Git identity is missing, Framework skips the commit with a note and creates it on the next `scaffold()` after `git config user.name` and `git config user.email` are set.
 
-A minimal structure for RevealJS slides:
-
-```r
-new_presentation("quarterly-review")
-```
-
-### Course
-
-A structure for teaching materials with slides, assignments, and modules:
-
-```r
-new_course("stats-101")
-```
-
-### Bare project
-
-No structure or starter files. Bring your own layout:
-
-```r
-new_project("my-tool", type = "bare")
-```
-
-Any lowercase id also works as `type`. It labels the blueprint the project came from. Signed out, an unknown type warns and builds the standard layout. See [Project types](guide:project-types).
-
-## Created files
-
-When you create a project, Framework:
-
-1. Creates the directory structure for its type
-2. Writes `settings.yml`. Standard and sensitive projects split sections into `settings/*.yml`
-3. Writes `.env` and a `.gitignore` for the project type that ignores `.env`
-4. Writes `scaffold.R` and a VS Code/Positron `.code-workspace` file
-5. Writes `_quarto.yml` when the Quarto tool is on
-6. Adds `AGENTS.md`, a `CLAUDE.md` that points to it, and Framework skills in `.claude/skills/`
-7. Records the resolved project spec in `.framework/spec.json`
-8. Initializes git and makes the first commit
-   - If git identity isn’t configured, the initial commit is skipped with a note
-   - Set `git config user.name` and `git config user.email`. The next `scaffold()` makes the first commit
-
-Sensitive projects also get `.claude/settings.json`, which keeps Claude Code out of the private folders.
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← settings.yml](guide:settings-yml)
-
-[scaffold() →](guide:scaffold)
-
-</div>
+Privacy-sensitive projects with Claude Code enabled also receive `.claude/settings.json` rules that block agent access to private directories and `.env`.

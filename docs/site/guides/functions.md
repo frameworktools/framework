@@ -3,23 +3,11 @@ id: functions
 title: Functions
 section: features
 position: 5
-description: 'Organizing reusable functions in Framework projects'
+description: 'Automatic sourcing for reusable R functions'
 ---
-## Overview
+## Automatic sourcing
 
-Framework auto-loads functions from a `functions/` directory. Utility functions grouped by purpose are available in every notebook and script.
-
-## Auto-loading benefits
-
-**Semantic organization**: Group functions by purpose (cleaning, plotting, modeling) without worrying about load order.
-
-**No boilerplate**: No `source()` calls at the top of every script that break when you rename or reorganize your project.
-
-**Consistent environment**: Every notebook and script gets the same functions via `scaffold()`.
-
-## Functions directory
-
-Put reusable functions in `functions/`:
+`scaffold()` sources every `.R` file in `functions/` into the global environment in alphabetical order:
 
 ```text
 my-project/
@@ -31,7 +19,7 @@ my-project/
 └── scripts/
 ```
 
-When you call `scaffold()`, all `.R` files in `functions/` are automatically sourced. Scripts can then call the functions directly:
+Once `scaffold()` runs, notebooks and scripts call those functions directly without `source()` boilerplate:
 
 ```r
 library(framework)
@@ -40,37 +28,27 @@ scaffold()
 clean_data <- my_cleaning_function(raw_data)
 ```
 
-Files are sourced into the global environment in alphabetical order.
+Keep only function definitions inside `functions/*.R` so `scaffold()` does not execute side effects on startup. Because files load as a directory, you can split, rename, or reorganize helper files without updating notebooks.
 
-## Directory configuration
+## Custom function directories
 
-The default is `functions/`. To source other folders, list them under `options.functions_dir` in `settings.yml`:
+To source additional or alternate folders, list them under `directories.functions` in `settings.yml`:
 
 ```yaml
 default:
-  options:
-    functions_dir:
+  directories:
+    functions:
       - functions
       - helpers
 ```
 
-`scaffold()` warns when none of the listed folders exist.
+`scaffold()` emits a warning if none of the configured directories exist or contain `.R` files.
 
-## Sourcing control
+## Disabling automatic sourcing
 
-To stop `scaffold()` from sourcing functions, set `source_all_functions` to `false` in the scaffold settings (`settings/scaffold.yml` in split-settings projects):
+Set `source_all_functions: false` in `settings/scaffold.yml` (or `settings.yml`) to skip sourcing `functions/*.R`:
 
 ```yaml
 scaffold:
   source_all_functions: false
 ```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Data management](guide:data-management)
-
-[Templates →](guide:templates)
-
-</div>

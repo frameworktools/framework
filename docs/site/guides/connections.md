@@ -3,15 +3,15 @@ id: connections
 title: Connections
 section: features
 position: 13
-description: 'Database and object storage connections'
+description: 'Database and S3-compatible object storage configuration'
 ---
-## Overview
+## Connection configuration
 
-Framework connects to databases and object storage through connections defined once in settings. New projects keep them in `settings/connections.yml`. For queries and database helpers, see the [Database integration guide](guide:database).
+Define database and object storage connections once in `settings/connections.yml` (split projects) or `settings.yml` (single-file projects). For SQL execution helpers, see [Database integration](guide:database).
 
 ## Database connections
 
-Define database connections under `connections.databases`:
+Configure databases under `connections.databases`:
 
 ```yaml
 connections:
@@ -34,15 +34,11 @@ connections:
       database: data/warehouse.duckdb
 ```
 
-New projects start with the `framework` connection to the project's own `framework.db`. SQLite and DuckDB paths are relative to the project root, so a notebook in `notebooks/` opens the same file.
+New projects include the `framework` connection to `framework.db`. Relative SQLite and DuckDB paths resolve from the project root so notebooks in subdirectories open the same database file. Legacy 1.x configurations that place database entries directly under `connections:` continue to work.
 
-Older projects that list connections directly under `connections:`, without `databases:`, still work.
+Reference secrets from `.env` with `env("VAR")` or `env("VAR", "fallback")`:
 
-The `env()` syntax reads values from environment variables, keeping credentials out of your settings files. `env("VAR", "default")` supplies a fallback.
-
-Store sensitive values in `.env`:
-
-```bash
+```sh
 # .env (gitignored)
 DB_HOST=db.example.com
 DB_USER=analyst
@@ -51,7 +47,7 @@ DB_PASSWORD=secret
 
 ## Object storage connections
 
-Define S3-compatible buckets (AWS S3, MinIO, Cloudflare R2, and others) under `connections.storage_buckets`. The publishing functions upload to them:
+Configure S3-compatible buckets (AWS S3, Cloudflare R2, MinIO, and others) under `connections.storage_buckets`:
 
 ```yaml
 connections:
@@ -64,56 +60,24 @@ connections:
   default_storage_bucket: reports
 ```
 
-The `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_SESSION_TOKEN`, `S3_REGION`, `S3_BUCKET`, and `S3_ENDPOINT` variables fill these fields. When one is set in the session or `.env`, it takes precedence over the bucket's own value. The matching `AWS_*` names also work. The region defaults to `us-east-1`. Uploads need the aws.s3 package. See the [Publishing guide](guide:publishing#s3-configuration) for every bucket option.
+`S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_SESSION_TOKEN`, `S3_REGION`, `S3_BUCKET`, and `S3_ENDPOINT` (or matching `AWS_*` variables) populate bucket fields and override static bucket values when set in the session or `.env`. `region` defaults to `us-east-1`. Bucket uploads require the `aws.s3` package. See [Publishing](guide:publishing#s3-configuration) for all bucket fields.
 
-Check that a bucket's credentials work:
+Verify bucket credentials with `storage_test()`:
 
 ```r
-storage_test()            # The default bucket
-storage_test("reports")   # A named bucket
+storage_test()            # Default storage bucket
+storage_test("reports")   # Named bucket
 ```
 
-## Connection list
+## Inspecting connections
 
-View all configured connections (databases and object storage) with `connections_list()`, or limit to only database entries using `db_list()`:
+List configured database and storage connections with `connections_list()`, or list databases alone with `db_list()`:
 
 ```r
 connections_list()
-
-db_list()  # Databases only
+db_list()
 ```
 
-## Best practices
+## Credential hygiene
 
-### Credentials in env()
-
-Never hardcode credentials:
-
-```yaml
-# Good
-password: env("DB_PASSWORD")
-
-# Never do this
-password: "my_secret_password"
-```
-
-### Connection names
-
-```yaml
-connections:
-  databases:
-    production_analytics:  # Clear purpose
-      ...
-    staging_analytics:     # Environment obvious
-      ...
-```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Caching](guide:caching)
-
-[Database integration →](guide:database)
-
-</div>
+Always reference passwords and access keys via `env("...")` rather than committing literal secrets in YAML, and name connections for both target and environment (`production_analytics`, `staging_analytics`).

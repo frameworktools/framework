@@ -3,17 +3,15 @@ id: settings-yml
 title: settings.yml
 section: getting_started
 position: 4
-description: 'The project configuration file'
+description: 'Project configuration file structure and split settings'
 ---
-## Overview
+## Configuration layout
 
-Every Framework project has a `settings.yml` file in its root that controls project-specific settings. Edit it directly.
+Every Framework project has a `settings.yml` file in its root directory. Settings sit under a `default:` key, with optional named environment blocks such as `production:`. Top-level keys without `default:` are also accepted.
 
-Settings sit under a `default:` key, with optional environment overrides such as `production:`. A file without `default:` also works.
+## Split configuration files
 
-## Split files
-
-Standard and sensitive projects split most sections into files under `settings/`. Presentations and courses keep everything in `settings.yml`. A section in `settings.yml` names its file:
+Standard and privacy-sensitive projects place individual configuration sections in `settings/*.yml` and reference those files from `settings.yml`. Course and presentation projects keep all settings in `settings.yml`.
 
 ```yaml
 default:
@@ -23,9 +21,10 @@ default:
   data: settings/data.yml
 ```
 
-Each file holds its section under the section key:
+Each referenced file contains its section under the matching key.
 
-**settings/connections.yml:**
+`settings/connections.yml`:
+
 ```yaml
 connections:
   databases:
@@ -35,7 +34,8 @@ connections:
       database: analytics
 ```
 
-**settings/data.yml:**
+`settings/data.yml`:
+
 ```yaml
 data:
   raw:
@@ -44,16 +44,14 @@ data:
       type: csv
 ```
 
-You can split any section the same way, or put a split section back inline.
+Any section can be moved into `settings/*.yml` or moved back inline in `settings.yml`.
 
 > [!NOTE]
-> Root `settings.yml` values win if they conflict with a split file. Framework warns when this happens. `options` sections are merged.
+> Inline values in `settings.yml` override conflicting keys in split files and emit a warning. `options` blocks are merged across both files.
 
-## Sections
+## Configuration sections
 
-### Basics
-
-Project name, type, tools, and privacy.
+### Project metadata and tools
 
 ```yaml
 project_name: my-analysis
@@ -65,9 +63,9 @@ security:
   sensitive: false
 ```
 
-`tools` records the tools the project was created with. `security.sensitive` is true for sensitive projects.
+`tools` records enabled project tools. `security.sensitive` is `true` in privacy-sensitive projects.
 
-### Author
+### Author metadata
 
 ```yaml
 author:
@@ -76,9 +74,9 @@ author:
   affiliation: "Your Institution"
 ```
 
-### Project structure
+### Directory mapping
 
-Maps logical directory names to paths. All paths are relative to the project root. A standard project gets:
+`directories` maps logical directory keys to project-relative paths. `render_dirs` sets Quarto output directories for each source folder.
 
 ```yaml
 directories:
@@ -101,13 +99,11 @@ render_dirs:
   docs: outputs/docs
 ```
 
-`render_dirs` sets where Quarto writes rendered files for each source folder. Sensitive projects use `inputs_private_raw`, `inputs_public_raw`, `outputs_private_tables`, `outputs_public_tables`, and so on.
-
-Access with `settings("notebooks")` or `settings("directories.notebooks")`.
+Privacy-sensitive projects define split keys such as `inputs_private_raw`, `inputs_public_raw`, `outputs_private_tables`, and `outputs_public_tables`. Query paths in R with `settings("notebooks")` or `settings("directories.notebooks")`.
 
 ### Packages
 
-R packages to install and optionally load with `scaffold()`:
+`packages` lists R packages installed and optionally attached by `scaffold()`:
 
 ```yaml
 packages:
@@ -115,24 +111,23 @@ packages:
   default_packages:
     - name: dplyr
       source: cran
-      auto_attach: true   # Load automatically
+      auto_attach: true
     - name: ggplot2
       source: cran
       auto_attach: true
     - name: readr
       source: cran
-      auto_attach: false  # Install only, namespace explicitly
+      auto_attach: false
 ```
 
-`package_add()` adds an entry and installs the package.
-
-See [Packages](guide:packages) for details on version pinning and GitHub packages.
+`package_add()` appends or updates an entry and installs the package. See [Packages](guide:packages).
 
 ### Data catalog
 
-The data catalog maps logical names to file paths. You can use two notation styles:
+The `data` section maps logical dot-notation names to file paths using either nested maps or dotted keys.
 
-**Hierarchical** (nested structure):
+Nested keys:
+
 ```yaml
 data:
   raw:
@@ -149,7 +144,8 @@ data:
       type: rds
 ```
 
-**Mixed** (dots in keys):
+Dotted keys:
+
 ```yaml
 data:
   raw.survey:
@@ -160,33 +156,27 @@ data:
     type: rds
 ```
 
-Both styles are accessed the same way:
+Read both forms identically in R:
 
 ```r
 data_read("raw.survey")
 data_read("final.analysis")
 ```
 
-See [Data management](guide:data-management) for full documentation.
+See [Data management](guide:data-management).
 
 ### Git hooks
-
-Git hook configuration:
 
 ```yaml
 git:
   enabled: true
   hooks:
-    data_security: false  # Check for private data and secrets before commit
+    data_security: false
 ```
 
-The `ai_sync` hook was removed in 2.0. An `ai_sync: true` left in settings is ignored.
-
-See [Git integration](guide:git) for details.
+The 1.x `ai_sync` hook was removed in Framework 2.0; any `ai_sync: true` key in existing files is ignored. See [Git integration](guide:git).
 
 ### AI assistants
-
-AI assistant configuration:
 
 ```yaml
 ai:
@@ -196,13 +186,11 @@ ai:
     - claude
 ```
 
-`AGENTS.md` holds the AI instructions. `CLAUDE.md` points to it, so there is nothing to sync. Framework skills live in `.claude/skills/`.
-
-See [AI assistants](guide:ai-assistants) for details.
+`AGENTS.md` holds the canonical project instructions, `CLAUDE.md` references `@AGENTS.md`, and skills live in `.claude/skills/` or `.agents/skills/`. See [AI assistants](guide:ai-assistants).
 
 ### Connections
 
-Database connections use `env()` to read credentials from [environment variables](#environment-variables):
+Database and object storage connections read secrets from [environment variables](#environment-variables) with `env()`:
 
 ```yaml
 connections:
@@ -220,45 +208,43 @@ connections:
   storage_buckets: {}
 ```
 
-See [Connections](guide:connections) for full documentation.
+See [Connections](guide:connections).
 
 ### Scaffold behavior
 
-Settings for `scaffold()`:
-
 ```yaml
 scaffold:
-  seed: '123'                   # Default seed value
-  seed_on_scaffold: false       # Set seed automatically when scaffold() runs
-  set_theme_on_scaffold: true   # Set the ggplot2 theme when scaffold() runs
+  seed: '123'
+  seed_on_scaffold: false
+  set_theme_on_scaffold: true
   ggplot_theme: theme_minimal
-  source_all_functions: true    # Source every .R file in functions/
+  source_all_functions: true
 ```
 
-When `seed_on_scaffold: true`, Framework calls `set.seed()` during `scaffold()`. This is off by default. The project's seed wins over a user-wide `FW_SEED`, and `seed_on_scaffold: false` turns seeding off even when `FW_SEED` is set.
+When `seed_on_scaffold: true`, `scaffold()` calls `set.seed(seed)`. Seeding is disabled by default. Project `seed` values take precedence over `FW_SEED`, and `seed_on_scaffold: false` disables seeding even when `FW_SEED` is set.
 
 ## Environment variables
 
-Use `env()` to read environment variables in your settings:
+Reference environment variables in `settings.yml` with `env("NAME")` or `env("NAME", "fallback")`:
 
 ```yaml
 connections:
   databases:
     db:
       host: env("DB_HOST")
-      password: env("DB_PASS", "default_value")  # With default
+      password: env("DB_PASS", "default_value")
 ```
 
-Store actual values in `.env` (which is gitignored):
+Store values in `.env` (gitignored):
 
-```text
+```sh
 DB_HOST=localhost
 DB_PASS=secret123
 ```
 
-## Environment-specific settings
+## Named configuration environments
 
-For different settings per environment, add named environment blocks:
+Define environment-specific overrides alongside `default:`:
 
 ```yaml
 default:
@@ -274,26 +260,24 @@ production:
         database: prod_database
 ```
 
-Environment sections replace lists whole.
-
-Activate with:
+Named environment blocks replace list values in full rather than appending to them. Activate an environment with `R_CONFIG_ACTIVE`:
 
 ```r
 Sys.setenv(R_CONFIG_ACTIVE = "production")
 ```
 
-## Settings access
+## Reading settings in R
 
 ```r
 settings("author.name")
 settings("directories")
-settings("notebooks")           # Shorthand for directories.notebooks
-settings("missing.key", default = "fallback")
+settings("notebooks")                      # Shorthand for directories.notebooks
+settings("missing.key", default = "none")
 ```
 
-## Complete structure
+## Complete standard project example
 
-The `settings.yml` of a new standard project, with its split files:
+Root `settings.yml` for a standard project with split files:
 
 ```yaml
 default:
@@ -331,13 +315,3 @@ default:
   security:
     sensitive: false
 ```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Conventions](guide:conventions)
-
-[New projects →](guide:new-project)
-
-</div>

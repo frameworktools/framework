@@ -3,39 +3,37 @@ id: course-teaching
 title: Course/Teaching
 section: project_types
 position: 13
-description: 'Project structure for teaching materials'
+description: 'Project structure for lectures, assignments, and course materials'
 ---
-## Overview
+## Structure
 
-The **Course/Teaching** type is designed for educators creating academic courses. It provides organized directories for slides, assignments, and course materials.
-
-## Directory structure
+The course project (`course`) organizes lecture slides, student assignments, modules, readings, and course documents in a single repository.
 
 ```text
 my-course/
 ├── assignments/         # Student assignments
-├── cache/               # Cached computations
-├── course_docs/         # Course documentation
-├── data/                # Shared datasets
-├── functions/           # Custom R functions (auto-loaded)
-├── modules/             # Notebooks (the default make_notebook() folder)
-├── readings/            # Assigned readings
-├── scripts/             # Automation scripts
-├── slides/              # Lecture presentations
-│   └── _metadata.yml    # RevealJS format for everything in slides/
-├── _quarto.yml          # Quarto configuration
-├── AGENTS.md            # AI assistant guide
-├── scaffold.R           # Project startup code
+├── cache/               # Cached computations (gitignored)
+├── course_docs/         # Syllabi, schedules, and policies
+├── data/                # Shared course datasets
+├── functions/           # Reusable R functions sourced by scaffold()
+├── modules/             # Default make_notebook() directory
+├── readings/            # Reading notes and materials
+├── scripts/             # Automation and grading scripts
+├── slides/              # Lecture decks
+│   └── _metadata.yml    # RevealJS defaults for slides/
+├── _quarto.yml          # Root Quarto configuration
+├── AGENTS.md            # AI assistant context
+├── scaffold.R           # Project startup script
 └── settings.yml         # Course configuration
 ```
 
-`framework.db` is created by the first `scaffold()`, `bootstrap()`, or saved output.
+`framework.db` is created on the first call to `scaffold()`, `bootstrap()`, or a `save_*()` function.
 
-## Course content
+## Creating course files
 
-### Slides
+Relative `dir` paths resolve from the project root regardless of the current working directory.
 
-Create lecture slides with Quarto RevealJS:
+### Lecture slides
 
 ```r
 make_revealjs("intro-to-r", dir = "slides/week-01")
@@ -43,25 +41,19 @@ make_revealjs("intro-to-r", dir = "slides/week-01")
 
 ### Assignments
 
-Create assignment notebooks:
-
 ```r
 make_notebook("assignment-01", dir = "assignments")
 ```
 
 ### Course documents
 
-Create syllabi and schedules:
-
 ```r
 make_notebook("syllabus", dir = "course_docs")
 ```
 
-A relative `dir` starts at the project root, so these calls work the same from any folder in the project.
-
 ### Modules
 
-`make_notebook()` without `dir` writes to `modules/`:
+Calling `make_notebook()` without `dir` writes into `modules/`:
 
 ```r
 make_notebook("week-01-exercises")
@@ -69,7 +61,7 @@ make_notebook("week-01-exercises")
 
 ## Configuration
 
-Example `settings.yml` for a course:
+Course projects keep all settings in a single `settings.yml`:
 
 ```yaml
 default:
@@ -106,84 +98,24 @@ default:
         auto_attach: false
 ```
 
-Course settings live in one `settings.yml`.
+## Directory conventions
 
-## Content organization
+Organize subdirectories under `slides/` and `assignments/` either by week (`week-01-introduction/`, `week-02-data-types/`) or by topic (`foundations/`, `visualization/`).
 
-### By week
-
-```text
-slides/
-├── week-01-introduction/
-├── week-02-data-types/
-├── week-03-data-wrangling/
-└── week-04-visualization/
-```
-
-### By module
-
-```text
-slides/
-├── foundations/
-├── data-manipulation/
-└── visualization/
-```
-
-## Teaching workflow
-
-### 1. Lectures
-
-Create slides in `slides/`:
-
-```r
-make_revealjs("data-wrangling", dir = "slides/week-03")
-```
-
-### 2. Assignments
-
-Build assignments with instructions:
+Pair student prompts and instructor keys in per-assignment folders:
 
 ```text
 assignments/assignment-01/
-├── instructions.qmd  # Student-facing
-└── solution.qmd      # Answer key
+├── instructions.qmd
+└── solution.qmd
 ```
 
-### 3. Rendering
+Put shared grading or plotting helpers in `functions/*.R` so `scaffold()` loads them automatically.
 
-Quarto renders into `rendered/`. Slides go to `rendered/slides/`, assignments to `rendered/assignments/`. The course `.gitignore` ignores `rendered/`; publish rendered files with `publish()` or remove that line to commit them.
+## Rendering
 
-```bash
+Quarto writes rendered HTML and PDF output into `rendered/` (`rendered/slides/`, `rendered/assignments/`, and matching folders). The course `.gitignore` excludes `rendered/` by default; distribute outputs with `publish()` or edit `.gitignore` if you commit rendered HTML.
+
+```sh
 quarto render slides/week-01/lecture.qmd
 ```
-
-## Best practices
-
-### Consistent naming
-
-Use consistent prefixes:
-```text
-week-01-*, week-02-*, ...
-assignment-01, assignment-02, ...
-```
-
-### Reusable functions
-
-`scaffold()` loads every `.R` file in `functions/`. Put shared code there:
-
-```r
-# functions/grading.R
-calculate_grade <- function(scores, weights) {
-  sum(scores * weights) / sum(weights)
-}
-```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Privacy-sensitive project](guide:privacy-sensitive-project)
-
-[Presentation →](guide:presentation)
-
-</div>

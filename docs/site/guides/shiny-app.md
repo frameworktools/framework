@@ -3,33 +3,30 @@ id: shiny-app
 title: Shiny app
 section: project_types
 position: 15
-description: 'A Shiny app with app.R, functions in R/, and static files in www/'
+description: 'Shiny web app blueprint with app.R, R/ helpers, and www/ assets'
 ---
-## Overview
+## Blueprint overview
 
-The Shiny app type (`shiny`) starts a Shiny app that runs as created. It
-comes from Framework Cloud, so you need to be signed in to create one.
+The Shiny app blueprint (`shiny`) scaffolds a runnable Shiny application. Because the blueprint is hosted on Framework Cloud, sign in with `cloud_login()` before creating one.
 
-## Creating the project
+## Project creation
 
-Sign in once, then create the project from R:
+Create the project from R after signing in:
 
 ```r
 framework::cloud_login()
 framework::new_project("my-app", type = "shiny")
 ```
 
-You can also open **Blueprints** on Framework Cloud, choose **Shiny app**, and
-select **New project**. Signed out, `type = "shiny"` builds Framework's default
-layout with a warning.
+You can also open **Blueprints** on Framework Cloud, select **Shiny app**, and click **Create project**. When signed out, `type = "shiny"` emits a warning and builds a layout with only the core project files, without the blueprint's folders or starter files.
 
 ## Starter files
 
 ```text
 my-app/
-├── app.R          # the interface and the server
-├── R/             # functions; Shiny loads them on its own
-├── www/           # images, CSS, and other static files
+├── app.R          # UI and server definition
+├── R/             # Helper functions loaded automatically by Shiny
+├── www/           # Static assets (images, CSS, JavaScript)
 ├── tests/
 ├── data/
 ├── scripts/
@@ -37,7 +34,7 @@ my-app/
 └── settings.yml
 ```
 
-`app.R` is a `bslib` page with a sidebar slider and a histogram:
+Starter `app.R`:
 
 ```r
 library(shiny)
@@ -63,21 +60,20 @@ server <- function(input, output, session) {
 shinyApp(ui, server)
 ```
 
-## Packages
+## Default packages
 
-The project starts with the **Shiny app in R** package set: shiny, bslib,
-bsicons, DT, and plotly. To add the same set to an existing project:
+The blueprint includes the `shiny-r` package set (`shiny`, `bslib`, `bsicons`, `DT`, and `plotly`). Add the same set to an existing project with:
 
 ```r
 framework::package_set_add("shiny-r")
 ```
 
-## Running the app
+## Running the application
 
-From the project folder:
+Start the app from the project root:
 
 ```r
 shiny::runApp()
 ```
 
-Put shared logic in `R/`, so tests can call it without starting the app.
+Keep domain functions in `R/` so unit tests in `tests/` can call them without launching a Shiny session.

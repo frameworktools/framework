@@ -3,19 +3,15 @@ id: viewing-work
 title: Viewing work
 section: features
 position: 8
-description: 'Interactive views with view(), saved results, and project info'
+description: 'Interactive object viewer, saved results registry, and project info'
 ---
-## Overview
-
-Framework provides tools for interactively exploring your data, viewing saved results, and browsing your project structure.
-
 ## Interactive viewer
 
-Use `view()` to open objects in an interactive HTML viewer in your browser. It writes a temporary HTML file and opens it, so it works the same in RStudio, Positron, VS Code, and the terminal. It needs the DT, prismjs, and yaml packages.
+`view()` writes a standalone HTML view of an R object to a temporary file and opens it in your browser, giving consistent inspection across Positron, VS Code, RStudio, and terminal sessions. `view()` requires the `DT`, `lubridate`, `prismjs`, and `yaml` packages.
 
 ### Data frames
 
-Data frames open as a searchable, sortable, filterable table:
+Data frames open in an interactive table with global search, per-column filters, sortable headers, pagination, and Copy, CSV, and Excel export buttons:
 
 ```r
 view(mtcars)
@@ -23,89 +19,53 @@ view(mtcars)
 
 ![Data frame viewer](images/view-dataframe.png)
 
-Features:
-- Search across all columns
-- Filter individual columns
-- Sort by clicking headers
-- Export to Copy, CSV, or Excel
-- Pagination for large datasets
+### Lists and nested objects
 
-### Complex objects
-
-For lists and other complex objects, `view()` displays a structured view with YAML and R tabs:
+Lists, `settings()` trees, and nested objects open in a two-tab inspector showing formatted YAML and `str()`-style R structure:
 
 ```r
 x <- list(a = 1, b = c(2, 3), c = list("D", "E", list(F = "G")))
 view(x)
 ```
 
-<div style="display: flex; gap: 1rem;">
-<img src="/images/view-list-yaml.png" alt="List viewer - YAML tab" style="max-width: 48%;">
-<img src="/images/view-list-r.png" alt="List viewer - R tab" style="max-width: 48%;">
-</div>
-
 ### Plots
 
-ggplot2 objects and recorded base plots open as images:
+`ggplot2` objects and recorded base R plots open as rendered images:
 
 ```r
 p <- ggplot(mtcars, aes(mpg, hp)) + geom_point()
 view(p)
 ```
 
-### Options
+### Viewer options
 
 ```r
-# Custom title
 view(df, title = "Survey Results")
-
-# Limit rows for very large datasets (default 5000)
-view(large_df, max_rows = 1000)
+view(large_df, max_rows = 1000)   # Default limit: 5000 rows
 ```
 
-## Result list
+## Saved results registry
 
-Query saved results with `result_list()`:
+Query outputs recorded in `framework.db` with `result_list()`:
 
 ```r
-# All results
 result_list()
-
-# Filter by type
 result_list(type = "figure")
 result_list(type = "table")
 result_list(type = "model")
-
-# Filter by public status
 result_list(public = TRUE)
 result_list(public = FALSE)
-
-# Combine filters
 result_list(type = "table", public = TRUE)
 ```
 
-Returns a data frame with each result's name, type, public flag, comment, hash, and timestamps, newest first. The name is the file's path from the project root, such as `outputs/tables/summary.csv`.
+`result_list()` returns a data frame ordered newest first with each output's project-relative `name` (such as `outputs/tables/summary.csv`), `type`, `public` flag, `comment`, SHA-256 `hash`, and timestamps.
 
-## Project info
+## Project summary
 
-View your project structure and output mappings:
+Inspect configured directories and output routing with `project_info()`:
 
 ```r
 project_info()
 ```
 
-This displays:
-- Project name and type
-- Configured directories, and whether each exists yet
-- The cache directory
-- The folder each `save_*()` function writes to
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Quarto integration](guide:quarto)
-
-[Saving work →](guide:saving-work)
-
-</div>
+`project_info()` prints the project name and type, configured directory keys and whether each folder exists on disk, the active cache path, and the target folder for each `save_*()` function.

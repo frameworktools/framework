@@ -3,39 +3,37 @@ id: presentation
 title: Presentation
 section: project_types
 position: 14
-description: 'Minimal structure for slides and presentations'
+description: 'Minimal structure for slides and single-file reports'
 ---
-## Overview
+## Structure
 
-The **Presentation** type is a minimal structure for focused, single-output work like conference presentations, standalone reports, or one-off analyses.
-
-## Directory structure
+The presentation project (`presentation`) provides a compact layout for conference talks, seminars, and standalone Quarto reports.
 
 ```text
 my-presentation/
-├── cache/               # Cached computations
-├── data/                # Data files
-├── functions/           # Custom R functions (auto-loaded)
-├── outputs/             # Saved outputs
-├── scripts/             # Automation scripts
-├── _quarto.yml          # Quarto configuration (RevealJS)
-├── AGENTS.md            # AI assistant guide
-├── presentation.qmd     # Main document
-├── scaffold.R           # Project startup code
-└── settings.yml         # Configuration
+├── cache/               # Cached computations (gitignored)
+├── data/                # Datasets
+├── functions/           # Reusable R functions sourced by scaffold()
+├── outputs/             # Saved figures and tables
+├── scripts/             # Data preparation scripts
+├── _quarto.yml          # Quarto RevealJS configuration
+├── AGENTS.md            # AI assistant context
+├── presentation.qmd     # Primary slide deck
+├── scaffold.R           # Project startup script
+└── settings.yml         # Project configuration
 ```
 
-## Presentation creation
+## Creating a presentation project
 
 ```r
 new_presentation("quarterly-report", "~/presentations/q4")
 ```
 
-This creates the structure above with a starter `presentation.qmd`. Add more decks with `make_revealjs()`.
+`new_presentation()` creates the directory structure and a starter `presentation.qmd`. Add extra slide decks with `make_revealjs()`.
 
 ## Configuration
 
-Example `settings.yml`:
+Presentation projects store settings in a single `settings.yml`:
 
 ```yaml
 default:
@@ -64,9 +62,9 @@ default:
 
 ## Workflow
 
-### 1. Setup
+### Setup chunk
 
-The starter `presentation.qmd` runs `scaffold()` in a hidden setup chunk:
+The starter `presentation.qmd` initializes Framework in a hidden setup chunk:
 
 ````qmd
 ```{r}
@@ -78,9 +76,9 @@ scaffold()
 ```
 ````
 
-### 2. Editing
+### Slide authoring
 
-Work directly in `presentation.qmd`:
+Edit slides directly in `presentation.qmd`:
 
 ````qmd
 ---
@@ -91,102 +89,38 @@ format: revealjs
 
 ## Overview
 
-Key findings from Q4 sales data.
+Summary of Q4 regional revenue.
 
-## Revenue Growth
+## Revenue by region
 
 ```{r}
 sales_plot
 ```
 ````
 
-### 3. Rendering
+Put plotting helpers in `functions/*.R` and wrap slow calculations in `cache_remember()` so slide renders stay fast.
 
-```bash
+### Rendering
+
+Render from the terminal or from R:
+
+```sh
 quarto render presentation.qmd
 ```
-
-The rendered file is written next to the source.
-
-Or in R:
 
 ```r
 quarto::quarto_render("presentation.qmd")
 ```
 
+Rendered output is written alongside `presentation.qmd`.
+
 ## Output formats
 
-Change the format in the YAML header:
+Set `format` in YAML frontmatter to switch deliverables:
 
-### Reveal.js slides
-```yaml
-format: revealjs
-```
+- `format: revealjs` for HTML slides
+- `format: html` for standalone web reports
+- `format: pdf` for PDF handouts or reports
+- `format: docx` for Word documents
 
-### HTML document
-```yaml
-format: html
-```
-
-### PDF report
-```yaml
-format: pdf
-```
-
-### Word document
-```yaml
-format: docx
-```
-
-## Best practices
-
-### Scope
-
-The presentation type is for single deliverables. For multi-document projects, use the standard **Project** type.
-
-### Functions
-
-`scaffold()` loads every `.R` file in `functions/`. Put reusable code there:
-
-```r
-# functions/plots.R
-create_revenue_chart <- function(data) {
-  ggplot(data, aes(x = month, y = revenue)) +
-    geom_col(fill = "steelblue") +
-    theme_minimal()
-}
-```
-
-### Caching
-
-Speed up rendering:
-
-```r
-# In presentation.qmd
-summary_stats <- cache_remember("summary", {
-  expensive_calculations()
-})
-```
-
-## Suitable uses
-
-**Good for:**
-- Conference talks
-- Committee presentations
-- Executive summaries
-- One-time reports
-- Quick analyses
-
-**Consider Standard Project for:**
-- Ongoing analyses
-- Multiple deliverables
-- Complex data pipelines
-- Collaborative work
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Course/Teaching](guide:course-teaching)
-
-</div>
+For multi-notebook studies or staged data pipelines, use the `project` structure instead.

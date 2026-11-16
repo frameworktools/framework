@@ -5,43 +5,36 @@ section: project_types
 position: 10
 description: 'Framework project structures and type labels'
 ---
-## Overview
+## Project composition
 
-A project's type is a label for the blueprint it came from. Framework builds each project from three parts:
+A project's `type` identifies the blueprint used to create it. Each project combines three layers:
 
-- **Structure**: the folders and starter files.
-- **Tools**: Quarto, renv, targets, Jupyter, and others.
+- **Structure**: directories and starter files.
+- **Tools**: Quarto, `renv`, `targets`, Jupyter, and manuscript or slide extensions.
 - **Sets**: package sets and AI skill sets.
 
-Framework ships several structures with the package, and more on Framework
-Cloud:
+Built-in and Cloud structures:
 
-| Type | Best For |
-|------|----------|
-| **Standard Project** (`project`) | Data analysis, research, reporting |
-| **Privacy Sensitive Project** (`project_sensitive`) | Research with private/public data separation |
-| **Course/Teaching** (`course`) | Academic courses with lectures and assignments |
-| **Presentation** (`presentation`) | Slides and presentations |
-| **Shiny app** (`shiny`) | Shiny apps. See [Shiny app](guide:shiny-app). |
-| **Plumber API** (`plumber`) | Web APIs. See [Plumber API](guide:plumber-api). |
-| **Bare** (`bare`) | Your own structure |
+| Type | Purpose |
+|------|---------|
+| **Standard project** (`project`) | General data analysis, pipelines, and reporting |
+| **Privacy-sensitive project** (`project_sensitive`) | Research separating private and public inputs and outputs |
+| **Course** (`course`) | Academic courses with slides, assignments, readings, and modules |
+| **Presentation** (`presentation`) | Standalone RevealJS decks and single-file reports |
+| **Shiny app** (`shiny`) | Interactive Shiny web apps. See [Shiny app](guide:shiny-app). |
+| **Plumber API** (`plumber`) | HTTP APIs built with Plumber. See [Plumber API](guide:plumber-api). |
+| **Bare** (`bare`) | Minimal configuration without preset directories |
 
-The app types come from Framework Cloud, so they need `cloud_login()` first.
+The `shiny` and `plumber` blueprints are served from Framework Cloud and require `cloud_login()`.
 
-Any lowercase id works as `type`. A Framework Cloud blueprint can use its own label. Offline, an unknown label builds the default layout and warns.
+Any lowercase blueprint ID works as `type`. Offline, an unrecognized ID emits a warning and builds the standard `project` layout.
 
-## Type comparison
+## Structure layouts
 
-### Standard project (default)
+### Standard project (`project`)
 
-This type has organized data, work, and output directories.
+Default layout for research projects, pipelines, and exploratory analysis:
 
-Use for most data analysis work:
-- Research projects
-- Data pipelines
-- Exploratory data analysis
-
-**Default structure:**
 ```text
 my-analysis/
 ├── docs/
@@ -62,15 +55,10 @@ my-analysis/
 └── settings.yml
 ```
 
-### Privacy-sensitive project
+### Privacy-sensitive project (`project_sensitive`)
 
-This type separates private and public data and adds stricter privacy controls.
+Separates restricted files from shareable artifacts and enables stricter Git and agent rules:
 
-Use for research involving sensitive or protected data:
-- Research with sensitive data, such as protected health information
-- Projects requiring clear public/private separation
-
-**Default structure:**
 ```text
 my-study/
 ├── docs/
@@ -97,11 +85,10 @@ my-study/
 └── settings.yml
 ```
 
-### Course/Teaching
+### Course (`course`)
 
-This type has a structure for teaching materials, such as lecture slides, student assignments, and course materials.
+Organizes teaching materials across lectures, assignments, readings, and modules:
 
-**Default structure:**
 ```text
 my-course/
 ├── assignments/
@@ -118,11 +105,10 @@ my-course/
 └── settings.yml
 ```
 
-### Presentation
+### Presentation (`presentation`)
 
-This type has a minimal structure for slides and presentations.
+Minimal layout centered on a single Quarto document:
 
-**Default structure:**
 ```text
 my-presentation/
 ├── cache/
@@ -136,44 +122,35 @@ my-presentation/
 └── settings.yml
 ```
 
-### Bare
+### Bare (`bare`)
 
-This type writes only `settings.yml`, `.gitignore`, and `.framework/spec.json`. It has no folders, starter files, `.env`, or Quarto configuration. Use it to bring your own structure.
+Writes only `settings.yml`, `.gitignore`, `.framework/spec.json`, and an `.Rproj` file, leaving directory organization to you.
 
-## Project creation
+## Creating projects
 
 ### Framework Cloud
 
-Signed in with `cloud_login()`, `new_project()` uses your default blueprint on Framework Cloud. It registers the new project there.
+When signed in with `cloud_login()`, `new_project()` resolves your default Cloud blueprint and registers the created project on Framework Cloud.
 
-To set up a project already defined on Framework Cloud, pass its project token:
+To build a project already defined on Framework Cloud from its project token:
 
 ```r
 framework::setup("fw_...")
 ```
 
-### Programmatic creation
+### R constructors
 
 ```r
-# Create a standard project
 new_project("sales-analysis", "~/code/sales-analysis")
-
-# Create a privacy sensitive project
 new_project_sensitive("medical-study", "~/code/medical")
-
-# Create a course
 new_course("data-science-101", "~/teaching/ds101")
-
-# Create a presentation
 new_presentation("q4-report", "~/presentations/q4")
-
-# Create a bare project
 new_project("my-layout", "~/code/my-layout", type = "bare")
 ```
 
 ### Tools and sets
 
-Add tools and sets to any structure:
+Attach tools and package sets to any structure:
 
 ```r
 new_project(
@@ -182,38 +159,28 @@ new_project(
   package_sets = "tidyverse-analysis"
 )
 
-# Turn a structure's tool off
+# Override a structure's default tools
 new_project("study", "~/code/study", tools = c(quarto = FALSE, renv = TRUE))
 ```
 
 | Tool | Effect |
 |------|--------|
-| `quarto` | Quarto notebooks and `_quarto.yml`. On for every structure except bare. |
-| `quarto_manuscript` | A manuscript folder with a Quarto manuscript. Needs `quarto`. |
-| `quarto_slides` | A slides folder that renders with Quarto RevealJS. Needs `quarto`. |
-| `renv` | renv records package versions. |
-| `targets` | The targets and tarchetypes packages and a starter `_targets.R`. |
-| `jupyter` | Jupyter notebooks with the IRkernel kernel. |
+| `quarto` | Quarto notebooks and `_quarto.yml` (enabled on all structures except `bare`) |
+| `quarto_manuscript` | Adds a `manuscript/` directory with a Quarto manuscript (enables `quarto`) |
+| `quarto_slides` | Adds a `slides/` directory configured for Quarto RevealJS (enables `quarto`) |
+| `renv` | Initializes `renv` for package version locking |
+| `targets` | Adds `targets` and `tarchetypes` and writes a starter `_targets.R` |
+| `jupyter` | Configures Jupyter notebooks with the `IRkernel` R kernel |
 
-A tool's requirements are added with a message. Skill sets default to `framework` and `ggplot2`. Pass `offline = TRUE` to skip Framework Cloud.
+Skill sets default to `framework` and `ggplot2`. Pass `offline = TRUE` to skip Framework Cloud requests.
 
-## Shared features
+## Shared components
 
-All project types except bare include:
+Every non-bare structure includes:
 
-- **Configuration** (`settings.yml`): project settings. Standard and privacy-sensitive projects split sections into `settings/*.yml`.
-- **Git integration**: version control with a type-specific `.gitignore`.
-- **Quarto support**: document rendering.
-- **AI assistant context**: `AGENTS.md`, a `CLAUDE.md` that points to it, and skills in `.claude/skills/`.
-- **Project spec**: `.framework/spec.json` records the structure, tools, and sets.
-- **Environment file**: `.env`, ignored by git.
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← Publishing](guide:publishing)
-
-[Standard project →](guide:standard-project)
-
-</div>
+- `settings.yml` (plus `settings/*.yml` on `project` and `project_sensitive`).
+- Git repository initialization with a type-specific `.gitignore`.
+- `_quarto.yml` when `quarto` is enabled.
+- `AGENTS.md`, assistant pointer files such as `CLAUDE.md`, and skills in `.claude/skills/` or `.agents/skills/`.
+- `.framework/spec.json` recording the resolved structure, tools, and sets.
+- Gitignored `.env` template.

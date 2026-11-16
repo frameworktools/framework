@@ -3,85 +3,68 @@ id: scaffold
 title: scaffold()
 section: features
 position: 1
-description: 'Project environment setup'
+description: 'Session initialization for Framework projects'
 ---
-## Overview
+## Session initialization
 
-`scaffold()` is the primary entry point for working with Framework projects. Call it at the start of every notebook or script to set up your environment.
+Call `scaffold()` at the top of every notebook or script to initialize the project environment:
 
 ```r
 library(framework)
 scaffold()
 ```
 
-Or if you prefer explicit namespacing:
+Or call `framework::scaffold()`, which attaches `framework` when it is not attached.
+
+## Initialization sequence
+
+`scaffold()` executes these steps in order:
+
+1. **Locates the project root** from the current or parent directories.
+2. **Loads `.env`** into the R session without overriding variables already set in the environment.
+3. **Reads `settings.yml`** and any split `settings/*.yml` files.
+4. **Prepares `framework.db`**, creating the file or adding missing schema tables.
+5. **Sets the random seed** when `seed_on_scaffold` is `true` (disabled by default).
+6. **Sets the `ggplot2` theme** when `set_theme_on_scaffold` is `true` (`theme_minimal` in new projects).
+7. **Installs missing packages** listed in project settings (using `renv` when enabled).
+8. **Attaches packages** marked `auto_attach: true`.
+9. **Sources `functions/*.R`** in alphabetical order.
+10. **Sources `scaffold.R`** at the project root when present.
+11. **Creates the initial Git commit** (`"Project initialized."`) if the repository has zero commits and Git identity is configured.
+
+## Session environment
+
+After `scaffold()` finishes, attached packages, project functions, and `settings()` lookups are available:
 
 ```r
-framework::scaffold()
-```
-
-## scaffold() steps
-
-When you call `scaffold()`, it:
-
-1. **Finds your project**: locates the project root, even from subdirectories
-2. **Loads environment variables**: reads secrets from `.env`
-3. **Reads configuration**: parses `settings.yml`
-4. **Prepares framework.db**: creates it, or adds missing tables
-5. **Sets random seed**: if enabled in settings (off by default)
-6. **Sets ggplot theme**: applies your default theme (`theme_minimal` in new projects)
-7. **Installs packages**: any uninstalled packages from your packages settings
-8. **Loads packages**: attaches packages with `auto_attach: true`
-9. **Sources functions**: loads all `.R` files from `functions/`
-10. **Sources scaffold.R**: runs the project's `scaffold.R`, if there is one
-11. **Makes the first git commit**: in a repository with no commits yet, commits every file `.gitignore` allows as "Project initialized."
-
-## Session state after scaffold()
-
-Once `scaffold()` runs:
-
-- Your configured packages are loaded and ready to use
-- All functions from `functions/` are available
-- Project settings are accessible via `settings()`
-
-```r
-# Use your packages directly
 df <- read_csv("data.csv") |>
   filter(x > 0) |>
   mutate(y = x * 2)
 
-# Call functions from functions/
 result <- my_custom_function(df)
 
-# Access project settings
 settings("author.name")
 settings("directories.notebooks")
 ```
 
-## Project discovery
+## Project root discovery
 
-`scaffold()` automatically finds your project by looking for:
-
-- `settings.yml` in current or parent directories
-- `.Rproj` or `.code-workspace` file with settings nearby
-- Common Framework directories (`notebooks/`, `scripts/`, etc.)
-
-You can call `scaffold()` from any subdirectory:
+`scaffold()` walks upward from the working directory looking for `settings.yml`, `.Rproj` or `.code-workspace` files paired with Framework settings, or standard project markers. Notebooks in `notebooks/`, scripts in `scripts/`, and files in subdirectories resolve the same project root:
 
 ```text
 my-project/
 ├── settings.yml
 ├── notebooks/
-│   └── 01-analysis.qmd    # scaffold() works here
+│   └── 01-analysis.qmd
 ├── scripts/
-│   └── process.R          # and here
+│   └── process.R
 └── functions/
-    └── helpers.R          # and here
+    └── helpers.R
 ```
 
-## Configuration
+## Configuration options
 
-`scaffold()` behavior is controlled by the `scaffold` and `packages` settings. Standard and privacy-sensitive projects keep them in `settings/scaffold.yml` and `settings/packages.yml`. Other types keep them in `settings.yml`.
+`scaffold` and `packages` blocks live in `settings/scaffold.yml` and `settings/packages.yml` on split-settings projects or directly in `settings.yml` on single-file projects:
 
 ```yaml
 scaffold:
@@ -100,9 +83,9 @@ packages:
       auto_attach: true
 ```
 
-### Seed
+### Random seed
 
-Random seed setting is **off by default**. To enable it for reproducibility, set both values:
+Random seeding is off by default. Set both `seed` and `seed_on_scaffold: true` to call `set.seed()` during `scaffold()`:
 
 ```yaml
 scaffold:
@@ -110,61 +93,42 @@ scaffold:
   seed_on_scaffold: true
 ```
 
-With `seed_on_scaffold` unset, the `FW_SEED` environment variable turns seeding on. The project's `seed` wins over `FW_SEED`.
+When `seed_on_scaffold` is unset, setting the `FW_SEED` environment variable enables seeding. A project's `seed` setting takes precedence over `FW_SEED`.
 
-### Theme
+### Plot theme
 
-`set_theme_on_scaffold: true` applies `ggplot_theme` with `ggplot2::theme_set()`. Set it to `false` to leave the theme alone.
+`set_theme_on_scaffold: true` passes `ggplot_theme` to `ggplot2::theme_set()`. Set `set_theme_on_scaffold: false` to leave the active theme unchanged.
 
-### Packages
+### Package attachment
 
-Packages with `auto_attach: true` are loaded automatically. Others are just installed:
+Entries with `auto_attach: true` are loaded with `library()`. Entries with `auto_attach: false` are installed without attaching:
 
 ```yaml
 packages:
   default_packages:
     - name: dplyr
-      auto_attach: true    # loaded
+      auto_attach: true
     - name: jsonlite
-      auto_attach: false   # installed but not loaded
+      auto_attach: false
 ```
 
-With renv on, packages install through renv.
+### Function directories
 
-### Functions directory
-
-All `.R` files in `functions/` are sourced. Set `source_all_functions: false` under `scaffold:` to skip them.
-
-To source other folders, list them under `options: functions_dir`:
+Set `source_all_functions: false` under `scaffold:` to skip sourcing `functions/*.R`. To source multiple directories, list them under `directories.functions`:
 
 ```yaml
-options:
-  functions_dir:
+directories:
+  functions:
     - functions
     - helpers
 ```
 
-## Custom scaffold.R
+## Project scaffold.R
 
-If a `scaffold.R` file exists in your project root, it's sourced after the standard setup. New projects include a starter `scaffold.R`. Use it for project-specific initialization:
+New projects include a root `scaffold.R` file sourced after standard initialization. Place project-wide options or shared lookup reads there:
 
 ```r
 # scaffold.R
-message("Welcome to the project!")
-
-# Load reference data used across notebooks
 reference_data <- data_read("reference.lookup")
-
-# Set project-wide options
 options(scipen = 999)
 ```
-
----
-
-<div style="display: flex; justify-content: space-between">
-
-[← New projects](guide:new-project)
-
-[framework.db →](guide:framework-db)
-
-</div>

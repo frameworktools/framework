@@ -3,15 +3,13 @@ id: data-management
 title: Data management
 section: features
 position: 4
-description: 'Data files and the declarative data catalog'
+description: 'Data files, format readers, and the declarative data catalog'
 ---
-## Overview
-
-Framework provides a declarative approach to data management. Instead of hardcoding file paths throughout your code, you define a data catalog in your settings and reference data using dot notation like `inputs.raw.sales`. Framework resolves paths, selects the correct reader, and tracks file integrity automatically.
-
 ## Data catalog
 
-The catalog lives under `data:`. Projects with split settings files keep it in `settings/data.yml`. Single-file projects keep it in `settings.yml`. Keys can be flat dot notation or nested:
+Instead of repeating file paths across scripts, register datasets under `data:` in `settings/data.yml` (split projects) or `settings.yml` (single-file projects) and load them by dot-notation key (`inputs.raw.sales`). Framework resolves paths from the project root, selects the matching file reader, and checks SHA-256 hashes in `framework.db`.
+
+Dotted and nested YAML keys are interchangeable:
 
 ```yaml
 data:
@@ -28,7 +26,7 @@ data:
     type: rds
 ```
 
-The nested form is equivalent. `data_add()` writes this form:
+`data_add()` writes the nested form:
 
 ```yaml
 data:
@@ -39,152 +37,109 @@ data:
         type: csv
 ```
 
-## Catalog editing
+## Registering existing files
 
-Register an existing file with `data_add()`:
+Register a file on disk with `data_add()`:
 
 ```r
 data_add("inputs/raw/survey.csv")
-# Registered as inputs.raw.survey
-
 data_add("inputs/raw/sales_2024.csv", name = "inputs.raw.sales")
 ```
 
-`data_add()` detects the type from the extension and derives the name from the path when you omit `name`. It records the file's hash and marks the entry `locked: true` by default.
+`data_add()` infers `type` from the file extension, derives a dot-notation key from the path when `name` is omitted, and stores the file's SHA-256 hash in `framework.db`. Entries are unlocked unless you pass `locked = TRUE`. Run `scaffold()` once before the first `data_add()` so `framework.db` is initialized.
 
-List the catalog with `data_list()`. It returns a data frame with each entry's name, path, type, lock status, and description.
+`data_list()` returns a data frame of catalog entries with `name`, `path`, `type`, `locked`, and `description`. `data_info("inputs.raw.sales")` returns a single entry's path, type, delimiter, lock flag, and privacy status.
 
-`scaffold()` must run once before the first `data_add()`, so that `framework.db` exists.
-
-## Supported formats
-
-Framework supports these data formats:
+## Supported file formats
 
 | Type | Extensions | Reader | Package |
 |------|------------|--------|---------|
-| `csv` | .csv | `readr::read_delim()` | readr |
-| `tsv` | .tsv, .txt, .dat | `readr::read_delim()` | readr |
-| `rds` | .rds | `readRDS()` | base R |
-| `excel` | .xlsx, .xls | `readxl::read_excel()` | readxl |
-| `stata` | .dta | `haven::read_dta()` | haven |
-| `spss` | .sav, .zsav | `haven::read_sav()` | haven |
-| `spss_por` | .por | `haven::read_por()` | haven |
-| `sas` | .sas7bdat, .sas7bcat | `haven::read_sas()` | haven |
-| `sas_xpt` | .xpt | `haven::read_xpt()` | haven |
-| `parquet` | .parquet | `arrow::read_parquet()` | arrow |
+| `csv` | `.csv` | `readr::read_delim()` | `readr` |
+| `tsv` | `.tsv`, `.txt`, `.dat` | `readr::read_delim()` | `readr` |
+| `rds` | `.rds` | `readRDS()` | `base` |
+| `excel` | `.xlsx`, `.xls` | `readxl::read_excel()` | `readxl` |
+| `stata` | `.dta` | `haven::read_dta()` | `haven` |
+| `spss` | `.sav`, `.zsav` | `haven::read_sav()` | `haven` |
+| `spss_por` | `.por` | `haven::read_por()` | `haven` |
+| `sas` | `.sas7bdat`, `.sas7bcat` | `haven::read_sas()` | `haven` |
+| `sas_xpt` | `.xpt` | `haven::read_xpt()` | `haven` |
+| `parquet` | `.parquet` | `arrow::read_parquet()` | `arrow` |
 
-For Stata, SPSS, and SAS files, Framework strips variable labels and formats by default for cleaner data frames. Use `keep_attributes = TRUE` to preserve them.
-
-Parquet support requires the `arrow` package.
+For Stata, SPSS, and SAS inputs, `data_read()` strips variable labels and format attributes by default; pass `keep_attributes = TRUE` to retain them.
 
 ## Reading data
 
-Use `data_read()` to load data by its catalog name:
+Load a registered dataset by catalog key or direct path:
 
 ```r
-# Load from catalog
 sales <- data_read("inputs.raw.sales")
 customers <- data_read("inputs.raw.customers")
-
-# The function automatically:
-# - Resolves the path from the catalog
-# - Uses the correct reader for the type
-# - Checks the file's hash
+ad_hoc <- data_read("inputs/raw/sales_2024.csv")
 ```
 
-`data_read()` also accepts a file path, such as `data_read("inputs/raw/sales_2024.csv")`. Hash checks apply to catalog names only.
+Catalog reads verify the file's SHA-256 hash in `framework.db`. Direct file paths bypass catalog hash checks. Relative paths resolve from the project root first, then from the current working directory.
 
 ## Saving data
 
-Save data to the catalog with `data_save()`:
+Write a dataset and register it in the catalog with `data_save()`:
 
 ```r
-# Process and save
 merged <- sales |>
   left_join(customers, by = "customer_id")
 
 data_save(merged, "inputs.final.merged")  # Writes inputs/final/merged.rds
 ```
 
-A dot-notation name starts with a configured directory key (`inputs.final` is `directories.inputs_final`). The file is saved there and registered in the catalog. `data_save()` writes `rds` by default, or `csv` with `type = "csv"`. A name may also end in the extension: `"inputs.final.merged.csv"` is the name `inputs.final.merged` saved as CSV. A bare file name such as `"merged.csv"` is an error. A path with a `/`, such as `"inputs/final/merged.csv"`, saves the file without adding a catalog entry. A relative path starts at the project root, wherever R runs, so a notebook in `notebooks/` writes where a script in the root would. `data_read()` and `data_add()` look for a relative path from the project root first, then from the working directory. The directory must exist unless you pass `force = TRUE`. Saved files are locked by default.
+A dot-notation name begins with a configured `directories` key (`inputs.final` maps to `directories.inputs_final`). `data_save()` writes RDS by default, writes CSV when `type = "csv"` or when the name ends with `.csv` (`"inputs.final.merged.csv"`), and leaves the data unlocked unless you pass `locked = TRUE`. Passing a path containing `/` (`"inputs/final/merged.csv"`) writes the file relative to the project root without adding a catalog entry. Bare filenames without a directory prefix or `/` raise an error, and missing target directories outside the configured settings folders require `force = TRUE`.
 
-## Data integrity
+## Integrity hashes and locks
 
-Framework automatically tracks data integrity using file hashes. When you read or save data, Framework computes a SHA-256 hash of the file and stores it in the project database.
+When reading or saving a catalog entry, Framework computes the file's SHA-256 hash and compares it with `framework.db`:
 
-**Hash checks:**
-
-1. On first read, Framework records the file's hash
-2. On subsequent reads, it compares the current hash against the stored hash
-3. If the hashes differ, Framework warns you that the file has changed
-
-**Locked data:** Entries marked `locked: true` raise an error instead of a warning when the file changes. `data_add()` and `data_save()` lock entries by default. This prevents accidental use of corrupted or modified source data.
+- First read or save: records the SHA-256 hash.
+- Subsequent read with `locked: true` (set by `locked = TRUE` or in the catalog): stops with an error if the hash changed.
+- Subsequent read with `locked: false` (the default): emits a warning and updates the stored hash.
 
 ```yaml
 data:
   inputs.raw.survey:
     path: inputs/raw/survey_results.csv
     type: csv
-    locked: true  # Error if file changes unexpectedly
+    locked: true
 ```
 
-## Data info
+## Locked data protection
 
-Get information about a data entry:
-
-```r
-data_info("inputs.raw.sales")
-# Returns path, type, delimiter, locked, and private
-```
-
-## Cloud ledger
-
-Projects linked to Framework Cloud can copy their data hashes to an integrity ledger on Cloud. The data files stay on your computer. Only names, hashes, and file sizes are sent.
-
-- `ledger_push()` sends the hashes recorded in `framework.db`.
-- `ledger_list()` lists the project's ledger entries.
-- `data_verify()` compares a file with the local `framework.db` record and the Cloud ledger.
-
-```r
-data_verify("inputs.raw.sales")
-```
-
-Live mode sends each `data_save()` hash as the file is saved. Turn it on with `options: cloud_ledger: live` in `settings.yml` or the `FW_LEDGER=live` environment variable. It is off by default.
-
-## Recommended organization
-
-### Directory structure
+`data_save()` does not change locked data. Saving the same contents again works. New contents stop with an error before the file is written, whether the save names the catalog entry or its path:
 
 ```text
-inputs/
-├── raw/          # Original, untouched data
-├── intermediate/ # Cleaned/transformed data
-└── final/        # Analysis-ready datasets
+Error: data_save() does not overwrite locked data.
+  dataset: inputs.raw.survey (locked: true in the data catalog)
+  file:    inputs/raw/survey_results.csv
+Save the data under another name, or pass unlock = TRUE to replace it.
+The new file is then unlocked. Add locked = TRUE to keep it locked.
 ```
 
-### Naming convention
+Data is unlocked unless you lock it. Lock data you mean to keep as it is with `locked = TRUE`, or with `locked: true` on its catalog entry. A later save with the same contents keeps the lock.
 
-Use dot notation for logical grouping:
+Save derived data under another name. To replace locked data on purpose, pass `unlock = TRUE`. The new file is unlocked unless you also pass `locked = TRUE`. Setting `locked: false` on the catalog entry also unlocks it. `save_table()`, `save_model()`, and `cache()` never overwrite locked data.
 
-```yaml
-data:
-  # Source.stage.name pattern
-  inputs.raw.sales_2024:
-    path: inputs/raw/sales_2024.csv
-
-  inputs.intermediate.sales_cleaned:
-    path: inputs/intermediate/sales_cleaned.rds
-
-  inputs.final.sales_ready:
-    path: inputs/final/sales_ready.rds
+```r
+data_save(final, "inputs.final.analysis", locked = TRUE)
+data_save(corrected, "inputs.raw.survey.csv", unlock = TRUE, locked = TRUE)
+data_save(cleaned, "inputs.intermediate.cleaned", unlock = TRUE)
 ```
 
----
+## Cloud integrity ledger
 
-<div style="display: flex; justify-content: space-between">
+Projects with a `FW_PROJECT_TOKEN` can sync dataset hashes to the Framework Cloud ledger so collaborators can verify local copies without uploading data files. Only catalog names, SHA-256 hashes, byte sizes, and the machine's hostname leave the machine:
 
-[← Packages](guide:packages)
+- `ledger_push()` uploads hashes recorded in `framework.db`.
+- `ledger_list()` lists entries recorded on Framework Cloud.
+- `data_verify("inputs.raw.sales")` checks a file against both `framework.db` and the Cloud ledger.
 
-[Functions →](guide:functions)
+Set `options.cloud_ledger: live` in `settings.yml` or `FW_LEDGER=live` in `.env` to push a ledger record automatically on every `data_save()`.
 
-</div>
+## Naming conventions
+
+Mirror your `inputs/` directory stages in catalog keys (`inputs.raw.*`, `inputs.intermediate.*`, `inputs.final.*`) so each dataset's pipeline stage is clear from its key.

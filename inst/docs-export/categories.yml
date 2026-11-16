@@ -3,7 +3,7 @@
 # Common functions appear first in the UI under "Common Functions" header
 
 Workflow:
-  description: Setting up and managing the working environment
+  description: Project initialization, settings, and session helpers
   common:
     - setup
     - scaffold
@@ -32,7 +32,7 @@ Workflow:
     - view_detail
 
 Data:
-  description: Reading, writing, and managing data files
+  description: Catalog reads, writes, and file hashes
   common:
     - data_read
     - data_save
@@ -48,7 +48,7 @@ Data:
     - push_data_registry
 
 Packages:
-  description: Package management and renv integration
+  description: Package installation, sets, Cloud sync, and renv lockfiles
   common:
     - package_add
     - packages_install
@@ -70,7 +70,7 @@ Packages:
     - renv_enabled
 
 Saving Work:
-  description: Saving figures, tables, reports, and models
+  description: Tables, figures, models, reports, and notebooks
   common:
     - save_figure
     - save_model
@@ -86,7 +86,7 @@ Saving Work:
     - show_table
 
 Notebooks & Scripts:
-  description: Creating notebooks, scripts, and presentations
+  description: Notebook, script, and slide generators and Quarto helpers
   common:
     - make_notebook
     - make_presentation
@@ -105,7 +105,7 @@ Notebooks & Scripts:
     - quarto_regenerate
 
 Project Management:
-  description: Creating and managing projects
+  description: Project creation, adoption, status, and upgrades
   common:
     - new
     - new_project
@@ -130,7 +130,7 @@ Project Management:
     - bootstrap
 
 Publishing:
-  description: Publishing outputs and reports
+  description: Artifact publishing to Cloud, GitHub Pages, S3, and folders
   common:
     - publish
     - publish_data
@@ -144,7 +144,7 @@ Publishing:
     - storage_test
 
 Git:
-  description: Git commands and hook management
+  description: Git commands, pre-commit hooks, and security audits
   common:
     - git_status
     - git_add
@@ -165,7 +165,7 @@ Git:
     - git_hooks_list
 
 Caching:
-  description: Caching computed values for performance
+  description: Disk-backed computation caching and cache inspection
   common:
     - cache_remember
     - cache_get
@@ -179,7 +179,7 @@ Caching:
     - cache_forget
 
 Database:
-  description: Database connections and queries
+  description: Database connections, SQL queries, and driver setup
   common:
     - db_query
     - db_execute
@@ -199,7 +199,7 @@ Database:
 
 AI:
   display_name: AI
-  description: AI assistant integration
+  description: AGENTS.md context generation and skill management
   common:
     - pull_skills
   functions:
@@ -211,7 +211,7 @@ AI:
     - push_skills
 
 Cloud:
-  description: Optional Framework Cloud accounts, settings, and the integrity ledger
+  description: Framework Cloud authentication, settings sync, and data ledger
   common:
     - cloud_login
     - cloud_status
@@ -228,7 +228,7 @@ Cloud:
     - data_verify
 
 Configuration:
-  description: User-wide settings, the project registry, and templates
+  description: User-wide settings, project registry, templates, and docs export
   common:
     - fw_config_dir
   functions:
