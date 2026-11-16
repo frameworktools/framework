@@ -1,3 +1,34 @@
+# framework 2.0.9
+
+Framework never talks to framework.pub unless you choose it, and data is
+unlocked unless you lock it. Matches framework-py 0.1.0.dev23, fw 0.6.4, and
+Framework for Stata 0.3.1.
+
+Changes:
+
+* Cloud functions find the server in this order: the `url` argument,
+  `FW_CLOUD_URL` in the project's `.env`, the `FW_CLOUD_URL` environment
+  variable, then the server you signed in to with `cloud_login()`. With none
+  of these, they stop and say how to choose one. Only `cloud_login()` still
+  offers framework.pub, and it asks first. Before, a project without
+  `FW_CLOUD_URL` used framework.pub even after you signed in to another
+  server.
+* `data_save()` and `data_add()` save data unlocked by default. Saving new
+  contents over locked data is an error; `unlock = TRUE` overrides it.
+
+Fixes:
+
+* `data_save()` no longer changes locked data. New contents for a data
+  catalog entry with `locked: true`, or for a file saved with
+  `locked = TRUE`, stop with an error before the file is written. The same
+  contents save as before. `unlock = TRUE` replaces locked data on purpose.
+  Before, `data_save()` replaced locked data with a warning, and a save by
+  path replaced a locked catalog entry's file without one.
+* `save_table()`, `save_model()`, and `cache()` never overwrite locked data.
+* `new_project()`'s warning for an unknown type offline says what it builds:
+  a bare layout with starter files and the folders from your global
+  settings, but no Quarto or skills.
+
 # framework 2.0.8
 
 Package lists can hold Stata packages, for Framework for Stata's
