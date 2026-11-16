@@ -21,7 +21,8 @@
 #'   asks for `location`.
 #' @param url The Framework Cloud server that issued the token. Defaults to
 #'   `FW_CLOUD_URL`, then the server you last logged in to with
-#'   [cloud_login()], then <https://framework.pub>.
+#'   [cloud_login()]. With neither, `setup()` stops rather than assume
+#'   <https://framework.pub>.
 #'
 #' @return With a token, invisibly, the project_create() result. Without one,
 #'   invisibly NULL.

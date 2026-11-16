@@ -186,7 +186,7 @@ test_that("the saved server comes from the newest cloud.yml, fw's or R's", {
   server <- framework:::.fw_cloud_server
   stamp <- function(path, offset) Sys.setFileTime(path, Sys.time() + offset)
 
-  expect_identical(server()$url, "https://framework.pub")
+  expect_error(server(), class = "fw_no_server")
 
   r_file <- file.path(dirs$r, "cloud.yml")
   writeLines("server: http://localhost:8080", r_file)

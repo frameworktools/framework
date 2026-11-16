@@ -27,6 +27,12 @@
     })
   }
 
+  # A cache file never replaces locked data
+  held <- .fw_locked_data_at(cache_file)
+  if (!is.null(held)) {
+    stop(.fw_locked_message("cache()", held, "Store the cache in another file."), call. = FALSE)
+  }
+
   # Save value to RDS file
   tryCatch(
     saveRDS(value, cache_file),

@@ -11,14 +11,17 @@
 #   1. an explicit `url` argument
 #   2. FW_CLOUD_URL in the project's .env  (project-scoped calls only)
 #   3. the FW_CLOUD_URL environment variable
-#   4. the default server saved by cloud_login()  (user-scoped calls only)
-#   5. https://framework.pub
+#   4. the server saved by the last login (cloud_login(), fw login, or
+#      framework-py). Project-scoped calls stop instead of guessing when the
+#      saved logins name different servers.
+#   5. cloud_login() only: https://framework.pub, named in the consent notice.
+#      Every other call stops: using the public cloud is the user's choice.
 #
 # Project-scoped calls (publish, the ledger) authenticate with the project's
-# token, which is only valid on the server that issued it. They skip the
-# login default so a project from framework.pub never sends its token to
-# another server. User-scoped calls (login, settings, new()) skip the project
-# .env so a user token never goes to a project's server by accident.
+# token, which is only valid on the server that issued it, so the project's
+# .env comes first. User-scoped calls (settings, new()) skip the project .env
+# so a user token never goes to a project's server by accident. fw and
+# framework-py use the same order.
 
 .fw_default_cloud_url <- "https://framework.pub"
 
@@ -114,6 +117,30 @@
   best
 }
 
+# Every server a login saved, most recent first, normalized and without
+# duplicates. Logins in fw, R, and Python each keep one cloud.yml.
+#' @keywords internal
+.fw_saved_cloud_urls <- function() {
+  found <- list()
+  for (dir in unique(c(.fw_fw_config_dir(), fw_config_dir()))) {
+    path <- file.path(dir, "cloud.yml")
+    if (!file.exists(path)) {
+      next
+    }
+    url <- tryCatch(yaml::read_yaml(path)$server, error = function(e) NULL)
+    if (!is.character(url) || length(url) != 1 || is.na(url) || !nzchar(url)) {
+      next
+    }
+    found[[length(found) + 1]] <- list(url = .fw_normalize_cloud_url(url), time = as.numeric(file.info(path)$mtime))
+  }
+  if (!length(found)) {
+    return(character(0))
+  }
+  times <- vapply(found, function(f) f$time, numeric(1))
+  urls <- vapply(found, function(f) f$url, character(1))[order(-times)]
+  unique(urls)
+}
+
 # Writes R's cloud.yml, and nothing outside R's own folder. A newer file
 # wins when the tools read it, so this login takes effect in fw and Python too.
 #' @keywords internal
@@ -152,20 +179,17 @@
   if (length(value) == 1 && !is.na(value) && nzchar(value)) value else NULL
 }
 
-# Which server to use, and where that setting came from.
+# Which server to use, and where that setting came from. Stops with class
+# fw_no_server when nothing names one, except for scope "login".
 #' @keywords internal
-.fw_cloud_server <- function(url = NULL, scope = c("user", "project"), project_dir = ".") {
+.fw_cloud_server <- function(url = NULL, scope = c("user", "project", "login"), project_dir = ".") {
   scope <- match.arg(scope)
   candidates <- list(
     list(url = url, source = "the url argument"),
     if (identical(scope, "project")) {
       list(url = .fw_project_env_value("FW_CLOUD_URL", project_dir), source = "the project's .env")
     },
-    list(url = Sys.getenv("FW_CLOUD_URL", ""), source = "the FW_CLOUD_URL environment variable"),
-    if (identical(scope, "user")) {
-      list(url = .fw_saved_cloud_url(), source = "your cloud_login() default")
-    },
-    list(url = .fw_default_cloud_url, source = "the built-in default")
+    list(url = Sys.getenv("FW_CLOUD_URL", ""), source = "the FW_CLOUD_URL environment variable")
   )
   for (candidate in candidates) {
     value <- candidate$url
@@ -173,11 +197,38 @@
       return(list(url = .fw_normalize_cloud_url(value), source = candidate$source))
     }
   }
+
+  saved <- .fw_saved_cloud_urls()
+  if (length(saved) == 1 || (length(saved) > 1 && !identical(scope, "project"))) {
+    return(list(url = saved[[1]], source = "your cloud_login() default"))
+  }
+  if (length(saved) > 1) {
+    rlang::abort(paste0(
+      "This project does not say which Framework Cloud server it uses: its .env has no FW_CLOUD_URL, ",
+      "and you are logged in to ", paste(vapply(saved, .fw_cloud_host, ""), collapse = " and "),
+      ". Add FW_CLOUD_URL=<server> to the project's .env, or set FW_CLOUD_URL."
+    ), class = "fw_ambiguous_server", call = NULL)
+  }
+  if (identical(scope, "login")) {
+    return(list(url = .fw_default_cloud_url, source = "the cloud_login() default"))
+  }
+  rlang::abort(paste0(
+    "No Framework Cloud server is chosen. ",
+    if (identical(scope, "project")) "This project's .env has no FW_CLOUD_URL and you have not logged in. Add FW_CLOUD_URL=<server> to .env, or log in " else "Log in ",
+    'with framework::cloud_login() (framework.pub) or framework::cloud_login(url = "<server>"), ',
+    "or set FW_CLOUD_URL."
+  ), class = "fw_no_server", call = NULL)
 }
 
 #' @keywords internal
-.fw_cloud_url <- function(url = NULL, scope = c("user", "project")) {
+.fw_cloud_url <- function(url = NULL, scope = c("user", "project", "login")) {
   .fw_cloud_server(url, scope = scope)$url
+}
+
+# The user's server, or NULL when nothing names one.
+#' @keywords internal
+.fw_cloud_url_or_null <- function() {
+  tryCatch(.fw_cloud_url(), fw_no_server = function(e) NULL)
 }
 
 # Token storage. Native-first: the OS credential store (macOS Keychain via
@@ -325,7 +376,7 @@
 }
 
 #' @keywords internal
-.fw_cloud_token <- function(url = .fw_cloud_url()) {
+.fw_cloud_token <- function(url = .fw_cloud_url_or_null()) {
   env_token <- Sys.getenv("FW_CLOUD_TOKEN", "")
   if (nzchar(env_token)) {
     return(env_token)
@@ -337,6 +388,9 @@
     return(.fw_read_token_file(path.expand(override)))
   }
 
+  if (is.null(url)) {
+    return(NULL)
+  }
   token <- .fw_keyring_token(url) %||% .fw_read_token_file(.fw_token_file(url))
   if (is.null(token) && .fw_is_default_cloud(url)) {
     token <- .fw_read_token_file(.fw_legacy_token_file())
@@ -470,8 +524,9 @@
 #' @param token Your user token from Framework Cloud (Settings -> API tokens).
 #'   Omit it to approve this computer in the browser.
 #' @param url The Framework Cloud server. Defaults to `FW_CLOUD_URL`, then the
-#'   server you last logged in to, then <https://framework.pub>. Plain `http`
-#'   is accepted only for `localhost` and `127.0.0.1`.
+#'   server you last logged in to, then <https://framework.pub>, which the
+#'   consent notice names before connecting. Plain `http` is accepted only for
+#'   `localhost` and `127.0.0.1`.
 #' @param verify Check the token against the server before saving (default TRUE).
 #' @param consent Set TRUE to confirm non-interactively (scripts, CI). In an
 #'   interactive session you are prompted instead. What connecting shares is
@@ -489,7 +544,7 @@ cloud_login <- function(token = NULL, url = NULL, verify = TRUE, consent = NULL,
   checkmate::assert_string(token, min.chars = 10, null.ok = TRUE)
   checkmate::assert_string(url, min.chars = 1, null.ok = TRUE)
   checkmate::assert_flag(browser)
-  url <- .fw_cloud_url(url)
+  url <- .fw_cloud_url(url, scope = "login")
   host <- .fw_cloud_host(url)
 
   if (is.null(token)) {
@@ -773,7 +828,13 @@ cloud_logout <- function(url = NULL) {
 #' @export
 cloud_status <- function(url = NULL) {
   checkmate::assert_string(url, min.chars = 1, null.ok = TRUE)
-  server <- .fw_cloud_server(url)
+  server <- tryCatch(.fw_cloud_server(url), fw_no_server = function(e) {
+    message(conditionMessage(e))
+    NULL
+  })
+  if (is.null(server)) {
+    return(invisible(FALSE))
+  }
   message("Server: ", server$url, " (from ", server$source, ")")
 
   project <- tryCatch(.fw_cloud_server(scope = "project"), error = function(e) NULL)
@@ -928,8 +989,8 @@ cloud_settings <- function() {
 # Quiet by design: offline or name-taken just means no cloud registration.
 #' @keywords internal
 .fw_cloud_register_project <- function(project_dir, name, type, choices = NULL) {
-  url <- .fw_cloud_url()
-  token <- .fw_cloud_token(url)
+  url <- .fw_cloud_url_or_null()
+  token <- if (!is.null(url)) .fw_cloud_token(url)
   if (is.null(token)) {
     return(invisible(NULL))
   }

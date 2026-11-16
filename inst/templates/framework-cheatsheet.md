@@ -62,8 +62,8 @@ file.exists(project_path("outputs/tables", "incidence.csv"))
 
 ### Saving Data
 ```r
-data_save(df, "inputs.final.analysis")    # Save to catalog (locked by default)
-data_save(df, "inputs.intermediate.clean", locked = FALSE)  # Rebuilt by a pipeline
+data_save(df, "inputs.intermediate.clean")                # Save to catalog (unlocked)
+data_save(df, "inputs.final.analysis", locked = TRUE)      # Locked: later reads check it
 ```
 
 ### Data Cache

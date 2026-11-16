@@ -9,8 +9,9 @@ data_save(
   path,
   type = NULL,
   delimiter = "comma",
-  locked = TRUE,
-  force = FALSE
+  locked = FALSE,
+  force = FALSE,
+  unlock = FALSE
 )
 }
 \arguments{
@@ -38,15 +39,21 @@ Dot notation uses your configured directories
 \item{delimiter}{Delimiter for CSV files ("comma", "tab", "semicolon", "space")}
 
 \item{locked}{Whether later reads must find the file unchanged. Default:
-TRUE. Saving again over locked data with different contents replaces it
-with a warning naming both hashes; the same contents save silently. Pass
-\code{locked = FALSE} for data a pipeline rebuilds.}
+FALSE, so a pipeline can save the data again. Pass \code{locked = TRUE} to
+lock data you mean to keep as it is. Left out, a save keeps a lock the
+data already has, unless \code{unlock = TRUE}.}
 
 \item{force}{If TRUE, creates any missing folder. If FALSE (default), a
 missing folder is created only when it is a folder named in the settings
 (\code{directories}, \code{extra_directories}, \code{render_dirs}) or inside one, such
 as \code{inputs/private/intermediate} in a fresh checkout; any other missing
 folder is an error.}
+
+\item{unlock}{If TRUE, replaces locked data and saves it unlocked, unless
+\code{locked = TRUE}. Without it, \code{data_save()} stops before writing when the
+save would change locked data: a data catalog entry with \code{locked: true},
+or a file saved earlier with \code{locked = TRUE}. Saving the same contents
+again needs no \code{unlock}.}
 }
 \value{
 Invisibly returns the saved data.
@@ -61,4 +68,11 @@ sensitive and the data has columns whose names look like direct
 identifiers: dates of birth, ZIP codes, SSNs, medical record numbers, and
 names alongside a date of birth. Only column names are checked, never
 values. The save still happens.
+
+Data is saved unlocked unless you lock it. Locked data protects inputs:
+\code{\link[=data_read]{data_read()}} stops when a locked file changed. So \code{data_save()} never
+changes a locked file unless asked. Save under another name, or pass
+\code{unlock = TRUE} to replace it; the new file is then unlocked, and later
+saves replace it. Pass \verb{unlock = TRUE, locked = TRUE} to replace it and
+keep it locked.
 }

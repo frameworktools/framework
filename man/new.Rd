@@ -43,7 +43,8 @@ definition is fetched from the cloud (as with \code{setup("fw_...")}) and
 
 \item{url}{With \code{key}: the Framework Cloud server that issued the token.
 Defaults to \code{FW_CLOUD_URL}, then the server you last logged in to with
-\code{\link[=cloud_login]{cloud_login()}}, then \url{https://framework.pub}.}
+\code{\link[=cloud_login]{cloud_login()}}. With neither, \code{new()} stops rather than assume
+\url{https://framework.pub}.}
 
 \item{...}{Ignored, with a warning.}
 }

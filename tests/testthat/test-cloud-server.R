@@ -30,17 +30,22 @@ test_that("hosts name the server with its port", {
   expect_false(framework:::.fw_is_default_cloud("https://framework.example.edu"))
 })
 
-test_that("user-scoped resolution: argument, env var, login default, framework.pub", {
+test_that("user-scoped resolution: argument, env var, login default, never framework.pub", {
   local_cloud_env()
   server <- framework:::.fw_cloud_server
   writeLines("FW_CLOUD_URL=https://project.example.edu", ".env")
 
-  expect_identical(server()$url, "https://framework.pub")
-  expect_identical(server()$source, "the built-in default")
+  expect_error(server(), class = "fw_no_server")
+  expect_error(server(), "cloud_login")
+  expect_null(framework:::.fw_cloud_token())
+  # Only cloud_login() offers framework.pub, and names it before connecting
+  expect_identical(server(scope = "login")$url, "https://framework.pub")
+  expect_identical(server(scope = "login")$source, "the cloud_login() default")
 
   framework:::.fw_save_cloud_url("http://localhost:8080")
   expect_identical(server()$url, "http://localhost:8080")
   expect_identical(server()$source, "your cloud_login() default")
+  expect_identical(server(scope = "login")$url, "http://localhost:8080")
 
   withr::local_envvar(FW_CLOUD_URL = "https://env.example.edu")
   expect_identical(server()$url, "https://env.example.edu")
@@ -48,17 +53,46 @@ test_that("user-scoped resolution: argument, env var, login default, framework.p
   expect_identical(server("https://arg.example.edu")$url, "https://arg.example.edu")
 })
 
-test_that("project-scoped resolution skips the login default", {
+test_that("project-scoped resolution: .env, env var, then the saved login", {
   local_cloud_env()
   server <- framework:::.fw_cloud_server
+  writeLines("FW_PROJECT_TOKEN=fw_project", ".env")
+
+  # No login and nothing in .env: stop, never framework.pub
+  expect_error(server(scope = "project"), class = "fw_no_server")
+  expect_error(server(scope = "project"), "FW_CLOUD_URL")
+
+  # A self-hosted login is used when .env has no FW_CLOUD_URL
   framework:::.fw_save_cloud_url("http://localhost:8080")
+  expect_identical(server(scope = "project")$url, "http://localhost:8080")
+  expect_identical(framework:::.fw_project_cloud_url(), "http://localhost:8080")
 
-  # A project from before FW_CLOUD_URL was written belongs to framework.pub
-  expect_identical(server(scope = "project")$url, "https://framework.pub")
+  withr::local_envvar(FW_CLOUD_URL = "https://env.example.edu")
+  expect_identical(server(scope = "project")$url, "https://env.example.edu")
 
-  writeLines("FW_CLOUD_URL=https://project.example.edu", ".env")
+  writeLines(c("FW_PROJECT_TOKEN=fw_project", "FW_CLOUD_URL=https://project.example.edu"), ".env")
   expect_identical(server(scope = "project")$url, "https://project.example.edu")
   expect_identical(server(scope = "project")$source, "the project's .env")
+})
+
+test_that("project-scoped resolution stops when saved logins disagree", {
+  local_cloud_env()
+  server <- framework:::.fw_cloud_server
+  # fw's folder apart from R's, as without FW_CONFIG_HOME
+  fw_dir <- withr::local_tempdir()
+  testthat::local_mocked_bindings(.fw_fw_config_dir = function() fw_dir)
+  yaml::write_yaml(list(server = "https://framework.pub"), file.path(fw_dir, "cloud.yml"))
+  Sys.setFileTime(file.path(fw_dir, "cloud.yml"), Sys.time() - 3600)
+  framework:::.fw_save_cloud_url("https://framework.example.edu")
+
+  expect_error(server(scope = "project"), class = "fw_ambiguous_server")
+  expect_error(server(scope = "project"), "framework.example.edu and framework.pub")
+  # User calls use the most recent login
+  expect_identical(server()$url, "https://framework.example.edu")
+
+  # The same server saved twice is one login
+  yaml::write_yaml(list(server = "framework.example.edu/"), file.path(fw_dir, "cloud.yml"))
+  expect_identical(server(scope = "project")$url, "https://framework.example.edu")
 })
 
 test_that("token files are kept per server", {

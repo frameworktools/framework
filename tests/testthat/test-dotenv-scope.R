@@ -46,7 +46,8 @@ test_that("settings_read() does not load .env into the session", {
   # Project b sees none of project a's values
   withr::local_dir(b)
   expect_null(framework:::.fw_project_token())
-  expect_identical(framework:::.fw_cloud_server(scope = "project")$url, "https://framework.pub")
+  url <- tryCatch(framework:::.fw_cloud_server(scope = "project")$url, error = function(e) NULL)
+  expect_false(identical(url, "http://127.0.0.1:18765"))
 })
 
 test_that("empty .env lines do not blank shell credentials", {

@@ -158,9 +158,13 @@ new_project <- function(name = NULL, location = NULL, type = NULL, browse = inte
     type <- type %||% "project"
     # Offline or signed out, only Framework's structures and the project types
     # in your global settings have a layout. Anything else is likely a typo.
+    # Its package defaults are bare's with starter files (a blueprint would
+    # bring the rest), and the folders come from the global settings.
     if (!type %in% c(.spec_types(), names(config$project_types))) {
       warning(sprintf(
-        "Unknown project type '%s': building Framework's default layout with that label. Framework's types are %s.",
+        paste0("Unknown project type '%s': building a bare layout with starter files and ",
+               "the folders from your global settings, but no Quarto or skills. ",
+               "Framework's types are %s."),
         type, paste(.spec_types(), collapse = ", ")
       ), call. = FALSE)
     }
@@ -299,7 +303,8 @@ new_course <- function(name = NULL, location = NULL, browse = interactive(), ...
 #'   `.env` for [publish()] and the ledger.
 #' @param url With `key`: the Framework Cloud server that issued the token.
 #'   Defaults to `FW_CLOUD_URL`, then the server you last logged in to with
-#'   [cloud_login()], then <https://framework.pub>.
+#'   [cloud_login()]. With neither, `new()` stops rather than assume
+#'   <https://framework.pub>.
 #'
 #' @return Invisibly returns the result from `project_create()`
 #'

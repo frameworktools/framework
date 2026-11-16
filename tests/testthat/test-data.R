@@ -720,53 +720,151 @@ test_that("data_info() finds a file that is only under the working directory", {
   expect_equal(data_read("local/x.csv")$a, 1)
 })
 
-test_that("data_save() warns when it replaces locked data with different contents", {
+test_that("data_save() saves unlocked by default, so a second save replaces the data", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  # By path: no lock recorded, a second save with new contents passes
+  suppressMessages(data_save(data.frame(x = 1:3), "inputs/intermediate/scratch.csv"))
+  expect_no_warning(expect_no_error(suppressMessages(
+    data_save(data.frame(x = 7:9), "inputs/intermediate/scratch.csv")
+  )))
+  expect_equal(suppressMessages(data_read("inputs/intermediate/scratch.csv"))$x, 7:9)
+  conn <- DBI::dbConnect(RSQLite::SQLite(), "framework.db")
+  locks <- DBI::dbGetQuery(conn, "SELECT name, locked FROM data")
+  DBI::dbDisconnect(conn)
+  expect_equal(locks$locked[locks$name == "inputs/intermediate/scratch.csv"], 0)
+
+  # By name: the catalog entry has no locked: true
+  suppressMessages(data_save(data.frame(x = 1:3), "inputs.intermediate.cohort"))
+  expect_null(settings("data.inputs.intermediate.cohort")$locked)
+  expect_no_error(suppressMessages(data_save(data.frame(x = 4:6), "inputs.intermediate.cohort")))
+  expect_equal(suppressMessages(data_read("inputs.intermediate.cohort"))$x, 4:6)
+
+  # data_add() registers unlocked too
+  utils::write.csv(data.frame(id = 1:3), "inputs/intermediate/visits.csv", row.names = FALSE)
+  suppressMessages(data_add("inputs/intermediate/visits.csv", name = "inputs.intermediate.visits"))
+  expect_null(settings("data.inputs.intermediate.visits")$locked)
+})
+
+test_that("data_save() refuses to change locked data and leaves the file as it was", {
   test_dir <- create_test_project()
   withr::local_dir(test_dir)
   on.exit(cleanup_test_dir(test_dir), add = TRUE)
 
   df <- data.frame(x = 1:3)
-  suppressMessages(data_save(df, "inputs/intermediate/cohort.csv"))
+  suppressMessages(data_save(df, "inputs/intermediate/cohort.csv", locked = TRUE))
   first <- .calculate_file_hash("inputs/intermediate/cohort.csv")
 
-  # The same contents save silently
+  # The same contents save silently, and the lock stays without locked = TRUE
   expect_no_warning(suppressMessages(data_save(df, "inputs/intermediate/cohort.csv")))
 
-  expect_warning(
+  err <- tryCatch(
     suppressMessages(data_save(data.frame(x = 4:6), "inputs/intermediate/cohort.csv")),
-    "data_save() replaced locked data 'inputs/intermediate/cohort.csv' with different contents.",
+    error = function(e) conditionMessage(e)
+  )
+  expect_equal(err, paste0(
+    "data_save() does not overwrite locked data.\n",
+    "  dataset: inputs/intermediate/cohort.csv (saved with locked = TRUE)\n",
+    "  file:    inputs/intermediate/cohort.csv\n",
+    "Save the data under another name, or pass unlock = TRUE to replace it.\n",
+    "The new file is then unlocked. Add locked = TRUE to keep it locked."
+  ))
+  expect_equal(.calculate_file_hash("inputs/intermediate/cohort.csv"), first)
+  expect_length(list.files("inputs/intermediate", pattern = "^fw-save-"), 0)
+
+  # unlock = TRUE, locked = TRUE replaces it and keeps the lock
+  expect_message(
+    data_save(data.frame(x = 4:6), "inputs/intermediate/cohort.csv", unlock = TRUE, locked = TRUE),
+    "Replacing locked data 'inputs/intermediate/cohort.csv' (unlock = TRUE).",
     fixed = TRUE
   )
-  second <- .calculate_file_hash("inputs/intermediate/cohort.csv")
-  w <- tryCatch(
+  expect_equal(suppressMessages(data_read("inputs/intermediate/cohort.csv"))$x, 4:6)
+  expect_error(
     suppressMessages(data_save(df, "inputs/intermediate/cohort.csv")),
-    warning = function(w) conditionMessage(w)
+    "does not overwrite locked data"
   )
-  expect_equal(w, paste0(
-    "data_save() replaced locked data 'inputs/intermediate/cohort.csv' with different contents.\n",
-    "Previous hash: ", substr(second, 1, 12), "\n",
-    "Current hash:  ", substr(first, 1, 12), "\n",
-    "Pass locked = FALSE for data a pipeline rebuilds."
-  ))
 
-  # Unlocked data is replaced silently
-  suppressMessages(data_save(df, "inputs/intermediate/scratch.csv", locked = FALSE))
-  expect_no_warning(suppressMessages(
-    data_save(data.frame(x = 7:9), "inputs/intermediate/scratch.csv", locked = FALSE)
+  # unlock = TRUE alone replaces it unlocked; later saves replace it
+  suppressMessages(data_save(df, "inputs/intermediate/cohort.csv", unlock = TRUE))
+  expect_no_error(suppressMessages(
+    data_save(data.frame(x = 7:9), "inputs/intermediate/cohort.csv")
   ))
 })
 
-test_that("data_save() warns for a locked catalog name too", {
+test_that("data_save() refuses a locked catalog entry by name or by path", {
   test_dir <- create_test_project()
   withr::local_dir(test_dir)
   on.exit(cleanup_test_dir(test_dir), add = TRUE)
 
-  suppressMessages(data_save(data.frame(x = 1:3), "inputs.intermediate.cohort"))
-  expect_warning(
+  dir.create("inputs/raw", recursive = TRUE, showWarnings = FALSE)
+  utils::write.csv(data.frame(id = 1:3), "inputs/raw/survey.csv", row.names = FALSE)
+  suppressMessages(data_add("inputs/raw/survey.csv", name = "inputs.raw.survey", locked = TRUE))
+  before <- .calculate_file_hash("inputs/raw/survey.csv")
+  new <- data.frame(id = 9)
+
+  for (target in c("inputs/raw/survey.csv", "inputs.raw.survey.csv", "inputs.raw.survey")) {
+    expect_error(
+      suppressMessages(data_save(new, target)),
+      "dataset: inputs.raw.survey (locked: true in the data catalog)",
+      fixed = TRUE
+    )
+  }
+  expect_equal(.calculate_file_hash("inputs/raw/survey.csv"), before)
+  # The save by name to .rds did not repoint the entry or write a file
+  expect_false(file.exists("inputs/raw/survey.rds"))
+  expect_equal(settings("data.inputs.raw.survey")$path, "inputs/raw/survey.csv")
+
+  # Registering it again without locked keeps the lock
+  suppressMessages(data_add("inputs/raw/survey.csv", name = "inputs.raw.survey"))
+  expect_true(settings("data.inputs.raw.survey")$locked)
+
+  # A dot name saved twice with locked = TRUE: the same contents pass and
+  # keep the lock, new ones stop
+  suppressMessages(data_save(data.frame(x = 1:3), "inputs.intermediate.cohort", locked = TRUE))
+  expect_no_error(suppressMessages(data_save(data.frame(x = 1:3), "inputs.intermediate.cohort")))
+  expect_true(settings("data.inputs.intermediate.cohort")$locked)
+  expect_error(
     suppressMessages(data_save(data.frame(x = 4:6), "inputs.intermediate.cohort")),
-    "replaced locked data 'inputs.intermediate.cohort'",
+    "dataset: inputs.intermediate.cohort (locked: true in the data catalog)",
     fixed = TRUE
   )
+
+  # unlock = TRUE replaces it and drops locked: true from the catalog
+  suppressMessages(data_save(data.frame(x = 4:6), "inputs.intermediate.cohort", unlock = TRUE))
+  expect_null(settings("data.inputs.intermediate.cohort")$locked)
+  expect_no_error(suppressMessages(data_save(data.frame(x = 7:9), "inputs.intermediate.cohort")))
+})
+
+test_that("cache(), save_table(), and save_model() never write over locked data", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  suppressMessages(data_save(data.frame(x = 1:3), "inputs.intermediate.cohort", locked = TRUE))
+  before <- .calculate_file_hash("inputs/intermediate/cohort.rds")
+  expect_error(
+    suppressMessages(cache("cohort", 1, file = "inputs/intermediate/cohort.rds")),
+    "cache() does not overwrite locked data.",
+    fixed = TRUE
+  )
+  expect_equal(.calculate_file_hash("inputs/intermediate/cohort.rds"), before)
+
+  dir.create("outputs/tables", recursive = TRUE, showWarnings = FALSE)
+  suppressMessages(save_table(data.frame(x = 1), "summary"))
+  table_file <- list.files("outputs", pattern = "^summary\\.csv$", recursive = TRUE, full.names = TRUE)
+  suppressMessages(data_add(table_file, name = "outputs.summary", locked = TRUE))
+  expect_error(
+    suppressMessages(save_table(data.frame(x = 2), "summary")),
+    "save_table() does not overwrite locked data.",
+    fixed = TRUE
+  )
+
+  # A locked entry set to locked: false in the settings is unlocked
+  settings_file <- if (file.exists("settings/data.yml")) "settings/data.yml" else "settings.yml"
+  writeLines(sub("locked: true", "locked: false", readLines(settings_file)), settings_file)
+  expect_no_error(suppressMessages(data_save(data.frame(x = 4:6), "inputs.intermediate.cohort")))
 })
 
 test_that("data_info(columns = TRUE) summarizes columns without showing values", {

@@ -32,11 +32,12 @@ Prefer `data_save()` to `write.csv()`, `write_csv()`, and `saveRDS()` for
 project data.
 
 ```r
-# Locked by default: a later read stops if the file changed
-data_save(final_df, "inputs/final/analysis_ready.csv")
+# Unlocked by default, so a pipeline can save it again
+data_save(cleaned_df, "inputs/intermediate/cleaned.csv")
 
-# Data a pipeline rebuilds on every run: unlocked, so a rebuild doesn't warn
-data_save(cleaned_df, "inputs/intermediate/cleaned.csv", locked = FALSE)
+# Locked: a later read stops if the file changed, and a save with new
+# contents stops unless it passes unlock = TRUE
+data_save(final_df, "inputs/final/analysis_ready.csv", locked = TRUE)
 ```
 
 ## Folders

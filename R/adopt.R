@@ -126,7 +126,8 @@ adopt <- function(path = ".", yes = FALSE, sensitive = NULL, type = NULL, cloud 
 
   # Register on Framework Cloud: when asked to, or, signed in and
   # interactive, when the person says yes (default No)
-  offer <- is.null(cloud) && !yes && rlang::is_interactive() && !is.null(.fw_cloud_token())
+  offer <- is.null(cloud) && !yes && rlang::is_interactive() && !is.null(.fw_cloud_url_or_null()) &&
+    !is.null(.fw_cloud_token())
   host <- if (offer) .fw_cloud_host()
   if (offer) cloud <- isTRUE(.adopt_ask(paste0("Register this project on ", host, "?"), default = FALSE))
   if (isTRUE(cloud)) {

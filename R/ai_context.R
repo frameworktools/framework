@@ -528,13 +528,14 @@ df <- data_read("inputs.raw.survey")      # From catalog
 df <- data_read("inputs/raw/file.csv")    # Direct path
 ```
 
-#### data_save(data, path, locked = TRUE)
-Save data with integrity tracking. Saved data is locked by default: later reads
-error if the file changes. Saving over locked data with new contents warns.
+#### data_save(data, path, locked = FALSE)
+Save data with integrity tracking. Saved data is unlocked unless you lock it.
+Later reads error if a locked file changes. Saving new contents over locked
+data is an error; pass `unlock = TRUE` to replace it on purpose.
 
 ```r
-data_save(df, "inputs/final/analysis_ready.csv")              # Locked
-data_save(df, "inputs/intermediate/cleaned.csv", locked = FALSE) # Rebuilt by a pipeline
+data_save(df, "inputs/intermediate/cleaned.csv")                # Rebuilt by a pipeline
+data_save(df, "inputs/final/analysis_ready.csv", locked = TRUE) # Locked
 ```
 
 ### Cache Functions

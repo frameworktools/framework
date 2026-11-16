@@ -48,7 +48,7 @@ outside_block <- function(lines, key) {
 
 test_that("data_save() in a flat settings.yml rewrites only the data block", {
   local_flat_project()
-  suppressMessages(data_save(data.frame(x = 1:2), "data.bp.csv"))
+  suppressMessages(data_save(data.frame(x = 1:2), "data.bp.csv", locked = TRUE))
   after <- readLines("settings.yml")
   expect_identical(outside_block(after, "data"), outside_block(flat_settings, "data"))
   expect_true("    assistants: [claude]" %in% after)

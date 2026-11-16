@@ -288,6 +288,10 @@ save_table <- function(data, name, format = "csv", public = FALSE, overwrite = T
   }
   # A name with / saves into subfolders
   dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
+  held <- .fw_locked_data_at(file_path)
+  if (!is.null(held)) {
+    stop(.fw_locked_message("save_table()", held, "Save under another name."), call. = FALSE)
+  }
 
   # Save based on format
   tryCatch({
@@ -582,6 +586,10 @@ save_model <- function(model, name, public = FALSE, overwrite = TRUE, ...) {
   }
   # A name with / saves into subfolders
   dir.create(dirname(file_path), recursive = TRUE, showWarnings = FALSE)
+  held <- .fw_locked_data_at(file_path)
+  if (!is.null(held)) {
+    stop(.fw_locked_message("save_model()", held, "Save under another name."), call. = FALSE)
+  }
 
   # Save the model
   tryCatch({

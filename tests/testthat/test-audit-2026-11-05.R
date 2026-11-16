@@ -413,14 +413,22 @@ test_that("package_add() rejects invalid names and does not record failed instal
   expect_false("nonexistentpkg12345" %in% names_listed)
 })
 
-test_that("new_project() warns about an unknown type offline", {
+test_that("new_project() warns about an unknown type offline and says what it builds", {
   base <- withr::local_tempdir()
   withr::local_envvar(FW_CONFIG_HOME = file.path(base, "cfg"))
+  dir <- file.path(base, "demo")
   expect_warning(
-    suppressMessages(new_project("demo", file.path(base, "demo"), type = "no_such_blueprint",
+    suppressMessages(new_project("demo", dir, type = "no_such_blueprint",
                                  browse = FALSE, offline = TRUE)),
-    "Unknown project type 'no_such_blueprint'"
+    "Unknown project type 'no_such_blueprint': building a bare layout with starter files and the folders from your global settings, but no Quarto or skills.",
+    fixed = TRUE
   )
+  # What the warning says: starter files and folders, no Quarto, no skills
+  expect_true(file.exists(file.path(dir, "scaffold.R")))
+  expect_true(dir.exists(file.path(dir, "notebooks")))
+  expect_false(file.exists(file.path(dir, "_quarto.yml")))
+  expect_false(dir.exists(file.path(dir, ".claude", "skills")))
+  expect_equal(yaml::read_yaml(file.path(dir, "settings.yml"))$default$project_type, "no_such_blueprint")
 })
 
 test_that("quarto_generate_all() derives the root output folder (root_output_dir is ignored)", {

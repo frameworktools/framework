@@ -458,10 +458,10 @@ pull_all <- function(project_path = ".", overwrite = FALSE, confirm = NULL, dry_
 # login can't push them.
 .skills_push_plan <- function(root, force) {
   edited <- .skill_push_edited(root)
-  if (length(edited) && is.null(.fw_cloud_token(.fw_cloud_url()))) {
+  if (length(edited) && is.null(.fw_cloud_token())) {
     names <- vapply(edited, function(e) basename(e$present[1]), "")
     stop("Not signed in, so edited skills (", paste(names, collapse = ", "), ") can't be pushed. ",
-         .fw_login_hint(.fw_cloud_url()), call. = FALSE)
+         .fw_login_hint(.fw_cloud_url_or_null() %||% .fw_default_cloud_url), call. = FALSE)
   }
   planned <- .skill_push_plan(root, force)
   plans <- planned$plans

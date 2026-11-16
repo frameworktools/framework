@@ -9,7 +9,7 @@ data_add(
   name = NULL,
   type = NULL,
   delimiter = "comma",
-  locked = TRUE,
+  locked = FALSE,
   update_config = TRUE
 )
 }
@@ -26,7 +26,9 @@ elsewhere use the file name alone.}
 
 \item{delimiter}{Delimiter for CSV files ("comma", "tab", "semicolon", "space")}
 
-\item{locked}{Whether the file should be locked (hash-verified on read)}
+\item{locked}{Whether the file should be locked (hash-verified on read).
+Default: FALSE. Left out, a file already locked in the data catalog or
+framework.db stays locked.}
 
 \item{update_config}{If TRUE (default), also updates the YAML config with the data spec}
 }

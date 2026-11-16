@@ -23,7 +23,8 @@ asks for \code{location}.}
 
 \item{url}{The Framework Cloud server that issued the token. Defaults to
 \code{FW_CLOUD_URL}, then the server you last logged in to with
-\code{\link[=cloud_login]{cloud_login()}}, then \url{https://framework.pub}.}
+\code{\link[=cloud_login]{cloud_login()}}. With neither, \code{setup()} stops rather than assume
+\url{https://framework.pub}.}
 }
 \value{
 With a token, invisibly, the project_create() result. Without one,

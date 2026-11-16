@@ -17,8 +17,9 @@ cloud_login(
 Omit it to approve this computer in the browser.}
 
 \item{url}{The Framework Cloud server. Defaults to \code{FW_CLOUD_URL}, then the
-server you last logged in to, then \url{https://framework.pub}. Plain \code{http}
-is accepted only for \code{localhost} and \verb{127.0.0.1}.}
+server you last logged in to, then \url{https://framework.pub}, which the
+consent notice names before connecting. Plain \code{http} is accepted only for
+\code{localhost} and \verb{127.0.0.1}.}
 
 \item{verify}{Check the token against the server before saving (default TRUE).}
 
