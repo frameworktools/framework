@@ -24,7 +24,8 @@ asks for \code{location}.}
 \item{url}{The Framework Cloud server that issued the token. Defaults to
 \code{FW_CLOUD_URL}, then the server you last logged in to with
 \code{\link[=cloud_login]{cloud_login()}}. With neither, \code{setup()} stops rather than assume
-\url{https://framework.pub}.}
+\url{https://framework.pub}. The server used goes into \code{.env} as
+\code{FW_CLOUD_URL}.}
 }
 \value{
 With a token, invisibly, the project_create() result. Without one,
@@ -34,8 +35,8 @@ invisibly NULL.
 \itemize{
 \item \code{setup("fw_...")} with a \strong{project token} from Framework Cloud pulls
 that project's definition and creates it locally. The project's \code{.env}
-records the token and its server (\code{FW_CLOUD_URL}), so \code{\link[=publish]{publish()}} and the
-ledger go back to the server the project came from.
+records the token and the server that issued it (\code{FW_CLOUD_URL}), so
+\code{\link[=publish]{publish()}} and the ledger go back to the server the project came from.
 \item \code{setup()} with no token creates Framework's global settings file if it is
 missing. Manage your defaults at \url{https://framework.pub} after
 \code{\link[=cloud_login]{cloud_login()}}.

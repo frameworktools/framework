@@ -49,7 +49,8 @@ spec, so the Cloud project has exactly this folder's name, type,
 language, folders, and tools, and none of your defaults. An adopted
 project is marked as adopted.
 \item Writes the project token and server to \code{.env} (\code{FW_PROJECT_TOKEN},
-\code{FW_CLOUD_URL}), making sure git ignores \code{.env} first.
+\code{FW_CLOUD_URL}), making sure git ignores \code{.env} first. An empty or
+different \code{FW_CLOUD_URL} is replaced.
 }
 
 It needs \code{.framework/spec.json} (run \code{upgrade(dry_run = FALSE)} first for

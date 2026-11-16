@@ -51,7 +51,9 @@ framework::cloud_login("fw_...", url = "http://localhost:8080")
 
 Tokens are stored per server, and the server you log in to becomes this
 machine's default for \code{\link[=cloud_status]{cloud_status()}}, \code{\link[=cloud_sync]{cloud_sync()}}, and \code{\link[=new]{new()}}. The
-\code{FW_CLOUD_URL} environment variable overrides that default.
+\code{FW_CLOUD_URL} environment variable overrides that default. A project
+with \code{FW_PROJECT_TOKEN} in its \code{.env} uses the \code{FW_CLOUD_URL} there,
+never this default.
 
 Without a token, \code{cloud_login()} opens the server's approval page in your
 browser. Sign in, or create a free account, and approve this computer; the

@@ -56,13 +56,12 @@ test_that("user-scoped resolution: argument, env var, login default, never frame
 test_that("project-scoped resolution: .env, env var, then the saved login", {
   local_cloud_env()
   server <- framework:::.fw_cloud_server
-  writeLines("FW_PROJECT_TOKEN=fw_project", ".env")
 
   # No login and nothing in .env: stop, never framework.pub
   expect_error(server(scope = "project"), class = "fw_no_server")
   expect_error(server(scope = "project"), "FW_CLOUD_URL")
 
-  # A self-hosted login is used when .env has no FW_CLOUD_URL
+  # Without a project token, a self-hosted login is used
   framework:::.fw_save_cloud_url("http://localhost:8080")
   expect_identical(server(scope = "project")$url, "http://localhost:8080")
   expect_identical(framework:::.fw_project_cloud_url(), "http://localhost:8080")
@@ -143,6 +142,81 @@ test_that("project setup writes the token and its server into .env", {
   # Idempotent
   expect_false(suppressMessages(framework:::.fw_write_project_token(".", "fw_other", "https://x.org")))
   expect_identical(readLines(".env"), lines)
+})
+
+test_that("a project token without its server never goes to the saved login", {
+  local_cloud_env()
+  server <- framework:::.fw_cloud_server
+  framework:::.fw_save_cloud_url("https://login.example.edu")
+  writeLines(c("FW_PROJECT_TOKEN=fw_project", "FW_CLOUD_URL="), ".env")
+
+  expect_error(server(scope = "project"), class = "fw_project_server_missing")
+  err <- tryCatch(framework:::.fw_project_cloud_url(), error = conditionMessage)
+  expect_identical(err, paste0(
+    "This project's .env has FW_PROJECT_TOKEN but no FW_CLOUD_URL, so it does not say which ",
+    "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to .env, or pass url = \"<server>\"."
+  ))
+  # Not fw_no_server, which some callers treat as "no Cloud"
+  expect_false(inherits(tryCatch(server(scope = "project"), error = identity), "fw_no_server"))
+  # Account calls still use the login
+  expect_identical(server()$url, "https://login.example.edu")
+
+  # An explicit server still counts
+  expect_identical(server("https://arg.example.edu", scope = "project")$url, "https://arg.example.edu")
+  withr::local_envvar(FW_CLOUD_URL = "https://env.example.edu")
+  expect_identical(server(scope = "project")$url, "https://env.example.edu")
+})
+
+test_that("a project's FW_CLOUD_URL wins over a different saved login", {
+  local_cloud_env()
+  framework:::.fw_save_cloud_url("https://login.example.edu")
+  writeLines(c("FW_PROJECT_TOKEN=fw_project", "FW_CLOUD_URL=https://project.example.edu"), ".env")
+  expect_identical(framework:::.fw_project_cloud_url(), "https://project.example.edu")
+})
+
+test_that("cloud_status() and the live ledger report a token without a server", {
+  local_cloud_env()
+  framework:::.fw_save_cloud_url("https://login.example.edu")
+  writeLines("FW_PROJECT_TOKEN=fw_project", ".env")
+  testthat::local_mocked_bindings(.fw_cloud_token = function(...) NULL)
+  msgs <- capture.output(cloud_status(), type = "message")
+  expect_true(any(grepl("has FW_PROJECT_TOKEN but no FW_CLOUD_URL", msgs, fixed = TRUE)))
+
+  withr::local_envvar(FW_LEDGER = "live")
+  expect_message(framework:::.fw_ledger_push_quietly("x", "abc"), "Ledger push skipped: This project's .env")
+})
+
+test_that("a new token replaces an empty or different FW_CLOUD_URL in place", {
+  local_cloud_env()
+  write <- function(...) suppressMessages(framework:::.fw_write_project_token(".", ...))
+
+  writeLines(c("A=1", "FW_CLOUD_URL=", "B=2"), ".env")
+  expect_true(write("fw_one", "cloud.example.edu/"))
+  expect_identical(readLines(".env")[1:3], c("A=1", "FW_CLOUD_URL=https://cloud.example.edu", "B=2"))
+  expect_true("FW_PROJECT_TOKEN=fw_one" %in% readLines(".env"))
+  expect_identical(sum(grepl("FW_CLOUD_URL", readLines(".env"))), 1L)
+
+  writeLines(c("A=1", "FW_CLOUD_URL=https://old.example.edu"), ".env")
+  expect_message(framework:::.fw_write_project_token(".", "fw_two", "https://new.example.edu"),
+                 "was https://old.example.edu")
+  expect_identical(readLines(".env")[1:2], c("A=1", "FW_CLOUD_URL=https://new.example.edu"))
+
+  # Commented placeholders are filled; an empty token line takes the token
+  writeLines(c("A=1", "FW_PROJECT_TOKEN=", "# FW_CLOUD_URL=", "B=2"), ".env")
+  expect_true(write("fw_three", "http://localhost:8080"))
+  expect_identical(readLines(".env"),
+                   c("A=1", "FW_PROJECT_TOKEN=fw_three", "FW_CLOUD_URL=http://localhost:8080", "B=2"))
+
+  # An empty token line with no URL line gets the URL right after it
+  writeLines(c("FW_PROJECT_TOKEN=", "B=2"), ".env")
+  expect_true(write("fw_four", "https://cloud.example.edu"))
+  expect_identical(readLines(".env"),
+                   c("FW_PROJECT_TOKEN=fw_four", "FW_CLOUD_URL=https://cloud.example.edu", "B=2"))
+
+  # A kept token keeps its .env as it is: no guessed FW_CLOUD_URL
+  writeLines(c("FW_PROJECT_TOKEN=fw_kept", "B=2"), ".env")
+  expect_false(write("fw_new", "https://cloud.example.edu"))
+  expect_identical(readLines(".env"), c("FW_PROJECT_TOKEN=fw_kept", "B=2"))
 })
 
 test_that("publishing with no bucket and no project token names both fixes", {

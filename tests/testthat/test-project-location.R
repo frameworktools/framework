@@ -178,6 +178,22 @@ test_that("setup(token) asks where to create the project and says where it is", 
   expect_true(file.exists(file.path(parent, "my-study", "settings.yml")))
   expect_true(any(grepl(paste0("Creating the project at ", file.path(parent, "my-study")), messages, fixed = TRUE)))
   expect_true(any(grepl("Project ready at", messages, fixed = TRUE)))
+  env <- readLines(file.path(parent, "my-study", ".env"))
+  expect_true("FW_PROJECT_TOKEN=1|fw_pull" %in% env)
+  expect_true("FW_CLOUD_URL=https://cloud.example.edu" %in% env)
+})
+
+test_that("new(key =) writes the token and the server it came from", {
+  withr::local_envvar(FW_CONFIG_HOME = withr::local_tempdir(), FW_CLOUD_URL = NA, FW_CLOUD_TOKEN = NA)
+  testthat::local_mocked_bindings(.fw_api = function(...) cloud_envelope())
+  local_cwd()
+  location <- file.path(withr::local_tempdir(), "study")
+  result <- suppressMessages(new(key = "1|fw_pull", location = location, browse = FALSE,
+                                 url = "cloud.example.edu/"))
+  expect_true(result$success)
+  env <- readLines(file.path(location, ".env"))
+  expect_true("FW_PROJECT_TOKEN=1|fw_pull" %in% env)
+  expect_true("FW_CLOUD_URL=https://cloud.example.edu" %in% env)
 })
 
 test_that("the Framework-Projects-Dir header is decoded", {

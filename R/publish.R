@@ -304,7 +304,9 @@ NULL
 #'
 #' With no `connection` and no storage bucket in settings.yml, a project set
 #' up from Framework Cloud publishes to its server instead (the
-#' `FW_CLOUD_URL` and `FW_PROJECT_TOKEN` in the project's `.env`). Each
+#' `FW_CLOUD_URL` and `FW_PROJECT_TOKEN` in the project's `.env`). A `.env`
+#' with `FW_PROJECT_TOKEN` but no `FW_CLOUD_URL` stops publishing unless
+#' `FW_CLOUD_URL` is set in the environment. Each
 #' publish to Framework Cloud adds a new version of the document. Cloud
 #' provides owner-only access, public and unlisted links, and password protection.
 #' A new artifact is unlisted. Set `visibility = "public"` for a readable URL

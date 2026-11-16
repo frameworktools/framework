@@ -65,7 +65,8 @@ cloud can't be reached, your saved cloud defaults are used when you
 made no choices beyond the name. Otherwise an interactive session asks
 before using Framework's built-in defaults, and a non-interactive one
 stops. Successful projects are registered with their choices on Cloud
-and linked through a project token in the ignored \code{.env} file.
+and linked through a project token and its server (\code{FW_CLOUD_URL}) in
+the ignored \code{.env} file.
 \code{offline = TRUE} skips the cloud: saved defaults when there are
 any, else the built-ins. Not signed in, the built-ins are used.}
 

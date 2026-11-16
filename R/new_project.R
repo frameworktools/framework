@@ -39,7 +39,8 @@
 #'   made no choices beyond the name. Otherwise an interactive session asks
 #'   before using Framework's built-in defaults, and a non-interactive one
 #'   stops. Successful projects are registered with their choices on Cloud
-#'   and linked through a project token in the ignored `.env` file.
+#'   and linked through a project token and its server (`FW_CLOUD_URL`) in
+#'   the ignored `.env` file.
 #'   `offline = TRUE` skips the cloud: saved defaults when there are
 #'   any, else the built-ins. Not signed in, the built-ins are used.
 #' @param browse Whether to open the project folder after creation (default: TRUE in
@@ -299,8 +300,9 @@ new_course <- function(name = NULL, location = NULL, browse = interactive(), ...
 #'   `type = "bare"` for a bare project.
 #' @param key A Framework Cloud project token. When given, the project's
 #'   definition is fetched from the cloud (as with `setup("fw_...")`) and
-#'   `name` and `type` come from it. The token is saved in the new project's
-#'   `.env` for [publish()] and the ledger.
+#'   `name` and `type` come from it. The token and its server
+#'   (`FW_CLOUD_URL`) are saved in the new project's `.env` for [publish()]
+#'   and the ledger.
 #' @param url With `key`: the Framework Cloud server that issued the token.
 #'   Defaults to `FW_CLOUD_URL`, then the server you last logged in to with
 #'   [cloud_login()]. With neither, `new()` stops rather than assume

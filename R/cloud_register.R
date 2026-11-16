@@ -11,7 +11,8 @@
 #'    language, folders, and tools, and none of your defaults. An adopted
 #'    project is marked as adopted.
 #' 2. Writes the project token and server to `.env` (`FW_PROJECT_TOKEN`,
-#'    `FW_CLOUD_URL`), making sure git ignores `.env` first.
+#'    `FW_CLOUD_URL`), making sure git ignores `.env` first. An empty or
+#'    different `FW_CLOUD_URL` is replaced.
 #'
 #' It needs `.framework/spec.json` (run `upgrade(dry_run = FALSE)` first for
 #' an older project), changes nothing in a project that already has a token
@@ -229,7 +230,9 @@ cloud_register <- function(path = ".", name = NULL, slug = NULL, description = N
     minted <- .fw_api(paste0("/api/v1/projects/", utils::URLencode(slug, reserved = TRUE), "/pull-tokens"),
                       token = token, method = "POST",
                       body = list(name = paste("framework (R) on", Sys.info()[["nodename"]])), url = url)
-    .fw_write_project_token(root, minted$token, minted$url %||% url)
+    # The server names itself: the token is valid there
+    server <- if (is.character(minted$url) && length(minted$url) == 1 && nzchar(minted$url)) minted$url else url
+    .fw_write_project_token(root, minted$token, server)
     message("To send this folder's spec to it, run: fw project push-spec")
     return(invisible(list(slug = slug, url = NULL, type = NULL, adopted = NULL, created = FALSE,
                           linked = TRUE, spec_changed = FALSE)))

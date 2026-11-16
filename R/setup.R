@@ -2,8 +2,8 @@
 #'
 #' - `setup("fw_...")` with a **project token** from Framework Cloud pulls
 #'   that project's definition and creates it locally. The project's `.env`
-#'   records the token and its server (`FW_CLOUD_URL`), so [publish()] and the
-#'   ledger go back to the server the project came from.
+#'   records the token and the server that issued it (`FW_CLOUD_URL`), so
+#'   [publish()] and the ledger go back to the server the project came from.
 #' - `setup()` with no token creates Framework's global settings file if it is
 #'   missing. Manage your defaults at <https://framework.pub> after
 #'   [cloud_login()].
@@ -22,7 +22,8 @@
 #' @param url The Framework Cloud server that issued the token. Defaults to
 #'   `FW_CLOUD_URL`, then the server you last logged in to with
 #'   [cloud_login()]. With neither, `setup()` stops rather than assume
-#'   <https://framework.pub>.
+#'   <https://framework.pub>. The server used goes into `.env` as
+#'   `FW_CLOUD_URL`.
 #'
 #' @return With a token, invisibly, the project_create() result. Without one,
 #'   invisibly NULL.

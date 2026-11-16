@@ -149,7 +149,9 @@ or S3 destinations. \code{publish_notebook()} renders Quarto documents.
 \details{
 With no \code{connection} and no storage bucket in settings.yml, a project set
 up from Framework Cloud publishes to its server instead (the
-\code{FW_CLOUD_URL} and \code{FW_PROJECT_TOKEN} in the project's \code{.env}). Each
+\code{FW_CLOUD_URL} and \code{FW_PROJECT_TOKEN} in the project's \code{.env}). A \code{.env}
+with \code{FW_PROJECT_TOKEN} but no \code{FW_CLOUD_URL} stops publishing unless
+\code{FW_CLOUD_URL} is set in the environment. Each
 publish to Framework Cloud adds a new version of the document. Cloud
 provides owner-only access, public and unlisted links, and password protection.
 A new artifact is unlisted. Set \code{visibility = "public"} for a readable URL

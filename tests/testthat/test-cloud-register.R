@@ -113,7 +113,41 @@ test_that("a taken slug offers to link to the existing project", {
   expect_identical(calls$asked, "You already have a project study on cloud.test. Link this folder to it instead?")
   expect_identical(calls$log[[2]]$path, "/api/v1/projects/study/pull-tokens")
   expect_true("FW_PROJECT_TOKEN=fwp_existing" %in% readLines(file.path(dir, ".env")))
+  expect_true("FW_CLOUD_URL=https://cloud.test" %in% readLines(file.path(dir, ".env")))
   expect_false(res$created)
+})
+
+test_that("linking to an existing project writes the server the token names", {
+  dir <- local_adopted()
+  writeLines("FW_CLOUD_URL=https://other.example.edu", file.path(dir, ".env"))
+  taken <- function(body) list(status = 422L, body = list(
+    errors = list(slug = list("You already have a project with this slug."))
+  ))
+  local_cloud(create = taken, interactive = TRUE, answer = TRUE)
+  local_mocked_bindings(.fw_api = function(path, token, method = "GET", body = NULL, url = NULL) {
+    list(token = "fwp_existing", url = "https://minted.example.edu/")
+  })
+  suppressMessages(cloud_register(dir, slug = "study"))
+  env <- readLines(file.path(dir, ".env"))
+  expect_identical(env[1], "FW_CLOUD_URL=https://minted.example.edu")
+  expect_identical(sum(grepl("FW_CLOUD_URL", env)), 1L)
+})
+
+test_that("cloud_register() replaces an empty or different FW_CLOUD_URL", {
+  dir <- local_adopted()
+  writeLines(c("SECRET=1", "FW_CLOUD_URL=https://other.example.edu"), file.path(dir, ".env"))
+  local_cloud()
+  suppressMessages(cloud_register(dir))
+  env <- readLines(file.path(dir, ".env"))
+  expect_identical(env[1:2], c("SECRET=1", "FW_CLOUD_URL=https://cloud.test"))
+  expect_true("FW_PROJECT_TOKEN=fwp_project" %in% env)
+
+  dir <- local_adopted()
+  writeLines(c("FW_PROJECT_TOKEN=", "FW_CLOUD_URL="), file.path(dir, ".env"))
+  local_cloud()
+  suppressMessages(cloud_register(dir))
+  expect_identical(readLines(file.path(dir, ".env")),
+                   c("FW_PROJECT_TOKEN=fwp_project", "FW_CLOUD_URL=https://cloud.test"))
 })
 
 test_that("a slug held by a project in the Trash is reported as such", {
@@ -169,4 +203,5 @@ test_that("adopt(cloud = TRUE) registers without asking", {
   expect_length(calls$log, 1)
   expect_true(calls$log[[1]]$body$adopted)
   expect_true(any(grepl("^FW_PROJECT_TOKEN=", readLines(file.path(dir, ".env")))))
+  expect_true("FW_CLOUD_URL=https://cloud.test" %in% readLines(file.path(dir, ".env")))
 })

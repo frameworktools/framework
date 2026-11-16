@@ -38,8 +38,9 @@ interactive sessions)}
 
 \item{key}{A Framework Cloud project token. When given, the project's
 definition is fetched from the cloud (as with \code{setup("fw_...")}) and
-\code{name} and \code{type} come from it. The token is saved in the new project's
-\code{.env} for \code{\link[=publish]{publish()}} and the ledger.}
+\code{name} and \code{type} come from it. The token and its server
+(\code{FW_CLOUD_URL}) are saved in the new project's \code{.env} for \code{\link[=publish]{publish()}}
+and the ledger.}
 
 \item{url}{With \code{key}: the Framework Cloud server that issued the token.
 Defaults to \code{FW_CLOUD_URL}, then the server you last logged in to with

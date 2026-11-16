@@ -12,14 +12,16 @@
 #   2. FW_CLOUD_URL in the project's .env  (project-scoped calls only)
 #   3. the FW_CLOUD_URL environment variable
 #   4. the server saved by the last login (cloud_login(), fw login, or
-#      framework-py). Project-scoped calls stop instead of guessing when the
-#      saved logins name different servers.
+#      framework-py). Project-scoped calls skip it when .env has
+#      FW_PROJECT_TOKEN, and stop instead of guessing when the saved logins
+#      name different servers.
 #   5. cloud_login() only: https://framework.pub, named in the consent notice.
 #      Every other call stops: using the public cloud is the user's choice.
 #
 # Project-scoped calls (publish, the ledger) authenticate with the project's
 # token, which is only valid on the server that issued it, so the project's
-# .env comes first. User-scoped calls (settings, new()) skip the project .env
+# .env comes first. Linking a project writes FW_CLOUD_URL next to its token.
+# User-scoped calls (settings, new()) skip the project .env
 # so a user token never goes to a project's server by accident. fw and
 # framework-py use the same order.
 
@@ -180,7 +182,8 @@
 }
 
 # Which server to use, and where that setting came from. Stops with class
-# fw_no_server when nothing names one, except for scope "login".
+# fw_no_server when nothing names one, except for scope "login", and with
+# fw_project_server_missing for a project token with no server.
 #' @keywords internal
 .fw_cloud_server <- function(url = NULL, scope = c("user", "project", "login"), project_dir = ".") {
   scope <- match.arg(scope)
@@ -196,6 +199,15 @@
     if (is.character(value) && length(value) == 1 && !is.na(value) && nzchar(value)) {
       return(list(url = .fw_normalize_cloud_url(value), source = candidate$source))
     }
+  }
+
+  # A project token is only valid on the server that issued it, and the
+  # saved login may be another server's
+  if (identical(scope, "project") && !is.null(.fw_project_env_value("FW_PROJECT_TOKEN", project_dir))) {
+    rlang::abort(paste0(
+      "This project's .env has FW_PROJECT_TOKEN but no FW_CLOUD_URL, so it does not say which ",
+      "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to .env, or pass url = \"<server>\"."
+    ), class = "fw_project_server_missing", call = NULL)
   }
 
   saved <- .fw_saved_cloud_urls()
@@ -514,7 +526,9 @@
 #'
 #' Tokens are stored per server, and the server you log in to becomes this
 #' machine's default for [cloud_status()], [cloud_sync()], and [new()]. The
-#' `FW_CLOUD_URL` environment variable overrides that default.
+#' `FW_CLOUD_URL` environment variable overrides that default. A project
+#' with `FW_PROJECT_TOKEN` in its `.env` uses the `FW_CLOUD_URL` there,
+#' never this default.
 #'
 #' Without a token, `cloud_login()` opens the server's approval page in your
 #' browser. Sign in, or create a free account, and approve this computer; the
@@ -837,7 +851,10 @@ cloud_status <- function(url = NULL) {
   }
   message("Server: ", server$url, " (from ", server$source, ")")
 
-  project <- tryCatch(.fw_cloud_server(scope = "project"), error = function(e) NULL)
+  project <- tryCatch(.fw_cloud_server(scope = "project"), fw_project_server_missing = function(e) {
+    message(conditionMessage(e))
+    NULL
+  }, error = function(e) NULL)
   if (!is.null(project) && !is.null(.fw_project_token()) &&
       !identical(project$url, server$url)) {
     message("This project publishes to ", project$url, " (from ", project$source, ")")
@@ -912,33 +929,58 @@ cloud_settings <- function() {
 # Write the project's token and its server into the project's .env
 # (gitignored) so publish(), the ledger, and collaborators' setup() go to the
 # server the project came from. Never touches settings.yml -- the token is a
-# secret. FW_CLOUD_URL is written for every server, framework.pub included:
-# a project token is only valid on the server that issued it.
+# secret. A project token is only valid on the server that issued it, so a
+# new token always comes with FW_CLOUD_URL, framework.pub included: an empty
+# or different FW_CLOUD_URL line is replaced, a commented placeholder is
+# filled, or the line goes next to the token. A project that already has a
+# token keeps it and its FW_CLOUD_URL. fw and framework-py write .env the
+# same way.
 #' @keywords internal
-.fw_write_project_token <- function(project_dir, token, url = .fw_default_cloud_url) {
+.fw_write_project_token <- function(project_dir, token, url) {
+  url <- .fw_normalize_cloud_url(url)
   env_path <- file.path(project_dir, ".env")
   lines <- if (file.exists(env_path)) readLines(env_path, warn = FALSE) else character(0)
-  added <- character(0)
-  new_lines <- character(0)
-  if (!any(grepl("^FW_PROJECT_TOKEN=", lines))) {
-    new_lines <- c(new_lines, paste0("FW_PROJECT_TOKEN=", token))
-    added <- c(added, "FW_PROJECT_TOKEN")
-  }
-  if (!any(grepl("^FW_CLOUD_URL=", lines))) {
-    new_lines <- c(new_lines, paste0("FW_CLOUD_URL=", url))
-    added <- c(added, "FW_CLOUD_URL")
-  }
-  if (length(new_lines) == 0) {
+  set_at <- function(key) grep(paste0("^\\s*(export\\s+)?", key, "\\s*="), lines)
+  placeholder_at <- function(key) grep(paste0("^\\s*#\\s*(export\\s+)?", key, "\\s*="), lines)
+  value_at <- function(i) gsub("^[\"']|[\"']$", "", trimws(sub("^[^=]*=", "", lines[i])))
+
+  token_at <- set_at("FW_PROJECT_TOKEN")
+  if (length(token_at) > 0 && nzchar(value_at(token_at[1]))) {
     return(invisible(FALSE))
   }
   .fw_refuse_tracked_env(project_dir)
   .fw_ensure_env_ignored(project_dir)
-  header <- "# Framework Cloud project key and server (created by framework::new or setup)"
-  if (length(lines) > 0) {
-    lines <- c(lines, "")
+
+  token_line <- paste0("FW_PROJECT_TOKEN=", token)
+  url_line <- paste0("FW_CLOUD_URL=", url)
+  appended <- character(0)
+  token_slot <- c(token_at, placeholder_at("FW_PROJECT_TOKEN"))[1]
+  if (is.na(token_slot)) {
+    appended <- token_line
+  } else {
+    lines[token_slot] <- token_line
   }
-  writeLines(c(lines, header, new_lines), env_path)
-  message("  Added: ", paste(added, collapse = " and "), " to .env")
+
+  url_at <- set_at("FW_CLOUD_URL")
+  previous <- if (length(url_at) > 0) value_at(url_at[1]) else ""
+  if (length(url_at) == 0) url_at <- placeholder_at("FW_CLOUD_URL")[1]
+  if (length(url_at) > 0 && !anyNA(url_at)) {
+    lines[url_at] <- url_line
+  } else if (length(appended) > 0) {
+    appended <- c(appended, url_line)
+  } else {
+    lines <- append(lines, url_line, after = token_slot)
+  }
+
+  if (length(appended) > 0) {
+    header <- "# Framework Cloud project key and server (created by framework::new or setup)"
+    lines <- c(lines, if (length(lines) > 0) "", header, appended)
+  }
+  writeLines(lines, env_path)
+  message("  Added: FW_PROJECT_TOKEN and FW_CLOUD_URL to .env")
+  if (nzchar(previous) && !identical(previous, url)) {
+    message("  FW_CLOUD_URL was ", previous, "; the token is from ", url)
+  }
   invisible(TRUE)
 }
 
@@ -1299,7 +1341,10 @@ cloud_settings <- function() {
     return(invisible(NULL))
   }
 
-  url <- tryCatch(.fw_project_cloud_url(), error = function(e) NULL)
+  url <- tryCatch(.fw_project_cloud_url(), fw_project_server_missing = function(e) {
+    message("Ledger push skipped: ", conditionMessage(e))
+    NULL
+  }, error = function(e) NULL)
   if (is.null(url)) {
     return(invisible(NULL))
   }
