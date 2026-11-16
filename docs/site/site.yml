@@ -5,10 +5,15 @@ product: r
 title: Framework for R
 tagline: Structured data science projects in R
 repository: https://github.com/frameworktools/framework
-install: |-
-  install.packages("framework")
-
-  # Development version: remotes::install_github("frameworktools/framework")
+install:
+  - title: Install latest
+    note: Recommended. Installs the newest version from GitHub.
+    code: |-
+      install.packages("remotes")
+      remotes::install_github("frameworktools/framework")
+  - title: Install from CRAN
+    note: CRAN releases lag behind GitHub.
+    code: install.packages("framework")
 sections:
   - id: getting_started
     title: Getting started

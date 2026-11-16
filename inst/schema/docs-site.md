@@ -26,7 +26,11 @@ product: py                      # r, py, cli, or stata
 title: Framework for Python
 tagline: Structured data science projects in Python
 repository: https://github.com/frameworktools/framework-py
-install: uv add framework-py     # Displayed on the home page
+install: uv add framework-py     # Displayed on the home page; or a list of options:
+# install:
+#   - title: Install latest
+#     note: Recommended.         # Optional line under the title
+#     code: uv add framework-py
 sections:                        # Ordered top-bar dropdowns and sidebar groups
   - id: getting_started
     title: Getting started
