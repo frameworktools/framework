@@ -1,3 +1,21 @@
+# framework 2.0.10
+
+Every project linked to Framework Cloud records its server, so it never
+uses the wrong one. Matches framework-py 0.1.0.dev24, fw 0.6.5, and
+Framework for Stata 0.3.2.
+
+Changes:
+
+* Linking a project to Framework Cloud writes `FW_CLOUD_URL` next to the new
+  `FW_PROJECT_TOKEN` in `.env`: the server that issued the token. An empty or
+  different `FW_CLOUD_URL` line is replaced, and a commented placeholder is
+  filled. This covers `new()`, `new_project()`, `setup()`, `adopt()`, and
+  `cloud_register()`.
+* A project whose `.env` has `FW_PROJECT_TOKEN` but no `FW_CLOUD_URL` no
+  longer uses the server you last logged in to. Project calls stop with class
+  `fw_project_server_missing` unless the `url` argument or the
+  `FW_CLOUD_URL` environment variable names a server.
+
 # framework 2.0.9
 
 Framework never talks to framework.pub unless you choose it, and data is
