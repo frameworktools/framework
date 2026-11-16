@@ -204,10 +204,10 @@
   # A project token is only valid on the server that issued it, and the
   # saved login may be another server's
   if (identical(scope, "project") && !is.null(.fw_project_env_value("FW_PROJECT_TOKEN", project_dir))) {
-    rlang::abort(paste0(
+    stop(errorCondition(paste0(
       "This project's .env has FW_PROJECT_TOKEN but no FW_CLOUD_URL, so it does not say which ",
       "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to .env, or pass url = \"<server>\"."
-    ), class = "fw_project_server_missing", call = NULL)
+    ), class = "fw_project_server_missing", call = NULL))
   }
 
   saved <- .fw_saved_cloud_urls()
@@ -215,21 +215,21 @@
     return(list(url = saved[[1]], source = "your cloud_login() default"))
   }
   if (length(saved) > 1) {
-    rlang::abort(paste0(
+    stop(errorCondition(paste0(
       "This project does not say which Framework Cloud server it uses: its .env has no FW_CLOUD_URL, ",
       "and you are logged in to ", paste(vapply(saved, .fw_cloud_host, ""), collapse = " and "),
       ". Add FW_CLOUD_URL=<server> to the project's .env, or set FW_CLOUD_URL."
-    ), class = "fw_ambiguous_server", call = NULL)
+    ), class = "fw_ambiguous_server", call = NULL))
   }
   if (identical(scope, "login")) {
     return(list(url = .fw_default_cloud_url, source = "the cloud_login() default"))
   }
-  rlang::abort(paste0(
+  stop(errorCondition(paste0(
     "No Framework Cloud server is chosen. ",
     if (identical(scope, "project")) "This project's .env has no FW_CLOUD_URL and you have not logged in. Add FW_CLOUD_URL=<server> to .env, or log in " else "Log in ",
     'with framework::cloud_login() (framework.pub) or framework::cloud_login(url = "<server>"), ',
     "or set FW_CLOUD_URL."
-  ), class = "fw_no_server", call = NULL)
+  ), class = "fw_no_server", call = NULL))
 }
 
 #' @keywords internal
@@ -1229,7 +1229,9 @@ cloud_settings <- function() {
     stop('Cloud publishing requires httr2. install.packages("httr2")', call. = FALSE)
   }
 
-  req <- httr2::request(paste0(.fw_project_cloud_url(), "/api/v1/documents"))
+  # Resolve the server first, so a missing FW_CLOUD_URL errors here, not inside httr2
+  server <- .fw_project_cloud_url()
+  req <- httr2::request(paste0(server, "/api/v1/documents"))
   req <- httr2::req_auth_bearer_token(req, token)
   req <- httr2::req_headers(req, Accept = "application/json")
 

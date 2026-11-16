@@ -1,3 +1,10 @@
+# framework (development version)
+
+Fixes:
+
+* Errors for a missing or unclear Framework Cloud server print the message
+  alone, without a backtrace through httr2.
+
 # framework 2.0.10
 
 Every project linked to Framework Cloud records its server, so it never
