@@ -1,4 +1,8 @@
-# framework (development version)
+# framework 2.0.11
+
+Fixes found in a review of the code changed since 2.0.0. Locked data stays
+locked unless you pass `unlock = TRUE`, and a project's Cloud token goes only
+to the server that issued it.
 
 Behavior changes:
 

@@ -1,34 +1,26 @@
 # CRAN Comments
 
-## Resubmission
+## Update to 2.0.11
 
-This resubmits 2.0.0 after the incoming pretest failed on Windows
-(r-devel-windows-x86_64, 21 test failures; Debian passed). The failures are
-fixed, not skipped. They came from Windows path handling: git's MSYS-style
-paths (`/d/temp/...`) compared against native paths, short temp-folder names,
-CRLF input to `git check-ignore`, and the unquoted `@{u}` revision in MSYS git.
-The package now checks cleanly with `R CMD check --as-cran` on Windows R-devel.
+This update follows 2.0.0 (published 2026-11-07) sooner than usual because
+2.0.0 has bugs that can lose user data or send a credential to the wrong
+server:
 
-Since the first submission, the optional local GUI was also removed (see
-below), which shrinks the package.
+* `data_save()` replaced data the user had locked with `locked = TRUE`. It
+  issued a warning but wrote the new contents. 2.0.11 stops with an error
+  unless the user passes `unlock = TRUE`.
+* A project linked to Framework Cloud could send its access token to a server
+  other than the one that issued it. When the project's `.env` didn't name
+  its server, the token went to the built-in default server. A token that
+  `scaffold()` had loaded from another project's `.env` earlier in the session
+  took priority over the project's own. 2.0.11 sends a project's token only to
+  its own server and stops with an error when the server is unknown.
 
-## Update to 2.0.0
+The other changes are smaller fixes to output folders, settings edits, and
+`upgrade()`. They are listed in NEWS.md.
 
-This is an update from 1.1.0. Framework 2.0 adds an optional connection to
-Framework Cloud, a web service for creating projects and publishing results.
-Every Cloud feature is opt-in: nothing contacts a server unless the user signs
-in with `cloud_login()` or passes a server to a function. The tests mock every
+As in 2.0.0, every Framework Cloud feature is opt-in, and the tests mock every
 server call, so they make no network requests.
-
-Main changes:
-
-* Projects are built from layers (a structure, tools, and package and skill
-  sets).
-* `publish()` writes versioned outputs to Framework Cloud, a folder, S3, or
-  GitHub Pages.
-* New projects include AGENTS.md and agent skill files.
-* The optional local GUI is retired. `gui()` remains as a deprecated stub, and
-  plumber is no longer in Suggests. This removes about 12 MB of web assets.
 
 ## R CMD check results
 
@@ -37,8 +29,6 @@ Main changes:
 ## Test environments
 
 - Local: macOS 27.0.1, R 4.6.1 (`R CMD check --as-cran`)
-- GitHub Actions: windows-latest, R-devel r90845 ucrt (`R CMD check --as-cran`)
-- win-builder: R-devel
 
 ## Downstream dependencies
 
