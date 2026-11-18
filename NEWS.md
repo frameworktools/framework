@@ -1,4 +1,7 @@
-# framework (development version)
+# framework 2.0.13
+
+Bayesian models publish their posterior. Matches framework-py 0.1.0.dev26,
+Framework for Stata 0.3.4, and framework-embed 0.4.0.
 
 Changes:
 
