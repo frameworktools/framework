@@ -1184,7 +1184,8 @@ cloud_settings <- function() {
 #   - a render output directory (bundled; entry = index.html or the one HTML)
 #   - .qmd (rendered: embedded by default, full bundle when self_contained = FALSE)
 #   - .Rmd (rendered self-contained)
-# Each publish adds a version. `slug` is publish()'s argument: a string names
+# Each publish adds a version, except a code snippet that matches its newest
+# version. `slug` is publish()'s argument: a string names
 # the document only. TRUE makes it public with the derived name, FALSE makes
 # it unlisted, and NULL or a string leaves the visibility alone (a new
 # artifact is unlisted).
@@ -1332,7 +1333,10 @@ cloud_settings <- function() {
 
   res <- httr2::resp_body_json(httr2::req_perform(req))
 
-  if (!is.null(res$version)) {
+  if (isTRUE(res$unchanged)) {
+    # A code snippet that matches its newest version adds none
+    message("Unchanged, still version ", res$version, ": ", res$url)
+  } else if (!is.null(res$version)) {
     message("Published version ", res$version, ": ", res$url)
   } else {
     message("Published: ", res$url)

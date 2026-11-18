@@ -70,6 +70,9 @@
 #'
 #' @export
 scaffold <- function(config_file = NULL) {
+  # A render in a session that had already attached framework
+  .fw_snippet_hooks_install()
+
   # Standardize working directory first (for notebooks in subdirectories)
   project_root <- standardize_wd()
 

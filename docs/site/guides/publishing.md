@@ -78,6 +78,57 @@ publish_notebook("notebooks/analysis.qmd", to = "cloud", slug = "analysis")
 
 When `title` is omitted, Framework uses the YAML frontmatter `title` and falls back to the filename.
 
+### Code snippets
+
+A code snippet holds a chunk's code and the text it printed: output, messages, warnings, and errors. Plots are left out. Blog posts and reports embed snippets beside the results the code produced. Framework Cloud highlights the code, shows ANSI colors, and folds output longer than 12 lines.
+
+In a Quarto or R Markdown notebook, `publish_snippet()` publishes a chunk as the render showed it. Call it from any later chunk:
+
+````markdown
+```{r}
+#| label: fit-model
+fit <- lm(mpg ~ wt + hp, data = mtcars)
+summary(fit)
+```
+
+```{r}
+#| include: false
+publish_snippet("fit-model", links = list(notebook = "https://example.org/analysis"))
+```
+````
+
+`library(framework)` records each chunk's output during `quarto render` and `rmarkdown::render()`, so the labelled chunk must run after it. Chunk options apply: `echo: false` leaves out the code, and `results: hide`, `message: false`, and `warning: false` leave out those outputs. Output shown with `results: asis` and chunks read from the knitr cache are not recorded. Outside a render, as when a chunk runs in the editor, `publish_snippet()` publishes nothing and says why.
+
+In an R script, `fw_snippet()` runs a braced block, prints its output, keeps its assignments, and publishes the code and printed text:
+
+```r
+fw_snippet("fit-model", {
+  fit <- lm(mpg ~ wt + hp, data = mtcars)
+  summary(fit)
+})
+```
+
+The code keeps its comments and layout when R keeps source references. `Rscript` keeps them only with `options(keep.source = TRUE)` set before the script is parsed, as in `Rscript -e 'options(keep.source = TRUE); source("scripts/fit.R")'`. Otherwise the code is deparsed. When the block stops with an error, nothing is published.
+
+Both functions take these options:
+
+| Argument | Effect |
+|----------|--------|
+| `output = FALSE` | Publishes the code without its output |
+| `folded = TRUE` | Folds the output blocks; `FALSE` opens them |
+| `links` | `list(notebook = "https://...", model = "model-slug")`; a model is a slug in the same project or an https URL |
+| `slug`, `title` | Default to the label |
+| `repository` | Repository URL to name in the snippet |
+
+The snippet names its file (from the git repository's top, else the project root), the chunk label, its code lines, and the commit checked out. It names the repository only when `repository` is passed or `publish.repository` is set in `settings.yml`:
+
+```yaml
+publish:
+  repository: https://github.com/owner/study
+```
+
+With a GitHub repository, Framework Cloud links the snippet to its lines at that commit. Each render publishes again. When the snippet matches its newest version, Framework Cloud adds no version and Framework reports `Unchanged, still version N`.
+
 ### Collection attachment
 
 Attach an artifact to an existing project collection by collection ID or slug:

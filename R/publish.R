@@ -144,7 +144,7 @@ NULL
     }
     return(reasons)
   }
-  what <- if (is.data.frame(source)) "this data frame" else paste("this", class(source)[1])
+  what <- if (is.data.frame(source)) "this data frame" else if (inherits(source, "framework_code_snippet")) "this code snippet" else paste("this", class(source)[1])
   .fw_sensitive_reasons(what)
 }
 
@@ -484,8 +484,8 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
     on.exit(unlink(stage, recursive = TRUE), add = TRUE)
     is_cloud <- !identical(to, "github") && identical(.fw_publish_target(connection, to), "cloud")
     source <- .fw_artifact_file(source, stage, cloud = is_cloud)
-    if (is_cloud && is.null(kind) && basename(source) %in% c("table.json", "model.json", "test.json", "table.html")) {
-      kind <- switch(basename(source), model.json = "model", test.json = "test", "table")
+    if (is_cloud && is.null(kind) && basename(source) %in% c("table.json", "model.json", "test.json", "code_snippet.json", "table.html")) {
+      kind <- switch(basename(source), model.json = "model", test.json = "test", code_snippet.json = "code_snippet", "table")
     }
   }
   checkmate::assert_string(source, min.chars = 1)

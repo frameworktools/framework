@@ -141,6 +141,8 @@ Publishing:
     - publish_dir
     - publish_list
     - publish_notebook
+    - publish_snippet
+    - fw_snippet
     - storage_test
 
 Git:

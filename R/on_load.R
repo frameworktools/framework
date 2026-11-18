@@ -8,6 +8,8 @@
   .framework_env$pools <- new.env(parent = emptyenv())
   .framework_env$initialized <- TRUE
   .fw_install_plot_hooks()
+  # Record chunk output for publish_snippet() when loaded during a render
+  .fw_snippet_hooks_install()
 }
 
 # Remember which graphics system drew the last new page. save_figure() uses
@@ -31,6 +33,7 @@
 }
 
 .onAttach <- function(libname, pkgname) {
-  # Silent load - framework is ready to use
+  # A render in a session that had already loaded framework
+  .fw_snippet_hooks_install()
   invisible()
 }

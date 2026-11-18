@@ -576,6 +576,8 @@
 
 #' @keywords internal
 .fw_artifact_structured <- function(object) {
+  # publish_snippet() and fw_snippet() build the whole document
+  if (inherits(object, "framework_code_snippet")) return(unclass(object))
   document <- list(schema = "framework.artifact/v1",
                    source = list(language = "r", class = as.list(class(object))), metrics = list())
   anova <- .fw_artifact_anova_tables(object)
