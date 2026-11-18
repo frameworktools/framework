@@ -1,9 +1,88 @@
 # framework (development version)
 
+Behavior changes:
+
+* `data_save()` and `data_add()` with `locked = FALSE` on locked data stop
+  with an error unless `unlock = TRUE`. Before, saving the same contents
+  with `locked = FALSE` removed the lock, and the next save could overwrite
+  the data. `data_add()` takes `unlock`.
+* Settings files with YAML anchors (`default: &default`) are edited in
+  place. When a change can't be made in place, the edit stops with an error
+  instead of rewriting the whole file, and `upgrade()`'s plan says when a
+  file will be regenerated.
+
 Fixes:
 
+Framework Cloud:
+
+* A project's token goes only to the server that issued it. After
+  `scaffold()` loaded one project's `.env`, a sync or publish for another
+  project sent the first project's token, and could write the first
+  project's packages and data registry into the second. Now each project
+  uses the token and server in its own `.env`. A token from another
+  project's `.env` is never used.
+* A token set only in the environment, as in CI, with no `FW_CLOUD_URL`
+  stops with class `fw_project_server_missing`. Before, it went to the
+  server you last signed in to with `cloud_login()`.
+* `push_skills()` and the skills part of `push_all()` push to the project's
+  server, as packages and the data registry do. Before, they used the server
+  you last signed in to.
+* `pull_skills()` falls back to the package skills only when Framework
+  Cloud can't be reached or the project has no token. A refused token or a
+  missing server stops with an error and changes nothing.
+* `pull_skills()` updates a skill that matches the setup's version to a
+  newer Cloud version, instead of keeping it as locally edited.
+* `setup()` writes the project token to `.env` for bare projects too.
+* `pull_all()`, `push_all()`, and `pull_skills()` read a 1.x project's
+  `config.yml`. Before, such a project looked like it had no packages, and
+  `push_all(remove = TRUE)` could remove every package from Cloud. A push
+  now stops when the settings file is missing or can't be read.
 * Errors for a missing or unclear Framework Cloud server print the message
   alone, without a backtrace through httr2.
+* The `.env` reader trims spaces around keys and values and drops an inline
+  ` # comment`, as the writer expects. `FW_CLOUD_URL = https://...` no
+  longer reads as missing.
+
+Data and outputs:
+
+* `data_save(unlock = TRUE)` by file path to a locked catalog entry's file
+  updates the entry and its record. Before, `data_read()` by name then
+  failed with "Hash mismatch for locked data".
+* `save_table()`, `save_figure()`, `save_model()`, `save_report()`, and
+  `load_model()` use a configured `outputs_<kind>` folder again in projects
+  that count as sensitive only because of an `inputs_private_*` folder or
+  `project_type: project_sensitive`. Since 2.0.2 they wrote to
+  `outputs/private/<kind>` and `load_model()` couldn't find existing models.
+  Projects with `security: sensitive: true` still split private and public
+  outputs.
+* Output folders resolve from the project root, so `save_table()` and
+  friends called from `notebooks/` without `scaffold()` no longer write to
+  `notebooks/outputs/`.
+* `make_notebook()` escapes quotes and backslashes in `title` and the
+  author, so the front matter stays valid YAML.
+* Functions in `cache()`'s `depends_on` hash the same in every session.
+  Before, an interactive session's source references changed the hash and
+  the value was recomputed in each new session. Other values hash as before.
+
+Projects, upgrade(), and adopt():
+
+* A sensitive project with no private folders no longer gets a Claude Code
+  guard that denies reading every file (`Read(//**)`). It gets no guard and
+  a note saying how to name its private folders.
+* `adopt()` and `upgrade()` add `.gitignore` rules for private folders named
+  in another case, such as `Data/Private/` or `PHI_Private/`. Git matches
+  case on Linux, so the templates' `**/private/**` rule didn't ignore them.
+* `upgrade()` migrates the inline connections of 1.1.0 course and
+  presentation projects and writes `.framework/spec.json`. Before, it stopped
+  with "missing 'driver'" on every run.
+* Projects that use renv no longer ignore `.Rprofile`, which holds renv's
+  activation hook. This covers new projects, `adopt()`, and `upgrade()`.
+* Project creation and `upgrade()` say that the Claude Code sandbox for
+  sensitive projects needs macOS, Linux, or WSL on Windows.
+* `quarto_regenerate(overwrite = TRUE)` leaves an unchanged file alone
+  instead of rewriting it with a new date.
+* `upgrade()` says an empty `settings.yml` is empty, instead of that it
+  couldn't be read as YAML.
 
 # framework 2.0.10
 
