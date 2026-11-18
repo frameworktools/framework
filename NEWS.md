@@ -1,3 +1,20 @@
+# framework 2.0.12
+
+Published models describe the variables they were fit on, so embeds can
+explain each coefficient term on hover. Matches framework-py 0.1.0.dev25 and
+Framework for Stata 0.3.3.
+
+Changes:
+
+* Published models describe the variables they were fit on. Each model
+  artifact lists its response, predictors, random-effects grouping factors,
+  weights, and offsets, with labels, factor levels, reference levels, and
+  summaries over the rows the model used. Each coefficient term names the
+  variables and factor levels behind it. This covers `lm()`, `glm()`,
+  `aov()`, `MASS::glm.nb()`, `MASS::polr()`, `nnet::multinom()`, lme4
+  models, `survival::coxph()`, `survival::survreg()`, fixest models, and
+  `mgcv::gam()`. Terms that can't be mapped with certainty are left out.
+
 # framework 2.0.11
 
 Fixes found in a review of the code changed since 2.0.0. Locked data stays
@@ -14,17 +31,6 @@ Behavior changes:
   place. When a file with anchors, aliases, or merge keys can't be edited in
   place, the edit stops with an error instead of rewriting the whole file.
   For other files, `upgrade()`'s plan says when a file will be regenerated.
-
-Changes:
-
-* Published models describe the variables they were fit on. Each model
-  artifact lists its response, predictors, random-effects grouping factors,
-  weights, and offsets, with labels, factor levels, reference levels, and
-  summaries over the rows the model used. Each coefficient term names the
-  variables and factor levels behind it. This covers `lm()`, `glm()`,
-  `aov()`, `MASS::glm.nb()`, `MASS::polr()`, `nnet::multinom()`, lme4
-  models, `survival::coxph()`, `survival::survreg()`, fixest models, and
-  `mgcv::gam()`. Terms that can't be mapped with certainty are left out.
 
 Fixes:
 
