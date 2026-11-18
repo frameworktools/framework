@@ -181,8 +181,8 @@
   if (length(value) == 1 && !is.na(value) && nzchar(value)) value else NULL
 }
 
-# An environment variable's value unless scaffold() set it from a project's
-# .env (.fw_load_dotenv()), or "".
+# An environment variable's value, or "" when it is unset or scaffold() set
+# it from a project's .env (.fw_load_dotenv()).
 #' @keywords internal
 .fw_shell_env <- function(key) {
   value <- Sys.getenv(key, "")
@@ -194,16 +194,14 @@
 # fw_no_server when nothing names one, except for scope "login", and with
 # fw_project_server_missing for a project token with no server.
 #
-# For scope "project", the server goes with the token .fw_project_token()
-# picks, so a token only ever goes to the server that issued it:
-#   * a token in the project's .env: the url argument, FW_CLOUD_URL in that
-#     .env, then an FW_CLOUD_URL the shell set (not one scaffold() loaded
-#     from another project's .env);
-#   * a token only in the shell (CI): the url argument, then the shell's
-#     FW_CLOUD_URL. A token scaffold() loaded from another project's .env
-#     doesn't count;
-#   * no token: the url argument, the project's .env, FW_CLOUD_URL, then
-#     your cloud_login() server.
+# For scope "project", the server matches the token .fw_project_token()
+# picks, so a token goes only to the server that issued it.
+#   * Token in the project's .env: url, FW_CLOUD_URL in that .env, then an
+#     FW_CLOUD_URL the shell set. Values scaffold() loaded are ignored.
+#   * Token only in the shell (CI): url, then the shell's FW_CLOUD_URL.
+#     A token scaffold() loaded from another project's .env doesn't count.
+#   * No token: url, the project's .env, FW_CLOUD_URL, then the
+#     cloud_login() server when exactly one is saved.
 #' @keywords internal
 .fw_cloud_server <- function(url = NULL, scope = c("user", "project", "login"), project_dir = ".") {
   scope <- match.arg(scope)
@@ -244,13 +242,13 @@
   if (!is.null(file_token)) {
     stop(errorCondition(paste0(
       "This project's .env has FW_PROJECT_TOKEN but no FW_CLOUD_URL, so it does not say which ",
-      "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to .env, or pass url = \"<server>\"."
+      "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to the project's .env."
     ), class = "fw_project_server_missing", call = NULL))
   }
   if (session_token) {
     stop(errorCondition(paste0(
       "FW_PROJECT_TOKEN is set but FW_CLOUD_URL is not, so nothing says which ",
-      "Framework Cloud server issued the token. Set FW_CLOUD_URL=<server>, or pass url = \"<server>\"."
+      "Framework Cloud server issued the token. Set FW_CLOUD_URL=<server> in the environment or in the project's .env."
     ), class = "fw_project_server_missing", call = NULL))
   }
 
@@ -1115,10 +1113,10 @@ cloud_settings <- function() {
 
 # --- Cloud publishing ----------------------------------------------------
 
-# The project's cloud key: the project's own .env first, then an
-# FW_PROJECT_TOKEN the shell set (CI). The project's .env
-# wins so that after scaffold() of one project, another project's calls use
-# that project's token; .fw_cloud_server() picks the matching server.
+# The project's cloud key comes from its own .env first, then from an
+# FW_PROJECT_TOKEN the shell set (CI). Reading .env first means that after
+# scaffold() of one project, calls for another project use that project's
+# token. .fw_cloud_server() picks the matching server.
 #' @keywords internal
 .fw_project_token <- function(project_dir = ".") {
   file_token <- .fw_project_env_value("FW_PROJECT_TOKEN", project_dir)
@@ -1975,8 +1973,8 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
 
   if (isTRUE(result$success)) {
     # The setup token IS this project's key; store it for publish() et al.
-    # Bare projects too, as registration does: without it the folder can't
-    # link to its Cloud project
+    # Bare projects record the token too, as registration does, so the folder
+    # stays linked to its Cloud project
     .fw_write_project_token(result$path, token, url)
 
     message("\nProject ready at ", result$path)

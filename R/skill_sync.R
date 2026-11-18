@@ -231,9 +231,9 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   result
 }
 
-# The server a project's skills sync with: the project's server, as for its
-# packages and data registry, when the project has a token or FW_CLOUD_URL
-# in its .env; else the server you signed in to.
+# The server a project's skills sync with. A project with a token (in .env
+# or the shell) or FW_CLOUD_URL in .env uses the project's server, as its
+# packages and data registry do. Otherwise .fw_cloud_url() decides.
 .skill_server <- function(root) {
   linked <- !is.null(.fw_project_token(root)) || !is.null(.fw_project_env_value("FW_CLOUD_URL", root))
   sub("/$", "", if (linked) .fw_project_cloud_url(root) else .fw_cloud_url())

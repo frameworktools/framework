@@ -447,8 +447,8 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
 
   restricted <- sub("/$", "", .spec_restricted_paths(spec))
   if (length(restricted) == 0) {
-    message("  No Claude Code guard was added: the settings name no private folders. Map the folders that ",
-            "hold restricted data to private keys (inputs_private_raw, ...) and run upgrade().")
+    message("  No Claude Code guard was added because the settings name no private folders. Map the folders ",
+            "that hold restricted data to private keys (such as inputs_private_raw) and run upgrade().")
     return(invisible(NULL))
   }
   deny <- c(
@@ -475,11 +475,10 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   message("  ", .fw_sandbox_platform_note(), ".")
 }
 
-# Claude Code's sandbox runs only on macOS, Linux, and WSL; with
-# failIfUnavailable it refuses to start anywhere else.
+# Claude Code's sandbox runs only on macOS, Linux, and WSL. With
+# failIfUnavailable set, Claude Code stops with an error elsewhere.
 .fw_sandbox_platform_note <- function() {
-  paste("Claude Code's sandbox needs macOS, Linux, or WSL on Windows; elsewhere it fails closed",
-        "and Claude Code won't run commands in this project")
+  "Claude Code's sandbox needs macOS, Linux, or WSL on Windows, and Claude Code stops with an error elsewhere"
 }
 
 # Jupyter needs the R kernel registered once per machine. That writes to the

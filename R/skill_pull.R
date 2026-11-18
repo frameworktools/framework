@@ -235,9 +235,9 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
   settings <- .skill_pull_settings(root)
   dirs <- .skill_pull_dirs(root, settings)
   notes <- character()
-  # Only offline, or without a project token, do the package skills stand in.
-  # A refused token, an unknown server, or a setup this version can't read
-  # stops: falling back would quietly replace the project's Cloud skills.
+  # Package skills stand in only when Cloud can't be reached or the project
+  # has no token. A refused token, an unknown server, or a setup this version
+  # can't read stops with an error, so package defaults never hide the failure.
   fetched <- tryCatch(
     .skill_pull_cloud_skills(root, notes),
     fw_no_project_token = function(e) e,

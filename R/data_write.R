@@ -307,8 +307,9 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
 #'   Default: FALSE. Left out, a file already locked in the data catalog or
 #'   framework.db stays locked. `locked = FALSE` on locked data is an error
 #'   unless `unlock = TRUE`.
-#' @param unlock If TRUE, registers locked data unlocked, unless
-#'   `locked = TRUE`. Default: FALSE, so a lock stays.
+#' @param unlock If TRUE, removes an existing lock unless `locked = TRUE`.
+#'   The data catalog changes only when `update_config = TRUE`. Default:
+#'   FALSE, so a lock stays.
 #' @param update_config If TRUE (default), also updates the YAML config with the data spec
 #'
 #' @return Invisibly returns the data spec that was created

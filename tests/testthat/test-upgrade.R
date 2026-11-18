@@ -434,7 +434,7 @@ test_that("a settings.yml with YAML anchors is edited in place, not regenerated"
 
 test_that("an anchored file the block editor can't handle is refused, not rewritten", {
   text <- "default: &d {a: 1}\nproduction:\n  <<: *d\n"
-  expect_error(framework:::.fw_yaml_set_text(text, c("default", "b"), 2), "anchors or aliases")
+  expect_error(framework:::.fw_yaml_set_text(text, c("default", "b"), 2), "anchors, aliases, or merge keys")
   expect_null(framework:::.fw_yaml_set_text(text, c("default", "b"), 2, rewrite = FALSE))
 })
 
@@ -443,7 +443,7 @@ test_that("upgrade()'s plan says when a settings file will be regenerated whole"
   writeLines(c("# my comment", "default: {project_type: project, directories: {notebooks: notebooks}}"),
              file.path(dir, "settings.yml"))
   result <- suppressMessages(upgrade(dir))
-  expect_true(any(grepl("settings.yml can't be edited in place, so it will be regenerated whole", result$notes)))
+  expect_true(any(grepl("settings.yml can't be edited in place and will be regenerated whole", result$notes)))
   expect_true(any(grepl("comments", result$notes) & grepl(".framework/backups/", result$notes, fixed = TRUE)))
 })
 

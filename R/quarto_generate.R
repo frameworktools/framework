@@ -451,8 +451,8 @@ quarto_regenerate <- function(project_path, backup = TRUE, overwrite = FALSE, dr
     }
     current <- readLines(path, warn = FALSE)
     new <- if (overwrite) file$lines else if (keep_layout) current else .quarto_add_missing_keys(current, file$lines)
-    # The header's date changes daily; a file that differs only there is
-    # unchanged, so a rerun leaves it alone
+    # The header's date changes daily. A file that differs only in the date
+    # counts as unchanged, so a rerun leaves it alone.
     same <- identical(.quarto_undated(new), .quarto_undated(current))
     if (same) unchanged <- c(unchanged, file$path) else write[[file$path]] <- new
   }

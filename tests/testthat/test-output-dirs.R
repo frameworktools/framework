@@ -58,8 +58,8 @@ test_that("save_notebook() renders a Jupyter notebook from its saved outputs", {
 })
 
 test_that("a configured outputs_<kind> wins when the project counts as sensitive by layout or type", {
-  # An inputs_private_* folder makes the project sensitive; the tables and
-  # models folders it names still get the outputs
+  # An inputs_private_* folder makes the project sensitive. The configured
+  # tables and models folders still get the outputs.
   local_settings(list(project_type = "project", directories = list(
     inputs_private_raw = "inputs/private/raw",
     outputs_tables = "results/tables", outputs_models = "results/models"

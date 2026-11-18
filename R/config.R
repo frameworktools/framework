@@ -244,11 +244,11 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
 
 
 # Parse a .env file into a named character vector, in file order. The
-# rules match the dotenv package and framework-py: `#` lines and blank
-# lines are skipped, `export ` is allowed, spaces around the key and value
-# are trimmed, matching outer quotes are removed, an unquoted value ends at
-# ` #` (an inline comment), and a line that does not match is an error.
-# Later keys win.
+# rules match the dotenv package and framework-py. Blank lines and `#` lines,
+# indented or not, are skipped, and `export ` is allowed. Spaces around keys
+# and unquoted values are trimmed, and matching outer quotes are removed. A
+# `#` after whitespace starts an inline comment. A line that does not match
+# is an error. Later keys win.
 #' @keywords internal
 .fw_read_dotenv <- function(path) {
   if (!file.exists(path)) {

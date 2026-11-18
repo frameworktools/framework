@@ -116,7 +116,7 @@ test_that("cloud_login() saves the server it logged in to as the default", {
   suppressMessages(cloud_login("fw_1234567890", url = "http://localhost:8080", verify = FALSE, consent = TRUE))
   expect_identical(readLines(token_file), "fw_1234567890")
   expect_identical(framework:::.fw_cloud_url(), "http://localhost:8080")
-  # cloud_status() would ask the server who you are; no network in tests
+  # Mock the /api/v1/me call so cloud_status() makes no network request
   local_mocked_bindings(.fw_api = function(...) stop("offline"))
   expect_message(cloud_status(), "Server: http://localhost:8080 \\(from your cloud_login\\(\\) default\\)")
 })
@@ -156,7 +156,7 @@ test_that("a project token without its server never goes to the saved login", {
   err <- tryCatch(framework:::.fw_project_cloud_url(), error = conditionMessage)
   expect_identical(err, paste0(
     "This project's .env has FW_PROJECT_TOKEN but no FW_CLOUD_URL, so it does not say which ",
-    "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to .env, or pass url = \"<server>\"."
+    "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to the project's .env."
   ))
   # Not fw_no_server, which some callers treat as "no Cloud"
   expect_false(inherits(tryCatch(server(scope = "project"), error = identity), "fw_no_server"))

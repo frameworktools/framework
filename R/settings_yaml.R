@@ -143,9 +143,9 @@
       # changed. Comparing with the original, not a re-serialized copy,
       # keeps formatting elsewhere (long numbers, quoting) from forcing a
       # whole-file rewrite.
-      # Anchors and aliases are compared as written (an alias as its name,
-      # <<: as a plain key), so a change under `default: &default` isn't
-      # mistaken for a change to the sections that merge it.
+      # Anchors are stripped, and aliases and merge keys (<<:) are read as
+      # plain values before comparing, so a change under `default: &default`
+      # isn't mistaken for a change to the sections that merge it.
       same <- tryCatch({
         yaml::yaml.load(candidate)
         expected <- yaml::yaml.load(.fw_yaml_neutral(original))
@@ -158,12 +158,12 @@
     }
   }
   if (!rewrite) return(NULL)
-  # A whole rewrite expands anchors, aliases and merge keys, so the file
-  # would no longer share one block between sections. Refuse instead.
+  # A whole rewrite expands anchors, aliases, and merge keys, so sections
+  # would no longer share one block. Stop with an error instead.
   if (!is.null(text) && .fw_yaml_has_anchors(text)) {
     stop(sprintf(paste0(
-      "Can't set %s: the file uses YAML anchors or aliases (&name, *name, <<:) and the change can't be ",
-      "made in place. Rewriting the whole file would expand them and drop its comments. Make the change by hand."
+      "Can't set %s in place because the file uses YAML anchors, aliases, or merge keys (&name, *name, <<:). ",
+      "Rewriting the whole file would expand them and drop its comments. Edit the file by hand."
     ), paste(keys, collapse = ".")), call. = FALSE)
   }
   full <- if (!is.null(text)) yaml::yaml.load(text, handlers = .fw_yaml_read_handlers()) else NULL

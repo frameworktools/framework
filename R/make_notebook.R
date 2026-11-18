@@ -330,9 +330,10 @@ make_notebook <- function(name,
     }
     value <- as.character(value[[1]])
     pattern <- sprintf("\\{\\{\\s*%s\\s*\\}\\}", name)
-    # Inside a double-quoted YAML scalar ("{{ title }}" in front matter) the
-    # value is escaped for YAML; elsewhere (an R comment) it goes in as is.
-    # Either way it is taken literally, not as a regex replacement.
+    # A placeholder that is a whole double-quoted YAML string ("{{ title }}"
+    # in front matter) gets the value escaped for YAML. Elsewhere, such as in
+    # an R comment, the value goes in as written. Backslashes are escaped so
+    # gsub() inserts the value literally.
     content <- gsub(sprintf('"%s"', pattern), .fw_literal_replacement(.yaml_quote(value)),
                     content, perl = TRUE)
     content <- gsub(pattern, .fw_literal_replacement(value), content, perl = TRUE)

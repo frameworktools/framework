@@ -9,7 +9,7 @@ local_scope_env <- function(env = parent.frame()) {
     FW_TOKEN_FILE = NA, .local_envir = env
   )
   testthat::local_mocked_bindings(.fw_keychain_available = function() FALSE, .env = env)
-  # Whatever an earlier scaffold() loaded is undone afterwards
+  # Undo whatever an earlier scaffold() loaded
   loaded <- framework:::.fw_dotenv_loaded
   withr::defer({
     if (is.function(loaded$undo)) loaded$undo()
@@ -37,7 +37,7 @@ test_that("after scaffold() loads project A's .env, project B uses its own token
   expect_identical(framework:::.setup_connection(b), list(server = "https://b.example", token = "tokB"))
   expect_identical(framework:::.setup_connection(a), list(server = "https://a.example", token = "tokA"))
 
-  # B has a token but no server: A's server (loaded into the session) is not B's
+  # C has a token and no FW_CLOUD_URL, so A's loaded server must not be used
   c_dir <- scope_project(parent, "C", "FW_PROJECT_TOKEN=tokC")
   expect_identical(framework:::.fw_project_token(c_dir), "tokC")
   expect_error(framework:::.setup_connection(c_dir), class = "fw_project_server_missing")

@@ -34,8 +34,9 @@ unless \code{unlock = TRUE}.}
 
 \item{update_config}{If TRUE (default), also updates the YAML config with the data spec}
 
-\item{unlock}{If TRUE, registers locked data unlocked, unless
-\code{locked = TRUE}. Default: FALSE, so a lock stays.}
+\item{unlock}{If TRUE, removes an existing lock unless \code{locked = TRUE}.
+The data catalog changes only when \code{update_config = TRUE}. Default:
+FALSE, so a lock stays.}
 }
 \value{
 Invisibly returns the data spec that was created

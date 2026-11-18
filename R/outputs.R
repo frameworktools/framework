@@ -184,12 +184,12 @@ NULL
 # -----------------------------------------------------------------------------
 
 # Whether settings split one kind of output into private and public
-# folders: security: sensitive: true, an outputs_private_<kind> or
-# outputs_public_<kind> directory, or sensitive data on. A project that
-# names outputs_<kind> and neither split folder for that kind keeps writing
-# there, as in 2.0.0, when it counts as sensitive only by inference (an
-# inputs_private_* folder, or project_type: project_sensitive without a
-# security: block).
+# folders. Outputs split when security: sensitive is true, or when
+# outputs_private_<kind> or outputs_public_<kind> is set. Otherwise a
+# configured outputs_<kind> is used even when the project counts as
+# sensitive only by inference (a *_private_* directory, or
+# project_type: project_sensitive), as in 2.0.0. Without outputs_<kind>,
+# inferred sensitivity also splits outputs.
 #' @keywords internal
 .fw_output_split <- function(cfg, kind) {
   dirs <- if (is.list(cfg)) cfg$directories %||% list() else list()
@@ -226,10 +226,9 @@ NULL
   .fw_output_root_path(dir)
 }
 
-# An output folder from the settings, which is relative to the project root,
-# as a path that works from the working directory: unchanged at the project
-# root (or outside a project), from the root anywhere else, so a notebook in
-# notebooks/ writes where a script in the root would
+# Resolve a relative output folder against the project root when the
+# working directory is a subfolder such as notebooks/. At the project root,
+# outside a project, or for an absolute path, return `dir` unchanged.
 #' @keywords internal
 .fw_output_root_path <- function(dir) {
   root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)

@@ -181,10 +181,9 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   invisible(TRUE)
 }
 
-# .fw_yaml_set_text() for upgrade(): the block is changed in place when it
-# can be. When the whole file has to be regenerated instead, the plan says
-# so (once per file); a file with anchors or aliases is refused, by
-# .fw_yaml_set_text().
+# .fw_yaml_set_text() for upgrade(). The block is changed in place when it
+# can be. When the whole file has to be regenerated, the plan says so once
+# per file. .fw_yaml_set_text() refuses a file with anchors or aliases.
 #' @keywords internal
 .upgrade_yaml_set <- function(ctx, file, text, keys, value) {
   new <- .fw_yaml_set_text(text, keys, value, rewrite = FALSE)
@@ -192,12 +191,12 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   new <- .fw_yaml_set_text(text, keys, value)
   if (!file %in% ctx$regenerated) {
     ctx$regenerated <- c(ctx$regenerated, file)
-    .upgrade_note(ctx, file, " can't be edited in place, so it will be regenerated whole: its comments and ",
-                  "formatting are lost, and values may be written differently (1.10 as 1.1, 0123 as 83). ",
+    .upgrade_note(ctx, file, " can't be edited in place and will be regenerated whole. ",
+                  "Regenerating drops comments and formatting and may rewrite values (1.10 as 1.1, 0123 as 83). ",
                   if (isTRUE(ctx$backup)) {
-                    paste0("The original is copied to .framework/backups/<timestamp>/", file, " first.")
+                    paste0("Applying the upgrade copies the original to .framework/backups/<timestamp>/", file, " first.")
                   } else {
-                    "backup = FALSE, so no copy of the original is kept."
+                    "With backup = FALSE, no copy of the original is kept."
                   })
   }
   new
@@ -276,9 +275,10 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   raw <- .upgrade_yaml(ctx, ctx$main)
   if (!is.list(raw)) {
     lines <- .upgrade_read(ctx, ctx$main)
-    empty <- !any(grepl("\\S", sub("#.*$", "", lines %||% character())))
-    .upgrade_note(ctx, ctx$main, if (empty) " is empty" else " couldn't be read as YAML",
-                  ", so the settings were not upgraded.")
+    blank <- !any(grepl("\\S", lines %||% character()))
+    comments_only <- !blank && !any(grepl("\\S", sub("#.*$", "", lines %||% character())))
+    why <- if (blank) " is empty" else if (comments_only) " contains only comments" else " couldn't be read as YAML"
+    .upgrade_note(ctx, ctx$main, why, ", so the settings were not upgraded.")
     return(invisible())
   }
   scoped <- .has_environment_sections(raw)
@@ -520,8 +520,8 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
       .upgrade_secret_note(ctx, list(connections = connections), ctx$main)
       return(invisible())
     }
-    # Inline connections in an old layout (1.1.0 wrote connections:
-    # {options:, connections:}) are rewritten in place, like a split file
+    # Migrate inline connections in an old layout in place, including
+    # 1.1.0's nested connections: {options:, connections:}
     migrated <- .upgrade_migrate_connections(list(connections = connections))
     keys <- if (.has_environment_sections(raw)) c("default", "connections") else "connections"
     text <- paste(.upgrade_read(ctx, ctx$main), collapse = "\n")
@@ -944,8 +944,8 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   restricted <- sub("/$", "", .spec_restricted_paths(spec))
   restricted <- restricted[!vapply(restricted, function(p) .fw_outside_root(ctx$root, p), logical(1))]
   if (length(restricted) == 0) {
-    .upgrade_note(ctx, "No Claude Code guard was added: the settings name no private folders. Map the ",
-                  "folders that hold restricted data to private keys (inputs_private_raw, ...) and run upgrade() again.")
+    .upgrade_note(ctx, "No Claude Code guard was added because the settings name no private folders. Map the ",
+                  "folders that hold restricted data to private keys (such as inputs_private_raw) and run upgrade() again.")
     return(invisible(FALSE))
   }
   deny <- c(unlist(lapply(restricted, function(p) c(sprintf("Read(/%s/**)", p), sprintf("Edit(/%s/**)", p)))),

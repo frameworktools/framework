@@ -962,7 +962,7 @@ test_that("locked = FALSE does not remove a lock without unlock = TRUE", {
 
   df <- data.frame(a = 1:3)
   suppressMessages(data_save(df, "inputs/raw/y.csv", locked = TRUE))
-  # Same contents with locked = FALSE: an error, the lock stays
+  # Saving the same contents with locked = FALSE errors and keeps the lock
   expect_error(
     suppressMessages(data_save(df, "inputs/raw/y.csv", locked = FALSE)),
     "data_save() does not remove a lock with locked = FALSE.",

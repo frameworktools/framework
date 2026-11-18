@@ -6,10 +6,10 @@ Behavior changes:
   with an error unless `unlock = TRUE`. Before, saving the same contents
   with `locked = FALSE` removed the lock, and the next save could overwrite
   the data. `data_add()` takes `unlock`.
-* Settings files with YAML anchors (`default: &default`) are edited in
-  place. When a change can't be made in place, the edit stops with an error
-  instead of rewriting the whole file, and `upgrade()`'s plan says when a
-  file will be regenerated.
+* Settings sections with YAML anchors (`default: &default`) are edited in
+  place. When a file with anchors, aliases, or merge keys can't be edited in
+  place, the edit stops with an error instead of rewriting the whole file.
+  For other files, `upgrade()`'s plan says when a file will be regenerated.
 
 Fixes:
 
@@ -17,72 +17,87 @@ Framework Cloud:
 
 * A project's token goes only to the server that issued it. After
   `scaffold()` loaded one project's `.env`, a sync or publish for another
-  project sent the first project's token, and could write the first
+  project sent the first project's token and could write the first
   project's packages and data registry into the second. Now each project
   uses the token and server in its own `.env`. A token from another
   project's `.env` is never used.
-* A token set only in the environment, as in CI, with no `FW_CLOUD_URL`
-  stops with class `fw_project_server_missing`. Before, it went to the
-  server you last signed in to with `cloud_login()`.
-* `push_skills()` and the skills part of `push_all()` push to the project's
-  server, as packages and the data registry do. Before, they used the server
+* `FW_PROJECT_TOKEN` set only in the environment (as in CI) with no
+  `FW_CLOUD_URL` stops project calls with class `fw_project_server_missing`.
+  Before, the token went to the server you last signed in to with
+  `cloud_login()`. The error messages for a missing server now say where to
+  set `FW_CLOUD_URL`, and no longer suggest a `url` argument that project
+  functions don't take.
+* In a project linked to Framework Cloud, `skills_sync()`, `push_skills()`,
+  and the skills part of `push_all()` use the project's server, as packages
+  and the data registry do. Before, they used `FW_CLOUD_URL` or the server
   you last signed in to.
 * `pull_skills()` falls back to the package skills only when Framework
   Cloud can't be reached or the project has no token. A refused token or a
   missing server stops with an error and changes nothing.
 * `pull_skills()` updates a skill that matches the setup's version to a
-  newer Cloud version, instead of keeping it as locally edited.
-* `setup()` writes the project token to `.env` for bare projects too.
+  newer Cloud version instead of keeping it as locally edited.
+* `setup()` with a project token writes the token to `.env` for bare
+  projects too.
 * `pull_all()`, `push_all()`, and `pull_skills()` read a 1.x project's
-  `config.yml`. Before, such a project looked like it had no packages, and
-  `push_all(remove = TRUE)` could remove every package from Cloud. A push
-  now stops when the settings file is missing or can't be read.
+  `config.yml`. Before, such a project looked like it had no packages and
+  `push_all(remove = TRUE)` could remove every package from Cloud. The
+  packages part of `push_all()` now fails when the settings file is missing
+  or can't be read.
 * Errors for a missing or unclear Framework Cloud server print the message
   alone, without a backtrace through httr2.
-* The `.env` reader trims spaces around keys and values and drops an inline
-  ` # comment`, as the writer expects. `FW_CLOUD_URL = https://...` no
-  longer reads as missing.
+* The `.env` reader trims spaces around keys and unquoted values, as the
+  writer does, and drops a `#` comment that follows whitespace.
+  `FW_CLOUD_URL = https://...` no longer reads as missing.
 
 Data and outputs:
 
 * `data_save(unlock = TRUE)` by file path to a locked catalog entry's file
   updates the entry and its record. Before, `data_read()` by name then
   failed with "Hash mismatch for locked data".
-* `save_table()`, `save_figure()`, `save_model()`, `save_report()`, and
-  `load_model()` use a configured `outputs_<kind>` folder again in projects
-  that count as sensitive only because of an `inputs_private_*` folder or
-  `project_type: project_sensitive`. Since 2.0.2 they wrote to
-  `outputs/private/<kind>` and `load_model()` couldn't find existing models.
-  Projects with `security: sensitive: true` still split private and public
-  outputs.
+* `save_table()`, `save_figure()`, `save_model()`, `save_report()`,
+  `save_notebook()`, and `load_model()` use a configured `outputs_<kind>`
+  folder again in projects that count as sensitive only by inference: a
+  `*_private_*` directory, or `project_type: project_sensitive`. Since 2.0.2
+  they wrote to `outputs/private/<kind>`, and `load_model()` couldn't find
+  existing models. Projects with `security: sensitive: true`, or with
+  `outputs_private_<kind>` or `outputs_public_<kind>` set, still split
+  private and public outputs.
 * Output folders resolve from the project root, so `save_table()` and
   friends called from `notebooks/` without `scaffold()` no longer write to
   `notebooks/outputs/`.
 * `make_notebook()` escapes quotes and backslashes in `title` and the
   author, so the front matter stays valid YAML.
-* Functions in `cache()`'s `depends_on` hash the same in every session.
-  Before, an interactive session's source references changed the hash and
-  the value was recomputed in each new session. Other values hash as before.
+* Functions in the `depends_on` of `cache_remember()` and `cache()` hash the
+  same in every session. Before, an interactive session's source references
+  changed the hash, and `cache_remember()` recomputed the value in each new
+  session. Other values hash as before.
 
 Projects, upgrade(), and adopt():
 
 * A sensitive project with no private folders no longer gets a Claude Code
   guard that denies reading every file (`Read(//**)`). It gets no guard and
-  a note saying how to name its private folders.
+  a note saying to map its restricted folders to private keys in the
+  settings.
 * `adopt()` and `upgrade()` add `.gitignore` rules for private folders named
-  in another case, such as `Data/Private/` or `PHI_Private/`. Git matches
-  case on Linux, so the templates' `**/private/**` rule didn't ignore them.
-* `upgrade()` migrates the inline connections of 1.1.0 course and
-  presentation projects and writes `.framework/spec.json`. Before, it stopped
-  with "missing 'driver'" on every run.
-* Projects that use renv no longer ignore `.Rprofile`, which holds renv's
-  activation hook. This covers new projects, `adopt()`, and `upgrade()`.
-* Project creation and `upgrade()` say that the Claude Code sandbox for
-  sensitive projects needs macOS, Linux, or WSL on Windows.
+  in another case, such as `Data/Private/` or `PHI_Private/`, when git
+  doesn't already ignore them. Git matches case on Linux, so the templates'
+  `**/private/**` rule didn't cover them.
+* `upgrade()` migrates inline connections in `settings.yml`, including the
+  nested layout of 1.1.0 course and presentation projects, and writes
+  `.framework/spec.json`. Before, it left those connections as they were and
+  skipped `.framework/spec.json` with a "missing 'driver'" note on every
+  run.
+* New projects, `adopt()`, and `upgrade()` no longer add `.Rprofile` to
+  `.gitignore` in projects that use renv, because `.Rprofile` holds renv's
+  activation hook. When `.gitignore` already ignores `.Rprofile`, `upgrade()`
+  says so in its plan.
+* When project creation or `upgrade()` writes `.claude/settings.json` for a
+  sensitive project, it says that Claude Code's sandbox needs macOS, Linux,
+  or WSL on Windows.
 * `quarto_regenerate(overwrite = TRUE)` leaves an unchanged file alone
   instead of rewriting it with a new date.
-* `upgrade()` says an empty `settings.yml` is empty, instead of that it
-  couldn't be read as YAML.
+* `upgrade()` reports an empty or comment-only `settings.yml` as such
+  instead of saying it couldn't be read as YAML.
 
 # framework 2.0.10
 

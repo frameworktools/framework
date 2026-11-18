@@ -69,20 +69,21 @@
   .get_settings_file(root) %||% file.path(root, "settings.yml")
 }
 
-# The project's packages as setup rows, by name. strict = TRUE (a push) stops
-# when the settings can't be read: an empty list there would tell Cloud the
+# The project's packages as setup rows, by name. With strict = TRUE (a push),
+# unreadable settings stop with an error. An empty list would tell Cloud the
 # project has no packages, and push_all(remove = TRUE) would remove them all.
 .setup_local_packages <- function(root, strict = FALSE) {
   settings_file <- .setup_settings_file(root)
   config <- tryCatch(
     {
-      if (!file.exists(settings_file)) stop("no settings.yml", call. = FALSE)
+      if (!file.exists(settings_file)) stop("the file does not exist", call. = FALSE)
       settings_read(settings_file)
     },
     error = function(e) {
       if (strict) {
         stop("Could not read the project's packages from ", basename(settings_file), " (",
-             sub("\\.$", "", conditionMessage(e)), "). Nothing changed.", call. = FALSE)
+             sub("\\.$", "", conditionMessage(e)), "). Fix ", basename(settings_file),
+             " and try again. Nothing changed.", call. = FALSE)
       }
       list()
     })
