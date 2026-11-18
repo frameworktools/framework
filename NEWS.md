@@ -1,3 +1,28 @@
+# framework (development version)
+
+Changes:
+
+* `publish()` accepts Bayesian models from brms and rstanarm (`stan_glm()`,
+  `stan_glm.nb()`, `stan_lm()`, `stan_aov()`, `stan_glmer()`, `stan_lmer()`,
+  and `stan_glmer.nb()`). The model artifact sets `inference` to
+  `"bayesian"`. Each parameter has its posterior mean, posterior SD, 95%
+  equal-tailed credible interval, R-hat, and bulk and tail ESS. Logit and
+  log-link count models add odds or rate ratios summarized over the
+  exponentiated draws. Group-level SDs and correlations go in a random
+  effects table with their grouping factor. Distributional parameters such
+  as `sigma` and the priors have their own tables. Metrics cover
+  observations, chains, draws, warmup, the sampler, divergent transitions,
+  maximum tree depth hits, and Bayes R² when it is cheap to compute. LOO and
+  WAIC are included only when the fit already stores them. Variables and
+  term mappings work as for other models, and brms term names match
+  `fixef()`. The draws are never published. Models fit by variational
+  inference or optimization, multivariate brms models, and other rstanarm
+  model types stop with an error.
+* `publish()` accepts `brms::conditional_effects()` results and lists of
+  ggplots. One plot publishes as itself, and several are combined into one
+  figure with patchwork. bayesplot plots publish as figures, including
+  `mcmc_pairs()` grids.
+
 # framework 2.0.12
 
 Published models describe the variables they were fit on, so embeds can

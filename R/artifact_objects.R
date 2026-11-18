@@ -552,6 +552,10 @@
     }
     TRUE
   }
+  if (inherits(object, "brmsfit") && available("brms") && available("posterior")) {
+    return(.fw_artifact_brmsfit(object))
+  }
+  if (inherits(object, "stanreg") && available("rstanarm")) return(.fw_artifact_stanreg(object))
   if (inherits(object, "gam") && available("mgcv")) return(.fw_artifact_gam(object))
   if (inherits(object, "mlm")) return(NULL)
   if (inherits(object, "lm")) return(.fw_artifact_lm(object))
@@ -605,7 +609,9 @@
   described <- tryCatch(.fw_artifact_model_variables(object, coefficient_terms), error = function(e) NULL)
   if (length(described$variables)) document$variables <- described$variables
   if (length(described$terms)) document$terms <- described$terms
-  if (!is.null(result$formula)) {
+  if (is.character(result$formula)) {
+    document$formula <- result$formula
+  } else if (!is.null(result$formula)) {
     document$formula <- paste(trimws(deparse(result$formula, width.cutoff = 500L)), collapse = " ")
   }
   document
@@ -616,7 +622,28 @@
 #' @keywords internal
 .fw_artifact_is_figure <- function(object) {
   inherits(object, "ggplot") || inherits(object, "recordedplot") || inherits(object, "trellis") ||
-    inherits(object, "htmlwidget") || inherits(object, "vegaspec")
+    inherits(object, "htmlwidget") || inherits(object, "vegaspec") || inherits(object, "bayesplot_grid")
+}
+
+# brms::conditional_effects() results and plain lists of ggplots become one
+# figure: the plot itself when there is one, else the plots side by side.
+#' @keywords internal
+.fw_artifact_plots <- function(object) {
+  if (inherits(object, "brms_conditional_effects")) {
+    if (!requireNamespace("brms", quietly = TRUE)) {
+      stop("Publishing brms conditional effects requires the brms package.", call. = FALSE)
+    }
+    object <- plot(object, plot = FALSE, ask = FALSE)
+  } else if (!identical(class(object), "list")) {
+    return(object)
+  }
+  if (!length(object) || !all(vapply(object, inherits, logical(1), "ggplot"))) return(object)
+  if (length(object) == 1L) return(object[[1]])
+  if (!requireNamespace("patchwork", quietly = TRUE)) {
+    stop("Publishing several plots as one figure requires patchwork. Install it, or publish one plot, ",
+         "such as `plots[[1]]`.", call. = FALSE)
+  }
+  patchwork::wrap_plots(object)
 }
 
 #' @keywords internal

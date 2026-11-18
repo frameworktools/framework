@@ -3,9 +3,9 @@
 .fw_artifact_accepts <- paste(
   "publish() accepts a file or rendered folder; a data frame, tibble, data.table, matrix,",
   "table, or xtabs; an ANOVA table; a hypothesis test (htest); an lm, glm, aov, glm.nb,",
-  "polr, multinom, lme4, coxph, survreg, fixest, or mgcv gam model; a ggplot, patchwork,",
-  "recorded base plot, lattice plot, or htmlwidget such as plotly; or a gt, gtsummary,",
-  "or flextable table."
+  "polr, multinom, lme4, coxph, survreg, fixest, mgcv gam, brms, or rstanarm model; a ggplot,",
+  "patchwork, list of ggplots, brms conditional_effects(), bayesplot plot, recorded base plot,",
+  "lattice plot, or htmlwidget such as plotly; or a gt, gtsummary, or flextable table."
 )
 
 # Export supported objects locally. Models publish a summary, without observations
@@ -14,6 +14,7 @@
 # and JSON for other models and tests. Figures are the same for both.
 #' @keywords internal
 .fw_artifact_file <- function(object, directory, cloud = FALSE) {
+  object <- .fw_artifact_plots(object)
   if (.fw_artifact_is_figure(object)) {
     return(.fw_artifact_figure(object, directory, .fw_artifact_accepts))
   }
@@ -331,10 +332,21 @@ NULL
 #'     the model. Mixed models add random effects and gam models add smooth
 #'     terms. Models never carry observations, residuals, fitted values, or
 #'     the model object itself.
-#'   * ggplot and patchwork plots, base graphics saved with `recordPlot()`,
+#'   * brms models and rstanarm models from `stan_glm()`, `stan_glm.nb()`,
+#'     `stan_lm()`, `stan_aov()`, `stan_glmer()`, `stan_lmer()`, and
+#'     `stan_glmer.nb()` become posterior summaries: the posterior mean and
+#'     SD, a 95% equal-tailed credible interval, R-hat, and bulk and tail ESS
+#'     for each parameter. Logit and log-link count models add odds or rate
+#'     ratios summarized over the exponentiated draws. Group-level SDs and
+#'     correlations, priors, and sampler diagnostics are included. LOO and
+#'     WAIC appear only when the fit already stores them. The draws are never
+#'     published.
+#'   * ggplot and patchwork plots, bayesplot plots, base graphics saved with `recordPlot()`,
 #'     and lattice plots become an SVG figure (7 by 5 inches, white
 #'     background) when svglite is installed, otherwise a 300 dpi PNG. An SVG
-#'     larger than 5 MB is replaced by a PNG.
+#'     larger than 5 MB is replaced by a PNG. A list of ggplots, such as
+#'     `brms::conditional_effects()`, becomes one figure with the plots side
+#'     by side (this needs patchwork).
 #'   * plotly and other htmlwidgets become a self-contained HTML file, which
 #'     needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
 #'   * gt, gtsummary, and flextable tables become HTML when their packages

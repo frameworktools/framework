@@ -43,10 +43,21 @@ errors and 95\% Wald intervals, fit statistics, and a description of
 the model. Mixed models add random effects and gam models add smooth
 terms. Models never carry observations, residuals, fitted values, or
 the model object itself.
-\item ggplot and patchwork plots, base graphics saved with \code{recordPlot()},
+\item brms models and rstanarm models from \code{stan_glm()}, \code{stan_glm.nb()},
+\code{stan_lm()}, \code{stan_aov()}, \code{stan_glmer()}, \code{stan_lmer()}, and
+\code{stan_glmer.nb()} become posterior summaries: the posterior mean and
+SD, a 95\% equal-tailed credible interval, R-hat, and bulk and tail ESS
+for each parameter. Logit and log-link count models add odds or rate
+ratios summarized over the exponentiated draws. Group-level SDs and
+correlations, priors, and sampler diagnostics are included. LOO and
+WAIC appear only when the fit already stores them. The draws are never
+published.
+\item ggplot and patchwork plots, bayesplot plots, base graphics saved with \code{recordPlot()},
 and lattice plots become an SVG figure (7 by 5 inches, white
 background) when svglite is installed, otherwise a 300 dpi PNG. An SVG
-larger than 5 MB is replaced by a PNG.
+larger than 5 MB is replaced by a PNG. A list of ggplots, such as
+\code{brms::conditional_effects()}, becomes one figure with the plots side
+by side (this needs patchwork).
 \item plotly and other htmlwidgets become a self-contained HTML file, which
 needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
 \item gt, gtsummary, and flextable tables become HTML when their packages

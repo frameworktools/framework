@@ -26,7 +26,9 @@ Imports:
     jsonlite,
     digest
 Suggests:
+    bayesplot,
     bit64,
+    brms,
     gt,
     gtsummary,
     flextable,
@@ -79,7 +81,10 @@ Suggests:
     nnet,
     patchwork,
     plotly,
+    posterior,
     ragg,
+    rstan,
+    rstanarm,
     survival,
     svglite,
     tibble,

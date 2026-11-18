@@ -38,6 +38,7 @@
 #' @keywords internal
 .fw_mv_spec <- function(object) {
   if (inherits(object, "fixest")) return(.fw_mv_spec_fixest(object))
+  if (inherits(object, "brmsfit")) return(.fw_mv_spec_brms(object))
   frame <- stats::model.frame(object)
   if (!is.data.frame(frame) || !nrow(frame)) return(NULL)
   expected <- if (inherits(object, "coxph")) object$n else
@@ -49,9 +50,10 @@
   spec <- list(frame = frame, full = full, fixed = full, contrasts = NULL, group = character(),
                prefixes = NULL, call = tryCatch(stats::getCall(object), error = function(e) NULL),
                env = if (!is.null(formula)) environment(formula) else NULL)
-  if (isS4(object)) {
+  if (isS4(object) || (inherits(object, "stanreg") && !is.null(object$glmod))) {
     spec$fixed <- stats::terms(object, fixed.only = TRUE)
-    spec$contrasts <- attr(lme4::getME(object, "X"), "contrasts")
+    spec$contrasts <- if (isS4(object)) attr(lme4::getME(object, "X"), "contrasts") else
+      attr(object$glmod$X, "contrasts")
     spec$group <- unique(unlist(lapply(.fw_mv_bars(formula[[length(formula)]]),
                                        function(bar) all.vars(bar[[3]]))))
   } else {
@@ -76,6 +78,78 @@
   list(frame = frame, full = full, fixed = full, contrasts = NULL, group = character(),
        absorbed = intersect(absorbed, names(data)), prefixes = NULL, call = object$call, data = data,
        fixest = TRUE)
+}
+
+# brms keeps the rows it used in fit$data, one column per variable and
+# per factor() or other expression in the formula. Coefficient names pass
+# through brms's renaming, which drops brackets, commas, and spaces.
+#' @keywords internal
+.fw_mv_spec_brms <- function(object) {
+  if (!inherits(object$formula, "brmsformula") || inherits(object$formula, "mvbrmsformula")) return(NULL)
+  data <- object$data
+  formula <- .fw_bayes_formula(object$formula$formula)
+  if (!is.data.frame(data) || !nrow(data) || is.null(formula) || length(formula) != 3L) return(NULL)
+  lhs <- formula[[2]]
+  roles <- character()
+  if (is.call(lhs) && identical(lhs[[1]], as.name("|"))) {
+    # Addition terms: trials(n) belongs to the response, weights(w) is a weight.
+    additions <- lhs[[3]]
+    lhs <- lhs[[2]]
+    calls <- list()
+    collect <- function(expr) {
+      if (is.call(expr) && identical(expr[[1]], as.name("+"))) for (part in as.list(expr)[-1]) collect(part)
+      else if (is.call(expr)) calls[[length(calls) + 1L]] <<- expr
+    }
+    collect(additions)
+    for (call in calls) {
+      role <- switch(as.character(call[[1]])[1], trials = "response", weights = "weight", "")
+      for (variable in all.vars(call)) roles[[variable]] <- role
+    }
+  }
+  bars <- .fw_mv_bars(formula[[3]])
+  fixed <- .fw_mv_nobars(formula[[3]])
+  grouping <- unique(unlist(lapply(bars, function(bar) all.vars(bar[[3]]))))
+  slopes <- unlist(lapply(bars, function(bar) all.vars(bar[[2]])))
+  pieces <- c(if (!is.null(fixed)) .fw_mv_deparse(fixed), setdiff(c(slopes, grouping, names(roles)), all.vars(fixed)))
+  pieces <- unique(pieces[nzchar(pieces)])
+  full_formula <- stats::as.formula(paste(.fw_mv_deparse(lhs), "~", if (length(pieces)) paste(pieces, collapse = " + ") else "1"),
+                                    env = environment(formula) %||% globalenv())
+  frame <- stats::model.frame(full_formula, data = data, na.action = stats::na.pass)
+  if (nrow(frame) != nrow(data)) return(NULL)
+  fixed_formula <- stats::as.formula(paste("~", if (is.null(fixed)) "1" else .fw_mv_deparse(fixed)),
+                                     env = environment(formula) %||% globalenv())
+  contrasts <- Filter(Negate(is.null), lapply(data, function(column) attr(column, "contrasts", exact = TRUE)))
+  list(frame = frame, full = attr(frame, "terms"), fixed = stats::terms(fixed_formula), contrasts = contrasts,
+       group = grouping, prefixes = NULL, call = NULL, data = data, rename = .fw_mv_brms_rename, roles = roles)
+}
+
+# brms's renaming of coefficient names, so frame names match fixef() terms.
+#' @keywords internal
+.fw_mv_brms_rename <- function(names) {
+  pattern <- c(" ", "(", ")", "[", "]", ",", "\"", "'", "?", "+", "-", "*", "/", "^", "=", "$")
+  replacement <- c(rep("", 9), "P", "M", "MU", "D", "E", "EQ", "USD")
+  for (i in seq_along(pattern)) names <- gsub(pattern[i], replacement[i], names, fixed = TRUE)
+  names
+}
+
+# A formula's right side without random-effects bars, or NULL when nothing is left.
+#' @keywords internal
+.fw_mv_nobars <- function(expr) {
+  if (!is.call(expr)) return(expr)
+  head <- expr[[1]]
+  if (identical(head, as.name("|")) || identical(head, as.name("||"))) return(NULL)
+  if (identical(head, as.name("("))) {
+    inner <- .fw_mv_nobars(expr[[2]])
+    return(if (is.null(inner)) NULL else expr)
+  }
+  if (identical(head, as.name("+")) && length(expr) == 3L) {
+    left <- .fw_mv_nobars(expr[[2]])
+    right <- .fw_mv_nobars(expr[[3]])
+    if (is.null(left)) return(right)
+    if (is.null(right)) return(left)
+    return(call("+", left, right))
+  }
+  expr
 }
 
 # Row positions of the model frame in the original data, or NULL when the data
@@ -209,6 +283,7 @@
     }
     for (combo in combos) {
       key <- paste(combo$name, collapse = ":")
+      if (is.function(spec$rename)) key <- spec$rename(key)
       if (key %in% ambiguous) next
       if (!is.null(map[[key]]) && !identical(map[[key]], combo$parts)) {
         ambiguous <- c(ambiguous, key)
@@ -305,6 +380,7 @@
   fixed_variables <- unlist(variables_of[intersect(fixed_columns, names(variables_of))])
 
   role_of <- function(name, variable) {
+    if (variable %in% names(spec$roles)) return(if (nzchar(spec$roles[[variable]])) spec$roles[[variable]])
     if (name %in% response) return("response")
     if (name %in% offsets) return("offset")
     if (name %in% frailty) return("group")
