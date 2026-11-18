@@ -116,6 +116,8 @@ test_that("cloud_login() saves the server it logged in to as the default", {
   suppressMessages(cloud_login("fw_1234567890", url = "http://localhost:8080", verify = FALSE, consent = TRUE))
   expect_identical(readLines(token_file), "fw_1234567890")
   expect_identical(framework:::.fw_cloud_url(), "http://localhost:8080")
+  # cloud_status() would ask the server who you are; no network in tests
+  local_mocked_bindings(.fw_api = function(...) stop("offline"))
   expect_message(cloud_status(), "Server: http://localhost:8080 \\(from your cloud_login\\(\\) default\\)")
 })
 
