@@ -358,7 +358,7 @@ test_that("pull_all() and push_all() explain a refused token and Cloud's own ref
     .fw_api = function(path, ...) setup_http_error(401, list(message = "Unauthenticated."))
   )
   expect_error(pull_all(root, dry_run = TRUE),
-               "Framework Cloud refused the project token (Unauthenticated). Check FW_PROJECT_TOKEN in the project's .env. Nothing changed.",
+               "Framework Cloud refused the project token (Unauthenticated). Check FW_PROJECT_TOKEN in the project's .env, or in the environment when the .env has none. Nothing changed.",
                fixed = TRUE)
   expect_error(push_all(root, dry_run = TRUE), "refused the project token", fixed = TRUE)
   local_mocked_bindings(

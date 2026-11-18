@@ -236,7 +236,7 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
 # packages and data registry do. Otherwise .fw_cloud_url() decides.
 .skill_server <- function(root) {
   linked <- !is.null(.fw_project_token(root)) || !is.null(.fw_project_env_value("FW_CLOUD_URL", root))
-  sub("/$", "", if (linked) .fw_project_cloud_url(root) else .fw_cloud_url())
+  sub("/$", "", if (linked) .fw_project_cloud_url(root) else .fw_cloud_url(project_dir = root))
 }
 
 # The project's token when the project is on this server, else NULL. A push

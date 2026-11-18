@@ -20,7 +20,7 @@ local_cloud <- function(env = parent.frame(), create = NULL, interactive = FALSE
   ))
   testthat::local_mocked_bindings(
     .fw_cloud_token = function(url = NULL) "fw_user",
-    .fw_cloud_url = function(url = NULL, scope = "user") "https://cloud.test",
+    .fw_cloud_url = function(url = NULL, scope = "user", project_dir = ".") "https://cloud.test",
     .fw_api_request = function(path, token, method = "GET", json = NULL, url = NULL) {
       body <- jsonlite::fromJSON(json, simplifyVector = FALSE)
       calls$log[[length(calls$log) + 1]] <- list(path = path, token = token, method = method, json = json, body = body)

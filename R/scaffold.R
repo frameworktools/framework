@@ -179,7 +179,9 @@ scaffold <- function(config_file = NULL) {
     if (!is.null(config_file)) {
       config_file <- basename(config_file)
     } else {
-      # No settings file found, skip env loading
+      # No settings file found: nothing to load, and the last project's
+      # values don't carry over
+      .fw_unload_dotenv()
       return(invisible(NULL))
     }
   }
@@ -188,16 +190,7 @@ scaffold <- function(config_file = NULL) {
 
   # Only check root level dotenv_location (not nested in options)
   if (!is.null(config$dotenv_location)) {
-    dotenv_path <- config$dotenv_location
-
-    # Make path absolute relative to project root
-    if (!is.null(project_root) && !grepl("^(/|[A-Za-z]:)", dotenv_path)) {
-      dotenv_path <- file.path(project_root, dotenv_path)
-    }
-
-    if (dir.exists(dotenv_path)) {
-      dotenv_path <- file.path(dotenv_path, ".env")
-    }
+    dotenv_path <- .fw_dotenv_path(project_root %||% ".", config$dotenv_location)
 
     if (!file.exists(dotenv_path)) {
       stop(sprintf("Dotenv file not found at '%s'", dotenv_path))
@@ -216,6 +209,9 @@ scaffold <- function(config_file = NULL) {
 
     if (file.exists(env_path)) {
       .fw_load_dotenv(env_path)
+    } else {
+      # The last project's values don't carry over
+      .fw_unload_dotenv()
     }
   }
 }

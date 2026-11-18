@@ -6,17 +6,17 @@ local_scope_env <- function(env = parent.frame()) {
   withr::defer(cleanup(), envir = env)
   withr::local_envvar(
     FW_CLOUD_URL = NA, FW_CLOUD_TOKEN = NA, FW_PROJECT_TOKEN = NA,
-    FW_TOKEN_FILE = NA, .local_envir = env
+    FW_TOKEN_FILE = NA, FW_DOTENV_LOADED = NA, .local_envir = env
   )
   testthat::local_mocked_bindings(.fw_keychain_available = function() FALSE, .env = env)
   # Undo whatever an earlier scaffold() loaded
-  loaded <- framework:::.fw_dotenv_loaded
-  withr::defer({
-    if (is.function(loaded$undo)) loaded$undo()
-    loaded$undo <- NULL
-    loaded$values <- NULL
-  }, envir = env)
+  withr::defer(framework:::.fw_unload_dotenv(), envir = env)
   withr::local_tempdir(.local_envir = env)
+}
+
+# What scaffold() does with a project's .env
+scope_scaffold_env <- function(dir) {
+  withr::with_dir(dir, framework:::.load_environment())
 }
 
 scope_project <- function(parent, name, env_lines = NULL) {
@@ -31,7 +31,7 @@ test_that("after scaffold() loads project A's .env, project B uses its own token
   parent <- local_scope_env()
   a <- scope_project(parent, "A", c("FW_PROJECT_TOKEN=tokA", "FW_CLOUD_URL=https://a.example"))
   b <- scope_project(parent, "B", c("FW_PROJECT_TOKEN=tokB", "FW_CLOUD_URL=https://b.example"))
-  framework:::.fw_load_dotenv(file.path(a, ".env"))
+  scope_scaffold_env(a)
   expect_identical(Sys.getenv("FW_PROJECT_TOKEN"), "tokA")
 
   expect_identical(framework:::.setup_connection(b), list(server = "https://b.example", token = "tokB"))
@@ -48,6 +48,74 @@ test_that("after scaffold() loads project A's .env, project B uses its own token
   expect_error(framework:::.setup_connection(d), "no project token")
 })
 
+test_that("a child R process doesn't take the token scaffold() loaded in its parent for a shell token", {
+  parent <- local_scope_env()
+  a <- scope_project(parent, "A", c("FW_PROJECT_TOKEN=tokA", "FW_CLOUD_URL=https://a.example"))
+  q <- scope_project(parent, "Q")
+  scope_scaffold_env(a)
+  expect_identical(Sys.getenv("FW_PROJECT_TOKEN"), "tokA")
+  expect_match(Sys.getenv("FW_DOTENV_LOADED"), "FW_PROJECT_TOKEN=")
+
+  # A child inherits the variables and FW_DOTENV_LOADED, with no session record
+  skip_on_cran()
+  skip_if_not(file.exists(testthat::test_path("..", "..", "DESCRIPTION")), "needs the package source")
+  script <- withr::local_tempfile(fileext = ".R")
+  writeLines(c(
+    sprintf("suppressMessages(pkgload::load_all(%s, quiet = TRUE, export_all = FALSE))", deparse(testthat::test_path("..", ".."))),
+    sprintf("cat(is.null(framework:::.fw_project_token(%s)), nzchar(Sys.getenv('FW_PROJECT_TOKEN')))", deparse(q))
+  ), script)
+  out <- system2(file.path(R.home("bin"), "Rscript"), script, stdout = TRUE, stderr = FALSE)
+  expect_identical(tail(out, 1), "TRUE TRUE")
+
+  # A shell token set by hand is still used
+  withr::local_envvar(FW_PROJECT_TOKEN = "shell-token")
+  expect_identical(framework:::.fw_project_token(q), "shell-token")
+})
+
+test_that("scaffold() of a project without a .env removes the last project's values", {
+  parent <- local_scope_env()
+  framework:::.fw_save_cloud_url("https://login.example")
+  a <- scope_project(parent, "A", c("FW_PROJECT_TOKEN=tokA", "FW_CLOUD_URL=https://a.example"))
+  q <- scope_project(parent, "Q")
+  scope_scaffold_env(a)
+  scope_scaffold_env(q)
+  expect_identical(Sys.getenv("FW_PROJECT_TOKEN"), "")
+  expect_identical(Sys.getenv("FW_CLOUD_URL"), "")
+  expect_identical(Sys.getenv("FW_DOTENV_LOADED"), "")
+})
+
+test_that("an unlinked project doesn't use the server of the project scaffold() loaded", {
+  parent <- local_scope_env()
+  framework:::.fw_save_cloud_url("https://login.example")
+  a <- scope_project(parent, "A", c("FW_PROJECT_TOKEN=tokA", "FW_CLOUD_URL=https://a.example"))
+  b <- scope_project(parent, "B")
+  scope_scaffold_env(a)
+  expect_identical(framework:::.fw_cloud_url(project_dir = b), "https://login.example")
+  expect_identical(framework:::.skill_server(b), "https://login.example")
+  # Project A's own .env still names its server
+  expect_identical(framework:::.fw_cloud_url(project_dir = a), "https://a.example")
+})
+
+test_that("a project with dotenv_location finds its token and server after scaffold()", {
+  parent <- local_scope_env()
+  dir <- scope_project(parent, "S")
+  writeLines(c("default:", "  project_type: project", "  dotenv_location: secrets"), file.path(dir, "settings.yml"))
+  dir.create(file.path(dir, "secrets"))
+  writeLines(c("FW_PROJECT_TOKEN=tokS", "FW_CLOUD_URL=https://s.example"), file.path(dir, "secrets", ".env"))
+  scope_scaffold_env(dir)
+  expect_identical(Sys.getenv("FW_PROJECT_TOKEN"), "tokS")
+  expect_identical(framework:::.setup_connection(dir), list(server = "https://s.example", token = "tokS"))
+  withr::with_dir(dir, expect_identical(framework:::.fw_project_token(), "tokS"))
+})
+
+test_that("a .env that can't be parsed stops Cloud calls instead of guessing", {
+  parent <- local_scope_env()
+  dir <- scope_project(parent, "C", c("bad line", "export FW_CLOUD_URL=https://c.example", "FW_PROJECT_TOKEN=tokC"))
+  withr::local_envvar(FW_CLOUD_URL = "https://shell.example")
+  expect_error(framework:::.fw_project_token(dir), class = "fw_dotenv_unreadable")
+  expect_error(framework:::.setup_connection(dir), "Can't read")
+})
+
 test_that("a shell FW_CLOUD_URL still names the server for a .env token without one", {
   parent <- local_scope_env()
   dir <- scope_project(parent, "P", "FW_PROJECT_TOKEN=tokP")
@@ -61,7 +129,7 @@ test_that("a token only in the environment with no FW_CLOUD_URL stops instead of
   dir <- scope_project(parent, "CI")
   withr::local_envvar(FW_PROJECT_TOKEN = "ci-token")
   expect_error(framework:::.setup_connection(dir), class = "fw_project_server_missing")
-  expect_error(framework:::.fw_project_cloud_url(dir), "FW_PROJECT_TOKEN is set but FW_CLOUD_URL is not")
+  expect_error(framework:::.fw_project_cloud_url(dir), "same environment as the token")
 
   # The url argument or FW_CLOUD_URL names it
   expect_identical(framework:::.fw_cloud_server("https://arg.example", scope = "project", project_dir = dir)$url,

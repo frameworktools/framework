@@ -153,41 +153,51 @@
   invisible(path)
 }
 
-# A value from the project's .env file, or NULL.
+# The project's .env files, in the order a value is looked up: the file
+# dotenv_location names, then <root>/.env, where Framework writes the
+# project token.
+#' @keywords internal
+.fw_project_env_files <- function(project_dir) {
+  settings_file <- tryCatch(.get_settings_file(project_dir), error = function(e) NULL)
+  raw <- if (!is.null(settings_file)) tryCatch(yaml::read_yaml(settings_file), error = function(e) NULL)
+  location <- if (is.list(raw)) {
+    if (is.list(raw$default)) raw$default$dotenv_location %||% raw$dotenv_location else raw$dotenv_location
+  }
+  unique(c(.fw_dotenv_path(project_dir, location), file.path(project_dir, ".env")))
+}
+
+# A value from the project's .env files, or NULL. A file that can't be
+# parsed stops with class fw_dotenv_unreadable, because a guess could pair
+# the project's token with another server.
 #' @keywords internal
 .fw_project_env_value <- function(key, project_dir = ".") {
   # From a subfolder such as notebooks/, use the project root's .env, as
   # framework-py does
-  if (identical(project_dir, ".") && !file.exists(".env")) {
+  if (identical(project_dir, ".") && !file.exists(".env") && !.has_settings_file(".")) {
     project_dir <- tryCatch(.find_project_root(getwd()), error = function(e) NULL) %||% "."
   }
-  env_path <- file.path(project_dir, ".env")
-  if (!file.exists(env_path)) {
-    return(NULL)
-  }
-  values <- tryCatch(.fw_read_dotenv(env_path), error = function(e) NULL)
-  if (is.null(values)) {
-    # An unparsable line elsewhere in the file: fall back to a plain match
-    lines <- readLines(env_path, warn = FALSE)
-    hit <- grep(paste0("^", key, "="), lines, value = TRUE)
-    if (length(hit) == 0) {
-      return(NULL)
-    }
-    value <- sub(paste0("^", key, "="), "", hit[1])
-    value <- gsub('^["\']|["\']$', "", trimws(value))
-  } else {
+  for (env_path in .fw_project_env_files(project_dir)) {
+    if (!file.exists(env_path)) next
+    values <- tryCatch(.fw_read_dotenv(env_path), error = function(e) {
+      stop(errorCondition(sprintf(
+        "Can't read %s (%s). Framework Cloud calls read the project's token and server from it. Fix the line and try again.",
+        env_path, conditionMessage(e)
+      ), class = "fw_dotenv_unreadable", call = NULL))
+    })
     value <- unname(values[key])
+    if (length(value) == 1 && !is.na(value) && nzchar(value)) {
+      return(value)
+    }
   }
-  if (length(value) == 1 && !is.na(value) && nzchar(value)) value else NULL
+  NULL
 }
 
 # An environment variable's value, or "" when it is unset or scaffold() set
-# it from a project's .env (.fw_load_dotenv()).
+# it from a project's .env, in this R process or a parent one
+# (.fw_load_dotenv()).
 #' @keywords internal
 .fw_shell_env <- function(key) {
-  value <- Sys.getenv(key, "")
-  loaded <- .fw_dotenv_loaded$values
-  if (!is.null(loaded) && key %in% names(loaded) && identical(unname(loaded[[key]]), value)) "" else value
+  if (.fw_dotenv_set(key)) "" else Sys.getenv(key, "")
 }
 
 # Which server to use, and where that setting came from. Stops with class
@@ -200,8 +210,11 @@
 #     FW_CLOUD_URL the shell set. Values scaffold() loaded are ignored.
 #   * Token only in the shell (CI): url, then the shell's FW_CLOUD_URL.
 #     A token scaffold() loaded from another project's .env doesn't count.
-#   * No token: url, the project's .env, FW_CLOUD_URL, then the
-#     cloud_login() server when exactly one is saved.
+#   * No token: url, the project's .env, an FW_CLOUD_URL the shell set,
+#     then the cloud_login() server when exactly one is saved.
+# Scopes "user" and "login" read the .env of the project at project_dir,
+# when there is one, and also skip values scaffold() loaded, so a project
+# never uses the server of the project scaffold() loaded before it.
 #' @keywords internal
 .fw_cloud_server <- function(url = NULL, scope = c("user", "project", "login"), project_dir = ".") {
   scope <- match.arg(scope)
@@ -211,24 +224,24 @@
     file_token <- .fw_project_env_value("FW_PROJECT_TOKEN", project_dir)
     session_token <- is.null(file_token) && nzchar(.fw_shell_env("FW_PROJECT_TOKEN"))
   }
-  env_candidate <- list(url = Sys.getenv("FW_CLOUD_URL", ""), source = "the FW_CLOUD_URL environment variable")
   shell_candidate <- list(url = .fw_shell_env("FW_CLOUD_URL"), source = "the FW_CLOUD_URL environment variable")
-  candidates <- if (!is.null(file_token)) {
-    list(
-      list(url = url, source = "the url argument"),
-      list(url = .fw_project_env_value("FW_CLOUD_URL", project_dir), source = "the project's .env"),
-      shell_candidate
-    )
-  } else if (session_token) {
+  project_candidate <- function() {
+    value <- if (identical(scope, "project")) {
+      .fw_project_env_value("FW_CLOUD_URL", project_dir)
+    } else {
+      # Outside a project there's no .env to read, and an unreadable one
+      # can't misdirect a user token
+      root <- tryCatch(.find_project_root(project_dir), error = function(e) NULL)
+      if (!is.null(root)) {
+        tryCatch(.fw_project_env_value("FW_CLOUD_URL", root), fw_dotenv_unreadable = function(e) NULL)
+      }
+    }
+    list(url = value, source = "the project's .env")
+  }
+  candidates <- if (session_token) {
     list(list(url = url, source = "the url argument"), shell_candidate)
   } else {
-    list(
-      list(url = url, source = "the url argument"),
-      if (identical(scope, "project")) {
-        list(url = .fw_project_env_value("FW_CLOUD_URL", project_dir), source = "the project's .env")
-      },
-      env_candidate
-    )
+    list(list(url = url, source = "the url argument"), project_candidate(), shell_candidate)
   }
   for (candidate in candidates) {
     value <- candidate$url
@@ -248,7 +261,7 @@
   if (session_token) {
     stop(errorCondition(paste0(
       "FW_PROJECT_TOKEN is set but FW_CLOUD_URL is not, so nothing says which ",
-      "Framework Cloud server issued the token. Set FW_CLOUD_URL=<server> in the environment or in the project's .env."
+      "Framework Cloud server issued the token. Set FW_CLOUD_URL=<server> in the same environment as the token."
     ), class = "fw_project_server_missing", call = NULL))
   }
 
@@ -275,8 +288,8 @@
 }
 
 #' @keywords internal
-.fw_cloud_url <- function(url = NULL, scope = c("user", "project", "login")) {
-  .fw_cloud_server(url, scope = scope)$url
+.fw_cloud_url <- function(url = NULL, scope = c("user", "project", "login"), project_dir = ".") {
+  .fw_cloud_server(url, scope = scope, project_dir = project_dir)$url
 }
 
 # The user's server, or NULL when nothing names one.

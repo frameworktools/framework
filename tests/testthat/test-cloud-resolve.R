@@ -6,7 +6,7 @@ local_signed_in <- function(env = parent.frame()) {
   withr::defer(cleanup(), envir = env)
   testthat::local_mocked_bindings(
     .fw_cloud_token = function(url = NULL) "fw_test",
-    .fw_cloud_url = function(url = NULL, scope = "user") "https://cloud.test:8443",
+    .fw_cloud_url = function(url = NULL, scope = "user", project_dir = ".") "https://cloud.test:8443",
     .fw_api = function(...) stop("Cloud registration unavailable in this test"),
     .env = env
   )

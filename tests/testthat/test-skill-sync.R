@@ -54,7 +54,7 @@ test_that("skill synchronization handles push, pull, dry-run, and conflicts", {
   folder <- file.path(root,".agents/skills/example"); dir.create(folder, recursive=TRUE)
   writeLines(c("---","name: example","description: Examples","---","First"),file.path(folder,"SKILL.md"))
   remote <- NULL; calls <- 0L
-  local_mocked_bindings(.fw_cloud_url = function() "https://cloud.example", .fw_require_token = function(...) "token",
+  local_mocked_bindings(.fw_cloud_url = function(...) "https://cloud.example", .fw_require_token = function(...) "token",
     .fw_api = function(path, token, method="GET", body=NULL, ...) {
       if (identical(method,"GET")) return(remote)
       calls <<- calls + 1L

@@ -103,7 +103,7 @@ cloud_register <- function(path = ".", name = NULL, slug = NULL, description = N
   adopted <- isTRUE(spec$source$adopted)
   body <- .cloud_register_body(spec_json, name, slug, description, adopted)
 
-  url <- .fw_cloud_url()
+  url <- .fw_cloud_url(project_dir = root)
   host <- .fw_cloud_host(url)
   if (dry_run) {
     message("Framework Cloud request for ", name, " (dry run: nothing sent):")

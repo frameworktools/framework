@@ -189,20 +189,7 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
 
   # Load .env file BEFORE resolving split files (which evaluates env() expressions)
   # This ensures environment variables are available for interpolation
-  project_root <- dirname(settings_file)
-  dotenv_path <- config$dotenv_location
-  if (!is.null(dotenv_path)) {
-    # Custom dotenv location specified
-    if (!grepl("^(/|[A-Za-z]:)", dotenv_path)) {
-      dotenv_path <- file.path(project_root, dotenv_path)
-    }
-    if (dir.exists(dotenv_path)) {
-      dotenv_path <- file.path(dotenv_path, ".env")
-    }
-  } else {
-    # Default: .env in project root
-    dotenv_path <- file.path(project_root, ".env")
-  }
+  dotenv_path <- .fw_dotenv_path(dirname(settings_file), config$dotenv_location)
 
   # The .env values are visible only while this call resolves env() and
   # !expr values. They are never left in the R session, so one project's
@@ -290,22 +277,86 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
   }
 }
 
+# The .env file a project uses: dotenv_location from its settings (a file,
+# or a folder that holds .env), relative to the project root, else
+# <root>/.env. settings_read(), scaffold(), and Cloud calls share it.
+#' @keywords internal
+.fw_dotenv_path <- function(project_root, dotenv_location = NULL) {
+  if (!is.character(dotenv_location) || length(dotenv_location) != 1 || !nzchar(dotenv_location)) {
+    return(file.path(project_root, ".env"))
+  }
+  path <- dotenv_location
+  if (!grepl("^(/|[A-Za-z]:)", path)) {
+    path <- file.path(project_root, path)
+  }
+  if (dir.exists(path)) {
+    path <- file.path(path, ".env")
+  }
+  path
+}
+
 # Load a .env file into the R session for good, without replacing variables
 # that are already set and without setting empty values. For code that
 # means to set up the session, such as scaffold(). Values an earlier load
 # set are removed first, so the last project's values do not carry over
 # (framework-py's dotenv.load() does the same).
+#
+# FW_DOTENV_LOADED records each key this load set with a hash of its value.
+# Child processes, such as a Quarto render, inherit it with the values, so
+# Cloud calls there can also tell a shell value from a value scaffold() set
+# (.fw_shell_env()).
 #' @keywords internal
 .fw_load_dotenv <- function(path) {
   values <- .fw_read_dotenv(path)
-  undo <- .fw_dotenv_loaded$undo
-  if (is.function(undo)) undo()
-  .fw_dotenv_loaded$undo <- .fw_scope_env(values)
-  # What this load set, so a project's Cloud calls can tell a shell value
-  # from another project's .env value (.fw_shell_env())
+  .fw_unload_dotenv()
+  undo <- .fw_scope_env(values)
+  values <- values[names(values) %in% environment(undo)$added]
+  if (length(values) > 0) {
+    Sys.setenv(FW_DOTENV_LOADED = paste0(
+      names(values), "=", vapply(unname(values), .fw_dotenv_hash, ""), collapse = ";"
+    ))
+  }
   .fw_dotenv_loaded$path <- path
-  .fw_dotenv_loaded$values <- values[names(values) %in% environment(.fw_dotenv_loaded$undo)$added]
+  .fw_dotenv_loaded$values <- values
   invisible(NULL)
+}
+
+# Remove the values the last .fw_load_dotenv() set, in this process or a
+# parent R process. A value changed since the load is left alone.
+#' @keywords internal
+.fw_unload_dotenv <- function() {
+  marked <- names(.fw_dotenv_marked())
+  stale <- marked[vapply(marked, .fw_dotenv_set, logical(1))]
+  if (length(stale) > 0) Sys.unsetenv(stale)
+  Sys.unsetenv("FW_DOTENV_LOADED")
+  .fw_dotenv_loaded$path <- NULL
+  .fw_dotenv_loaded$values <- NULL
+  invisible(NULL)
+}
+
+#' @keywords internal
+.fw_dotenv_hash <- function(value) {
+  substr(digest::digest(value, algo = "sha256", serialize = FALSE), 1, 16)
+}
+
+# FW_DOTENV_LOADED as a named vector of value hashes
+#' @keywords internal
+.fw_dotenv_marked <- function() {
+  raw <- Sys.getenv("FW_DOTENV_LOADED", "")
+  if (!nzchar(raw)) {
+    return(stats::setNames(character(), character()))
+  }
+  parts <- strsplit(raw, ";", fixed = TRUE)[[1]]
+  parts <- parts[grepl("=", parts, fixed = TRUE)]
+  stats::setNames(sub("^[^=]*=", "", parts), sub("=.*$", "", parts))
+}
+
+# TRUE when the variable still holds the value a .env load set
+#' @keywords internal
+.fw_dotenv_set <- function(key) {
+  value <- Sys.getenv(key, "")
+  marked <- .fw_dotenv_marked()
+  nzchar(value) && key %in% names(marked) && identical(unname(marked[[key]]), .fw_dotenv_hash(value))
 }
 
 .fw_dotenv_loaded <- new.env(parent = emptyenv())

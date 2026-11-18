@@ -60,7 +60,8 @@
 # A revoked or mistyped project token
 .setup_refused <- function(e) {
   stop("Framework Cloud refused the project token (", .setup_reason(e) %||% "not accepted",
-       "). Check FW_PROJECT_TOKEN in the project's .env. Nothing changed.", call. = FALSE)
+       "). Check FW_PROJECT_TOKEN in the project's .env, or in the environment when the .env has none. Nothing changed.",
+       call. = FALSE)
 }
 
 # The project's settings file: settings.yml, or a 1.x project's config.yml,

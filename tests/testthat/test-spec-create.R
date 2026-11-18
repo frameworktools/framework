@@ -221,7 +221,7 @@ test_that("setup(token) and new(key) create the project from pull v2", {
 test_that("registering a new project tells the cloud it is an R project", {
   sent <- NULL
   testthat::local_mocked_bindings(
-    .fw_cloud_url = function(url = NULL, scope = "user") "https://cloud.example.edu",
+    .fw_cloud_url = function(url = NULL, scope = "user", project_dir = ".") "https://cloud.example.edu",
     .fw_cloud_token = function(url = NULL) "user-token",
     .fw_api = function(path, token, method = "GET", body = NULL, url = NULL) {
       sent <<- list(path = path, method = method, body = body)

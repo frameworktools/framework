@@ -24,13 +24,25 @@ Framework Cloud:
   project sent the first project's token and could write the first
   project's packages and data registry into the second. Now each project
   uses the token and server in its own `.env`. A token from another
-  project's `.env` is never used.
+  project's `.env` is never used, including in R processes started from the
+  session, such as a Quarto render. `scaffold()` records the variables it
+  set in `FW_DOTENV_LOADED` so those processes can tell them apart.
+* `scaffold()` of a project without a `.env` removes the variables the last
+  project's `.env` set. A project not linked to Framework Cloud no longer
+  uses the server of the project `scaffold()` loaded before it.
+* Framework Cloud calls read a project's token and server from the file its
+  `dotenv_location` names, then from `.env` in the project root.
+* A `.env` with a line that can't be parsed stops Framework Cloud calls with
+  class `fw_dotenv_unreadable`. Before, the token was found by a plain line
+  match that could miss `FW_CLOUD_URL` and pair the token with another
+  server.
 * `FW_PROJECT_TOKEN` set only in the environment (as in CI) with no
   `FW_CLOUD_URL` stops project calls with class `fw_project_server_missing`.
   Before, the token went to the server you last signed in to with
   `cloud_login()`. The error messages for a missing server now say where to
   set `FW_CLOUD_URL`, and no longer suggest a `url` argument that project
-  functions don't take.
+  functions don't take. A refused token's message no longer assumes the
+  token came from `.env`.
 * In a project linked to Framework Cloud, `skills_sync()`, `push_skills()`,
   and the skills part of `push_all()` use the project's server, as packages
   and the data registry do. Before, they used `FW_CLOUD_URL` or the server
