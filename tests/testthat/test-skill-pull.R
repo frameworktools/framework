@@ -150,7 +150,9 @@ test_that("pull_skills() keeps a newer version than the setup's when signed out"
 test_that("pull_skills() falls back to the package skills offline, and dry runs write nothing", {
   withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
   root <- skill_pull_project()
-  skill_pull_mock(function() stop("Could not resolve host: cloud.example"))
+  skill_pull_mock(function() {
+    stop(errorCondition("Could not resolve host: cloud.example", class = c("httr2_failure", "httr2_error")))
+  })
   out <- capture.output(result <- pull_skills(root, dry_run = TRUE), type = "message")
   expect_identical(result$source, "package")
   expect_match(out[1], "Framework Cloud not reached (Could not resolve host: cloud.example); using the package skills for this project type.", fixed = TRUE)

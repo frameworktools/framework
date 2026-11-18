@@ -245,22 +245,30 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
 
 # Parse a .env file into a named character vector, in file order. The
 # rules match the dotenv package and framework-py: `#` lines and blank
-# lines are skipped, `export ` is allowed, matching outer quotes are removed,
-# and a line that does not match is an error. Later keys win.
+# lines are skipped, `export ` is allowed, spaces around the key and value
+# are trimmed, matching outer quotes are removed, an unquoted value ends at
+# ` #` (an inline comment), and a line that does not match is an error.
+# Later keys win.
 #' @keywords internal
 .fw_read_dotenv <- function(path) {
   if (!file.exists(path)) {
     return(stats::setNames(character(), character()))
   }
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  lines <- lines[!grepl("^#", lines) & nzchar(trimws(lines))]
-  pattern <- "^\\s*(?:export\\s+)?([^=]+)=(['\"]?)(.*)\\2\\s*$"
+  lines <- lines[!grepl("^\\s*#", lines) & nzchar(trimws(lines))]
+  pattern <- "^\\s*(?:export\\s+)?([^=]*[^=\\s])\\s*=(.*)$"
   ok <- grepl(pattern, lines, perl = TRUE)
   if (!all(ok)) {
     stop(sprintf("Cannot parse .env line: %s", substr(lines[!ok][1], 1, 40)))
   }
-  keys <- sub(pattern, "\\1", lines, perl = TRUE)
-  values <- sub(pattern, "\\3", lines, perl = TRUE)
+  keys <- trimws(sub(pattern, "\\1", lines, perl = TRUE))
+  raw <- sub(pattern, "\\2", lines, perl = TRUE)
+  quoted <- "^\\s*(['\"])(.*)\\1(\\s+#.*)?\\s*$"
+  values <- ifelse(
+    grepl(quoted, raw, perl = TRUE),
+    sub(quoted, "\\2", raw, perl = TRUE),
+    trimws(sub("\\s+#.*$", "", raw, perl = TRUE))
+  )
   values <- stats::setNames(values, keys)
   values[!duplicated(keys, fromLast = TRUE)]
 }
@@ -293,6 +301,10 @@ settings_read <- function(settings_file = NULL, environment = NULL) {
   undo <- .fw_dotenv_loaded$undo
   if (is.function(undo)) undo()
   .fw_dotenv_loaded$undo <- .fw_scope_env(values)
+  # What this load set, so a project's Cloud calls can tell a shell value
+  # from another project's .env value (.fw_shell_env())
+  .fw_dotenv_loaded$path <- path
+  .fw_dotenv_loaded$values <- values[names(values) %in% environment(.fw_dotenv_loaded$undo)$added]
   invisible(NULL)
 }
 

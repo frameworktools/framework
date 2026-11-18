@@ -63,9 +63,29 @@
        "). Check FW_PROJECT_TOKEN in the project's .env. Nothing changed.", call. = FALSE)
 }
 
-# The project's packages as setup rows, by name
-.setup_local_packages <- function(root) {
-  config <- tryCatch(settings_read(file.path(root, "settings.yml")), error = function(e) list())
+# The project's settings file: settings.yml, or a 1.x project's config.yml,
+# as the data registry finds it
+.setup_settings_file <- function(root) {
+  .get_settings_file(root) %||% file.path(root, "settings.yml")
+}
+
+# The project's packages as setup rows, by name. strict = TRUE (a push) stops
+# when the settings can't be read: an empty list there would tell Cloud the
+# project has no packages, and push_all(remove = TRUE) would remove them all.
+.setup_local_packages <- function(root, strict = FALSE) {
+  settings_file <- .setup_settings_file(root)
+  config <- tryCatch(
+    {
+      if (!file.exists(settings_file)) stop("no settings.yml", call. = FALSE)
+      settings_read(settings_file)
+    },
+    error = function(e) {
+      if (strict) {
+        stop("Could not read the project's packages from ", basename(settings_file), " (",
+             sub("\\.$", "", conditionMessage(e)), "). Nothing changed.", call. = FALSE)
+      }
+      list()
+    })
   rows <- list()
   for (spec in .get_package_list_from_config(config)) {
     p <- tryCatch(.normalize_package_spec(spec), error = function(e) NULL)
@@ -99,7 +119,7 @@
 .setup_names <- function(rows) paste(vapply(rows, `[[`, "", "name"), collapse = ", ")
 
 .setup_project_name <- function(root) {
-  config <- tryCatch(settings_read(file.path(root, "settings.yml")), error = function(e) list())
+  config <- tryCatch(settings_read(.setup_settings_file(root)), error = function(e) list())
   name <- config$project_name
   if (is.character(name) && length(name) == 1 && nzchar(name)) name else basename(root)
 }
@@ -117,7 +137,7 @@
 # Record the packages in settings, then install them: renv when the project
 # uses it, else base R, as package_add() does
 .setup_install <- function(root, rows) {
-  settings_file <- file.path(root, "settings.yml")
+  settings_file <- .setup_settings_file(root)
   .packages_edit(settings_file, function(packages) {
     listed <- vapply(packages, function(p) tryCatch(.normalize_package_spec(p)$name %||% "", error = function(e) ""), "")
     for (row in rows) {
@@ -396,7 +416,7 @@ pull_all <- function(project_path = ".", overwrite = FALSE, confirm = NULL, dry_
   }
   # The base revision for a project that never pulled its package list
   base <- .setup_lock_read(root)$revision %||% setup$revision
-  local <- .setup_local_packages(root)
+  local <- .setup_local_packages(root, strict = TRUE)
   send <- function(dry) {
     body <- list(base_revision = base, packages = unname(local), remove = remove, force = force, dry_run = dry)
     tryCatch(
@@ -458,10 +478,14 @@ pull_all <- function(project_path = ".", overwrite = FALSE, confirm = NULL, dry_
 # login can't push them.
 .skills_push_plan <- function(root, force) {
   edited <- .skill_push_edited(root)
-  if (length(edited) && is.null(.fw_cloud_token())) {
-    names <- vapply(edited, function(e) basename(e$present[1]), "")
-    stop("Not signed in, so edited skills (", paste(names, collapse = ", "), ") can't be pushed. ",
-         .fw_login_hint(.fw_cloud_url_or_null() %||% .fw_default_cloud_url), call. = FALSE)
+  if (length(edited)) {
+    # The project's server, as for packages and the data registry
+    server <- .skill_server(root)
+    if (is.null(.fw_cloud_token(server))) {
+      names <- vapply(edited, function(e) basename(e$present[1]), "")
+      stop("Not signed in, so edited skills (", paste(names, collapse = ", "), ") can't be pushed. ",
+           .fw_login_hint(server), call. = FALSE)
+    }
   }
   planned <- .skill_push_plan(root, force)
   plans <- planned$plans

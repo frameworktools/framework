@@ -181,19 +181,57 @@
   if (length(value) == 1 && !is.na(value) && nzchar(value)) value else NULL
 }
 
+# An environment variable's value unless scaffold() set it from a project's
+# .env (.fw_load_dotenv()), or "".
+#' @keywords internal
+.fw_shell_env <- function(key) {
+  value <- Sys.getenv(key, "")
+  loaded <- .fw_dotenv_loaded$values
+  if (!is.null(loaded) && key %in% names(loaded) && identical(unname(loaded[[key]]), value)) "" else value
+}
+
 # Which server to use, and where that setting came from. Stops with class
 # fw_no_server when nothing names one, except for scope "login", and with
 # fw_project_server_missing for a project token with no server.
+#
+# For scope "project", the server goes with the token .fw_project_token()
+# picks, so a token only ever goes to the server that issued it:
+#   * a token in the project's .env: the url argument, FW_CLOUD_URL in that
+#     .env, then an FW_CLOUD_URL the shell set (not one scaffold() loaded
+#     from another project's .env);
+#   * a token only in the shell (CI): the url argument, then the shell's
+#     FW_CLOUD_URL. A token scaffold() loaded from another project's .env
+#     doesn't count;
+#   * no token: the url argument, the project's .env, FW_CLOUD_URL, then
+#     your cloud_login() server.
 #' @keywords internal
 .fw_cloud_server <- function(url = NULL, scope = c("user", "project", "login"), project_dir = ".") {
   scope <- match.arg(scope)
-  candidates <- list(
-    list(url = url, source = "the url argument"),
-    if (identical(scope, "project")) {
-      list(url = .fw_project_env_value("FW_CLOUD_URL", project_dir), source = "the project's .env")
-    },
-    list(url = Sys.getenv("FW_CLOUD_URL", ""), source = "the FW_CLOUD_URL environment variable")
-  )
+  file_token <- NULL
+  session_token <- FALSE
+  if (identical(scope, "project")) {
+    file_token <- .fw_project_env_value("FW_PROJECT_TOKEN", project_dir)
+    session_token <- is.null(file_token) && nzchar(.fw_shell_env("FW_PROJECT_TOKEN"))
+  }
+  env_candidate <- list(url = Sys.getenv("FW_CLOUD_URL", ""), source = "the FW_CLOUD_URL environment variable")
+  shell_candidate <- list(url = .fw_shell_env("FW_CLOUD_URL"), source = "the FW_CLOUD_URL environment variable")
+  candidates <- if (!is.null(file_token)) {
+    list(
+      list(url = url, source = "the url argument"),
+      list(url = .fw_project_env_value("FW_CLOUD_URL", project_dir), source = "the project's .env"),
+      shell_candidate
+    )
+  } else if (session_token) {
+    list(list(url = url, source = "the url argument"), shell_candidate)
+  } else {
+    list(
+      list(url = url, source = "the url argument"),
+      if (identical(scope, "project")) {
+        list(url = .fw_project_env_value("FW_CLOUD_URL", project_dir), source = "the project's .env")
+      },
+      env_candidate
+    )
+  }
   for (candidate in candidates) {
     value <- candidate$url
     if (is.character(value) && length(value) == 1 && !is.na(value) && nzchar(value)) {
@@ -203,10 +241,16 @@
 
   # A project token is only valid on the server that issued it, and the
   # saved login may be another server's
-  if (identical(scope, "project") && !is.null(.fw_project_env_value("FW_PROJECT_TOKEN", project_dir))) {
+  if (!is.null(file_token)) {
     stop(errorCondition(paste0(
       "This project's .env has FW_PROJECT_TOKEN but no FW_CLOUD_URL, so it does not say which ",
       "Framework Cloud server issued the token. Add FW_CLOUD_URL=<server> to .env, or pass url = \"<server>\"."
+    ), class = "fw_project_server_missing", call = NULL))
+  }
+  if (session_token) {
+    stop(errorCondition(paste0(
+      "FW_PROJECT_TOKEN is set but FW_CLOUD_URL is not, so nothing says which ",
+      "Framework Cloud server issued the token. Set FW_CLOUD_URL=<server>, or pass url = \"<server>\"."
     ), class = "fw_project_server_missing", call = NULL))
   }
 
@@ -1071,15 +1115,20 @@ cloud_settings <- function() {
 
 # --- Cloud publishing ----------------------------------------------------
 
-# The project's cloud key: env var (set by dotenv on scaffold()) first, then
-# a direct read of ./.env for pre-scaffold sessions.
+# The project's cloud key: the project's own .env first, then an
+# FW_PROJECT_TOKEN the shell set (CI). The project's .env
+# wins so that after scaffold() of one project, another project's calls use
+# that project's token; .fw_cloud_server() picks the matching server.
 #' @keywords internal
 .fw_project_token <- function(project_dir = ".") {
-  env_token <- Sys.getenv("FW_PROJECT_TOKEN", "")
-  if (nzchar(env_token)) {
-    return(env_token)
+  file_token <- .fw_project_env_value("FW_PROJECT_TOKEN", project_dir)
+  if (!is.null(file_token)) {
+    return(file_token)
   }
-  .fw_project_env_value("FW_PROJECT_TOKEN", project_dir)
+  # A token scaffold() loaded from another project's .env never stands in
+  # for this project's
+  env_token <- .fw_shell_env("FW_PROJECT_TOKEN")
+  if (nzchar(env_token)) env_token else NULL
 }
 
 # The server a project's token belongs to.
@@ -1926,9 +1975,9 @@ cloud_sync <- function(direction = c("auto", "pull", "push")) {
 
   if (isTRUE(result$success)) {
     # The setup token IS this project's key; store it for publish() et al.
-    if (!identical(spec$type, "bare")) {
-      .fw_write_project_token(result$path, token, url)
-    }
+    # Bare projects too, as registration does: without it the folder can't
+    # link to its Cloud project
+    .fw_write_project_token(result$path, token, url)
 
     message("\nProject ready at ", result$path)
     if (browse && Sys.info()[["sysname"]] == "Darwin") {

@@ -22,7 +22,7 @@
 }
 
 .skill_pull_settings <- function(root) {
-  tryCatch(settings_read(file.path(root, "settings.yml")), error = function(e) list())
+  tryCatch(settings_read(.setup_settings_file(root)), error = function(e) list())
 }
 
 # The assistants' skills folders, then .agents/skills and .claude/skills if present
@@ -61,7 +61,7 @@
 # package defaults. Errors when the setup can't be read.
 .skill_pull_cloud_skills <- function(root, notes) {
   token <- .fw_project_token(root)
-  if (is.null(token)) stop("no project token", call. = FALSE)
+  if (is.null(token)) stop(errorCondition("no project token", class = "fw_no_project_token", call = NULL))
   server <- .fw_project_cloud_url(root)
   envelope <- .fw_api("/api/v1/projects/pull", token = token, url = server)
   if (!is.list(envelope) || !identical(as.integer(envelope$spec_version %||% NA), 1L)) {
@@ -95,6 +95,9 @@
       NULL
     })
     if (!is.null(remote) && as.integer(remote$version) > as.integer(source$version)) {
+      # The setup's version stays "unedited": record its hash before the
+      # newer version replaces it
+      entry$setup_hash <- entry$setup_hash %||% source$hash
       entry$bundle <- remote$bundle
       entry$sync$version <- remote$version; entry$sync$hash <- remote$hash
       skills[[name]] <- entry
@@ -232,7 +235,17 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
   settings <- .skill_pull_settings(root)
   dirs <- .skill_pull_dirs(root, settings)
   notes <- character()
-  fetched <- tryCatch(.skill_pull_cloud_skills(root, notes), error = function(e) e)
+  # Only offline, or without a project token, do the package skills stand in.
+  # A refused token, an unknown server, or a setup this version can't read
+  # stops: falling back would quietly replace the project's Cloud skills.
+  fetched <- tryCatch(
+    .skill_pull_cloud_skills(root, notes),
+    fw_no_project_token = function(e) e,
+    httr2_failure = function(e) e,
+    curl_error = function(e) e,
+    httr2_http_401 = function(e) .setup_refused(e),
+    httr2_http_403 = function(e) .setup_refused(e)
+  )
   if (inherits(fetched, "error")) {
     reason <- sub("\\.$", "", conditionMessage(fetched))
     message("Framework Cloud not reached (", reason, "); using the package skills for this project type.")
@@ -420,7 +433,7 @@ push_skills <- function(project_path = ".", force = FALSE, confirm = NULL, dry_r
   checkmate::assert_flag(confirm, null.ok = TRUE)
   checkmate::assert_flag(dry_run)
   root <- .skill_pull_root(project_path)
-  .fw_require_token(.fw_cloud_url())
+  .fw_require_token(.skill_server(root))
   planned <- .skill_push_plan(root, force)
   plans <- planned$plans
   pushes <- which(vapply(plans, function(p) identical(p$status, "push"), logical(1)))

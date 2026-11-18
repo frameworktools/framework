@@ -174,7 +174,7 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   key <- names(Filter(function(e) path %in% unlist(e$paths), state$skills))[1]
   if (!length(key) || is.na(key)) key <- path
   entry <- state$skills[[key]] %||% list(paths = list(path), variant = variant)
-  server <- sub("/$", "", .fw_cloud_url()); token <- .fw_require_token(url = server)
+  server <- .skill_server(root); token <- .fw_require_token(url = server)
   if (!is.null(entry$server) && !identical(entry$server, server)) stop("Skill tracks another server", call. = FALSE)
   if (!is.null(skill_id) && !is.null(entry$skill_id) && !identical(skill_id, entry$skill_id)) stop("Skill identity mismatch", call. = FALSE)
   variant <- entry$variant %||% variant; paths <- unlist(entry$paths, use.names = FALSE)
@@ -229,6 +229,14 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
     result$skill_id <- remote$skill_id; result$version <- remote$version
   }
   result
+}
+
+# The server a project's skills sync with: the project's server, as for its
+# packages and data registry, when the project has a token or FW_CLOUD_URL
+# in its .env; else the server you signed in to.
+.skill_server <- function(root) {
+  linked <- !is.null(.fw_project_token(root)) || !is.null(.fw_project_env_value("FW_CLOUD_URL", root))
+  sub("/$", "", if (linked) .fw_project_cloud_url(root) else .fw_cloud_url())
 }
 
 # The project's token when the project is on this server, else NULL. A push
