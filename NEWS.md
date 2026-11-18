@@ -1,3 +1,28 @@
+# framework 2.0.14
+
+Code snippets publish a chunk's code and the text it printed. Matches
+Framework for Stata 0.3.5 and framework-embed 0.5.0.
+
+Changes:
+
+* `publish_snippet()` publishes a chunk of a Quarto or R Markdown notebook to
+  Framework Cloud as a code snippet: its code and the text it printed, as the
+  rendered notebook shows them. Under `quarto render` or
+  `rmarkdown::render()`, `library(framework)` records each chunk's code,
+  output, messages, warnings, and errors through knitr's output hooks, without
+  changing the rendered document. Plots are left out, and knitr's `## `
+  prefix is removed. Outside a render, `publish_snippet()` publishes nothing
+  and says why. It never runs the chunk again.
+* `fw_snippet()` runs a braced block in an R script, prints its output, keeps
+  its assignments, and publishes its code and printed text as a code snippet.
+* Both take `output = FALSE` to publish the code alone, `folded` to fold or
+  open the output, and `links` to a notebook and a model artifact. A snippet
+  names its file, chunk label, code lines, and commit. It names the
+  repository only when `repository` is passed or `publish.repository` is set
+  in `settings.yml`.
+* Publishing a code snippet that matches its newest version reports
+  "Unchanged, still version N". Framework Cloud adds no version for it.
+
 # framework 2.0.13
 
 Bayesian models publish their posterior. Matches framework-py 0.1.0.dev26,
