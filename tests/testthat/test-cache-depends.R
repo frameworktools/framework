@@ -210,3 +210,18 @@ test_that("dependencies go with their entry", {
     expect_null(.fw_depends_recorded("v"))
   })
 })
+
+test_that("a function hashes the same with or without source references", {
+  src <- "function(x) {\n  # scale it\n  x * 2\n}"
+  with_src <- eval(parse(text = src, keep.source = TRUE))
+  without <- eval(parse(text = src, keep.source = FALSE))
+  expect_false(is.null(attr(with_src, "srcref")))
+  expect_identical(.fw_value_hash(with_src), .fw_value_hash(without))
+  expect_identical(.fw_value_hash(list(f = with_src, k = 1)), .fw_value_hash(list(f = without, k = 1)))
+  expect_identical(.fw_value_hash(list(list(with_src))), .fw_value_hash(list(list(without))))
+
+  # Values without functions hash as before
+  for (value in list(1, "a", list(k = 4), data.frame(a = 1:2), list(a = list(b = 1:3)), mtcars)) {
+    expect_identical(.fw_value_hash(value), digest::digest(value, algo = "sha256"))
+  }
+})

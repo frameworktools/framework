@@ -41,7 +41,8 @@ Dot notation uses your configured directories
 \item{locked}{Whether later reads must find the file unchanged. Default:
 FALSE, so a pipeline can save the data again. Pass \code{locked = TRUE} to
 lock data you mean to keep as it is. Left out, a save keeps a lock the
-data already has, unless \code{unlock = TRUE}.}
+data already has, unless \code{unlock = TRUE}. \code{locked = FALSE} on locked
+data is an error unless \code{unlock = TRUE}.}
 
 \item{force}{If TRUE, creates any missing folder. If FALSE (default), a
 missing folder is created only when it is a folder named in the settings

@@ -21,7 +21,8 @@
 #' @param locked Whether later reads must find the file unchanged. Default:
 #'   FALSE, so a pipeline can save the data again. Pass `locked = TRUE` to
 #'   lock data you mean to keep as it is. Left out, a save keeps a lock the
-#'   data already has, unless `unlock = TRUE`.
+#'   data already has, unless `unlock = TRUE`. `locked = FALSE` on locked
+#'   data is an error unless `unlock = TRUE`.
 #' @param unlock If TRUE, replaces locked data and saves it unlocked, unless
 #'   `locked = TRUE`. Without it, `data_save()` stops before writing when the
 #'   save would change locked data: a data catalog entry with `locked: true`,
@@ -188,6 +189,13 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
   # locked file changed. The new contents go to a temporary file first, so a
   # refused save leaves the locked file as it was. The same contents pass.
   held <- .fw_locked_data_at(file_path, name = if (is_name) data_name else NULL)
+  if (!is.null(held) && lock_given && !locked && !unlock) {
+    stop(.fw_locked_message(
+      "data_save()", held,
+      "Pass unlock = TRUE to save it unlocked.",
+      headline = "%s does not remove a lock with locked = FALSE."
+    ), call. = FALSE)
+  }
   if (!is.null(held)) {
     same <- FALSE
     if (.fw_same_file(held$file, file_path)) {
@@ -208,6 +216,13 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
   # Without `locked`, locked data saved with the same contents stays locked,
   # and unlock = TRUE saves it unlocked. Everything else is saved unlocked.
   if (!lock_given) locked <- !is.null(held) && !unlock
+  # A save by path to the file of a locked catalog entry updates that entry
+  # and its record, as a save by name does, so data_read() by name finds the
+  # new contents and lock
+  if (!is_name && !is.null(held) && identical(held$source, "catalog")) {
+    data_name <- held$name
+    is_name <- TRUE
+  }
   write_data(file_path)
 
   message(sprintf("Data saved to: %s", .fw_project_relative_path(file_path)))
@@ -258,6 +273,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
         type = type,
         delimiter = delimiter,
         locked = locked,
+        unlock = unlock,
         update_config = TRUE
       )
     }, error = function(e) {
@@ -289,7 +305,10 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
 #' @param delimiter Delimiter for CSV files ("comma", "tab", "semicolon", "space")
 #' @param locked Whether the file should be locked (hash-verified on read).
 #'   Default: FALSE. Left out, a file already locked in the data catalog or
-#'   framework.db stays locked.
+#'   framework.db stays locked. `locked = FALSE` on locked data is an error
+#'   unless `unlock = TRUE`.
+#' @param unlock If TRUE, registers locked data unlocked, unless
+#'   `locked = TRUE`. Default: FALSE, so a lock stays.
 #' @param update_config If TRUE (default), also updates the YAML config with the data spec
 #'
 #' @return Invisibly returns the data spec that was created
@@ -311,7 +330,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
 #'
 #' @export
 data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
-                     locked = FALSE, update_config = TRUE) {
+                     locked = FALSE, update_config = TRUE, unlock = FALSE) {
   lock_given <- !missing(locked)
   # Validate arguments
   checkmate::assert_string(file_path, min.chars = 1)
@@ -320,6 +339,7 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   checkmate::assert_choice(delimiter, c("comma", "tab", "semicolon", "space"))
   checkmate::assert_flag(locked)
   checkmate::assert_flag(update_config)
+  checkmate::assert_flag(unlock)
 
   # Check file exists: a relative path from the project root, then from the
   # working directory
@@ -391,9 +411,19 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
   }
 
   # Left out, `locked` keeps a lock the file already has, so registering
-  # locked data again doesn't unlock it
-  if (!lock_given) {
-    locked <- !is.null(tryCatch(.fw_locked_data_at(file_path, name = name), error = function(e) NULL))
+  # locked data again doesn't unlock it. Removing a lock takes unlock = TRUE.
+  held <- tryCatch(.fw_locked_data_at(file_path, name = name), error = function(e) NULL)
+  if (!is.null(held) && !unlock) {
+    if (lock_given && !locked) {
+      stop(.fw_locked_message(
+        "data_add()", held,
+        "Pass unlock = TRUE to register it unlocked.",
+        headline = "%s does not remove a lock with locked = FALSE."
+      ), call. = FALSE)
+    }
+    locked <- TRUE
+  } else if (!lock_given) {
+    locked <- FALSE
   }
 
   # Calculate hash
@@ -639,14 +669,14 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
 
 # The error for a write that would change locked data
 #' @keywords internal
-.fw_locked_message <- function(caller, held, advice) {
+.fw_locked_message <- function(caller, held, advice, headline = "%s does not overwrite locked data.") {
   where <- if (identical(held$source, "catalog")) {
     "locked: true in the data catalog"
   } else {
     "saved with locked = TRUE"
   }
   paste(c(
-    sprintf("%s does not overwrite locked data.", caller),
+    sprintf(headline, caller),
     sprintf("  dataset: %s (%s)", held$name, where),
     sprintf("  file:    %s", .fw_project_relative_path(held$file)),
     advice

@@ -10,7 +10,8 @@ data_add(
   type = NULL,
   delimiter = "comma",
   locked = FALSE,
-  update_config = TRUE
+  update_config = TRUE,
+  unlock = FALSE
 )
 }
 \arguments{
@@ -28,9 +29,13 @@ elsewhere use the file name alone.}
 
 \item{locked}{Whether the file should be locked (hash-verified on read).
 Default: FALSE. Left out, a file already locked in the data catalog or
-framework.db stays locked.}
+framework.db stays locked. \code{locked = FALSE} on locked data is an error
+unless \code{unlock = TRUE}.}
 
 \item{update_config}{If TRUE (default), also updates the YAML config with the data spec}
+
+\item{unlock}{If TRUE, registers locked data unlocked, unless
+\code{locked = TRUE}. Default: FALSE, so a lock stays.}
 }
 \value{
 Invisibly returns the data spec that was created

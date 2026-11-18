@@ -57,7 +57,29 @@
 # header, so the hash survives R upgrades).
 #' @keywords internal
 .fw_value_hash <- function(value) {
-  digest::digest(value, algo = "sha256")
+  digest::digest(.fw_strip_srcref(value), algo = "sha256")
+}
+
+# A value without the source references R keeps for functions typed or
+# sourced with keep.source, so a function hashes the same in every session.
+# Functions inside lists are stripped too. A value with no function in it is
+# returned unchanged, so its hash is the one recorded before.
+#' @keywords internal
+.fw_strip_srcref <- function(value) {
+  if (is.function(value)) {
+    if (is.primitive(value)) return(value)
+    return(utils::removeSource(value))
+  }
+  if (is.list(value) && length(value) > 0) {
+    for (i in seq_along(value)) {
+      item <- value[[i]]
+      if (is.function(item) || is.list(item)) {
+        stripped <- .fw_strip_srcref(item)
+        if (!identical(stripped, item, ignore.srcref = FALSE)) value[[i]] <- stripped
+      }
+    }
+  }
+  value
 }
 
 #' @keywords internal

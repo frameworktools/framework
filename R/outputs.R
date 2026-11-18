@@ -184,14 +184,22 @@ NULL
 # -----------------------------------------------------------------------------
 
 # Whether settings split one kind of output into private and public
-# folders: sensitive data on, or an outputs_private_<kind> or
-# outputs_public_<kind> directory
+# folders: security: sensitive: true, an outputs_private_<kind> or
+# outputs_public_<kind> directory, or sensitive data on. A project that
+# names outputs_<kind> and neither split folder for that kind keeps writing
+# there, as in 2.0.0, when it counts as sensitive only by inference (an
+# inputs_private_* folder, or project_type: project_sensitive without a
+# security: block).
 #' @keywords internal
 .fw_output_split <- function(cfg, kind) {
   dirs <- if (is.list(cfg)) cfg$directories %||% list() else list()
-  .fw_settings_sensitive(cfg) ||
-    !is.null(dirs[[paste0("outputs_private_", kind)]]) ||
-    !is.null(dirs[[paste0("outputs_public_", kind)]])
+  if (is.list(cfg) && is.list(cfg$security) && isTRUE(cfg$security$sensitive)) return(TRUE)
+  if (!is.null(dirs[[paste0("outputs_private_", kind)]]) ||
+      !is.null(dirs[[paste0("outputs_public_", kind)]])) {
+    return(TRUE)
+  }
+  if (!is.null(dirs[[paste0("outputs_", kind)]])) return(FALSE)
+  .fw_settings_sensitive(cfg)
 }
 
 # The folder save_table() and friends write one kind of output to, from
@@ -209,11 +217,24 @@ NULL
 #' @keywords internal
 .output_dir <- function(kind, public = FALSE) {
   cfg <- tryCatch(settings_read(), error = function(e) NULL)
-  if (!.fw_output_split(cfg, kind)) {
-    return(config(paste0("outputs_", kind)) %||% file.path("outputs", kind))
+  dir <- if (!.fw_output_split(cfg, kind)) {
+    config(paste0("outputs_", kind)) %||% file.path("outputs", kind)
+  } else {
+    side <- if (public) "public" else "private"
+    config(paste0("outputs_", side, "_", kind)) %||% file.path("outputs", side, kind)
   }
-  side <- if (public) "public" else "private"
-  config(paste0("outputs_", side, "_", kind)) %||% file.path("outputs", side, kind)
+  .fw_output_root_path(dir)
+}
+
+# An output folder from the settings, which is relative to the project root,
+# as a path that works from the working directory: unchanged at the project
+# root (or outside a project), from the root anywhere else, so a notebook in
+# notebooks/ writes where a script in the root would
+#' @keywords internal
+.fw_output_root_path <- function(dir) {
+  root <- tryCatch(.find_project_root(getwd()), error = function(e) NULL)
+  if (is.null(root) || .fw_same_file(root, getwd())) return(dir)
+  .fw_project_path(dir, root = root)
 }
 
 #' Save a table to the outputs directory

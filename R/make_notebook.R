@@ -232,7 +232,7 @@ make_notebook <- function(name,
   # Also support legacy patterns for backward compatibility
   stub_content <- gsub(
     'author:\\s*("Your Name"|!expr config\\$author\\$name|"`r config\\$author\\$name`")',
-    sprintf('author: "%s"', author_name),
+    .fw_literal_replacement(paste0("author: ", .yaml_quote(author_name))),
     stub_content
   )
 
@@ -330,10 +330,22 @@ make_notebook <- function(name,
     }
     value <- as.character(value[[1]])
     pattern <- sprintf("\\{\\{\\s*%s\\s*\\}\\}", name)
-    content <- gsub(pattern, value, content, perl = TRUE)
+    # Inside a double-quoted YAML scalar ("{{ title }}" in front matter) the
+    # value is escaped for YAML; elsewhere (an R comment) it goes in as is.
+    # Either way it is taken literally, not as a regex replacement.
+    content <- gsub(sprintf('"%s"', pattern), .fw_literal_replacement(.yaml_quote(value)),
+                    content, perl = TRUE)
+    content <- gsub(pattern, .fw_literal_replacement(value), content, perl = TRUE)
   }
 
   content
+}
+
+# A string gsub() inserts as written: backslashes escaped, so \1 or \U in
+# a title isn't read as a backreference or case change
+#' @keywords internal
+.fw_literal_replacement <- function(x) {
+  gsub("\\", "\\\\", x, fixed = TRUE)
 }
 
 

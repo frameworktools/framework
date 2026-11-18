@@ -954,3 +954,55 @@ test_that("data_save creates a missing settings folder, or one inside it, withou
   expect_true(file.exists("inputs/private/intermediate/nested/built.csv"))
   expect_error(data_save(test_data, "elsewhere/built.csv"), "isn't a settings folder")
 })
+
+test_that("locked = FALSE does not remove a lock without unlock = TRUE", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  df <- data.frame(a = 1:3)
+  suppressMessages(data_save(df, "inputs/raw/y.csv", locked = TRUE))
+  # Same contents with locked = FALSE: an error, the lock stays
+  expect_error(
+    suppressMessages(data_save(df, "inputs/raw/y.csv", locked = FALSE)),
+    "data_save() does not remove a lock with locked = FALSE.",
+    fixed = TRUE
+  )
+  expect_error(
+    suppressMessages(data_save(data.frame(a = 4:6), "inputs/raw/y.csv")),
+    "does not overwrite locked data"
+  )
+  expect_equal(suppressMessages(data_read("inputs/raw/y.csv"))$a, 1:3)
+
+  # data_add() likewise
+  suppressMessages(data_save(df, "inputs.raw.z", locked = TRUE))
+  expect_error(
+    suppressMessages(data_add("inputs/raw/z.rds", name = "inputs.raw.z", locked = FALSE)),
+    "data_add() does not remove a lock with locked = FALSE.",
+    fixed = TRUE
+  )
+  expect_true(settings("data.inputs.raw.z")$locked)
+
+  # unlock = TRUE removes it
+  suppressMessages(data_add("inputs/raw/z.rds", name = "inputs.raw.z", locked = FALSE, unlock = TRUE))
+  expect_null(settings("data.inputs.raw.z")$locked)
+  suppressMessages(data_save(df, "inputs/raw/y.csv", locked = FALSE, unlock = TRUE))
+  expect_no_error(suppressMessages(data_save(data.frame(a = 4:6), "inputs/raw/y.csv")))
+})
+
+test_that("a save by path to a locked catalog entry's file updates the entry", {
+  test_dir <- create_test_project()
+  withr::local_dir(test_dir)
+  on.exit(cleanup_test_dir(test_dir), add = TRUE)
+
+  suppressMessages(data_save(data.frame(a = 1:3), "inputs.raw.x", locked = TRUE))
+  suppressMessages(data_save(data.frame(a = 4:6), "inputs/raw/x.rds", unlock = TRUE))
+  expect_null(settings("data.inputs.raw.x")$locked)
+  expect_equal(suppressMessages(data_read("inputs.raw.x"))$a, 4:6)
+
+  # Kept locked: the entry and its record carry the new hash
+  suppressMessages(data_save(data.frame(a = 1:3), "inputs.raw.w", locked = TRUE))
+  suppressMessages(data_save(data.frame(a = 7:9), "inputs/raw/w.rds", unlock = TRUE, locked = TRUE))
+  expect_true(settings("data.inputs.raw.w")$locked)
+  expect_equal(suppressMessages(data_read("inputs.raw.w"))$a, 7:9)
+})

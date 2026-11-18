@@ -435,3 +435,27 @@ test_that("title reaches presentations, scripts, and the Jupyter heading", {
   suppressMessages(make_notebook("bp-summary", dir = "nb"))
   expect_true(any(grepl('title: "Bp summary"', readLines("nb/bp-summary.qmd"), fixed = TRUE)))
 })
+
+test_that("make_notebook() writes titles and authors with quotes and backslashes as valid YAML", {
+  tmp <- withr::local_tempdir()
+  withr::local_dir(tmp)
+  dir.create("notebooks")
+  writeLines(c("default:", "  author:", "    name: 'Ann \"A\\1\" Lee'", "  directories:",
+               "    notebooks: notebooks"), "settings.yml")
+  writeLines("", ".env")
+
+  title <- 'The "Big" Study \\1 C:\\temp \\U'
+  for (ext in c("qmd", "Rmd")) {
+    path <- suppressMessages(make_notebook(paste0("q1.", ext), title = title))
+    lines <- readLines(path)
+    ends <- which(lines == "---")
+    front <- yaml::yaml.load(paste(lines[(ends[1] + 1):(ends[2] - 1)], collapse = "\n"))
+    expect_identical(front$title, title)
+    author <- if (is.list(front$author)) front$author[[1]]$name else front$author
+    expect_identical(author, 'Ann "A\\1" Lee')
+  }
+
+  # Outside front matter (an R script's comment) the title goes in as is
+  path <- suppressMessages(make_notebook("s1", type = "script", title = title))
+  expect_true(any(readLines(path) == paste("#", title)))
+})
