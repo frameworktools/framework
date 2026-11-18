@@ -2,6 +2,7 @@
 # The contract lives in framework-cloud docs/notes/2026-11-02-artifact-objects-contract.md.
 # Model exports deliberately omit observations, residuals, fitted values, and
 # serialized internals: only coefficients and aggregate statistics leave R.
+# Model variables and their summaries live in artifact_model_variables.R.
 #' @keywords internal
 .fw_artifact_scalar <- function(value) {
   if (length(value) != 1L) stop("Artifact table cells must contain one scalar value.", call. = FALSE)
@@ -598,6 +599,12 @@
   document$model <- result$model
   document$tables <- result$tables
   document$metrics <- .fw_artifact_metrics(result$values)
+  coefficient_terms <- unlist(lapply(Filter(function(table) identical(table$role, "coefficients"), result$tables),
+                                     function(table) vapply(table$rows, function(row) as.character(row[[1]]),
+                                                            character(1))))
+  described <- tryCatch(.fw_artifact_model_variables(object, coefficient_terms), error = function(e) NULL)
+  if (length(described$variables)) document$variables <- described$variables
+  if (length(described$terms)) document$terms <- described$terms
   if (!is.null(result$formula)) {
     document$formula <- paste(trimws(deparse(result$formula, width.cutoff = 500L)), collapse = " ")
   }

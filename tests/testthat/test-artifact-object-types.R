@@ -359,3 +359,149 @@ test_that("unsupported objects stop with the accepts message", {
   expect_error(framework:::.fw_artifact_file(1:3, withr::local_tempdir(), cloud = TRUE),
                "htest", fixed = TRUE)
 })
+
+variable <- function(document, name) {
+  document$variables[[match(name, vapply(document$variables, `[[`, character(1), "name"))]]
+}
+
+term_parts <- function(document) {
+  stats::setNames(lapply(document$terms, `[[`, "parts"), vapply(document$terms, `[[`, character(1), "term"))
+}
+
+test_that("models describe their variables over the model frame and map interaction terms", {
+  data <- iris
+  attr(data$Sepal.Length, "label") <- "Sepal length (cm)"
+  data$Sepal.Length[1:3] <- NA
+  fit <- stats::lm(Sepal.Length ~ Petal.Length * Species, data)
+  document <- expect_model_document(export_artifact(fit), "linear", terms = 6)
+  expect_identical(vapply(document$variables, `[[`, character(1), "name"),
+                   c("Sepal.Length", "Petal.Length", "Species"))
+  expect_identical(vapply(document$variables, `[[`, character(1), "role"), c("response", "predictor", "predictor"))
+  response <- variable(document, "Sepal.Length")
+  expect_identical(response$type, "number")
+  expect_identical(response$label, "Sepal length (cm)")
+  expect_identical(c(response$summary$count, response$summary$missing), c(147L, 0L))
+  expect_equal(response$summary$mean, mean(data$Sepal.Length, na.rm = TRUE))
+  expect_null(response$summary$histogram)
+  species <- variable(document, "Species")
+  expect_identical(species$type, "categorical")
+  expect_identical(species$levels, list("setosa", "versicolor", "virginica"))
+  expect_identical(species$reference, "setosa")
+  expect_identical(species$summary$top[[1]], list(value = "versicolor", count = 50L))
+
+  parts <- term_parts(document)
+  expect_identical(names(parts), c("Petal.Length", "Speciesversicolor", "Speciesvirginica",
+                                   "Petal.Length:Speciesversicolor", "Petal.Length:Speciesvirginica"))
+  expect_identical(parts[["Speciesversicolor"]], list(list(variable = "Species", level = "versicolor")))
+  expect_identical(parts[["Petal.Length:Speciesvirginica"]],
+                   list(list(variable = "Petal.Length"), list(variable = "Species", level = "virginica")))
+})
+
+test_that("glm models map factor() terms to the variable and level", {
+  fit <- stats::glm(am ~ wt + factor(cyl), stats::binomial(), mtcars)
+  document <- expect_model_document(export_artifact(fit), "glm")
+  cyl <- variable(document, "cyl")
+  expect_identical(cyl[c("role", "type", "reference")], list(role = "predictor", type = "categorical", reference = "4"))
+  expect_identical(cyl$levels, list("4", "6", "8"))
+  expect_identical(variable(document, "am")$role, "response")
+  parts <- term_parts(document)
+  expect_identical(names(parts), c("wt", "factor(cyl)6", "factor(cyl)8"))
+  expect_identical(parts[["factor(cyl)8"]], list(list(variable = "cyl", level = "8")))
+})
+
+test_that("transformed terms map to the variable they transform, summarized untransformed", {
+  fit <- stats::lm(log(mpg) ~ log(hp) + poly(wt, 2) + I(disp / 100), mtcars)
+  document <- expect_model_document(export_artifact(fit), "linear", terms = 5)
+  expect_identical(vapply(document$variables, `[[`, character(1), "name"), c("mpg", "hp", "wt", "disp"))
+  expect_equal(variable(document, "mpg")$summary$mean, mean(mtcars$mpg))
+  expect_equal(variable(document, "disp")$summary$max, max(mtcars$disp))
+  parts <- term_parts(document)
+  expect_identical(names(parts), c("log(hp)", "poly(wt, 2)1", "poly(wt, 2)2", "I(disp/100)"))
+  expect_identical(unname(unlist(parts)), c("hp", "wt", "wt", "disp"))
+})
+
+test_that("ordered, logical, character, and uncoded factors get levels only where they're certain", {
+  data <- data.frame(y = c(1.2, 3.4, 2.2, 5.1, 4.4, 3.9, 2.8, 6.0, 5.5, 4.1, 3.3, 2.0),
+                     dose = factor(rep(c("low", "mid", "high"), 4), levels = c("low", "mid", "high"),
+                                   ordered = TRUE),
+                     treated = rep(c(TRUE, FALSE), each = 6),
+                     site = rep(c("north", "south"), 6), stringsAsFactors = FALSE)
+  document <- export_artifact(stats::lm(y ~ dose + treated + site, data))$document
+  dose <- variable(document, "dose")
+  expect_identical(dose$levels, list("low", "mid", "high"))
+  expect_null(dose$reference)
+  expect_identical(variable(document, "treated")[c("type", "reference")], list(type = "boolean", reference = "FALSE"))
+  expect_identical(variable(document, "site")[c("type", "reference")], list(type = "categorical", reference = "north"))
+  parts <- term_parts(document)
+  expect_identical(parts[["dose.L"]], list(list(variable = "dose")))
+  expect_identical(parts[["treatedTRUE"]], list(list(variable = "treated", level = "TRUE")))
+  expect_identical(parts[["sitesouth"]], list(list(variable = "site", level = "south")))
+  expect_false("(Intercept)" %in% names(parts))
+
+  uncoded <- export_artifact(stats::lm(y ~ 0 + site, data))$document
+  expect_null(variable(uncoded, "site")$reference)
+  expect_identical(names(term_parts(uncoded)), c("sitenorth", "sitesouth"))
+})
+
+test_that("weights and offsets are variables with their own roles", {
+  skip_if_not_installed("MASS")
+  ordinal <- MASS::polr(Sat ~ Infl + Type, MASS::housing, weights = Freq, Hess = TRUE)
+  document <- export_artifact(ordinal)$document
+  expect_identical(variable(document, "Freq")$role, "weight")
+  expect_identical(variable(document, "Sat")[c("role", "type")], list(role = "response", type = "categorical"))
+  expect_false(any(c("Low|Medium", "Medium|High") %in% names(term_parts(document))))
+
+  counts <- data.frame(events = c(2, 5, 3, 8, 4, 9), exposure = c(10, 20, 12, 30, 15, 28),
+                       arm = rep(c("a", "b"), 3))
+  rate <- export_artifact(stats::glm(events ~ arm + offset(log(exposure)), stats::poisson(), counts))$document
+  expect_identical(variable(rate, "exposure")$role, "offset")
+  expect_identical(names(term_parts(rate)), "armb")
+})
+
+test_that("variables cap factor levels at 50", {
+  data <- data.frame(y = seq_len(120), group = factor(sprintf("g%03d", rep(1:60, 2))))
+  group <- variable(framework:::.fw_artifact_structured(stats::lm(y ~ group, data)), "group")
+  expect_length(group$levels, 50L)
+  expect_identical(group$summary$distinct, 60L)
+})
+
+test_that("mixed models mark random-effects grouping factors", {
+  skip_if_not_installed("lme4")
+  fit <- lme4::lmer(Reaction ~ Days + (Days | Subject), lme4::sleepstudy)
+  document <- export_artifact(fit)$document
+  expect_identical(vapply(document$variables, `[[`, character(1), "role"), c("response", "predictor", "group"))
+  expect_identical(variable(document, "Subject")$type, "categorical")
+  expect_identical(variable(document, "Subject")$summary$count, 180L)
+  expect_identical(names(term_parts(document)), "Days")
+  binomial <- lme4::glmer(cbind(incidence, size - incidence) ~ period + (1 | herd), lme4::cbpp,
+                          family = stats::binomial())
+  glmer <- export_artifact(binomial)$document
+  expect_identical(vapply(glmer$variables, `[[`, character(1), "name"), c("incidence", "size", "period", "herd"))
+  expect_identical(variable(glmer, "herd")$role, "group")
+  expect_identical(term_parts(glmer)[["period2"]], list(list(variable = "period", level = "2")))
+})
+
+test_that("survival, multinomial, additive, and fixest models describe their variables", {
+  skip_if_not_installed("survival")
+  skip_if_not_installed("nnet")
+  skip_if_not_installed("mgcv")
+  skip_if_not_installed("fixest")
+  cox <- export_artifact(survival::coxph(survival::Surv(time, status) ~ age + factor(sex) +
+                                           survival::strata(ph.ecog), survival::lung))$document
+  expect_identical(vapply(cox$variables, `[[`, character(1), "name"), c("time", "status", "age", "sex", "ph.ecog"))
+  expect_identical(variable(cox, "time")$role, "response")
+  expect_null(variable(cox, "ph.ecog")$role)
+  expect_identical(variable(cox, "ph.ecog")$type, "number")
+  expect_identical(term_parts(cox)[["factor(sex)2"]], list(list(variable = "sex", level = "2")))
+
+  multinomial <- export_artifact(nnet::multinom(Species ~ Sepal.Width, iris, trace = FALSE))$document
+  expect_identical(names(term_parts(multinomial)), c("versicolor: Sepal.Width", "virginica: Sepal.Width"))
+
+  additive <- export_artifact(mgcv::gam(mpg ~ s(wt) + factor(am), data = mtcars))$document
+  expect_identical(vapply(additive$variables, `[[`, character(1), "name"), c("mpg", "am", "wt"))
+  expect_identical(names(term_parts(additive)), "factor(am)1")
+
+  absorbed <- export_artifact(fixest::feols(mpg ~ wt + i(gear, ref = 3) | cyl, mtcars))$document
+  expect_identical(vapply(absorbed$variables, `[[`, character(1), "name"), c("mpg", "wt", "gear", "cyl"))
+  expect_identical(term_parts(absorbed)[["gear::5"]], list(list(variable = "gear", level = "5")))
+})

@@ -15,6 +15,17 @@ Behavior changes:
   place, the edit stops with an error instead of rewriting the whole file.
   For other files, `upgrade()`'s plan says when a file will be regenerated.
 
+Changes:
+
+* Published models describe the variables they were fit on. Each model
+  artifact lists its response, predictors, random-effects grouping factors,
+  weights, and offsets, with labels, factor levels, reference levels, and
+  summaries over the rows the model used. Each coefficient term names the
+  variables and factor levels behind it. This covers `lm()`, `glm()`,
+  `aov()`, `MASS::glm.nb()`, `MASS::polr()`, `nnet::multinom()`, lme4
+  models, `survival::coxph()`, `survival::survreg()`, fixest models, and
+  `mgcv::gam()`. Terms that can't be mapped with certainty are left out.
+
 Fixes:
 
 Framework Cloud:
