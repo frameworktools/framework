@@ -224,6 +224,8 @@ test_that("rstanarm glm and glmer models publish posterior summaries", {
 test_that("bayesplot plots publish as figures", {
   skip_if_not_installed("bayesplot")
   skip_if_not_installed("ggplot2")
+  # mcmc_pairs() needs gridExtra, which bayesplot only suggests
+  skip_if_not_installed("gridExtra")
   set.seed(1)
   draws <- array(stats::rnorm(400), c(100, 2, 2), dimnames = list(NULL, NULL, c("alpha", "beta")))
   y <- stats::rnorm(20)
