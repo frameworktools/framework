@@ -92,6 +92,10 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   use_split_files <- identical(.spec_settings_layout(spec), "split")
   tools <- spec$tools %||% list()
   tools$renv <- .spec_tool_on(spec, "renv")
+  # renv's activate hook lives in .Rprofile, so a renv project keeps it in git
+  if (isTRUE(tools$renv) && !is.null(spec$git$gitignore_content)) {
+    spec$git$gitignore_content <- .fw_gitignore_keep_rprofile(spec$git$gitignore_content)
+  }
   args <- .spec_to_create_args(spec)
 
   .create_project_directories(project_dir, spec$directories, args$extra_directories, spec$render_dirs)
@@ -356,9 +360,16 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
 }
 
 .spec_restricted_notice <- function(spec) {
+  restricted <- .spec_restricted_paths(spec)
+  if (length(restricted) == 0) {
+    return(paste(
+      "This project holds restricted data. Do not read or print restricted data files or `.env`.",
+      "Work from the data dictionary and simulated data instead."
+    ))
+  }
   sprintf(
     "This project holds restricted data. Do not read or print files in %s. Work from the data dictionary and simulated data instead.",
-    paste0("`", .spec_restricted_paths(spec), "`", collapse = ", ")
+    paste0("`", restricted, "`", collapse = ", ")
   )
 }
 
@@ -400,6 +411,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   private_keys <- spec$directories[grepl("private", keys, fixed = TRUE) & !grepl("public", keys, fixed = TRUE)]
   restricted <- unique(c(restricted, clean(private_keys)))
   restricted <- restricted[restricted != "."]
+  if (length(restricted) == 0) return(character())
   inside <- vapply(restricted, function(p) any(startsWith(p, paste0(setdiff(restricted, p), "/"))), logical(1))
   paste0(sort(restricted[!inside]), "/")
 }
@@ -434,6 +446,11 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   if (!"claude" %in% names(spec$ai$assistants)) return(invisible(NULL))
 
   restricted <- sub("/$", "", .spec_restricted_paths(spec))
+  if (length(restricted) == 0) {
+    message("  No Claude Code guard was added: the settings name no private folders. Map the folders that ",
+            "hold restricted data to private keys (inputs_private_raw, ...) and run upgrade().")
+    return(invisible(NULL))
+  }
   deny <- c(
     unlist(lapply(restricted, function(p) c(sprintf("Read(/%s/**)", p), sprintf("Edit(/%s/**)", p)))),
     "Read(/.env)"
@@ -455,6 +472,14 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
   json <- jsonlite::toJSON(settings, auto_unbox = TRUE, pretty = 2)
   .spec_write_text(project_dir, ".claude/settings.json", json)
   message("  Created: .claude/settings.json (keeps Claude Code out of ", paste(restricted, collapse = ", "), ")")
+  message("  ", .fw_sandbox_platform_note(), ".")
+}
+
+# Claude Code's sandbox runs only on macOS, Linux, and WSL; with
+# failIfUnavailable it refuses to start anywhere else.
+.fw_sandbox_platform_note <- function() {
+  paste("Claude Code's sandbox needs macOS, Linux, or WSL on Windows; elsewhere it fails closed",
+        "and Claude Code won't run commands in this project")
 }
 
 # Jupyter needs the R kernel registered once per machine. That writes to the

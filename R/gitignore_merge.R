@@ -48,6 +48,25 @@
   list(add = add, skipped = skipped, negations = negations)
 }
 
+# Whether the project at `root` uses renv: renv.lock or renv/activate.R is
+# there, or the settings turn renv on (tools.renv, packages.use_renv).
+# renv's activate hook lives in .Rprofile, so such a project must not
+# ignore it.
+#' @keywords internal
+.fw_uses_renv <- function(root, settings = NULL) {
+  file.exists(file.path(root, "renv.lock")) || file.exists(file.path(root, "renv", "activate.R")) ||
+    isTRUE(settings$tools$renv) || isTRUE(settings$packages$use_renv)
+}
+
+# .gitignore text (or rules) without the .Rprofile rule, for renv projects
+#' @keywords internal
+.fw_gitignore_keep_rprofile <- function(text) {
+  if (length(text) == 0) return(text)
+  lines <- unlist(strsplit(paste(text, collapse = "\n"), "\n", fixed = TRUE))
+  lines <- lines[!trimws(lines) %in% c(".Rprofile", "/.Rprofile")]
+  if (length(text) == 1) paste(lines, collapse = "\n") else lines
+}
+
 # The text of .gitignore after appending `add` in a block under `header`
 #' @keywords internal
 .fw_gitignore_merged <- function(root, add, header) {
@@ -93,8 +112,11 @@
 .fw_unignored_folders <- function(root, folders) {
   folders <- unique(sub("/+$", "", sub("^\\./", "", folders[nzchar(folders)])))
   if (length(folders) == 0) return(character())
+  # Exact case: git matches those rules case-sensitively unless
+  # core.ignorecase is on (off by default on Linux), so Data/Private/ and
+  # PHI_Private/ need rules of their own
   covered <- vapply(strsplit(folders, "/", fixed = TRUE), function(parts) {
-    any(.fw_is_private_folder_name(parts))
+    any(parts == "private" | endsWith(parts, "_private"))
   }, logical(1))
   folders <- folders[!covered]
   if (length(folders) == 0) return(character())

@@ -143,19 +143,50 @@
       # changed. Comparing with the original, not a re-serialized copy,
       # keeps formatting elsewhere (long numbers, quoting) from forcing a
       # whole-file rewrite.
+      # Anchors and aliases are compared as written (an alias as its name,
+      # <<: as a plain key), so a change under `default: &default` isn't
+      # mistaken for a change to the sections that merge it.
       same <- tryCatch({
-        expected <- yaml::yaml.load(original)
+        yaml::yaml.load(candidate)
+        expected <- yaml::yaml.load(.fw_yaml_neutral(original))
         if (!is.list(expected)) expected <- list()
         new_value <- yaml::yaml.load(.fw_as_yaml(list(v = value)))$v
         expected <- .fw_yaml_assign(expected, keys, new_value)
-        identical(yaml::yaml.load(candidate), expected)
+        identical(yaml::yaml.load(.fw_yaml_neutral(candidate)), expected)
       }, error = function(e) FALSE)
       if (same) return(candidate)
     }
   }
   if (!rewrite) return(NULL)
+  # A whole rewrite expands anchors, aliases and merge keys, so the file
+  # would no longer share one block between sections. Refuse instead.
+  if (!is.null(text) && .fw_yaml_has_anchors(text)) {
+    stop(sprintf(paste0(
+      "Can't set %s: the file uses YAML anchors or aliases (&name, *name, <<:) and the change can't be ",
+      "made in place. Rewriting the whole file would expand them and drop its comments. Make the change by hand."
+    ), paste(keys, collapse = ".")), call. = FALSE)
+  }
   full <- if (!is.null(text)) yaml::yaml.load(text, handlers = .fw_yaml_read_handlers()) else NULL
   .fw_as_yaml(.fw_yaml_assign(full, keys, value))
+}
+
+# Whether YAML text uses anchors (&name), aliases (*name), or merge keys (<<:)
+#' @keywords internal
+.fw_yaml_has_anchors <- function(text) {
+  lines <- unlist(strsplit(paste(text, collapse = "\n"), "\r?\n"))
+  lines <- lines[!grepl("^\\s*#", lines)]
+  any(grepl("(:|^\\s*-)\\s+[&*][A-Za-z0-9_.-]+(\\s|$)", lines) | grepl("^\\s*<<\\s*:", lines))
+}
+
+# YAML text with anchors dropped, aliases written as strings, and merge keys
+# as plain keys, so two texts can be compared as written
+#' @keywords internal
+.fw_yaml_neutral <- function(text) {
+  lines <- unlist(strsplit(paste(text, collapse = "\n"), "\r?\n"))
+  lines <- sub("^(\\s*)<<(\\s*):", "\\1fw_merge__\\2:", lines)
+  lines <- gsub("(:|^\\s*-)(\\s+)&[A-Za-z0-9_.-]+(\\s|$)", "\\1\\3", lines)
+  lines <- gsub("(:|^\\s*-)(\\s+)\\*([A-Za-z0-9_.-]+)(\\s|$)", "\\1\\2'fw_alias__\\3'\\4", lines)
+  paste(lines, collapse = "\n")
 }
 
 # Replace the block for `keys` in YAML `text`, returning the new text, or
@@ -204,8 +235,9 @@
   for (parent in keys[-length(keys)]) {
     p <- find_key(parent, indent, region_start, region_end)
     if (is.na(p)) return(NULL)
-    # The parent must be a block mapping (nothing after the colon)
-    if (!grepl(":\\s*(#.*)?$", lines[p])) return(NULL)
+    # The parent must be a block mapping (nothing after the colon but an
+    # anchor, `default: &default`, or a comment)
+    if (!grepl(":\\s*(&[^[:space:]#]+)?\\s*(#.*)?$", lines[p])) return(NULL)
     p_end <- block_end(p, indent)
     children <- if (p + 1 <= p_end - 1) (p + 1):(p_end - 1) else integer(0)
     children <- children[vapply(lines[children], is_content, logical(1))]

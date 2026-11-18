@@ -413,3 +413,21 @@ test_that("an interactive sensitive adopt asks about each folder that may hold r
   expect_identical(dirs$outputs_private_reports, "reports")
   expect_false(any(grepl("private", setdiff(names(dirs), "outputs_private_reports"))))
 })
+
+test_that("private folders in another case get their own .gitignore rule", {
+  dir <- withr::local_tempdir()
+  # git matches **/private/** case-sensitively unless core.ignorecase is on
+  out <- framework:::.fw_unignored_folders(dir, c("Data/Private", "PHI_Private", "data/private", "x/phi_private/raw"))
+  expect_identical(out, c("Data/Private", "PHI_Private"))
+})
+
+test_that("adopt() leaves .Rprofile out of .gitignore in a renv project", {
+  dir <- local_folder(c("analysis", "renv"))
+  writeLines("source('renv/activate.R')", file.path(dir, ".Rprofile"))
+  writeLines("# activate", file.path(dir, "renv", "activate.R"))
+  writeLines("{}", file.path(dir, "renv.lock"))
+  suppressMessages(adopt(dir, yes = TRUE))
+  lines <- trimws(readLines(file.path(dir, ".gitignore")))
+  expect_false(".Rprofile" %in% lines)
+  expect_true(".env" %in% lines)
+})

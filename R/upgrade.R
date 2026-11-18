@@ -116,6 +116,8 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   ctx$main <- basename(found[1])
   ctx$type <- type
   ctx$move_settings <- move_settings
+  ctx$backup <- backup
+  ctx$regenerated <- character()
 
   .upgrade_settings_file(ctx)
   .upgrade_settings(ctx)
@@ -177,6 +179,28 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   ctx$pending[file] <- list(lines)
   ctx$actions[[length(ctx$actions) + 1]] <- list(step = step, path = file, change = change)
   invisible(TRUE)
+}
+
+# .fw_yaml_set_text() for upgrade(): the block is changed in place when it
+# can be. When the whole file has to be regenerated instead, the plan says
+# so (once per file); a file with anchors or aliases is refused, by
+# .fw_yaml_set_text().
+#' @keywords internal
+.upgrade_yaml_set <- function(ctx, file, text, keys, value) {
+  new <- .fw_yaml_set_text(text, keys, value, rewrite = FALSE)
+  if (!is.null(new)) return(new)
+  new <- .fw_yaml_set_text(text, keys, value)
+  if (!file %in% ctx$regenerated) {
+    ctx$regenerated <- c(ctx$regenerated, file)
+    .upgrade_note(ctx, file, " can't be edited in place, so it will be regenerated whole: its comments and ",
+                  "formatting are lost, and values may be written differently (1.10 as 1.1, 0123 as 83). ",
+                  if (isTRUE(ctx$backup)) {
+                    paste0("The original is copied to .framework/backups/<timestamp>/", file, " first.")
+                  } else {
+                    "backup = FALSE, so no copy of the original is kept."
+                  })
+  }
+  new
 }
 
 #' @keywords internal
@@ -251,7 +275,10 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
 .upgrade_settings <- function(ctx) {
   raw <- .upgrade_yaml(ctx, ctx$main)
   if (!is.list(raw)) {
-    .upgrade_note(ctx, ctx$main, " couldn't be read as YAML, so the settings were not upgraded.")
+    lines <- .upgrade_read(ctx, ctx$main)
+    empty <- !any(grepl("\\S", sub("#.*$", "", lines %||% character())))
+    .upgrade_note(ctx, ctx$main, if (empty) " is empty" else " couldn't be read as YAML",
+                  ", so the settings were not upgraded.")
     return(invisible())
   }
   scoped <- .has_environment_sections(raw)
@@ -270,7 +297,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   to_sensitive <- identical(ctx$type, "project_sensitive")
 
   if (!is.null(ctx$type) && !identical(settings$project_type %||% "project", ctx$type)) {
-    text <- .fw_yaml_set_text(text, keys("project_type"), ctx$type)
+    text <- .upgrade_yaml_set(ctx, ctx$main, text, keys("project_type"), ctx$type)
     changes <- c(changes, sprintf("set project_type: %s (was %s)", ctx$type, settings$project_type %||% "project"))
     if (.fw_settings_sensitive(settings) && !to_sensitive) {
       .upgrade_note(ctx, "The project stays sensitive (security: sensitive: true): a type is only a label. ",
@@ -283,7 +310,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
       quarto = file.exists(file.path(ctx$root, "_quarto.yml")) || length(settings$render_dirs) > 0,
       renv = file.exists(file.path(ctx$root, "renv.lock")) || isTRUE(settings$packages$use_renv)
     )
-    text <- .fw_yaml_set_text(text, keys("tools"), tools)
+    text <- .upgrade_yaml_set(ctx, ctx$main, text, keys("tools"), tools)
     changes <- c(changes, sprintf("add tools (quarto: %s, renv: %s)",
                                   tolower(tools$quarto), tolower(tools$renv)))
   }
@@ -293,12 +320,12 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   if (to_sensitive && isFALSE(flag)) {
     security <- section$security
     security$sensitive <- TRUE
-    text <- .fw_yaml_set_text(text, keys("security"), security)
+    text <- .upgrade_yaml_set(ctx, ctx$main, text, keys("security"), security)
     changes <- c(changes, "set security.sensitive: true")
   } else if (is.null(section$security) || (is.list(section$security) && is.null(flag))) {
     security <- if (is.list(section$security)) section$security else list()
     security$sensitive <- sensitive
-    text <- .fw_yaml_set_text(text, keys("security"), security)
+    text <- .upgrade_yaml_set(ctx, ctx$main, text, keys("security"), security)
     why <- if (identical(settings$project_type, "project_sensitive") || to_sensitive) {
       "; project_type is project_sensitive"
     } else if (sensitive) {
@@ -372,7 +399,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
     }
     .upgrade_write(ctx, "settings", file, c(lead, block),
                    sprintf("create from %s's top-level %s: (named under default:)", ctx$main, key))
-    text <- .fw_yaml_set_text(rest, c("default", key), file)
+    text <- .upgrade_yaml_set(ctx, ctx$main, rest, c("default", key), file)
     moved <- c(moved, key)
   }
   if (length(moved) > 0) {
@@ -408,7 +435,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   if (!is.list(existing)) existing <- list()
   value <- c(existing, wanted)
   text <- paste(.upgrade_read(ctx, file), collapse = "\n")
-  new <- if (is.null(keys)) .fw_as_yaml(value) else .fw_yaml_set_text(text, keys, value)
+  new <- if (is.null(keys)) .fw_as_yaml(value) else .upgrade_yaml_set(ctx, file, text, keys, value)
   lines <- strsplit(sub("\n$", "", new), "\n", fixed = TRUE)[[1]]
   .upgrade_write(ctx, "settings", file, lines,
                  sprintf("add the private and public folders of the sensitive layout: %s",
@@ -487,12 +514,21 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
 .upgrade_connections <- function(ctx) {
   file <- .upgrade_split_file(ctx, "connections")
   if (is.null(file)) {
-    connections <- .upgrade_section(.upgrade_yaml(ctx, ctx$main))$connections
-    if (is.list(connections) && .upgrade_legacy_connections(list(connections = connections))) {
-      .upgrade_note(ctx, "The connections in ", ctx$main, " use the old layout. Move them under ",
-                    "connections: databases:, with default_database for the default.")
+    raw <- .upgrade_yaml(ctx, ctx$main)
+    connections <- .upgrade_section(raw)$connections
+    if (!is.list(connections) || !.upgrade_legacy_connections(list(connections = connections))) {
+      .upgrade_secret_note(ctx, list(connections = connections), ctx$main)
+      return(invisible())
     }
-    .upgrade_secret_note(ctx, list(connections = connections), ctx$main)
+    # Inline connections in an old layout (1.1.0 wrote connections:
+    # {options:, connections:}) are rewritten in place, like a split file
+    migrated <- .upgrade_migrate_connections(list(connections = connections))
+    keys <- if (.has_environment_sections(raw)) c("default", "connections") else "connections"
+    text <- paste(.upgrade_read(ctx, ctx$main), collapse = "\n")
+    new <- .upgrade_yaml_set(ctx, ctx$main, text, keys, migrated)
+    lines <- strsplit(sub("\n$", "", new), "\n", fixed = TRUE)[[1]]
+    .upgrade_write(ctx, "connections", ctx$main, lines, .upgrade_connections_change(migrated))
+    .upgrade_secret_note(ctx, list(connections = migrated), ctx$main)
     return(invisible())
   }
   raw <- .upgrade_yaml(ctx, file)
@@ -505,13 +541,37 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   migrated <- .upgrade_migrate_connections(raw)
   text <- .fw_as_yaml(list(connections = migrated))
   lines <- strsplit(sub("\n$", "", text), "\n", fixed = TRUE)[[1]]
-  default <- migrated$default_database
-  change <- sprintf("rewrite in the current layout: %d database(s)%s",
-                    length(migrated$databases),
-                    if (!is.null(default)) paste0(", default_database: ", default) else "")
-  .upgrade_write(ctx, "connections", file, lines, change)
+  .upgrade_write(ctx, "connections", file, lines, .upgrade_connections_change(migrated))
   .upgrade_secret_note(ctx, list(connections = migrated), file)
   invisible()
+}
+
+#' @keywords internal
+.upgrade_connections_change <- function(migrated) {
+  default <- migrated$default_database
+  sprintf("rewrite connections in the current layout: %d database(s)%s",
+          length(migrated$databases),
+          if (!is.null(default)) paste0(", default_database: ", default) else "")
+}
+
+# 1.1.0 wrote inline connections wrapped once more, as connections:
+# {options: {default_connection}, connections: {framework: ...}}. Returns
+# `raw` with that wrapper opened: the inner connections as connections and
+# the inner options merged into options.
+#' @keywords internal
+.upgrade_unwrap_connections <- function(raw) {
+  inner <- raw$connections
+  if (!is.list(inner) || length(inner) == 0 || is.null(names(inner))) return(raw)
+  if (!all(names(inner) %in% c("connections", "options"))) return(raw)
+  # A database named "options" or "connections" has a driver
+  if (any(vapply(inner, function(x) is.list(x) && !is.null(x$driver), logical(1)))) return(raw)
+  raw$connections <- if (is.list(inner$connections)) inner$connections else list()
+  if (is.list(inner$options)) {
+    options <- if (is.list(raw$options)) raw$options else list()
+    for (k in names(inner$options)) if (is.null(options[[k]])) options[k] <- list(inner$options[[k]])
+    raw$options <- options
+  }
+  raw
 }
 
 # Whether a connections file (or list(connections = ...)) uses an old layout
@@ -531,6 +591,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
 # The current connections block from any older layout
 #' @keywords internal
 .upgrade_migrate_connections <- function(raw) {
+  raw <- .upgrade_unwrap_connections(raw)
   connections <- if (is.list(raw$connections)) raw$connections else list()
   options <- if (is.list(raw$options)) raw$options else list()
   current <- c("databases", "storage_buckets", "default_database", "default_storage_bucket")
@@ -700,6 +761,15 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   published <- tryCatch(.folder_destinations(settings, ctx$root), error = function(e) character())
   folders <- .fw_unignored_folders(ctx$root, c(unname(unlist(private)), unname(published)))
   wanted <- c(.fw_gitignore_rules(template), if (length(folders) > 0) paste0("/", folders, "/"))
+  # renv's activate hook lives in .Rprofile, so a renv project keeps it
+  if (.fw_uses_renv(ctx$root, settings)) {
+    wanted <- .fw_gitignore_keep_rprofile(wanted)
+    have <- .fw_gitignore_rules(.upgrade_read(ctx, ".gitignore") %||% character())
+    if (any(have %in% c(".Rprofile", "/.Rprofile"))) {
+      .upgrade_note(ctx, ".gitignore ignores .Rprofile, which holds renv's activate hook. Remove that line ",
+                    "so the project's renv setup is committed.")
+    }
+  }
 
   plan <- .fw_gitignore_missing(ctx$root, wanted)
   if (length(plan$skipped) > 0) {
@@ -859,7 +929,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
     keys <- if (scoped) c("default", section) else section
     value <- current
   }
-  new <- .fw_yaml_set_text(text, keys, value)
+  new <- .upgrade_yaml_set(ctx, file, text, keys, value)
   lines <- strsplit(sub("\n$", "", new), "\n", fixed = TRUE)[[1]]
   .upgrade_write(ctx, step, file, lines, sprintf("set %s.%s: %s", section, key, format(value)[1]))
 }
@@ -899,7 +969,8 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   if (identical(new, current)) return(invisible(FALSE))
   json <- strsplit(as.character(jsonlite::toJSON(new, auto_unbox = TRUE, pretty = 2)), "\n", fixed = TRUE)[[1]]
   .upgrade_write(ctx, "ai", ".claude/settings.json", json,
-                 paste("keep Claude Code out of", paste(restricted, collapse = ", ")))
+                 paste0("keep Claude Code out of ", paste(restricted, collapse = ", "),
+                        " (", .fw_sandbox_platform_note(), ")"))
   invisible(TRUE)
 }
 

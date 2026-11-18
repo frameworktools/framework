@@ -381,3 +381,42 @@ test_that("core_files false leaves out only .env and scaffold.R", {
   expect_length(Sys.glob(file.path(dir, "*.code-workspace")), 1)
   expect_length(Sys.glob(file.path(dir, "*.Rproj")), 1)
 })
+
+test_that("a sensitive project with no private folders gets no catch-all guard", {
+  spec <- list(name = "S", directories = list(notebooks = "notebooks", inputs_raw = "inputs/raw"),
+               security = list(sensitive = TRUE), ai = list(assistants = list(claude = TRUE)))
+  expect_identical(framework:::.spec_restricted_paths(spec), character())
+  notice <- framework:::.spec_restricted_notice(spec)
+  expect_false(grepl("`/`", notice, fixed = TRUE))
+  expect_false(grepl("``", notice, fixed = TRUE))
+
+  dir <- withr::local_tempdir()
+  msgs <- capture_messages(framework:::.spec_write_agent_guards(dir, spec))
+  expect_false(file.exists(file.path(dir, ".claude", "settings.json")))
+  expect_true(any(grepl("No Claude Code guard was added", msgs)))
+
+  # With private folders, the guard is written and the platform need is named
+  spec$directories$inputs_private_raw <- "inputs/private/raw"
+  msgs <- capture_messages(framework:::.spec_write_agent_guards(dir, spec))
+  settings <- jsonlite::read_json(file.path(dir, ".claude", "settings.json"), simplifyVector = TRUE)
+  expect_false(any(grepl("//", settings$permissions$deny, fixed = TRUE)))
+  expect_false("./" %in% settings$sandbox$filesystem$denyRead)
+  expect_true(any(grepl("macOS, Linux, or WSL", msgs, fixed = TRUE)))
+})
+
+test_that("a project created with renv on keeps .Rprofile out of .gitignore", {
+  skip_on_cran()
+  dir <- withr::local_tempdir()
+  dir.create(file.path(dir, ".framework"))
+  local_mocked_bindings(.init_renv = function(...) invisible(NULL))
+  layers <- list(
+    list(kind = "base", key = "project", layer = list(type = "project")),
+    list(kind = "project", layer = list(tools = list(renv = TRUE)))
+  )
+  suppressMessages(project_create_from_layers(write_layers(dir, layers), path = dir, interactive = FALSE))
+  rules <- trimws(readLines(file.path(dir, ".gitignore")))
+  expect_false(".Rprofile" %in% rules)
+  expect_true(".env" %in% rules)
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_false(grepl("\n.Rprofile\n", spec$git$gitignore_content, fixed = TRUE))
+})

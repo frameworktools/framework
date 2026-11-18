@@ -114,3 +114,24 @@ test_that("formatting elsewhere in the file doesn't force a whole-file rewrite",
   expect_identical(after[1:5], lines[1:5])
   expect_identical(yaml::read_yaml(f)$default$data$a$path, "a.csv")
 })
+
+test_that("a parent key with an anchor or a comment is edited in place", {
+  text <- paste(c(
+    "default: &default  # shared",
+    "  version: 1.10",
+    "  code: 0123",
+    "production:",
+    "  <<: *default",
+    "  code: 0999",
+    ""
+  ), collapse = "\n")
+  out <- framework:::.fw_yaml_set_text(text, c("default", "tools"), list(quarto = TRUE))
+  lines <- strsplit(out, "\n", fixed = TRUE)[[1]]
+  expect_identical(lines[1:3], c("default: &default  # shared", "  version: 1.10", "  code: 0123"))
+  expect_true("  <<: *default" %in% lines)
+  parsed <- yaml::yaml.load(out)
+  expect_true(parsed$default$tools$quarto)
+  expect_true(parsed$production$tools$quarto)
+  expect_true(framework:::.fw_yaml_has_anchors(text))
+  expect_false(framework:::.fw_yaml_has_anchors("a: 1\nb: '*x'\n"))
+})

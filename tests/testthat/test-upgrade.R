@@ -351,7 +351,7 @@ test_that("the Claude Code guard covers private keys and render folders, whateve
 
   plan <- suppressMessages(upgrade(dir))
   guard <- plan$actions[plan$actions$path == ".claude/settings.json", ]
-  expect_identical(guard$change, "keep Claude Code out of inputs/raw, outputs/private")
+  expect_true(startsWith(guard$change, "keep Claude Code out of inputs/raw, outputs/private ("))
   expect_true(any(grepl("AI assistants are off in the settings, but .claude/settings.json gets the guards",
                         plan$notes, fixed = TRUE)))
   expect_true(any(grepl("Git ignores files in .claude/ (.claude/settings.json", plan$notes, fixed = TRUE)))
@@ -373,4 +373,120 @@ test_that("upgrade() appends no negations, so data folders stay fully ignored (f
   expect_true("/inputs/private/" %in% rules)
   expect_true(any(grepl(".gitignore: left out !/inputs/**/README.md", plan$notes, fixed = TRUE)))
   expect_true(framework:::.fw_gitignored("inputs/raw/README.md", dir))
+})
+
+test_that("a 1.1.0 course's inline connections are unwrapped and the spec is written", {
+  dir <- withr::local_tempdir()
+  writeLines(c(
+    "default:",
+    "  project_name: course",
+    "  project_type: course",
+    "  directories:",
+    "    notebooks: modules",
+    "  # the database",
+    "  connections:",
+    "    options:",
+    "      default_connection: framework",
+    "      default_s3_connection: ''",
+    "    connections:",
+    "      framework:",
+    "        driver: sqlite",
+    "        database: framework.db"
+  ), file.path(dir, "settings.yml"))
+  result <- suppressMessages(upgrade(dir, dry_run = FALSE))
+  expect_true(file.exists(file.path(dir, ".framework", "spec.json")))
+  lines <- readLines(file.path(dir, "settings.yml"))
+  expect_true("  # the database" %in% lines)
+  conns <- yaml::read_yaml(file.path(dir, "settings.yml"))$default$connections
+  expect_identical(conns$default_database, "framework")
+  expect_identical(conns$databases$framework$driver, "sqlite")
+  expect_null(conns$options)
+  spec <- jsonlite::read_json(file.path(dir, ".framework", "spec.json"))
+  expect_identical(names(spec$connections$databases), "framework")
+  again <- suppressMessages(upgrade(dir))
+  expect_identical(nrow(again$actions), 0L)
+})
+
+test_that("a settings.yml with YAML anchors is edited in place, not regenerated", {
+  dir <- withr::local_tempdir()
+  original <- c(
+    "default: &default  # shared",
+    "  project_type: project",
+    "  version: 1.10",
+    "  code: 0123",
+    "  directories:",
+    "    notebooks: notebooks",
+    "",
+    "production:",
+    "  <<: *default",
+    "  code: 0999"
+  )
+  writeLines(original, file.path(dir, "settings.yml"))
+  result <- suppressMessages(upgrade(dir, dry_run = FALSE))
+  lines <- readLines(file.path(dir, "settings.yml"))
+  expect_identical(lines[1:6], original[1:6])
+  expect_identical(tail(lines, 3), tail(original, 3))
+  expect_false(any(grepl("regenerated", result$notes)))
+  settings <- yaml::read_yaml(file.path(dir, "settings.yml"))
+  expect_false(settings$default$security$sensitive)
+  expect_identical(settings$production$tools, settings$default$tools)
+})
+
+test_that("an anchored file the block editor can't handle is refused, not rewritten", {
+  text <- "default: &d {a: 1}\nproduction:\n  <<: *d\n"
+  expect_error(framework:::.fw_yaml_set_text(text, c("default", "b"), 2), "anchors or aliases")
+  expect_null(framework:::.fw_yaml_set_text(text, c("default", "b"), 2, rewrite = FALSE))
+})
+
+test_that("upgrade()'s plan says when a settings file will be regenerated whole", {
+  dir <- withr::local_tempdir()
+  writeLines(c("# my comment", "default: {project_type: project, directories: {notebooks: notebooks}}"),
+             file.path(dir, "settings.yml"))
+  result <- suppressMessages(upgrade(dir))
+  expect_true(any(grepl("settings.yml can't be edited in place, so it will be regenerated whole", result$notes)))
+  expect_true(any(grepl("comments", result$notes) & grepl(".framework/backups/", result$notes, fixed = TRUE)))
+})
+
+test_that("an empty settings.yml is called empty", {
+  dir <- withr::local_tempdir()
+  writeLines(character(), file.path(dir, "settings.yml"))
+  result <- suppressMessages(upgrade(dir))
+  expect_true(any(grepl("settings.yml is empty", result$notes, fixed = TRUE)))
+  expect_false(any(grepl("couldn't be read as YAML", result$notes, fixed = TRUE)))
+})
+
+test_that("upgrade() keeps .Rprofile out of .gitignore in a renv project and flags an existing rule", {
+  dir <- local_old_project(type = "project")
+  writeLines("{}", file.path(dir, "renv.lock"))
+  writeLines(c("# mine", ".Rprofile"), file.path(dir, ".gitignore"))
+  result <- suppressMessages(upgrade(dir))
+  pending <- result$actions[result$actions$path == ".gitignore", ]
+  expect_false(grepl(".Rprofile", paste(pending$change, collapse = " "), fixed = TRUE))
+  expect_true(any(grepl("renv's activate hook", result$notes, fixed = TRUE)))
+
+  unlink(file.path(dir, ".gitignore"))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  expect_false(".Rprofile" %in% trimws(readLines(file.path(dir, ".gitignore"))))
+})
+
+test_that("a sensitive upgrade with no private folders writes no catch-all guard", {
+  dir <- local_old_project()
+  settings <- readLines(file.path(dir, "settings.yml"))
+  settings <- settings[!grepl("private", settings)]
+  writeLines(settings, file.path(dir, "settings.yml"))
+  result <- suppressMessages(upgrade(dir, dry_run = FALSE))
+  expect_true(any(grepl("No Claude Code guard was added", result$notes)))
+  path <- file.path(dir, ".claude", "settings.json")
+  if (file.exists(path)) {
+    json <- paste(readLines(path), collapse = "\n")
+    expect_false(grepl("//**", json, fixed = TRUE))
+    expect_false(grepl("\"./\"", json, fixed = TRUE))
+  }
+})
+
+test_that("the plan names the platforms Claude Code's sandbox needs", {
+  dir <- local_old_project()
+  result <- suppressMessages(upgrade(dir))
+  guard <- result$actions$change[result$actions$path == ".claude/settings.json"]
+  expect_true(any(grepl("macOS, Linux, or WSL on Windows", guard, fixed = TRUE)))
 })

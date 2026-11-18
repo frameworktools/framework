@@ -565,6 +565,8 @@ structure_import <- function(path = ".", name = NULL, yes = FALSE) {
     .fw_gitignore_rules(spec$git$gitignore_content),
     if (length(unignored) > 0) paste0("/", unignored, "/")
   )
+  # renv's activate hook lives in .Rprofile
+  if (.fw_uses_renv(path, spec)) wanted <- .fw_gitignore_keep_rprofile(wanted)
   plan <- .fw_gitignore_missing(path, wanted)
   .fw_gitignore_append(path, plan$add, "# Added by framework::adopt()")
   if (length(plan$add) > 0) {
