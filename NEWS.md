@@ -1,4 +1,7 @@
-# framework (development version)
+# framework 2.0.15
+
+`skills_copy()` copies a skill between assistant folders, and skill sync
+keeps every copy of a skill in one lock entry. Matches framework-py and fw.
 
 Changes:
 
