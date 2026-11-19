@@ -212,7 +212,19 @@
       .fw_phiz_refuse("facet variable `", var, "` shares a name with an aesthetic")
     }
     if (anyNA(layout[[var]])) .fw_phiz_refuse("facet variable `", var, "` has missing values")
-    .fw_phiz_facet_order(layout[[var]][order(layout$PANEL)], var)
+  }
+  # Panels in ggplot2's order (a factor's levels), which phiz sorts by value
+  # unless told. phiz takes an order for one wrap field, or each grid field.
+  sort <- list()
+  for (var in vars) {
+    seen <- .fw_phiz_scalar(unique(layout[[var]][order(layout$PANEL)]))
+    if (!identical(seen, .fw_phiz_sorted(seen))) sort[[var]] <- I(seen)
+  }
+  if (length(sort)) {
+    if (type == "FacetWrap" && length(vars) > 1L) {
+      .fw_phiz_refuse("facet_wrap() panels of several variables in an order other than sorted")
+    }
+    description$sort <- if (type == "FacetWrap") sort[[1]] else sort
   }
   if (scales != "fixed") description$scales <- scales
   if (labeller != "value") description$labeller <- labeller
@@ -224,16 +236,6 @@
   if (is.null(labeller) || identical(labeller, "label_value") || identical(labeller, ggplot2::label_value)) return("value")
   if (identical(labeller, "label_both") || identical(labeller, ggplot2::label_both)) return("both")
   .fw_phiz_refuse("a facet labeller other than label_value or label_both")
-}
-
-# phiz orders panels by sorting their values, and the format has no way to give
-# another order: panels must already be in sorted order.
-#' @keywords internal
-.fw_phiz_facet_order <- function(values, var) {
-  seen <- .fw_phiz_scalar(unique(values))
-  if (!identical(seen, .fw_phiz_sorted(seen))) {
-    .fw_phiz_refuse("facet panels of `", var, "` are not in sorted order, which the description cannot set")
-  }
 }
 
 #' @keywords internal
@@ -663,9 +665,6 @@
   if (position == "PositionJitter" && is.na(layer$position$seed %||% NA)) {
     .fw_phiz_refuse("layer ", i, " jitters without a seed")
   }
-  # phiz's abline spans the x extent of plot-level data, which a description
-  # built from per-layer data does not have (a format gap, reported).
-  if (geom == "GeomAbline") .fw_phiz_refuse("layer ", i, " draws abline, which phiz cannot draw without plot-level data")
   invisible(NULL)
 }
 
@@ -706,7 +705,8 @@
     GeomLinerange = .fw_phiz_range(lx, "linerange"),
     GeomPointrange = .fw_phiz_range(lx, "pointrange"),
     GeomHline = .fw_phiz_refline(lx, "y"),
-    GeomVline = .fw_phiz_refline(lx, "x")
+    GeomVline = .fw_phiz_refline(lx, "x"),
+    GeomAbline = .fw_phiz_abline(lx)
   )
   list(layers = layers, mapped = legends)
 }
@@ -971,6 +971,10 @@
   if (lx$ctx$axes[[category]]$kind != "continuous") .fw_phiz_refuse("layer ", lx$i, " draws bars along a date axis")
   if (!flipped && !dodged) {
     extra <- list(y = list(values = height[rows], type = "quantitative"))
+    if (stacked && length(unique(data$group)) > 1L) {
+      reverse <- isTRUE(lx$layer$position$reverse)
+      extra$order <- list(values = if (reverse) data$group[rows] else -data$group[rows], type = "quantitative")
+    }
     built <- .fw_phiz_columns(lx, c("xmin", "xmax"), rows = rows, extra = extra)
     return(list(.fw_phiz_layer_object("col", built, c(list(position = position), style))))
   }
@@ -995,6 +999,14 @@
   built <- .fw_phiz_columns(lx, positions, rows = rows, dodge = dodged,
                             group = dodged && !length(intersect(lx$legends, c("fill", "colour"))))
   options <- if (dodged) list(position = "dodge") else list()
+  # Cap width in data units, from R's built cap ends; a level is one unit on a
+  # discrete axis. Dodged caps are left to phiz.
+  ends <- if (flipped) c("ymin", "ymax") else c("xmin", "xmax")
+  if (geom == "errorbar" && !dodged && all(ends %in% names(lx$data)) &&
+      (lx$ctx$axes[[category]]$kind == "discrete" || identical(lx$ctx$axes[[category]]$transformation$name, "identity"))) {
+    width <- unique(round(lx$data[[ends[2]]][rows] - lx$data[[ends[1]]][rows], 10))
+    if (length(width) == 1L && !is.na(width) && width > 0) options$width <- width
+  }
   kind <- if (geom == "pointrange") "point" else "line"
   style <- .fw_phiz_style(lx, kind, allow = c("colour", "alpha", "linewidth", if (geom == "pointrange") c("size", "shape")))
   list(.fw_phiz_layer_object(geom, built, c(options, style)))
@@ -1008,4 +1020,29 @@
   built <- .fw_phiz_columns(lx, position, rows = rows)
   list(.fw_phiz_layer_object(if (axis == "y") "hline" else "vline", built,
                              .fw_phiz_style(lx, "line", allow = c("colour", "alpha", "linewidth", "linetype"))))
+}
+
+# Straight lines from intercept and slope. phiz draws them across each panel,
+# as ggplot2 does, so they must be the same lines in every panel. ggplot2 reads
+# them on the transformed scale and phiz on the data scale, so both axes must
+# be plain numbers.
+#' @keywords internal
+.fw_phiz_abline <- function(lx) {
+  ctx <- lx$ctx
+  for (axis in c("x", "y")) {
+    if (ctx$axes[[axis]]$kind != "continuous" || ctx$axes[[axis]]$transformation$name != "identity") {
+      .fw_phiz_refuse("layer ", lx$i, " draws abline on a transformed or non-numeric axis")
+    }
+  }
+  if (length(lx$legends)) .fw_phiz_refuse("layer ", lx$i, " maps abline to a legend")
+  data <- lx$data[stats::complete.cases(lx$data[c("intercept", "slope")]), , drop = FALSE]
+  lines <- unique(data[c("intercept", "slope")])
+  per_panel <- unique(table(data$PANEL))
+  if (length(per_panel) != 1L || per_panel * length(unique(data$PANEL)) != nrow(data) ||
+      nrow(lines) != per_panel || (ctx$panels > 1L && length(unique(data$PANEL)) != ctx$panels)) {
+    .fw_phiz_refuse("layer ", lx$i, " draws different ablines in different panels")
+  }
+  one <- function(v) if (length(v) == 1L) v else I(v)
+  out <- list(geom = "abline", intercept = one(lines$intercept), slope = one(lines$slope))
+  list(c(out, .fw_phiz_style(lx, "line", allow = c("colour", "alpha", "linewidth", "linetype"))))
 }

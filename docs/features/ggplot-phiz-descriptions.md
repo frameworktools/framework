@@ -6,7 +6,10 @@ phiz's `schema/plot-description.schema.json` and `docs/descriptions.qmd`.
 Framework Cloud compiles it with phiz into a live Vega-Lite chart. The image
 stays as the static fallback.
 
-The translator is `R/artifact_phiz.R`. Tests are in
+The translator is `R/artifact_phiz.R`. Facet `sort`, panel-wide `abline`,
+error bar caps in data units, the bottom-up discrete y axis, and binned column
+stacking order need phiz 0.6.6; an older phiz refuses a description that uses
+`facet.sort`. Tests are in
 `tests/testthat/test-artifact-phiz.R` and validate every written description
 against a copy of the schema in `tests/testthat/fixtures/`. Set
 `FW_PHIZ_PATH` to a phiz checkout with `vendor/` installed, and the tests also
@@ -37,6 +40,12 @@ compile the descriptions with phiz.
   palette. Other discrete palettes are written as `values` (level to hex).
   Viridis keeps its scheme name. Two- and three-color gradients keep their
   colors with Lab interpolation.
+- Facet panels keep the factor's level order through `facet.sort`.
+- `geom_abline()` becomes an `abline` layer, which phiz draws across each
+  panel. It needs the same lines in every panel and plain numeric axes.
+- Error bars carry their cap width in data units (`width`), from R's built
+  cap ends. Stacked bars and histograms carry an `order` field so groups
+  stack as ggplot2 stacks them.
 - Author constants carry over: colour, fill, alpha, size, linewidth,
   linetype, and shape. Sizes use the SVG's units, where a point is a pixel.
 
@@ -46,7 +55,8 @@ Any of these writes no description:
 
 - geoms other than those listed in `.fw_phiz_geoms`, extension geoms and stats
   (ggrepel and others), and patchwork
-- `geom_abline()` (phiz's abline needs plot-level data)
+- `geom_abline()` with different lines in different panels, or on a
+  transformed axis
 - coordinate systems other than Cartesian, flip, and fixed
 - mapped size, alpha, or other aesthetics beyond position, colour, fill,
   shape, linetype, label, and group
@@ -54,8 +64,9 @@ Any of these writes no description:
 - jitter without a seed, since the SVG and the description would differ
 - custom guides, secondary axes, plot tags, plotmath, legends inside the
   panel, and hidden axis or facet labels
-- facet panels not in sorted order, facet labellers other than
-  `label_value` and `label_both`, and grids with several variables on a side
+- `facet_wrap()` of several variables whose panels are not in sorted order,
+  facet labellers other than `label_value` and `label_both`, and grids with
+  several variables on a side
 - shape or linetype palettes other than ggplot2's defaults, and continuous
   color palettes other than the default, viridis, and two- or three-color
   gradients

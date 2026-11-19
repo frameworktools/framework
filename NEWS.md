@@ -1,3 +1,13 @@
+# framework (development version)
+
+* Facet panels keep their factor order.
+* `geom_abline()` translates, drawn across each panel. It needs the same
+  lines in every panel and untransformed axes.
+* Error bars carry their cap width, and stacked histograms stack their
+  groups in ggplot2's order.
+* Horizontal bars and other discrete y axes put the first level at the
+  bottom, as in ggplot2. This comes from phiz 0.6.6 and needs no change in R.
+
 # framework 2.0.17
 
 `data_save()` to a name already in the data catalog keeps that entry's

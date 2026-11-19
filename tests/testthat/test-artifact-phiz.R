@@ -1,7 +1,7 @@
 # ggplot -> phiz plot descriptions (R/artifact_phiz.R). Every written
 # description is checked against phiz's JSON Schema, copied into
 # fixtures/phiz-plot-description.schema.json from phiz's
-# schema/plot-description.schema.json (format 1).
+# schema/plot-description.schema.json (format 1, with facet sort).
 
 phiz_penguins <- function() {
   if (exists("penguins", envir = asNamespace("datasets"))) return(get("penguins", envir = asNamespace("datasets")))
@@ -109,6 +109,9 @@ test_that("histograms carry R's bins", {
   expect_equal(column(layer, "xmax"), bins$xmax)
   expect_equal(column(layer, "y"), bins$count)
   expect_equal(sum(column(layer, "y")), sum(!is.na(penguins$body_mass)))
+  # ggplot2 stacks the first group on top; Vega-Lite stacks by ascending order.
+  expect_identical(layer$aes$order, list(field = "order", type = "quantitative"))
+  expect_equal(column(layer, "order"), -bins$group)
   expect_setequal(unique(column(layer, "fill")), c("Adelie", "Chinstrap", "Gentoo"))
   expect_identical(d$labels$y, "count")
 })
@@ -129,6 +132,16 @@ test_that("facet_wrap and facet_grid carry their panels", {
                           ggplot2::facet_grid(sex ~ species, labeller = ggplot2::label_both))
   expect_identical(grid$facet, list(type = "grid", rows = "sex", cols = "species", labeller = "both"))
   expect_true(all(c("sex", "species") %in% names(grid$layers[[1]]$data)))
+
+  # Panels follow the factor's levels, which phiz would otherwise sort.
+  islands <- transform(penguins, island = factor(island, levels = c("Torgersen", "Dream", "Biscoe")))
+  ordered <- phiz_describe(ggplot2::ggplot(islands, ggplot2::aes(flipper_len, body_mass)) + ggplot2::geom_point() +
+                             ggplot2::facet_wrap(~island))
+  expect_identical(ordered$facet$sort, list("Torgersen", "Dream", "Biscoe"))
+  expect_null(d$facet$sort)
+  regrid <- phiz_describe(ggplot2::ggplot(islands, ggplot2::aes(flipper_len, body_mass)) + ggplot2::geom_point() +
+                            ggplot2::facet_grid(island ~ species))
+  expect_identical(regrid$facet$sort, list(island = list("Torgersen", "Dream", "Biscoe")))
 })
 
 test_that("author decisions about scales, coordinates, legends, and axes carry over", {
@@ -200,6 +213,8 @@ test_that("ranges, reference lines, text, ribbons, and annotations translate", {
                        ggplot2::geom_pointrange() + ggplot2::geom_errorbar(width = 0.2) +
                        ggplot2::geom_linerange() + ggplot2::geom_hline(yintercept = 1, linetype = "dashed"))
   expect_identical(vapply(d$layers, `[[`, character(1), "geom"), c("pointrange", "errorbar", "linerange", "hline"))
+  expect_equal(d$layers[[2]]$width, 0.2)
+  expect_null(d$layers[[3]]$width)
   expect_equal(column(d$layers[[1]], "ymax"), estimates$hi)
   expect_identical(d$layers[[4]]$linetype, "dashed")
   expect_equal(column(d$layers[[4]], "yintercept"), 1)
@@ -226,6 +241,19 @@ test_that("ranges, reference lines, text, ribbons, and annotations translate", {
   expect_identical(column(dates$layers[[1]], "x"), c("2024-01-01T00:00:00", "2024-02-01T00:00:00"))
 })
 
+test_that("ablines carry their intercept and slope, and span each panel in phiz", {
+  skip_if_not_installed("ggplot2")
+  base <- ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) + ggplot2::geom_point()
+  d <- phiz_describe(base + ggplot2::geom_abline(intercept = 37, slope = -5, linetype = "dashed"))
+  expect_identical(d$layers[[2]], list(geom = "abline", intercept = 37L, slope = -5L, linetype = "dashed"))
+  several <- phiz_describe(base + ggplot2::geom_abline(intercept = c(30, 35), slope = c(-4, -5)) + ggplot2::facet_wrap(~cyl))
+  expect_identical(several$layers[[2]][c("intercept", "slope")], list(intercept = list(30L, 35L), slope = list(-4L, -5L)))
+  # Lines that differ by panel have no description.
+  lines <- data.frame(cyl = c(4, 6, 8), a = c(40, 30, 20))
+  expect_match(phiz_refused(base + ggplot2::facet_wrap(~cyl) + ggplot2::geom_abline(ggplot2::aes(intercept = a, slope = -3), data = lines)),
+               "different ablines")
+})
+
 test_that("anything that does not translate refuses the whole description", {
   skip_if_not_installed("ggplot2")
   penguins <- phiz_penguins()
@@ -240,7 +268,7 @@ test_that("anything that does not translate refuses the whole description", {
   expect_match(phiz_refused(base + ggplot2::coord_polar()), "CoordPolar")
   expect_match(phiz_refused(ggplot2::ggplot(mtcars, ggplot2::aes(factor(cyl), mpg)) + ggplot2::geom_boxplot()), "GeomBoxplot")
   expect_match(phiz_refused(ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg, size = hp)) + ggplot2::geom_point()), "maps size")
-  expect_match(phiz_refused(base + ggplot2::geom_abline(intercept = 37, slope = -5)), "abline")
+  expect_match(phiz_refused(base + ggplot2::scale_x_log10() + ggplot2::geom_abline(intercept = 37, slope = -5)), "abline")
   expect_match(phiz_refused(ggplot2::ggplot(penguins, ggplot2::aes(flipper_len, body_mass, colour = sex)) +
                               ggplot2::geom_point()), "missing colour")
   expect_match(phiz_refused(ggplot2::ggplot(mtcars, ggplot2::aes(factor(cyl), mpg)) + ggplot2::geom_jitter()), "seed")
@@ -317,7 +345,13 @@ test_that("written descriptions compile with phiz", {
     ggplot2::ggplot(penguins, ggplot2::aes(flipper_len, body_mass)) + ggplot2::geom_point() + ggplot2::facet_wrap(~island),
     ggplot2::ggplot(mtcars, ggplot2::aes(factor(cyl), fill = factor(gear))) + ggplot2::geom_bar(position = "dodge"),
     ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) + ggplot2::geom_point() +
-      ggplot2::annotate("rect", xmin = 3, xmax = 4, ymin = -Inf, ymax = Inf, alpha = 0.2)
+      ggplot2::annotate("rect", xmin = 3, xmax = 4, ymin = -Inf, ymax = Inf, alpha = 0.2),
+    ggplot2::ggplot(mtcars, ggplot2::aes(wt, mpg)) + ggplot2::geom_point() + ggplot2::geom_abline(intercept = 37, slope = -5) +
+      ggplot2::facet_wrap(~cyl),
+    ggplot2::ggplot(transform(penguins, island = factor(island, levels = c("Torgersen", "Dream", "Biscoe"))),
+                    ggplot2::aes(flipper_len, body_mass)) + ggplot2::geom_point() + ggplot2::facet_wrap(~island),
+    ggplot2::ggplot(data.frame(t = c("a", "b"), m = 1:2, lo = 0:1, hi = 2:3), ggplot2::aes(t, m, ymin = lo, ymax = hi)) +
+      ggplot2::geom_errorbar(width = 0.2) + ggplot2::coord_flip()
   )
   script <- withr::local_tempfile(fileext = ".php")
   writeLines(c("<?php", sprintf("require %s;", deparse(file.path(phiz, "vendor", "autoload.php"))),
