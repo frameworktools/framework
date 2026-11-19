@@ -1,0 +1,124 @@
+{
+  "id": "revert-equals-source",
+  "area": "revert",
+  "description": "A copy changed to exactly the source's content is current; its record catches up.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "m2"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m2",
+        "hash": "@m2",
+        "known": [
+          "@m1",
+          "@m2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "record",
+        "status": "current",
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "current",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "m2"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-mine@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@m2",
+            "version": 2,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@m1",
+            "@m2"
+          ],
+          "copies": {
+            ".claude/skills/mine": {
+              "hash": "@m2"
+            }
+          }
+        }
+      }
+    }
+  }
+}

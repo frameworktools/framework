@@ -1,0 +1,97 @@
+{
+  "id": "offline-builtin-tracked-on-cloud",
+  "area": "offline",
+  "description": "Offline: a built-in last delivered by Cloud is not replaced by the package copy.",
+  "command": "pull",
+  "options": {
+    "offline": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "c3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@c3",
+          "version": 3,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@c3"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@c3"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "package",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "unavailable",
+        "reason_code": "offline",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "unavailable",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": "offline",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "c3"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

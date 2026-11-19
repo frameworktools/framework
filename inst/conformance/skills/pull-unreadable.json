@@ -1,0 +1,95 @@
+{
+  "id": "pull-unreadable",
+  "area": "pull",
+  "description": "A tracked copy without SKILL.md fails its skill; nothing is written.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "!unreadable"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "failed",
+        "reason_code": "unreadable",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "failed",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": "unreadable",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "!unreadable"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

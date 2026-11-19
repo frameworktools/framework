@@ -1,0 +1,117 @@
+{
+  "id": "removed-diverged",
+  "area": "removed",
+  "description": "A skill removed from the setup whose copies diverged is reported diverged, with the copy hint.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/old": "o1",
+    ".claude/skills/old": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:old@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:old",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@o1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@o1"
+        ],
+        "copies": {
+          ".agents/skills/old": {
+            "hash": "@o1"
+          },
+          ".claude/skills/old": {
+            "hash": "@o1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": []
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/old",
+        "entry": "framework:old@r",
+        "name": "old",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": ".claude/skills/old",
+          "to": [
+            ".agents/skills/old"
+          ],
+          "pick": false
+        }
+      },
+      {
+        "path": ".claude/skills/old",
+        "entry": "framework:old@r",
+        "name": "old",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": ".claude/skills/old",
+          "to": [
+            ".agents/skills/old"
+          ],
+          "pick": false
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "old",
+        "status": "diverged",
+        "paths": [
+          ".agents/skills/old",
+          ".claude/skills/old"
+        ],
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": ".claude/skills/old",
+          "to": [
+            ".agents/skills/old"
+          ],
+          "pick": false
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/old": "o1",
+      ".claude/skills/old": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  },
+  "covers": [
+    "Python: a skill removed from the setup with diverged copies has no skills_copy hint"
+  ]
+}

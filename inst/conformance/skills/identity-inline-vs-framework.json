@@ -1,0 +1,113 @@
+{
+  "id": "identity-inline-vs-framework",
+  "area": "identity",
+  "description": "Inline setup text never replaces a copy tracked as a framework: built-in on Cloud.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "c3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@c3",
+          "version": 3,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@c3"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@c3"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "inline",
+          "skill_id": "inline:demo",
+          "variant": "r"
+        },
+        "channel": "inline",
+        "version": null,
+        "server": null,
+        "content": "n1",
+        "hash": "@n1",
+        "known": [
+          "@n1"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "kept",
+        "reason_code": "other_identity",
+        "hint": {
+          "key": "retarget",
+          "path": ".claude/skills/demo",
+          "identity": {
+            "kind": "inline",
+            "skill_id": "inline:demo",
+            "variant": "r"
+          }
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "kept",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": "other_identity",
+        "hint": {
+          "key": "retarget",
+          "path": ".claude/skills/demo",
+          "identity": {
+            "kind": "inline",
+            "skill_id": "inline:demo",
+            "variant": "r"
+          }
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "c3"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  },
+  "covers": [
+    "R: inline setup content can replace a built-in tracked on Cloud"
+  ]
+}

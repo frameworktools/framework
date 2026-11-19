@@ -1,0 +1,123 @@
+{
+  "id": "push-after-rename",
+  "area": "push",
+  "description": "After renaming .claude to .agents by hand, push gives the move hint, never a new skills_sync.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/mine": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [],
+    "remote": {
+      "https://cloud.test/uuid-mine@r": {
+        "version": 1,
+        "hash": "@m1"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/mine",
+        "entry": null,
+        "name": "mine",
+        "action": "none",
+        "status": "untracked",
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".claude/skills/mine",
+          "to": ".agents/skills/mine"
+        }
+      },
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "missing",
+        "reason_code": "folder_gone",
+        "hint": {
+          "key": "move",
+          "from": ".claude/skills/mine",
+          "to": ".agents/skills/mine"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "untracked",
+        "paths": [
+          ".agents/skills/mine"
+        ],
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".claude/skills/mine",
+          "to": ".agents/skills/mine"
+        }
+      },
+      {
+        "name": "mine",
+        "status": "missing",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": "folder_gone",
+        "hint": {
+          "key": "move",
+          "from": ".claude/skills/mine",
+          "to": ".agents/skills/mine"
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/mine": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  },
+  "covers": [
+    "fw: after a rename, push lists the moved copies as untracked with a bare fw skills sync hint"
+  ]
+}

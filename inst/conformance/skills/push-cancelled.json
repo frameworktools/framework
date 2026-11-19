@@ -1,0 +1,86 @@
+{
+  "id": "push-cancelled",
+  "area": "push",
+  "description": "Push not confirmed: cancelled, nothing sent.",
+  "command": "push",
+  "options": {
+    "confirm": false
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m2",
+          "version": 2,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m2"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m2"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [],
+    "remote": {
+      "https://cloud.test/uuid-mine@r": {
+        "version": 2,
+        "hash": "@m2"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "cancelled",
+        "reason_code": "cancelled",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "cancelled",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": "cancelled",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "move-target-exists",
+  "area": "move",
+  "description": "skills_move refuses when both folders exist.",
+  "command": "move",
+  "options": {
+    "from": ".claude/skills/mine",
+    "to": ".agents/skills/mine"
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/mine": "x1",
+    ".claude/skills/mine": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": null,
+  "expected": {
+    "error": "move_target_exists",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".agents/skills/mine": "x1",
+      ".claude/skills/mine": "m1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

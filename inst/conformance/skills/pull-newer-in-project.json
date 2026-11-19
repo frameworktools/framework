@@ -1,0 +1,97 @@
+{
+  "id": "pull-newer-in-project",
+  "area": "pull",
+  "description": "The project holds version 3 (after a push); the setup names version 2. The copy stays.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "m3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m3",
+          "version": 3,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m2",
+          "@m3"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m3"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m2",
+        "hash": "@m2",
+        "known": [
+          "@m2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "current",
+        "reason_code": "newer_in_project",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "current",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": "newer_in_project",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "m3"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

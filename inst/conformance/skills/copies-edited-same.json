@@ -1,0 +1,117 @@
+{
+  "id": "copies-edited-same",
+  "area": "copies",
+  "description": "Both copies hold the same edit (after skills_copy): edited, kept.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "e1",
+    ".claude/skills/demo": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".agents/skills/demo": {
+            "hash": "@d1"
+          },
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "edited",
+        "reason_code": "local_edits",
+        "hint": {
+          "key": "overwrite"
+        }
+      },
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "edited",
+        "reason_code": "local_edits",
+        "hint": {
+          "key": "overwrite"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "edited",
+        "paths": [
+          ".agents/skills/demo",
+          ".claude/skills/demo"
+        ],
+        "reason_code": "local_edits",
+        "hint": {
+          "key": "overwrite"
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "e1",
+      ".claude/skills/demo": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

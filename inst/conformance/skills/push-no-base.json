@@ -1,0 +1,85 @@
+{
+  "id": "push-no-base",
+  "area": "push",
+  "description": "An edited copy of a retargeted entry has no base: refused without force.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-fork@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-fork",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": null,
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [],
+    "remote": {
+      "https://cloud.test/uuid-fork@r": {
+        "version": 2,
+        "hash": "@f2"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "https://cloud.test/uuid-fork@r",
+        "name": "demo",
+        "action": "none",
+        "status": "refused",
+        "reason_code": "no_base",
+        "hint": {
+          "key": "force"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "refused",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": "no_base",
+        "hint": {
+          "key": "force"
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

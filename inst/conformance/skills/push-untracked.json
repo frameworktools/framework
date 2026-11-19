@@ -1,0 +1,61 @@
+{
+  "id": "push-untracked",
+  "area": "push",
+  "description": "A folder no entry tracks is listed with the skills_sync hint.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/notes": "n1"
+  },
+  "lock": null,
+  "offer": {
+    "source": "cloud",
+    "skills": [],
+    "remote": {}
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/notes",
+        "entry": null,
+        "name": "notes",
+        "action": "none",
+        "status": "untracked",
+        "reason_code": "untracked",
+        "hint": {
+          "key": "sync",
+          "path": ".claude/skills/notes"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "notes",
+        "status": "untracked",
+        "paths": [
+          ".claude/skills/notes"
+        ],
+        "reason_code": "untracked",
+        "hint": {
+          "key": "sync",
+          "path": ".claude/skills/notes"
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/notes": "n1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

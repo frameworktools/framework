@@ -1,0 +1,105 @@
+{
+  "id": "move-lock-only",
+  "area": "move",
+  "description": "skills_move after the folder was renamed by hand moves the lock path and keeps the record.",
+  "command": "move",
+  "options": {
+    "from": "claude",
+    "to": "agents"
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/mine": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": null,
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "record",
+        "status": "moved",
+        "reason_code": "lock_moved",
+        "hint": null,
+        "from": ".claude/skills/mine"
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "moved",
+        "paths": [
+          ".agents/skills/mine"
+        ],
+        "reason_code": "lock_moved",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/mine": "m1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-mine@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@m1",
+            "version": 1,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@m1"
+          ],
+          "copies": {
+            ".agents/skills/mine": {
+              "hash": "@m1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

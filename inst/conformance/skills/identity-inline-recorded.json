@@ -1,0 +1,96 @@
+{
+  "id": "identity-inline-recorded",
+  "area": "identity",
+  "description": "An inline setup skill is added with a lock entry and a record.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {},
+  "lock": null,
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "notes",
+        "identity": {
+          "kind": "inline",
+          "skill_id": "inline:notes",
+          "variant": "r"
+        },
+        "channel": "inline",
+        "version": null,
+        "server": null,
+        "content": "n1",
+        "hash": "@n1",
+        "known": [
+          "@n1"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/notes",
+        "entry": "inline:notes@r",
+        "name": "notes",
+        "action": "write",
+        "status": "added",
+        "reason_code": null,
+        "hint": null,
+        "content": "n1"
+      }
+    ],
+    "rows": [
+      {
+        "name": "notes",
+        "status": "added",
+        "paths": [
+          ".claude/skills/notes"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/notes": "n1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "inline:notes@r": {
+          "identity": {
+            "kind": "inline",
+            "skill_id": "inline:notes",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "inline",
+            "hash": "@n1",
+            "version": null,
+            "server": null
+          },
+          "known": [
+            "@n1"
+          ],
+          "copies": {
+            ".claude/skills/notes": {
+              "hash": "@n1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "covers": [
+    "Python: an inline skill has no baseline hash"
+  ]
+}

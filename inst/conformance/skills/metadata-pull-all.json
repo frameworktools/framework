@@ -1,0 +1,126 @@
+{
+  "id": "metadata-pull-all",
+  "area": "metadata",
+  "description": "pull_all applies a plan whose only step is a record.",
+  "command": "pull_all",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m1",
+        "hash": "@m1",
+        "known": [
+          "@m1"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "record",
+        "status": "current",
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "current",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "m1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-mine@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@m1",
+            "version": 2,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@m1"
+          ],
+          "copies": {
+            ".claude/skills/mine": {
+              "hash": "@m1"
+            }
+          }
+        }
+      }
+    },
+    "failed": []
+  },
+  "covers": [
+    "Python: pull_all() skips a metadata-only skill update"
+  ]
+}

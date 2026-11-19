@@ -1,0 +1,208 @@
+{
+  "id": "assistant-switch-independent-copy",
+  "area": "assistants",
+  "description": "After switching to Codex, .agents/skills/demo is a different skill: kept. The tracked .claude copy still updates.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "o1",
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      },
+      "https://cloud.test/uuid-other@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-other",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@o1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@o1"
+        ],
+        "copies": {
+          ".agents/skills/demo": {
+            "hash": "@o1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "https://cloud.test/uuid-other@r",
+        "name": "demo",
+        "action": "none",
+        "status": "kept",
+        "reason_code": "other_identity",
+        "hint": {
+          "key": "retarget",
+          "path": ".agents/skills/demo",
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          }
+        }
+      },
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "d2",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "kept",
+        "paths": [
+          ".agents/skills/demo"
+        ],
+        "reason_code": "other_identity",
+        "hint": {
+          "key": "retarget",
+          "path": ".agents/skills/demo",
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          }
+        }
+      },
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "o1",
+      ".claude/skills/demo": "d2"
+    },
+    "backups": [
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "package",
+            "hash": "@d2",
+            "version": null,
+            "server": null
+          },
+          "known": [
+            "@d1",
+            "@d2"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@d2"
+            }
+          }
+        },
+        "https://cloud.test/uuid-other@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-other",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@o1",
+            "version": 1,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@o1"
+          ],
+          "copies": {
+            ".agents/skills/demo": {
+              "hash": "@o1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "covers": [
+    "fw: after an assistant switch, pull overwrites an independent same-named copy"
+  ]
+}

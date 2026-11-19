@@ -1,0 +1,121 @@
+{
+  "id": "metadata-channel-switch",
+  "area": "metadata",
+  "description": "Cloud moves a built-in from inline delivery to the package with the same bytes: a record step.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "c3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@c3",
+          "version": 3,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@c3"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@c3"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "c3",
+        "hash": "@c3",
+        "known": [
+          "@c3",
+          "@d1"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "record",
+        "status": "current",
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "current",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "c3"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "package",
+            "hash": "@c3",
+            "version": null,
+            "server": null
+          },
+          "known": [
+            "@c3",
+            "@d1"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@c3"
+            }
+          }
+        }
+      }
+    }
+  }
+}

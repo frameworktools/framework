@@ -1,0 +1,106 @@
+{
+  "id": "revert-kept",
+  "area": "revert",
+  "description": "A copy reverted to an older known version is an edit: kept, not updated.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m2",
+          "version": 2,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1",
+          "@m2"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m2"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 3,
+        "server": "https://cloud.test",
+        "content": "m3",
+        "hash": "@m3",
+        "known": [
+          "@m1",
+          "@m2",
+          "@m3"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "edited",
+        "reason_code": "local_edits",
+        "hint": {
+          "key": "overwrite"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "edited",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": "local_edits",
+        "hint": {
+          "key": "overwrite"
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "m1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  },
+  "covers": [
+    "fw: an ordinary pull overwrites a local revert of a personal skill"
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "id": "removed-plain",
+  "area": "removed",
+  "description": "A tracked skill the setup no longer names is listed as removed and left alone.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/old": "o1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:old@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:old",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@o1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@o1"
+        ],
+        "copies": {
+          ".claude/skills/old": {
+            "hash": "@o1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": []
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/old",
+        "entry": "framework:old@r",
+        "name": "old",
+        "action": "none",
+        "status": "removed",
+        "reason_code": "not_in_setup",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "old",
+        "status": "removed",
+        "paths": [
+          ".claude/skills/old"
+        ],
+        "reason_code": "not_in_setup",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/old": "o1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

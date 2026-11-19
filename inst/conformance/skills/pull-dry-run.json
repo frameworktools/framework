@@ -1,0 +1,99 @@
+{
+  "id": "pull-dry-run",
+  "area": "pull",
+  "description": "A dry run plans the same steps and writes nothing.",
+  "command": "pull",
+  "options": {
+    "dry_run": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "d2",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "d1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

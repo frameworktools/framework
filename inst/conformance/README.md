@@ -104,6 +104,13 @@ The algorithm:
 Only paths relative to the project folder are checked for "private", so a
 parent folder such as macOS's `/private/tmp` never warns.
 
+## skills/
+
+Skill sync cases for skills lock v2: the planner every skill command calls
+(pull, push, upgrade, `pull_all`, `skills_copy()`, and `skills_move()`). The
+format is in `skills/README.md`; the rules are in
+`docs/architecture/skills-lock-v2.md`.
+
 ## Offline creation
 
 Shared by every client that resolves through Framework Cloud (`new()` in R

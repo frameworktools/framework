@@ -1,0 +1,98 @@
+{
+  "id": "move-retarget-to-fork",
+  "area": "move",
+  "description": "skills_move switches a built-in copy to your fork. Its unedited hash becomes known to the new entry.",
+  "command": "move",
+  "options": {
+    "from": ".claude/skills/demo",
+    "skill_id": "uuid-fork"
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": null,
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "https://cloud.test/uuid-fork@r",
+        "name": "demo",
+        "action": "record",
+        "status": "moved",
+        "reason_code": "retargeted",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "moved",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": "retargeted",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "d1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-fork@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-fork",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": null,
+          "known": [
+            "@d1"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@d1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

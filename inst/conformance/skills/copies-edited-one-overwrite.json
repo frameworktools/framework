@@ -1,0 +1,134 @@
+{
+  "id": "copies-edited-one-overwrite",
+  "area": "copies",
+  "description": "Overwrite does not choose between copies that differ.",
+  "command": "pull",
+  "options": {
+    "overwrite": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "d1",
+    ".claude/skills/demo": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".agents/skills/demo": {
+            "hash": "@d1"
+          },
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": ".claude/skills/demo",
+          "to": [
+            ".agents/skills/demo"
+          ],
+          "pick": false
+        }
+      },
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": ".claude/skills/demo",
+          "to": [
+            ".agents/skills/demo"
+          ],
+          "pick": false
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "diverged",
+        "paths": [
+          ".agents/skills/demo",
+          ".claude/skills/demo"
+        ],
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": ".claude/skills/demo",
+          "to": [
+            ".agents/skills/demo"
+          ],
+          "pick": false
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "d1",
+      ".claude/skills/demo": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "id": "pull-add-cloud-skill",
+  "area": "pull",
+  "description": "A Cloud skill in the setup with no copy and no lock is added and recorded.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {},
+  "lock": null,
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 1,
+        "server": "https://cloud.test",
+        "content": "m1",
+        "hash": "@m1",
+        "known": [
+          "@m1"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "write",
+        "status": "added",
+        "reason_code": null,
+        "hint": null,
+        "content": "m1"
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "added",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "m1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-mine@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@m1",
+            "version": 1,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@m1"
+          ],
+          "copies": {
+            ".claude/skills/mine": {
+              "hash": "@m1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "id": "assistant-add-setup-older",
+  "area": "assistants",
+  "description": "The project holds version 3 of your skill and the setup names 2: the new folder gets the project's copy.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "m3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m3",
+          "version": 3,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m2",
+          "@m3"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m3"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m2",
+        "hash": "@m2",
+        "known": [
+          "@m2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "copy",
+        "status": "added",
+        "reason_code": null,
+        "hint": null,
+        "from": ".claude/skills/mine"
+      },
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "current",
+        "reason_code": "newer_in_project",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "added",
+        "paths": [
+          ".agents/skills/mine",
+          ".claude/skills/mine"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/mine": "m3",
+      ".claude/skills/mine": "m3"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-mine@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@m3",
+            "version": 3,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@m2",
+            "@m3"
+          ],
+          "copies": {
+            ".agents/skills/mine": {
+              "hash": "@m3"
+            },
+            ".claude/skills/mine": {
+              "hash": "@m3"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "id": "push-refused",
+  "area": "push",
+  "description": "Cloud has a newer version than the base: refused, with the force hint.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m2",
+          "version": 2,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m2"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m2"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [],
+    "remote": {
+      "https://cloud.test/uuid-mine@r": {
+        "version": 3,
+        "hash": "@m3"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "refused",
+        "reason_code": "cloud_changed",
+        "hint": {
+          "key": "force"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "refused",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": "cloud_changed",
+        "hint": {
+          "key": "force"
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

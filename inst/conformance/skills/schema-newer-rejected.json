@@ -1,0 +1,53 @@
+{
+  "id": "schema-newer-rejected",
+  "area": "migration",
+  "description": "A lock with a schema newer than 2 stops the command before any read.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 3,
+    "skills": {}
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": "lock_schema_unsupported",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".claude/skills/demo": "d1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

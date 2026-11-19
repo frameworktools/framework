@@ -1,0 +1,124 @@
+{
+  "id": "pull-after-retarget",
+  "area": "move",
+  "description": "After a retarget, pull updates the unedited copy to the fork's version.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-fork@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-fork",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": null,
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-fork",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "f2",
+        "hash": "@f2",
+        "known": [
+          "@f1",
+          "@f2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "https://cloud.test/uuid-fork@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "f2",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "f2"
+    },
+    "backups": [
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-fork@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-fork",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@f2",
+            "version": 2,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@d1",
+            "@f1",
+            "@f2"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@f2"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "id": "push-builtin-fork",
+  "area": "push",
+  "description": "An edited built-in is pushed as your own skill; the entry becomes that Cloud skill.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [],
+    "remote": {},
+    "push_response": {
+      "framework:demo@r": {
+        "skill_id": "uuid-fork",
+        "version": 1,
+        "hash": "@e1",
+        "server": "https://cloud.test"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "push",
+        "status": "pushed",
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "pushed",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "e1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-fork@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-fork",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@e1",
+            "version": 1,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@e1"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@e1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "id": "migrate-v1-cloud-pending-push",
+  "area": "migration",
+  "description": "A v1 Cloud entry with a pending push migrates; the push completes and clears pending.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "e1"
+  },
+  "lock": {
+    "schema": 1,
+    "skills": {
+      "account:https://cloud.test:uuid-mine:r": {
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "variant": "r",
+        "server": "https://cloud.test",
+        "skill_id": "uuid-mine",
+        "version": 2,
+        "hash": "@m2",
+        "pending": {
+          "request_id": "00000000-0000-4000-a000-000000000001",
+          "hash": "@e1",
+          "basis": "2:uuid-mine:r"
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [],
+    "remote": {
+      "https://cloud.test/uuid-mine@r": {
+        "version": 2,
+        "hash": "@m2"
+      }
+    },
+    "push_response": {
+      "https://cloud.test/uuid-mine@r": {
+        "skill_id": "uuid-mine",
+        "version": 3,
+        "hash": "@e1",
+        "server": "https://cloud.test"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "push",
+        "status": "pushed",
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "pushed",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "e1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-mine@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@e1",
+            "version": 3,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@e1",
+            "@m2"
+          ],
+          "copies": {
+            ".claude/skills/mine": {
+              "hash": "@e1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "id": "pull-update-clean",
+  "area": "pull",
+  "description": "An unedited copy (disk equals record) is updated, with a backup of the old folder.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "d2",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "d2"
+    },
+    "backups": [
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "package",
+            "hash": "@d2",
+            "version": null,
+            "server": null
+          },
+          "known": [
+            "@d1",
+            "@d2"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@d2"
+            }
+          }
+        }
+      }
+    }
+  }
+}

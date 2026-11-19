@@ -1,0 +1,146 @@
+{
+  "id": "assistant-add-edited-overwrite",
+  "area": "assistants",
+  "description": "The agreed overwrite behavior: the edited copy is backed up and replaced, and the new folder filled.",
+  "command": "pull",
+  "options": {
+    "overwrite": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "added",
+        "reason_code": null,
+        "hint": null,
+        "content": "d2"
+      },
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "replaced",
+        "reason_code": "replaced_edits",
+        "hint": null,
+        "content": "d2",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "replaced",
+        "paths": [
+          ".agents/skills/demo",
+          ".claude/skills/demo"
+        ],
+        "reason_code": "replaced_edits",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "d2",
+      ".claude/skills/demo": "d2"
+    },
+    "backups": [
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "package",
+            "hash": "@d2",
+            "version": null,
+            "server": null
+          },
+          "known": [
+            "@d1",
+            "@d2"
+          ],
+          "copies": {
+            ".agents/skills/demo": {
+              "hash": "@d2"
+            },
+            ".claude/skills/demo": {
+              "hash": "@d2"
+            }
+          }
+        }
+      }
+    }
+  },
+  "covers": [
+    "R and fw: overwrite with a new assistant folder replaces an edited package skill"
+  ]
+}

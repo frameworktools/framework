@@ -1,0 +1,74 @@
+{
+  "id": "pull-unknown-before-lock",
+  "area": "pull",
+  "description": "No lock. A copy with unknown content is edited; nothing is written or recorded.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "e1"
+  },
+  "lock": null,
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "edited",
+        "reason_code": "local_edits",
+        "hint": {
+          "key": "overwrite"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "edited",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": "local_edits",
+        "hint": {
+          "key": "overwrite"
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "id": "migrate-v1-merge-duplicates",
+  "area": "migration",
+  "description": "Two v1 entries for one built-in (one per folder) become one v2 entry with both copies.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "d1",
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 1,
+    "skills": {
+      "package:demo": {
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "variant": "r",
+        "hash": "@d1",
+        "origin": {
+          "skill_id": "framework:demo",
+          "hash": "@d1"
+        }
+      },
+      ".agents/skills/demo": {
+        "paths": [
+          ".agents/skills/demo"
+        ],
+        "variant": "r",
+        "hash": "@d1",
+        "origin": {
+          "skill_id": "framework:demo",
+          "hash": "@d1"
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "d2",
+        "backup": true
+      },
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "d2",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".agents/skills/demo",
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "d2",
+      ".claude/skills/demo": "d2"
+    },
+    "backups": [
+      ".agents/skills/demo",
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "package",
+            "hash": "@d2",
+            "version": null,
+            "server": null
+          },
+          "known": [
+            "@d1",
+            "@d2"
+          ],
+          "copies": {
+            ".agents/skills/demo": {
+              "hash": "@d2"
+            },
+            ".claude/skills/demo": {
+              "hash": "@d2"
+            }
+          }
+        }
+      }
+    }
+  }
+}

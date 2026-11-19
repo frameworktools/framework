@@ -1,0 +1,150 @@
+{
+  "id": "copies-clean-different-versions",
+  "area": "copies",
+  "description": "Copies at two different unedited versions (an interrupted write) are not diverged: both update.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "d2",
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1",
+          "@d2"
+        ],
+        "copies": {
+          ".agents/skills/demo": {
+            "hash": "@d2"
+          },
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d3",
+        "hash": "@d3",
+        "known": [
+          "@d1",
+          "@d2",
+          "@d3"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "d3",
+        "backup": true
+      },
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "d3",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".agents/skills/demo",
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "d3",
+      ".claude/skills/demo": "d3"
+    },
+    "backups": [
+      ".agents/skills/demo",
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "package",
+            "hash": "@d3",
+            "version": null,
+            "server": null
+          },
+          "known": [
+            "@d1",
+            "@d2",
+            "@d3"
+          ],
+          "copies": {
+            ".agents/skills/demo": {
+              "hash": "@d3"
+            },
+            ".claude/skills/demo": {
+              "hash": "@d3"
+            }
+          }
+        }
+      }
+    }
+  }
+}

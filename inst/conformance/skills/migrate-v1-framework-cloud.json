@@ -1,0 +1,114 @@
+{
+  "id": "migrate-v1-framework-cloud",
+  "area": "migration",
+  "description": "A v1 entry tracking framework:demo on Cloud migrates to the built-in identity on the cloud channel.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "c3"
+  },
+  "lock": {
+    "schema": 1,
+    "skills": {
+      "account:https://cloud.test:framework:demo:r": {
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "variant": "r",
+        "server": "https://cloud.test",
+        "skill_id": "framework:demo",
+        "version": 3,
+        "hash": "@c3"
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "cloud",
+        "version": 4,
+        "server": "https://cloud.test",
+        "content": "c4",
+        "hash": "@c4",
+        "known": [
+          "@c3",
+          "@c4"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "c4",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "c4"
+    },
+    "backups": [
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@c4",
+            "version": 4,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@c3",
+            "@c4"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@c4"
+            }
+          }
+        }
+      }
+    }
+  }
+}

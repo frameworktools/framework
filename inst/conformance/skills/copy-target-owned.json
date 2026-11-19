@@ -1,0 +1,82 @@
+{
+  "id": "copy-target-owned",
+  "area": "copy",
+  "description": "skills_copy refuses a target another entry tracks; nothing is copied.",
+  "command": "copy",
+  "options": {
+    "from": "claude",
+    "to": "agents"
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "o1",
+    ".claude/skills/demo": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      },
+      "https://cloud.test/uuid-other@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-other",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@o1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@o1"
+        ],
+        "copies": {
+          ".agents/skills/demo": {
+            "hash": "@o1"
+          }
+        }
+      }
+    }
+  },
+  "offer": null,
+  "expected": {
+    "error": "copy_target_owned",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".agents/skills/demo": "o1",
+      ".claude/skills/demo": "e1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

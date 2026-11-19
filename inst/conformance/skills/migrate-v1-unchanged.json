@@ -1,0 +1,85 @@
+{
+  "id": "migrate-v1-unchanged",
+  "area": "migration",
+  "description": "A v1 lock with nothing to change is not rewritten.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "d2"
+  },
+  "lock": {
+    "schema": 1,
+    "skills": {
+      "package:demo": {
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "variant": "r",
+        "hash": "@d2",
+        "origin": {
+          "skill_id": "framework:demo",
+          "hash": "@d2"
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "none",
+        "status": "current",
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "current",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "d2"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

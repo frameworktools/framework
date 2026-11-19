@@ -1,0 +1,80 @@
+{
+  "id": "removed-all-gone",
+  "area": "removed",
+  "description": "Your own skill, not in the setup, with every copy deleted and no login: missing.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [
+    ".claude/skills"
+  ],
+  "disk": {},
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": []
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "missing",
+        "reason_code": "all_gone",
+        "hint": {
+          "key": "login"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "missing",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": "all_gone",
+        "hint": {
+          "key": "login"
+        }
+      }
+    ],
+    "disk": {},
+    "backups": [],
+    "lock": "unchanged"
+  }
+}
