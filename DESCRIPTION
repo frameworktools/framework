@@ -47,6 +47,7 @@ Suggests:
     duckdb,
     evaluate,
     ggplot2,
+    scales,
     haven,
     htmltools,
     htmlwidgets,

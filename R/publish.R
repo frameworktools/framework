@@ -346,7 +346,14 @@ NULL
 #'     background) when svglite is installed, otherwise a 300 dpi PNG. An SVG
 #'     larger than 5 MB is replaced by a PNG. A list of ggplots, such as
 #'     `brms::conditional_effects()`, becomes one figure with the plots side
-#'     by side (this needs patchwork).
+#'     by side (this needs patchwork). A ggplot also gets `figure.phiz.json`
+#'     beside the image: the plot as a phiz plot description, which Framework
+#'     Cloud draws as a live Vega-Lite chart that follows the page's light or
+#'     dark mode. It carries R's computed statistics (smooth fits, bins,
+#'     summaries) and drops theme colors and fonts. It is written only when
+#'     every layer, scale, coordinate system, and facet translates; otherwise
+#'     the image is published alone. Extensions such as ggrepel, patchwork,
+#'     `coord_polar()`, boxplots, and mapped size or alpha have no description.
 #'   * plotly and other htmlwidgets become a self-contained HTML file, which
 #'     needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
 #'   * gt, gtsummary, and flextable tables become HTML when their packages
@@ -478,12 +485,17 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
   if (destination$driver == "cloud") to <- "cloud"
   if (isTRUE(destination$legacy) && identical(to, "s3")) to <- "bucket"
   if (share_unlisted && is.null(collection)) stop("share_unlisted requires a collection.", call. = FALSE)
+  plot_description <- NULL
   if (!is.character(source) || !is.null(dim(source))) {
     stage <- tempfile("fw_artifact_")
     dir.create(stage)
     on.exit(unlink(stage, recursive = TRUE), add = TRUE)
     is_cloud <- !identical(to, "github") && identical(.fw_publish_target(connection, to), "cloud")
     source <- .fw_artifact_file(source, stage, cloud = is_cloud)
+    # A ggplot's live-chart description, written beside its image.
+    if (basename(source) %in% c("figure.svg", "figure.png") && file.exists(file.path(stage, "figure.phiz.json"))) {
+      plot_description <- file.path(stage, "figure.phiz.json")
+    }
     if (is_cloud && is.null(kind) && basename(source) %in% c("table.json", "model.json", "test.json", "code_snippet.json", "table.html")) {
       kind <- switch(basename(source), model.json = "model", test.json = "test", code_snippet.json = "code_snippet", "table")
     }
@@ -516,10 +528,12 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
     return(.fw_github_publish(source, slug = slug, self_contained = self_contained))
   }
   if (identical(.fw_publish_target(connection, to), "cloud")) {
-    return(.fw_cloud_publish(source, dest = dest, self_contained = self_contained, slug = slug,
-                             title = title, description = description, kind = kind,
-                             password = password, visibility = visibility,
-                             collection = collection, share_unlisted = share_unlisted))
+    args <- list(source, dest = dest, self_contained = self_contained, slug = slug,
+                 title = title, description = description, kind = kind,
+                 password = password, visibility = visibility,
+                 collection = collection, share_unlisted = share_unlisted)
+    if (!is.null(plot_description)) args$plot_description <- plot_description
+    return(do.call(.fw_cloud_publish, args))
   }
   .fw_warn_slug_ignored(slug)
 

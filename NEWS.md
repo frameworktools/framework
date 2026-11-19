@@ -1,3 +1,21 @@
+# framework (development version)
+
+* Publishing a ggplot writes `figure.phiz.json` beside its SVG or PNG: the
+  plot as a phiz plot description (format 1). Framework Cloud receives it in
+  the `plot_description` field and can draw the figure as a live Vega-Lite
+  chart in the page's light or dark mode. The image stays as the static
+  fallback. The description is translated from `ggplot_build()`, so smooth
+  fits and bands, histogram bins, and summaries carry R's numbers. Legends
+  keep the mapped variable's levels. ggplot2's default hue palette and
+  default gradient become no palette, so the page chooses the colors. Points,
+  lines, paths, columns and bars (stacked, dodged, and filled), histograms,
+  smooths, error bars, line and point ranges, horizontal and vertical
+  reference lines, text, ribbons, areas, segments, rectangles, and
+  annotations reaching the panel edges translate, with `facet_wrap()`,
+  `facet_grid()`, `coord_flip()`, and `coord_cartesian()` limits. Anything
+  else writes no description, and a failed translation never fails the
+  publish.
+
 # framework 2.0.15
 
 `skills_copy()` copies a skill between assistant folders, and skill sync

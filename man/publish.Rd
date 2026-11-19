@@ -57,7 +57,14 @@ and lattice plots become an SVG figure (7 by 5 inches, white
 background) when svglite is installed, otherwise a 300 dpi PNG. An SVG
 larger than 5 MB is replaced by a PNG. A list of ggplots, such as
 \code{brms::conditional_effects()}, becomes one figure with the plots side
-by side (this needs patchwork).
+by side (this needs patchwork). A ggplot also gets \code{figure.phiz.json}
+beside the image: the plot as a phiz plot description, which Framework
+Cloud draws as a live Vega-Lite chart that follows the page's light or
+dark mode. It carries R's computed statistics (smooth fits, bins,
+summaries) and drops theme colors and fonts. It is written only when
+every layer, scale, coordinate system, and facet translates; otherwise
+the image is published alone. Extensions such as ggrepel, patchwork,
+\code{coord_polar()}, boxplots, and mapped size or alpha have no description.
 \item plotly and other htmlwidgets become a self-contained HTML file, which
 needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
 \item gt, gtsummary, and flextable tables become HTML when their packages

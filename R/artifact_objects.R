@@ -691,7 +691,9 @@
 }
 
 # Static plots: figure.svg with svglite (7 x 5 inches, white background), else
-# figure.png at 300 dpi. SVG files over 5 MB fall back to PNG.
+# figure.png at 300 dpi. SVG files over 5 MB fall back to PNG. A ggplot also
+# gets figure.phiz.json beside the image when every part of it translates (see
+# R/artifact_phiz.R); the image stays as the static fallback.
 # Interactive htmlwidgets: a self-contained figure.html. Vega-Lite: figure.vl.json.
 #' @keywords internal
 .fw_artifact_figure <- function(object, directory, accepts) {
@@ -734,6 +736,7 @@
   if (inherits(object, "trellis") && !requireNamespace("lattice", quietly = TRUE)) {
     stop("Publishing a lattice plot requires lattice.", call. = FALSE)
   }
+  if (inherits(object, "ggplot")) .fw_phiz_write(object, directory)
   if (requireNamespace("svglite", quietly = TRUE)) {
     path <- file.path(directory, "figure.svg")
     tryCatch(.fw_artifact_render(object, path, function() {

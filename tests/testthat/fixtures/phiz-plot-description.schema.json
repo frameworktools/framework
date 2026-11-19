@@ -1,0 +1,832 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://phiz.phpstats.org/schema/plot-description.schema.json",
+  "title": "phiz plot description",
+  "description": "A plot as plain data, which phiz's Plot::fromArray() and Plot::fromJson() compile to Vega-Lite. It holds no raw Vega-Lite, expressions, or URLs. phiz checks each layer's options against its geom; this schema checks the shape.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "phiz"
+  ],
+  "properties": {
+    "phiz": {
+      "const": 1,
+      "description": "The format version."
+    },
+    "data": {
+      "$ref": "#/definitions/data"
+    },
+    "aes": {
+      "$ref": "#/definitions/aes"
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/layer"
+      }
+    },
+    "scales": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "x",
+          "y",
+          "xmin",
+          "xmax",
+          "ymin",
+          "ymax",
+          "xend",
+          "yend",
+          "color",
+          "colour",
+          "fill",
+          "size",
+          "shape",
+          "opacity",
+          "alpha",
+          "linetype",
+          "group",
+          "detail",
+          "tooltip",
+          "label",
+          "text",
+          "order",
+          "href",
+          "theta",
+          "radius",
+          "weight",
+          "xintercept",
+          "yintercept",
+          "sample",
+          "z",
+          "key",
+          "description",
+          "stroke_dash",
+          "url"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/scale"
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "description": "title, subtitle, caption, and one per aesthetic or facet field."
+    },
+    "facet": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "facets"
+          ],
+          "properties": {
+            "type": {
+              "const": "wrap"
+            },
+            "facets": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                }
+              ]
+            },
+            "ncol": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "nrow": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "scales": {
+              "$ref": "#/definitions/facetScales"
+            },
+            "labeller": {
+              "$ref": "#/definitions/labeller"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "grid"
+            },
+            "rows": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cols": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scales": {
+              "$ref": "#/definitions/facetScales"
+            },
+            "labeller": {
+              "$ref": "#/definitions/labeller"
+            }
+          }
+        }
+      ]
+    },
+    "coord": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "cartesian",
+            "fixed",
+            "polar"
+          ]
+        },
+        "flip": {
+          "type": "boolean"
+        },
+        "xlim": {
+          "$ref": "#/definitions/limits"
+        },
+        "ylim": {
+          "$ref": "#/definitions/limits"
+        },
+        "ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "theta": {
+          "enum": [
+            "x",
+            "y"
+          ]
+        },
+        "start": {
+          "type": "number"
+        },
+        "direction": {
+          "enum": [
+            1,
+            -1
+          ]
+        },
+        "innerRadius": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preset": {
+          "enum": [
+            "vega",
+            "gray",
+            "grey",
+            "ggplot2",
+            "bw",
+            "linedraw",
+            "minimal",
+            "classic",
+            "light",
+            "dark",
+            "void"
+          ]
+        },
+        "baseSize": {
+          "type": "number"
+        },
+        "font": {
+          "type": "string"
+        },
+        "legendPosition": {
+          "enum": [
+            "top",
+            "bottom",
+            "left",
+            "right",
+            "none"
+          ]
+        },
+        "background": {
+          "type": "string"
+        },
+        "panelBackground": {
+          "type": "string"
+        },
+        "panelBorder": {
+          "type": "string"
+        },
+        "grid": {
+          "type": "boolean"
+        },
+        "titleAnchor": {
+          "enum": [
+            "start",
+            "middle",
+            "end"
+          ]
+        },
+        "padding": {
+          "type": "number"
+        },
+        "xLabelAngle": {
+          "type": "number"
+        },
+        "yLabelAngle": {
+          "type": "number"
+        },
+        "legendDirection": {
+          "enum": [
+            "horizontal",
+            "vertical"
+          ]
+        },
+        "legendTitle": {
+          "type": "boolean"
+        },
+        "axisLine": {
+          "type": "boolean"
+        },
+        "ticks": {
+          "type": "boolean"
+        },
+        "gridColor": {
+          "type": "string"
+        },
+        "textColor": {
+          "type": "string"
+        },
+        "captionSize": {
+          "type": "number"
+        },
+        "captionColor": {
+          "type": "string"
+        },
+        "captionAnchor": {
+          "enum": [
+            "start",
+            "middle",
+            "end"
+          ]
+        }
+      }
+    },
+    "width": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "const": "container"
+        }
+      ]
+    },
+    "height": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "const": "container"
+        }
+      ]
+    },
+    "description": {
+      "type": "string",
+      "description": "The accessible description of the chart."
+    },
+    "tooltip": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "scalar": {
+      "type": [
+        "string",
+        "number",
+        "boolean",
+        "null"
+      ]
+    },
+    "plain": {
+      "description": "Plain data: scalars, and lists or objects of them, without Vega-Lite's expression or URL keys.",
+      "oneOf": [
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/plain"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "not": {
+              "enum": [
+                "url",
+                "href",
+                "expr",
+                "signal",
+                "param",
+                "labelExpr",
+                "calculate",
+                "filter"
+              ]
+            }
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/plain"
+          }
+        }
+      ]
+    },
+    "levels": {
+      "description": "Values keyed by the data's own levels.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      ]
+    },
+    "data": {
+      "description": "Rows (a list of objects), or columns (an object of equal-length lists).",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The exact field name; dots and brackets are not nested access."
+        },
+        "type": {
+          "enum": [
+            "quantitative",
+            "nominal",
+            "ordinal",
+            "temporal"
+          ]
+        },
+        "title": {
+          "type": "string"
+        }
+      }
+    },
+    "aes": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "x",
+          "y",
+          "xmin",
+          "xmax",
+          "ymin",
+          "ymax",
+          "xend",
+          "yend",
+          "color",
+          "colour",
+          "fill",
+          "size",
+          "shape",
+          "opacity",
+          "alpha",
+          "linetype",
+          "group",
+          "detail",
+          "tooltip",
+          "label",
+          "text",
+          "order",
+          "href",
+          "theta",
+          "radius",
+          "weight",
+          "xintercept",
+          "yintercept",
+          "sample",
+          "z",
+          "key",
+          "description",
+          "stroke_dash",
+          "url"
+        ]
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "phiz field shorthand: \"hwy\", \"year:O\", \"mean(hwy)\"."
+          },
+          {
+            "$ref": "#/definitions/field"
+          },
+          {
+            "type": "boolean",
+            "description": "tooltip only."
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "tooltip only: the fields to show."
+          }
+        ]
+      }
+    },
+    "layer": {
+      "type": "object",
+      "required": [
+        "geom"
+      ],
+      "properties": {
+        "geom": {
+          "enum": [
+            "point",
+            "jitter",
+            "line",
+            "path",
+            "step",
+            "area",
+            "ribbon",
+            "bar",
+            "col",
+            "histogram",
+            "freqpoly",
+            "density",
+            "boxplot",
+            "violin",
+            "errorbar",
+            "linerange",
+            "pointrange",
+            "hline",
+            "vline",
+            "abline",
+            "rule",
+            "segment",
+            "text",
+            "label",
+            "tile",
+            "raster",
+            "rect",
+            "bin2d",
+            "hex",
+            "smooth",
+            "density2d",
+            "density2dFilled",
+            "contour",
+            "contourFilled",
+            "polygon",
+            "summary",
+            "crossbar",
+            "ellipse",
+            "count",
+            "annotate",
+            "rug",
+            "ecdf",
+            "qq",
+            "qqLine",
+            "arc",
+            "pie"
+          ]
+        },
+        "annotate": {
+          "enum": [
+            "text",
+            "label",
+            "point",
+            "segment",
+            "rect",
+            "pointrange",
+            "linerange",
+            "errorbar",
+            "crossbar",
+            "rule"
+          ],
+          "description": "With geom \"annotate\": the geom to draw. Positions may be \"-Inf\" or \"Inf\" to reach the panel's edges."
+        },
+        "aes": {
+          "$ref": "#/definitions/aes"
+        },
+        "data": {
+          "$ref": "#/definitions/data"
+        },
+        "inheritAes": {
+          "type": "boolean"
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "filter",
+            "raw"
+          ]
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/plain"
+      },
+      "description": "One geom. Other keys are the named options of the Plot method with the geom's name (alpha, method, bins, position, ...) and fixed visual properties (color, fill, size, linewidth, linetype, shape, strokeWidth, ...)."
+    },
+    "scale": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "linear",
+            "log",
+            "log10",
+            "pow",
+            "sqrt",
+            "symlog",
+            "time",
+            "date",
+            "datetime",
+            "utc",
+            "ordinal",
+            "band",
+            "point",
+            "quantile",
+            "quantize",
+            "threshold",
+            "bin-ordinal",
+            "identity"
+          ]
+        },
+        "domain": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "range": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "scheme": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/definitions/plain"
+            }
+          ]
+        },
+        "zero": {
+          "type": "boolean"
+        },
+        "nice": {
+          "type": [
+            "boolean",
+            "integer"
+          ]
+        },
+        "reverse": {
+          "type": "boolean"
+        },
+        "clamp": {
+          "type": "boolean"
+        },
+        "base": {
+          "type": "number"
+        },
+        "exponent": {
+          "type": "number"
+        },
+        "domainMid": {
+          "type": "number"
+        },
+        "padding": {
+          "type": "number"
+        },
+        "interpolate": {
+          "type": "string"
+        },
+        "values": {
+          "$ref": "#/definitions/levels",
+          "description": "A manual palette: values in level order, or a map from levels to values."
+        },
+        "name": {
+          "type": "string"
+        },
+        "breaks": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "labels": {
+          "$ref": "#/definitions/levels",
+          "description": "Labels for the breaks in order, or a map from values to labels."
+        },
+        "format": {
+          "type": "string",
+          "description": "A d3 number or time format."
+        },
+        "position": {
+          "enum": [
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ]
+        },
+        "guide": {
+          "enum": [
+            false,
+            "none"
+          ]
+        },
+        "palette": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "identity": {
+          "type": "boolean"
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "facetScales": {
+      "enum": [
+        "fixed",
+        "free",
+        "free_x",
+        "free_y"
+      ]
+    },
+    "labeller": {
+      "oneOf": [
+        {
+          "enum": [
+            "value",
+            "both"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

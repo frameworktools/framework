@@ -1188,12 +1188,13 @@ cloud_settings <- function() {
 # version. `slug` is publish()'s argument: a string names
 # the document only. TRUE makes it public with the derived name, FALSE makes
 # it unlisted, and NULL or a string leaves the visibility alone (a new
-# artifact is unlisted).
+# artifact is unlisted). `plot_description` is a ggplot's figure.phiz.json,
+# sent beside its image as the plot_description field.
 #' @keywords internal
 .fw_cloud_publish <- function(source, dest = NULL, title = NULL, self_contained = TRUE,
                               slug = NULL, description = NULL, kind = NULL,
                               password = NULL, visibility = NULL, collection = NULL,
-                              share_unlisted = FALSE) {
+                              share_unlisted = FALSE, plot_description = NULL) {
   token <- .fw_project_token()
   selected <- NULL
   if (!is.null(collection)) {
@@ -1310,6 +1311,11 @@ cloud_settings <- function() {
       file = curl::form_file(html_path),
       slug = slug
     )
+    # A ggplot figure's phiz plot description, which Cloud compiles to a live
+    # chart; the uploaded image stays as its static fallback.
+    if (!is.null(plot_description)) {
+      body$plot_description <- curl::form_file(plot_description, type = "application/json")
+    }
   }
   if (!is.null(readable)) {
     # Multipart fields are strings; the API's boolean rule takes "1" and "0"
