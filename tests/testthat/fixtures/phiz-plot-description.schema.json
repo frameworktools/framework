@@ -676,14 +676,15 @@
           }
         },
         "scheme": {
-          "oneOf": [
+          "anyOf": [
             {
               "type": "string"
             },
             {
               "$ref": "#/definitions/plain"
             }
-          ]
+          ],
+          "description": "A Vega color scheme name, such as \"viridis\", or a scheme object."
         },
         "zero": {
           "type": "boolean"

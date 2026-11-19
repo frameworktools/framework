@@ -16,10 +16,10 @@ phiz_penguins <- function() {
   testthat::skip("No penguins data (R >= 4.5 or palmerpenguins)")
 }
 
-phiz_describe <- function(plot, known = NULL) {
+phiz_describe <- function(plot) {
   described <- framework:::.fw_phiz_describe(plot)
   if (is.null(described$description)) fail(paste("refused:", described$reason))
-  expect_phiz_valid(described$description, known = known)
+  expect_phiz_valid(described$description)
   # Round-trip through JSON, as Cloud reads it.
   jsonlite::fromJSON(framework:::.fw_phiz_json(described$description), simplifyVector = FALSE)
 }
@@ -30,10 +30,7 @@ phiz_refused <- function(plot) {
   described$reason
 }
 
-# known: schema paths where phiz's schema is wrong and phiz itself accepts the
-# description. scale.scheme is oneOf [string, plain], and plain also matches a
-# string, so every string scheme fails the schema (reported to phiz).
-expect_phiz_valid <- function(description, known = NULL) {
+expect_phiz_valid <- function(description) {
   json <- framework:::.fw_phiz_json(description)
   # The schema is a test fixture, which the built package leaves out
   schema <- testthat::test_path("fixtures", "phiz-plot-description.schema.json")
@@ -41,12 +38,7 @@ expect_phiz_valid <- function(description, known = NULL) {
     # The schema file, verbatim from phiz, has no final newline.
     validator <- suppressWarnings(jsonvalidate::json_schema$new(schema, engine = "ajv"))
     valid <- validator$validate(json, verbose = TRUE)
-    errors <- attr(valid, "errors")
-    if (!valid && !is.null(known)) {
-      expect_setequal(unique(errors$instancePath), known)
-      return(invisible())
-    }
-    expect_true(valid, info = paste(utils::capture.output(print(errors)), collapse = "\n"))
+    expect_true(valid, info = paste(utils::capture.output(print(attr(valid, "errors"))), collapse = "\n"))
   } else {
     # The schema's top-level shape, without jsonvalidate.
     parsed <- jsonlite::fromJSON(json, simplifyVector = FALSE)
@@ -166,8 +158,7 @@ test_that("author decisions about scales, coordinates, legends, and axes carry o
   expect_equal(column(flipped$layers[[1]], "y"), mtcars$mpg)
 
   viridis <- phiz_describe(ggplot2::ggplot(penguins, ggplot2::aes(bill_len, bill_dep, colour = body_mass)) +
-                             ggplot2::geom_point() + ggplot2::scale_colour_viridis_c(option = "C"),
-                           known = "/scales/color/scheme")
+                             ggplot2::geom_point() + ggplot2::scale_colour_viridis_c(option = "C"))
   expect_identical(viridis$scales$color, list(scheme = "plasma"))
   expect_identical(viridis$layers[[1]]$aes$color$type, "quantitative")
   default <- phiz_describe(ggplot2::ggplot(penguins, ggplot2::aes(bill_len, bill_dep, colour = body_mass)) +
