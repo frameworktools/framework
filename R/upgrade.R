@@ -43,10 +43,11 @@
 #'   folders whose key marks them private (`inputs_private_raw: inputs/raw`),
 #'   and private render folders. The plan says when git ignores `.claude/`, so
 #'   the guards would stay on one computer.
-#' - **Skills**: Framework skills that match a version the package has
-#'   shipped are updated, in the assistants' skills folders and in
-#'   `.agents/skills`; missing ones for the project type are added;
-#'   locally edited ones are kept and listed. A project with no skills folder
+#' - **Skills**: Framework skills are judged as [pull_skills()] judges them,
+#'   with this package's versions: unedited ones are updated, in the
+#'   assistants' skills folders and in `.agents/skills`; missing ones for the
+#'   project type are added; locally edited ones, ones whose copies differ,
+#'   and built-ins last updated from Framework Cloud are kept and listed. A project with no skills folder
 #'   gets none, except that a sensitive project gets
 #'   `framework-sensitive-data` (in its assistants' skills folder, or
 #'   `.claude/skills`).
@@ -111,7 +112,6 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   ctx$root <- root
   ctx$pending <- list()
   ctx$actions <- list()
-  ctx$skills <- list()
   ctx$notes <- character()
   ctx$main <- basename(found[1])
   ctx$type <- type
@@ -151,13 +151,11 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
       .fw_write_text(paste0(paste(lines, collapse = "\n"), "\n"), target)
     }
   }
-  # An install the installer declines (the copy changed since the plan, or
-  # it tracks a Cloud skill) is reported as kept, never as updated
-  declined <- character()
-  for (skill in ctx$skills) if (!isTRUE(skill$run())) declined <- c(declined, skill$path)
+  # A copy that changed since the plan is kept, never reported as updated
+  declined <- if (!is.null(ctx$skill_apply)) ctx$skill_apply() else character()
   if (length(declined)) {
     result$skills_kept <- declined
-    message("Skills kept (changed since the plan, or tracked on Cloud): ", paste(declined, collapse = ", "))
+    message("Skills kept (changed since the plan): ", paste(declined, collapse = ", "))
   }
 
   result$applied <- TRUE
@@ -1022,45 +1020,40 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   } else {
     dirs <- existing
   }
-  edited <- character()
-  diverged <- character()
-  state <- tryCatch(.skill_load(ctx$root), error = function(e) NULL)
-  for (skill in skills) {
-    source <- system.file("templates", "skills", skill, package = "framework")
-    if (!nzchar(source)) next
-    # Copies in one lock entry that differ, or one of them missing, are a
-    # diverged skill. Nothing is written to any of its folders, as in pull.
-    if (!is.null(state)) {
-      relatives <- file.path(dirs, skill)
-      keys <- names(Filter(function(e) any(relatives %in% unlist(e$paths)), state$skills))
-      split <- tryCatch(.skill_pull_diverged(ctx$root, state, keys), error = function(e) NULL)
-      if (!is.null(split$a)) {
-        diverged <- c(diverged, skill)
-        next
-      }
-    }
-    for (dir in dirs) {
-      relative <- file.path(dir, skill)
-      status <- tryCatch(.skill_package_status(source, ctx$root, relative, skill), error = function(e) "edited")
-      if (status %in% c("create", "update")) {
-        change <- if (identical(status, "create")) "add" else "update (an unedited older version)"
-        ctx$actions[[length(ctx$actions) + 1]] <- list(step = "skills", path = relative, change = change)
-        local({
-          src <- source; rel <- relative; name <- skill; root <- ctx$root
-          ctx$skills[[length(ctx$skills) + 1]] <- list(path = rel, run = function() .skill_package_install(src, root, rel, name))
-        })
-      } else if (status %in% c("edited", "account")) {
-        edited <- c(edited, relative)
-      }
+  # The planner judges each skill's copies together, as pull_skills() does:
+  # unedited copies are updated, missing ones added, and edited, diverged,
+  # or Cloud-tracked ones kept
+  sources <- lapply(Filter(function(skill) nzchar(.skill_pull_shipped(skill)), skills), .skill_source_package)
+  root <- ctx$root
+  lock <- tryCatch(.skill_load(root), error = function(e) e)
+  if (inherits(lock, "error")) {
+    .upgrade_note(ctx, "Skills not checked: ", sub("\\.$", "", conditionMessage(lock)), ".")
+    return(invisible())
+  }
+  disk <- .skill_disk(root)
+  plan <- .skill_plan_pull(disk, lock, list(source = "package", skills = sources, by_identity = list()),
+                           list(command = "upgrade", source = "package", dirs = dirs, scope = "builtin",
+                                offline = FALSE, overwrite = FALSE))
+  for (s in plan$steps) {
+    change <- if (identical(s$action, "copy")) paste0("add (copied from ", s$from, ")")
+      else if (identical(s$action, "write") && s$status %in% c("added", "restored")) "add"
+      else if (identical(s$action, "write")) "update (an unedited older version)"
+    if (!is.null(change)) ctx$actions[[length(ctx$actions) + 1]] <- list(step = "skills", path = s$path, change = change)
+  }
+  if (any(vapply(plan$steps, function(s) s$action %in% c("write", "copy"), logical(1)))) {
+    ctx$skill_apply <- function() {
+      held <- .skill_acquire(root)
+      on.exit(unlink(held, recursive = TRUE))
+      applied <- .skill_apply(root, plan, disk, lock, "upgrade()")$steps
+      vapply(Filter(function(s) identical(s$reason_code, "changed_during_pull"), applied), `[[`, "", "path")
     }
   }
-  if (length(edited) > 0) {
-    .upgrade_note(ctx, "Skills kept because they were edited (or come from your account): ",
-                  paste(edited, collapse = ", "), ". ai_skills_update() leaves them too.")
-  }
-  if (length(diverged) > 0) {
-    .upgrade_note(ctx, "Skills kept because their copies differ: ", paste(diverged, collapse = ", "),
-                  ". framework::skills_copy() makes one copy match the other.")
+  rows <- Filter(function(r) !r$status %in% c("added", "restored", "updated", "replaced", "current", "removed"),
+                 .skill_rows(plan$steps, "upgrade"))
+  if (length(rows) > 0) {
+    out <- .skill_rows_out(rows, list(fn = "pull_skills", lock = lock, disk = disk))
+    .upgrade_note(ctx, "Skills kept: ", paste(vapply(out, function(r) paste0(r$name, " (", r$reason %||% r$status, ")"), ""),
+                                             collapse = "; "))
   }
   invisible()
 }

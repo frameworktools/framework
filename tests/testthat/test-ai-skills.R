@@ -129,12 +129,6 @@ test_that("a skill from an older release without a lock entry is updated, not ke
              file.path(test_dir, ".claude", "skills", "framework-outputs", "SKILL.md"))
   expect_false(file.exists(file.path(test_dir, ".framework", "skills.lock.json")))
 
-  status <- framework:::.skill_package_status(
-    system.file("templates", "skills", "framework-data", package = "framework"),
-    test_dir, ".claude/skills/framework-data", "framework-data"
-  )
-  expect_identical(status, "update")
-
   out <- capture.output(result <- ai_skills_update(test_dir), type = "message")
   statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
   expect_identical(statuses[["framework-data"]], "updated")
@@ -144,7 +138,8 @@ test_that("a skill from an older release without a lock entry is updated, not ke
                    readLines(current))
   # Now in the lock, and backed up where git doesn't look
   lock <- jsonlite::read_json(file.path(test_dir, ".framework", "skills.lock.json"))
-  expect_true(any(vapply(lock$skills, function(e) ".claude/skills/framework-data" %in% unlist(e$paths), logical(1))))
+  expect_identical(lock$schema, 2L)
+  expect_true(".claude/skills/framework-data" %in% names(lock$skills[["framework:framework-data@r"]]$copies))
   expect_length(list.files(file.path(test_dir, ".framework", "skills-backups")), 1)
 })
 

@@ -20,8 +20,8 @@ without a project token, from this package for the project's type.
 \details{
 Locally edited skills and account-owned forks are preserved. Unchanged
 package skills receive the new package version, including skills installed
-before \code{.framework/skills.lock.json} existed whose \code{SKILL.md} matches any
-version the package has shipped. Replaced skills are backed up to
+before \code{.framework/skills.lock.json} existed whose files match a version
+the package has shipped. Replaced skills are backed up to
 \verb{.framework/skills-backups/}. Skills no longer in the setup are kept.
 }
 \examples{

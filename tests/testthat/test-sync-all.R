@@ -230,18 +230,26 @@ setup_data_reply <- function(cloud) {
   }
 }
 
+# A planned push of skill steps, as .skill_push_prepare() returns it
+setup_skill_prepared <- function(steps) {
+  entry <- list(identity = list(kind = "cloud", skill_id = "analysis-id", variant = "r", server = "https://cloud.example"),
+                base = list(channel = "cloud", hash = "h", version = 1L, server = "https://cloud.example"),
+                known = "h", copies = c(".claude/skills/analysis" = "h"))
+  list(plan = list(steps = steps), lock = list(schema = 2L, skills = list(k = entry)), disk = NULL, remote = list())
+}
+
 # An edited skill to push, without reaching Cloud
 setup_skill_mock <- function(cloud, signed_in = TRUE, env = parent.frame()) {
   local_mocked_bindings(
     .fw_cloud_token = function(...) if (signed_in) "user-token",
-    .skill_push_edited = function(root) list(list(present = ".claude/skills/analysis")),
-    .skill_push_plan = function(root, force) {
-      list(plans = list(list(name = "analysis", path = ".claude/skills/analysis", status = "push", builtin = FALSE, forced = FALSE)),
-           untracked = list())
+    .skill_push_edited_names = function(root) "analysis",
+    .skill_push_prepare = function(root, force, server, token) {
+      setup_skill_prepared(list(list(path = ".claude/skills/analysis", entry = "k", name = "analysis", action = "push",
+                                     status = "pushed", reason_code = NULL, hint = NULL)))
     },
-    .skill_push_apply = function(root, plans) {
+    .skill_push_apply = function(root, prepared) {
       cloud$skills_pushed <- c(cloud$skills_pushed, "analysis")
-      lapply(plans, function(p) { p$status <- "pushed"; p })
+      prepared$plan$steps
     },
     .env = env
   )
@@ -380,13 +388,14 @@ test_that("pull_all() lists diverged and failed skills in its top-level failed",
   cloud <- new.env(); cloud$revision <- "rev-1"; cloud$packages <- setup_cloud_packages()
   setup_mock(cloud)
   shipped <- system.file("templates", "skills", "framework-data", package = "framework")
-  for (d in c(".claude/skills", ".agents/skills")) expect_true(.skill_package_install(shipped, root, file.path(d, "framework-data"), "framework-data"))
+  for (d in c(".claude/skills", ".agents/skills")) expect_true(skill_install_builtin(shipped, root, file.path(d, "framework-data")))
   cat("Codex only\n", file = file.path(root, ".agents/skills/framework-data/SKILL.md"), append = TRUE)
   result <- suppressMessages(pull_all(root, dry_run = TRUE))
-  failed <- result$failed[["Skill framework-data (.claude/skills/framework-data)"]]
-  expect_match(failed, "^diverged: .claude/skills/framework-data and .agents/skills/framework-data differ. Pick one")
+  failed <- result$failed[["Skill framework-data (.agents/skills/framework-data)"]]
+  expect_match(failed, paste0("^diverged: .agents/skills/framework-data and .claude/skills/framework-data differ, ",
+                              "and only .agents/skills/framework-data is edited."))
   result <- suppressMessages(pull_all(root, confirm = TRUE))
-  expect_match(result$failed[["Skill framework-data (.claude/skills/framework-data)"]], "^diverged: ")
+  expect_match(result$failed[["Skill framework-data (.agents/skills/framework-data)"]], "^diverged: ")
   expect_true("Codex only" %in% readLines(file.path(root, ".agents/skills/framework-data/SKILL.md")))
 })
 
@@ -397,19 +406,23 @@ test_that("push_all() lists failed and missing skills in its top-level failed, i
   setup_mock(cloud)
   local_mocked_bindings(
     .fw_cloud_token = function(...) "user-token",
-    .skill_push_edited = function(root) list(list(present = ".claude/skills/analysis")),
-    .skill_push_plan = function(root, force) {
-      list(plans = list(
-        list(name = "analysis", path = ".claude/skills/analysis", status = "failed",
-             reason = "Assistant skill copies diverged: .claude/skills/analysis and .agents/skills/analysis differ."),
-        list(name = "solo", path = ".claude/skills/solo", status = "missing")),
-        untracked = list())
+    .skill_push_edited_names = function(root) "analysis",
+    .skill_push_prepare = function(root, force, server, token) {
+      differ <- list(key = "copy", from = ".claude/skills/analysis", to = ".agents/skills/analysis", pick = FALSE)
+      setup_skill_prepared(list(
+        list(path = ".agents/skills/analysis", entry = "k", name = "analysis", action = "none", status = "failed",
+             reason_code = "copies_differ", hint = differ),
+        list(path = ".claude/skills/analysis", entry = "k", name = "analysis", action = "none", status = "failed",
+             reason_code = "copies_differ", hint = differ),
+        list(path = ".claude/skills/solo", entry = "solo", name = "solo", action = "none", status = "missing",
+             reason_code = "all_gone", hint = NULL)))
     },
-    .skill_push_apply = function(root, plans) plans)
+    .skill_push_apply = function(root, prepared) prepared$plan$steps)
   result <- suppressMessages(push_all(root, dry_run = TRUE))
-  expect_match(result$failed[["Skill analysis (.claude/skills/analysis)"]], "^failed: Assistant skill copies diverged")
+  expect_match(result$failed[["Skill analysis (.agents/skills/analysis)"]],
+               "^failed: .claude/skills/analysis and .agents/skills/analysis differ, and only .claude/skills/analysis is edited.")
   expect_identical(result$failed[["Skill solo (.claude/skills/solo)"]],
-                   "missing: every tracked copy is gone, so there is nothing to push")
+                   "missing: Every tracked copy is gone, so there is nothing to push.")
   # A real run stops and names the skill it couldn't push
-  expect_error(suppressMessages(push_all(root, confirm = TRUE)), "not pushed: analysis: Assistant skill copies diverged")
+  expect_error(suppressMessages(push_all(root, confirm = TRUE)), "not pushed: analysis: .claude/skills/analysis and")
 })

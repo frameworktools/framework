@@ -18,19 +18,24 @@ in a console and stops otherwise.}
 }
 \value{
 Invisibly, a list: \code{dry_run}, \code{skills} (each with \code{name},
-\code{status}, and \code{paths}; status is pushed, refused, missing, untracked,
-cancelled, or failed), \code{counts} by status, and \code{message} (the summary
-line). A skill whose tracked copies are all missing is reported as
-missing and not pushed.
+\code{status}, \code{paths}, and, unless pushed, \code{reason}, \code{reason_code}, and
+\code{hint}; status is pushed, current (Cloud already has these files, so
+nothing was sent and the lock records Cloud's version), refused,
+missing, untracked, cancelled, or failed), \code{counts} by status, and \code{message} (the summary line). A skill
+whose tracked copies are all missing is reported as missing and not
+pushed.
 }
 \description{
 Sends locally edited skills to Framework Cloud as new versions of your
-own skills. Each skill tracked in \code{.framework/skills.lock.json} whose files
-changed since the last pull goes up through \code{\link[=skills_sync]{skills_sync()}}. A skill that
+own skills. A skill tracked in \code{.framework/skills.lock.json} is edited
+when a copy differs from what the last sync wrote there. A skill that
 changed on Cloud since then is refused with "Pull first"; \code{force = TRUE}
 pushes it anyway, as the latest version. A built-in Framework skill is
-never changed: an edited one is saved as your own copy. Skills not
-tracked are listed; \code{\link[=skills_sync]{skills_sync()}} adds one. Needs \code{\link[=cloud_login]{cloud_login()}}.
+never changed: an edited one is saved as your own copy. A skill switched
+to another identity with \code{\link[=skills_move]{skills_move()}} has no pulled version and is
+refused until \code{force = TRUE}. Skills not tracked are listed; \code{\link[=skills_sync]{skills_sync()}}
+adds one, and \code{\link[=skills_move]{skills_move()}} records one that was moved by hand. Needs
+\code{\link[=cloud_login]{cloud_login()}}.
 }
 \details{
 Before pushing, a warning names what each new version affects, then asks
@@ -49,5 +54,5 @@ push_skills()
 }
 }
 \seealso{
-\code{\link[=pull_skills]{pull_skills()}}, \code{\link[=skills_copy]{skills_copy()}}
+\code{\link[=pull_skills]{pull_skills()}}, \code{\link[=skills_copy]{skills_copy()}}, \code{\link[=skills_move]{skills_move()}}
 }

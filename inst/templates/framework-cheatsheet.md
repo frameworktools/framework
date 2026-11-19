@@ -149,6 +149,7 @@ ai_regenerate_context()          # Refresh dynamic sections of AGENTS.md
 pull_skills()                    # Update skills from the project's Cloud setup
 push_skills()                    # Send edited skills to Cloud
 skills_copy(from = "claude")    # Copy edited skills to the other assistant folders
+skills_move("claude", "agents") # Move tracked skills to another folder
 ```
 
 ---
@@ -313,6 +314,7 @@ capture_output(expr)             # Capture console output
 | `pull_skills()` | Update skills from the project's Cloud setup |
 | `push_skills()` | Send locally edited skills to Cloud |
 | `skills_copy()` | Copy skills between assistant skills folders |
+| `skills_move()` | Move a skill copy, or switch the skill it tracks |
 | `ai_sync_context()` | Deprecated: sync legacy AI context files |
 | `bootstrap()` | Prepare a cloned project |
 | `adopt()` | Make an existing folder a Framework project |

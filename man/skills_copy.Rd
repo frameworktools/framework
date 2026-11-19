@@ -61,10 +61,12 @@ that differs is backed up to \verb{.framework/skills-backups/} before it is
 replaced, and keeps its folder permissions. Identical copies are left as
 they are. Skills that are only in a target folder are listed, left alone,
 and not read. When the source skill is tracked in
-\code{.framework/skills.lock.json}, a real run adds each copy's path to its
-entry, so the copies sync as one skill. The entry's last synced version is
-kept, so \code{\link[=push_skills]{push_skills()}} then pushes the edited skill. A dry run, or an
-untracked source, leaves the lock alone.
+\code{.framework/skills.lock.json}, a real run adds each copy to its entry,
+with the source copy's record, so the copies sync as one skill. An edited
+source makes an edited copy: \code{\link[=push_skills]{push_skills()}} then pushes the edit, and
+\code{\link[=pull_skills]{pull_skills()}} keeps both copies. A target that another skill tracks is
+refused, in dry runs too. A dry run, or an untracked source, leaves the
+lock alone. To move a copy instead, use \code{\link[=skills_move]{skills_move()}}.
 
 A real run takes the skill sync lock, then reads and checks every source
 and target before anything is written. A dry run checks the same things.
@@ -83,5 +85,5 @@ skills_copy(from_dir = ".claude/skills", to_dir = "some/other/skills")
 }
 }
 \seealso{
-\code{\link[=pull_skills]{pull_skills()}}, \code{\link[=push_skills]{push_skills()}}, \code{\link[=skills_sync]{skills_sync()}}
+\code{\link[=pull_skills]{pull_skills()}}, \code{\link[=push_skills]{push_skills()}}, \code{\link[=skills_sync]{skills_sync()}}, \code{\link[=skills_move]{skills_move()}}
 }

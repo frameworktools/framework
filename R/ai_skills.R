@@ -91,33 +91,16 @@ NULL
     return(invisible(character(0)))
   }
 
-  skills <- .ai_skills_for_type(project_type)
-  installed <- character(0)
+  skills <- Filter(function(skill) nzchar(.skill_pull_shipped(skill)), .ai_skills_for_type(project_type))
+  rows <- .skill_install_sources(project_dir, lapply(skills, .skill_source_package), ".claude/skills")
+  labels <- c(added = "Created", restored = "Created", updated = "Updated", replaced = "Updated", current = "Up to date")
   statuses <- character(0)
-
-  for (skill in skills) {
-    source_file <- file.path(template_dir, skill, "SKILL.md")
-    if (!file.exists(source_file)) {
-      next
-    }
-
-    target_dir <- file.path(project_dir, ".claude", "skills", skill)
-    skill_hash <- function() {
-      if (dir.exists(target_dir)) tryCatch(.skill_hash(.skill_scan(target_dir)), error = function(e) NA) else NULL
-    }
-    before <- skill_hash()
-    if (!.skill_package_install(dirname(source_file), project_dir,
-        file.path(".claude", "skills", skill), skill)) {
-      if (verbose) message("  Preserved local skill: ", skill)
-      statuses[[skill]] <- "Preserved"
-      next
-    }
-    installed <- c(installed, skill)
-
-    status <- if (is.null(before)) "Created" else if (identical(before, skill_hash())) "Up to date" else "Updated"
-    statuses[[skill]] <- status
-    if (verbose) {
-      message("  ", status, ": .claude/skills/", skill, "/SKILL.md")
+  for (skill in skills) statuses[[skill]] <- labels[rows[[skill]] %||% ""] %|NA|% "Preserved"
+  installed <- skills[statuses != "Preserved"]
+  if (verbose) {
+    for (skill in skills) {
+      if (identical(statuses[[skill]], "Preserved")) message("  Preserved local skill: ", skill)
+      else message("  ", statuses[[skill]], ": .claude/skills/", skill, "/SKILL.md")
     }
   }
 
@@ -135,8 +118,8 @@ NULL
 #'
 #' Locally edited skills and account-owned forks are preserved. Unchanged
 #' package skills receive the new package version, including skills installed
-#' before `.framework/skills.lock.json` existed whose `SKILL.md` matches any
-#' version the package has shipped. Replaced skills are backed up to
+#' before `.framework/skills.lock.json` existed whose files match a version
+#' the package has shipped. Replaced skills are backed up to
 #' `.framework/skills-backups/`. Skills no longer in the setup are kept.
 #'
 #' @param project_path Path to the project directory (default: current directory)
@@ -215,4 +198,18 @@ ai_skills_update <- function(project_path = ".") {
   text <- meta$description
   if (!is.character(text) || length(text) != 1) return("")
   gsub("|", "\\|", trimws(gsub("\\s+", " ", text)), fixed = TRUE)
+}
+
+# Install sources (built-ins, Cloud skills, setup text) into skills folders
+# for a new project or a new assistant, through the planner. Copies that are
+# edited or track another skill are kept. Returns each skill's row status by
+# name.
+.skill_install_sources <- function(root, sources, dirs) {
+  if (!length(sources)) return(list())
+  run <- .skill_sync_run(root, list(source = "cloud", skills = sources, by_identity = list()),
+                         list(command = "create", dirs = dirs, overwrite = FALSE, dry_run = FALSE, scope = "listed"),
+                         fn = "Installing skills")
+  out <- list()
+  for (row in run$rows) if (is.null(out[[row$name]]) || !identical(row$status, "kept")) out[[row$name]] <- row$status
+  out
 }

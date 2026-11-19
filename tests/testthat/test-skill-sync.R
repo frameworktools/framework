@@ -28,25 +28,28 @@ test_that("text skill files hash with LF line endings and binary files hash raw"
   # Exact bytes: writeLines() writes CRLF on Windows
   text <- "---\nname: example\ndescription: Example\n---\nFirst\n"
   writeBin(charToRaw(text), file.path(source, "SKILL.md"))
-  expect_true(.skill_package_install(source, root, ".agents/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".agents/skills/example"))
   skill <- file.path(root, ".agents/skills/example/SKILL.md")
   writeBin(charToRaw(gsub("\n", "\r\n", text, fixed = TRUE)), skill)
-  expect_identical(.skill_package_status(source, root, ".agents/skills/example", "example"), "current")
+  record <- unname(skill_lock_entry(root, ".agents/skills/example")$copies)
+  expect_identical(.skill_disk_hash(root, ".agents/skills/example"), record)
 })
 
 test_that("package updates preserve edited and untracked skills", {
   root <- tempfile(); dir.create(root)
   source <- tempfile(); dir.create(source)
   writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source,"SKILL.md"))
-  expect_true(.skill_package_install(source, root, ".agents/skills/example", "example"))
-  expect_true(.skill_package_install(source, root, ".claude/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".agents/skills/example"))
+  expect_true(skill_install_builtin(source, root, ".claude/skills/example"))
   local <- file.path(root,".agents/skills/example/SKILL.md")
   cat("Personal edit\n", file = local, append = TRUE)
-  writeLines("Package changed", file.path(source,"SKILL.md"))
-  expect_false(.skill_package_install(source, root, ".agents/skills/example", "example"))
+  writeLines(c("---", "name: example", "description: Example", "---", "Package changed"), file.path(source,"SKILL.md"))
+  # The edited copy and the unedited one differ: nothing is written to either
+  expect_false(skill_install_builtin(source, root, ".agents/skills/example"))
   expect_match(paste(readLines(local),collapse="\n"),"Personal edit")
+  expect_false("Package changed" %in% readLines(file.path(root, ".claude/skills/example/SKILL.md")))
   state <- .skill_load(root)
-  expect_length(state$skills[[1]]$paths, 2)
+  expect_length(state$skills[[1]]$copies, 2)
 })
 
 test_that("skill synchronization handles push, pull, dry-run, and conflicts", {

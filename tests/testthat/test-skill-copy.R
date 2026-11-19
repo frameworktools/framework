@@ -109,7 +109,7 @@ test_that("skills_copy() copies SKILL.md, companion files, and executable modes 
   expect_identical(result$to, ".agents/skills")
   expect_identical(result$skills[[1]],
                    list(name = "example", status = "copied", from = ".claude/skills/example",
-                        to = ".agents/skills/example", backup = NULL))
+                        to = ".agents/skills/example", backup = NULL, paths = ".agents/skills/example"))
   expect_identical(skill_copy_hash(root, ".agents/skills/example"), skill_copy_hash(root, ".claude/skills/example"))
   expect_false(dir.exists(file.path(root, ".agents/skills/not-a-skill")))
   if (.Platform$OS.type != "windows") {
@@ -322,8 +322,8 @@ test_that("skills_copy() reconciles diverged copies so skills_sync() and push_sk
   root <- skill_copy_project()
   source <- withr::local_tempdir()
   writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source, "SKILL.md"))
-  expect_true(.skill_package_install(source, root, ".claude/skills/example", "example"))
-  expect_true(.skill_package_install(source, root, ".agents/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".claude/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".agents/skills/example", "example"))
   files <- .skill_scan(source)
   local_mocked_bindings(
     .fw_cloud_url = function(...) "https://cloud.example",
@@ -560,8 +560,8 @@ test_that("the divergence hint copies from the only existing copy and names the 
 skill_copy_cloud <- function(root, env = parent.frame()) {
   source <- withr::local_tempdir(.local_envir = env)
   writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source, "SKILL.md"))
-  expect_true(.skill_package_install(source, root, ".claude/skills/example", "example"))
-  expect_true(.skill_package_install(source, root, ".agents/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".claude/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".agents/skills/example", "example"))
   files <- .skill_scan(source)
   local_mocked_bindings(
     .fw_cloud_url = function(...) "https://cloud.example",
@@ -595,10 +595,12 @@ test_that("push_skills() checks every tracked copy and reports a diverged one as
   cat("Edited in Codex\n", file = file.path(root, ".agents/skills/example/SKILL.md"), append = TRUE)
   out <- capture.output(result <- push_skills(root, confirm = TRUE), type = "message")
   expect_identical(result$message, "Skills pushed: 1 failed")
-  expect_true(any(grepl("Failed: example \u2014 .claude/skills/example and .agents/skills/example differ. Pick one",
-                        out, fixed = TRUE)))
+  expect_true(any(grepl(paste0("Failed: example \u2014 .agents/skills/example and .claude/skills/example differ, ",
+                               "and only .agents/skills/example is edited."), out, fixed = TRUE)))
+  # The hint copies the edited copy over the other
   failed <- Filter(function(s) identical(s$status, "failed"), result$skills)[[1]]
-  expect_identical(failed$hint, "skills_copy(from = \"claude\", to = \"agents\", skills = \"example\")")
+  expect_identical(failed$hint, "skills_copy(from = \"agents\", to = \"claude\", skills = \"example\")")
+  expect_identical(failed$reason_code, "copies_differ")
 })
 
 # Round 4 regressions
@@ -735,14 +737,17 @@ test_that("a source in or over .framework is refused", {
   expect_false(dir.exists(file.path(root, "out")))
 })
 
-test_that("push_skills() reports a missing tracked copy as diverged", {
+test_that("push_skills() reports a missing tracked copy beside an edited one as failed", {
   root <- skill_copy_project()
   skill_copy_cloud(root)
   unlink(file.path(root, ".agents/skills/example"), recursive = TRUE)
+  # Beside an unedited copy there is nothing to push; pull restores it
+  expect_identical(suppressMessages(push_skills(root, confirm = TRUE))$message, "Skills pushed: nothing to push")
+  cat("Edited\n", file = file.path(root, ".claude/skills/example/SKILL.md"), append = TRUE)
   out <- capture.output(result <- push_skills(root, confirm = TRUE), type = "message")
   expect_identical(result$message, "Skills pushed: 1 failed")
-  expect_true(any(grepl(paste0("Failed: example \u2014 .agents/skills/example is missing. Copy .claude/skills/example over it: ",
-                               "skills_copy(from = \"claude\", to = \"agents\", skills = \"example\")"), out, fixed = TRUE)))
+  expect_true(any(grepl(paste0("Failed: example \u2014 .agents/skills/example is missing beside the edited copy .claude/skills/example. ",
+                               "Copy it there: skills_copy(from = \"claude\", to = \"agents\", skills = \"example\")"), out, fixed = TRUE)))
 })
 
 test_that("push_skills() fails only the skill with an invalid file name", {
@@ -750,18 +755,17 @@ test_that("push_skills() fails only the skill with an invalid file name", {
   skill_copy_cloud(root)
   other <- withr::local_tempdir()
   writeLines(c("---", "name: other", "description: Other", "---", "First"), file.path(other, "SKILL.md"))
-  for (d in c(".claude/skills", ".agents/skills")) expect_true(.skill_package_install(other, root, file.path(d, "other"), "other"))
+  for (d in c(".claude/skills", ".agents/skills")) expect_true(skill_install_builtin(other, root, file.path(d, "other"), "other"))
   for (d in c(".claude/skills", ".agents/skills")) {
     cat("Edited\n", file = file.path(root, d, "other/SKILL.md"), append = TRUE)
     writeLines("x", file.path(root, d, "example/draft notes.md"))
   }
-  result <- suppressMessages(push_skills(root, confirm = TRUE))
+  result <- suppressMessages(push_skills(root, dry_run = TRUE))
   statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
   expect_identical(statuses[["example"]], "failed")
   expect_match(Filter(function(s) identical(s$name, "example"), result$skills)[[1]]$reason, "Invalid skill path")
-  # The other skill is still planned (Cloud's copy differs from its origin here, so it is refused)
-  expect_true("other" %in% names(statuses))
-  expect_false(identical(statuses[["other"]], "failed"))
+  # The other skill is still planned: an edited built-in pushes as your own skill
+  expect_identical(statuses[["other"]], "pushed")
 })
 
 test_that("push_skills() reports a skill whose every tracked copy is missing", {
@@ -779,7 +783,7 @@ test_that("skills_copy() records copies of a tracked skill, and only on a real r
   root <- skill_copy_project()
   source <- withr::local_tempdir()
   writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source, "SKILL.md"))
-  expect_true(.skill_package_install(source, root, ".claude/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".claude/skills/example", "example"))
   skill_copy_write(root, ".claude/skills", "untracked")
   lock <- file.path(root, ".framework/skills.lock.json")
   before <- readBin(lock, "raw", n = file.info(lock)$size)
@@ -789,10 +793,10 @@ test_that("skills_copy() records copies of a tracked skill, and only on a real r
   skill_copy_quiet(from_dir = ".claude/skills", to_dir = "custom/skills", project_path = root)
   state <- .skill_load(root)
   expect_length(state$skills, 1L)
-  expect_setequal(unlist(state$skills[[1]]$paths), c(".claude/skills/example", "custom/skills/example"))
-  # The last synced hash is kept
-  expect_identical(state$skills[[1]]$hash, .skill_hash(.skill_scan(source)))
-  expect_false("custom/skills/untracked" %in% unlist(lapply(state$skills, `[[`, "paths")))
+  expect_setequal(names(state$skills[[1]]$copies), c(".claude/skills/example", "custom/skills/example"))
+  # The copy takes the source's record
+  expect_identical(unname(state$skills[[1]]$copies), rep(.skill_hash(.skill_scan(source)), 2))
+  expect_false("custom/skills/untracked" %in% unlist(lapply(state$skills, function(e) names(e$copies))))
 })
 
 test_that("a renamed or shadowed copy gets an explanation, not a command", {
@@ -814,7 +818,7 @@ test_that("skills_sync() of a renamed copy explains without a command", {
   skill_copy_cloud(root)
   file.rename(file.path(root, ".agents/skills/example"), file.path(root, ".agents/skills/renamed"))
   state <- .skill_load(root)
-  state$skills[[1]]$paths <- list(".claude/skills/example", ".agents/skills/renamed")
+  names(state$skills[[1]]$copies)[names(state$skills[[1]]$copies) == ".agents/skills/example"] <- ".agents/skills/renamed"
   .skill_save(root, state)
   cat("Edited\n", file = file.path(root, ".agents/skills/renamed/SKILL.md"), append = TRUE)
   error <- tryCatch(skills_sync(".claude/skills/example", root, direction = "status"), error = conditionMessage)
@@ -827,14 +831,14 @@ test_that("skills_copy() records a copy made through a case alias of the source 
   skip_if_not(.skill_case_insensitive_at(root), "case-sensitive volume")
   source <- withr::local_tempdir()
   writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source, "SKILL.md"))
-  expect_true(.skill_package_install(source, root, ".claude/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".claude/skills/example", "example"))
   dir.create(file.path(root, "custom/skills"), recursive = TRUE)
   skill_copy_quiet(from_dir = ".Claude/Skills", to_dir = "Custom/skills", project_path = root)
-  paths <- unlist(.skill_load(root)$skills[[1]]$paths)
+  paths <- names(.skill_load(root)$skills[[1]]$copies)
   expect_setequal(paths, c(".claude/skills/example", "custom/skills/example"))
   # Copying again through another alias adds nothing
   skill_copy_quiet(from_dir = ".claude/skills", to_dir = "CUSTOM/skills", project_path = root)
-  expect_setequal(unlist(.skill_load(root)$skills[[1]]$paths), c(".claude/skills/example", "custom/skills/example"))
+  expect_setequal(names(.skill_load(root)$skills[[1]]$copies), c(".claude/skills/example", "custom/skills/example"))
 })
 
 test_that("skills_copy() reports the lock's spelling, and skills_sync() resolves a case alias", {
@@ -855,7 +859,7 @@ test_that("skills_copy() reports the lock's spelling, and skills_sync() resolves
     list(skill_id = "framework:example", version = 1L, bundle = files, hash = .skill_hash(files), system = TRUE)
   })
   sync <- skills_sync("Custom/Skills/example", root, direction = "status")
-  expect_identical(sync$paths, unlist(.skill_load(root)$skills[[1]]$paths))
+  expect_identical(sync$paths, names(.skill_load(root)$skills[[1]]$copies))
   expect_identical(posts, 0L)
   expect_null(.skill_load(root)$skills[["Custom/Skills/example"]])
 })
@@ -867,10 +871,10 @@ test_that("skills_sync() matches a lock path written in an alias spelling", {
   skip_if_not(.skill_case_insensitive_at(root), "case-sensitive volume")
   skill_copy_cloud(root)
   state <- .skill_load(root)
-  state$skills[[1]]$paths <- list(".Claude/Skills/example", ".agents/skills/example")
+  names(state$skills[[1]]$copies)[names(state$skills[[1]]$copies) == ".claude/skills/example"] <- ".Claude/Skills/example"
   .skill_save(root, state)
   result <- skills_sync(".claude/skills/EXAMPLE", root, direction = "status")
-  expect_identical(result$paths, c(".Claude/Skills/example", ".agents/skills/example"))
+  expect_setequal(result$paths, c(".Claude/Skills/example", ".agents/skills/example"))
   expect_length(.skill_load(root)$skills, 1L)
 })
 
@@ -905,7 +909,7 @@ test_that("skills_copy() reports and records the skill folder as the filesystem 
   skip_if_not(.skill_case_insensitive_at(root), "case-sensitive volume")
   source <- withr::local_tempdir()
   writeLines(c("---", "name: example", "description: Example", "---", "First"), file.path(source, "SKILL.md"))
-  expect_true(.skill_package_install(source, root, ".claude/skills/example", "example"))
+  expect_true(skill_install_builtin(source, root, ".claude/skills/example", "example"))
   # The target already holds an identical copy spelled Example
   dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
   file.copy(file.path(root, ".claude/skills/example"), file.path(root, ".agents/skills"), recursive = TRUE)
@@ -913,7 +917,7 @@ test_that("skills_copy() reports and records the skill folder as the filesystem 
   result <- skill_copy_quiet("claude", project_path = root)
   expect_identical(vapply(result$skills, `[[`, "", "status"), "current")
   expect_identical(result$skills[[1]]$to, ".agents/skills/Example")
-  expect_setequal(unlist(.skill_load(root)$skills[[1]]$paths), c(".claude/skills/example", ".agents/skills/Example"))
+  expect_setequal(names(.skill_load(root)$skills[[1]]$copies), c(".claude/skills/example", ".agents/skills/Example"))
 })
 
 test_that("with three copies, running the printed hint once reconciles the whole entry", {
@@ -921,7 +925,7 @@ test_that("with three copies, running the printed hint once reconciles the whole
   skill_copy_cloud(root)
   suppressMessages(skills_copy(from = "claude", to_dir = NULL, from_dir = NULL, project_path = root, to = "agents"))
   suppressMessages(skills_copy(from_dir = ".claude/skills", to_dir = "custom/skills", project_path = root))
-  expect_length(unlist(.skill_load(root)$skills[[1]]$paths), 3L)
+  expect_length(.skill_load(root)$skills[[1]]$copies, 3L)
   cat("Claude edit\n", file = file.path(root, ".claude/skills/example/SKILL.md"), append = TRUE)
   cat("Custom edit\n", file = file.path(root, "custom/skills/example/SKILL.md"), append = TRUE)
   error <- tryCatch(skills_sync(".claude/skills/example", root, direction = "status"), error = conditionMessage)

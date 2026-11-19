@@ -140,11 +140,6 @@
   found
 }
 
-# Record each copy of a tracked skill in its lock entry, so the copies sync
-# as one skill. A target path tracked by another entry moves to the source's
-# entry; an entry left with no paths is removed. The entry's hash (the last
-# synced version) is kept, so an edited skill still pushes as edited. A
-# source that isn't tracked leaves the lock alone.
 # A project path as the filesystem spells it, relative to the root: its
 # deepest existing part as on disk (case), then the rest as given
 .skill_copy_spelling <- function(root, relative) {
@@ -158,43 +153,6 @@
     }
   }
   relative
-}
-
-.skill_copy_record <- function(root, results) {
-  state <- .skill_load(root); changed <- FALSE
-  # Lock paths are matched by filesystem identity: .Claude/skills on a
-  # volume that ignores case is .claude/skills
-  spelled <- function(p) .skill_copy_spelling(root, p)
-  for (r in results) {
-    if (!r$status %in% c("copied", "current")) next
-    from <- spelled(r$from); to <- spelled(r$to)
-    key <- names(Filter(function(e) from %in% vapply(unlist(e$paths), spelled, ""), state$skills))
-    if (!length(key)) next
-    key <- key[1]
-    if (to %in% vapply(unlist(state$skills[[key]]$paths), spelled, "")) next
-    r$to <- to
-    for (other in setdiff(names(state$skills), key)) {
-      paths <- unlist(state$skills[[other]]$paths)
-      paths <- paths[vapply(paths, spelled, "") != r$to]
-      if (length(paths) == length(unlist(state$skills[[other]]$paths))) next
-      if (length(paths)) state$skills[[other]]$paths <- as.list(paths) else state$skills[[other]] <- NULL
-    }
-    state$skills[[key]]$paths <- as.list(c(unlist(state$skills[[key]]$paths), r$to))
-    changed <- TRUE
-  }
-  if (changed) .skill_save(root, state)
-  invisible(changed)
-}
-
-# The key of the lock entry tracking a path, matched by filesystem
-# identity, or NULL
-.skill_copy_owner <- function(root, state, relative) {
-  spelled <- .skill_copy_spelling(root, relative)
-  for (key in names(state$skills)) {
-    paths <- unlist(state$skills[[key]]$paths)
-    if (relative %in% paths || spelled %in% vapply(paths, function(p) .skill_copy_spelling(root, p), "")) return(key)
-  }
-  NULL
 }
 
 .skill_copy_scan <- function(root, relative) {
@@ -234,10 +192,12 @@
 #' replaced, and keeps its folder permissions. Identical copies are left as
 #' they are. Skills that are only in a target folder are listed, left alone,
 #' and not read. When the source skill is tracked in
-#' `.framework/skills.lock.json`, a real run adds each copy's path to its
-#' entry, so the copies sync as one skill. The entry's last synced version is
-#' kept, so [push_skills()] then pushes the edited skill. A dry run, or an
-#' untracked source, leaves the lock alone.
+#' `.framework/skills.lock.json`, a real run adds each copy to its entry,
+#' with the source copy's record, so the copies sync as one skill. An edited
+#' source makes an edited copy: [push_skills()] then pushes the edit, and
+#' [pull_skills()] keeps both copies. A target that another skill tracks is
+#' refused, in dry runs too. A dry run, or an untracked source, leaves the
+#' lock alone. To move a copy instead, use [skills_move()].
 #'
 #' A real run takes the skill sync lock, then reads and checks every source
 #' and target before anything is written. A dry run checks the same things.
@@ -263,7 +223,7 @@
 #'   `counts` by status, and `message` (the summary line). A missing skill is
 #'   in a target folder but not in the source, and is kept; its `from` is
 #'   `NULL`. `backup` is the backup folder of a replaced copy, else `NULL`.
-#' @seealso [pull_skills()], [push_skills()], [skills_sync()]
+#' @seealso [pull_skills()], [push_skills()], [skills_sync()], [skills_move()]
 #' @export
 #'
 #' @examples
@@ -306,6 +266,7 @@ skills_copy <- function(from = NULL, to = NULL, skills = NULL, from_dir = NULL, 
   # The lock is read and checked before anything is written, so a lock that
   # can't be read never leaves a target overwritten
   lock_state <- tryCatch(.skill_load(root), error = function(e) {
+    if (inherits(e, "fw_skill_error")) stop(e)
     stop("Could not read .framework/skills.lock.json (", conditionMessage(e), "). Nothing was copied.", call. = FALSE)
   })
   source_kind <- .skill_kind(.skill_path(root, source))
@@ -343,39 +304,24 @@ skills_copy <- function(from = NULL, to = NULL, skills = NULL, from_dir = NULL, 
 
   # Read and check every source and target before writing anything
   bundles <- lapply(stats::setNames(nm = names), function(name) .skill_copy_scan(root, file.path(source, name)))
-  results <- list()
-  for (t in targets) {
-    planned <- character()
-    for (name in names) {
-      from_path <- file.path(source, name); to_path <- file.path(t, name)
-      dest <- .skill_path(root, to_path)
-      kind <- .skill_kind(dest)
-      if (!kind %in% c("missing", "directory")) stop("Target is not a folder: ", to_path, call. = FALSE)
-      current <- if (identical(kind, "directory")) .skill_hash(.skill_copy_scan(root, to_path)) else NULL
-      if (identical(kind, "directory")) planned <- c(planned, .skill_copy_id(dest))
-      # A target another skill's lock entry tracks is refused, in dry runs
-      # too. An untracked source may be copied onto a tracked path: that is
-      # how a hand-made copy is adopted (the lock is left as it is).
-      owner <- .skill_copy_owner(root, lock_state, to_path)
-      source_owner <- .skill_copy_owner(root, lock_state, from_path)
-      if (!is.null(owner) && !is.null(source_owner) && !identical(owner, source_owner)) {
-        stop("Target ", to_path, " belongs to another skill (tracked separately in .framework/skills.lock.json). ",
-             "Nothing was copied.", call. = FALSE)
-      }
-      status <- if (identical(current, .skill_hash(bundles[[name]]))) "current" else "copied"
-      results[[length(results) + 1L]] <- list(name = name, status = status, from = from_path, to = to_path,
-                                              backup = NULL, expected = current)
-    }
-    # Never deleted or read: a skill only in the target is listed and kept.
-    # A folder the copy writes to is the same skill, whatever its case.
-    if (is.null(skills)) {
-      for (name in .skill_copy_skills(root, t)) {
-        if (.skill_copy_id(.skill_path(root, file.path(t, name))) %in% planned) next
-        results[[length(results) + 1L]] <- list(name = name, status = "missing", from = NULL,
-                                                to = file.path(t, name), backup = NULL)
-      }
-    }
+  disk <- .skill_disk(root)
+  # Skills only in a target: its folders with a regular SKILL.md
+  disk$folders <- function(d) .skill_copy_skills(root, d)
+  for (t in targets) for (name in names) {
+    to_path <- file.path(t, name)
+    kind <- .skill_kind(.skill_path(root, to_path))
+    if (!kind %in% c("missing", "directory")) stop("Target is not a folder: ", to_path, call. = FALSE)
+    if (identical(kind, "directory")) .skill_copy_scan(root, to_path)
   }
+  # A target another skill's lock entry tracks is refused, in dry runs too.
+  # An untracked source may be copied onto a tracked path: that is how a
+  # hand-made copy is adopted (the lock is left as it is). A tracked
+  # source's copies join its entry with its record.
+  plan <- .skill_plan_copy(disk, lock_state, source, targets, names, all = is.null(skills))
+  results <- lapply(plan$steps, function(s) {
+    list(name = s$name, status = s$status, from = if (!identical(s$status, "missing")) s$from, to = s$path,
+         backup = NULL, expected = if (identical(disk$hash(s$path), .skill_absent)) NULL else disk$hash(s$path))
+  })
 
   if (!dry_run) {
     journal <- new.env(); journal$done <- list()
@@ -391,18 +337,13 @@ skills_copy <- function(from = NULL, to = NULL, skills = NULL, from_dir = NULL, 
       NULL
     }, error = identity, interrupt = identity)
     if (!is.null(outcome)) .skill_copy_fail(journal$done, outcome, row)
-    # Each copy as the filesystem now spells it, skill folder included (a
-    # replaced Foo is now foo)
-    for (i in seq_along(results)) {
-      if (results[[i]]$status %in% c("copied", "current")) results[[i]]$to <- .skill_copy_spelling(root, results[[i]]$to)
-    }
-    recorded <- tryCatch(.skill_copy_record(root, results), error = identity)
+    recorded <- tryCatch(.skill_save_changed(root, lock_state, plan$lock_after), error = identity)
     if (inherits(recorded, "error")) {
       stop("The skills were copied, but the copies could not be recorded in .framework/skills.lock.json: ",
            conditionMessage(recorded), call. = FALSE)
     }
   }
-  results <- lapply(results, function(r) r[c("name", "status", "from", "to", "backup")])
+  results <- lapply(results, function(r) c(r[c("name", "status", "from", "to", "backup")], list(paths = r$to)))
 
   statuses <- vapply(results, `[[`, "", "status")
   counts <- vapply(.skill_copy_statuses, function(s) sum(statuses == s), integer(1))
@@ -421,7 +362,7 @@ skills_copy <- function(from = NULL, to = NULL, skills = NULL, from_dir = NULL, 
     }
   }
   invisible(list(dry_run = dry_run, from = source, to = targets, skills = results,
-                 counts = as.list(counts), message = summary))
+                 counts = as.list(counts), message = summary, steps = plan$steps))
 }
 
 # The skills_sync() error for a skill whose copies differ, with the

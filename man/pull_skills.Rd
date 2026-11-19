@@ -16,17 +16,18 @@ pull_skills(project_path = ".", overwrite = FALSE, dry_run = FALSE)
 \value{
 Invisibly, a list: \code{source} ("cloud" or "package"), \code{dry_run},
 \code{skills} (each a list with \code{name}, \code{status}, and \code{paths}), \code{counts} by
-status, \code{message} (the summary line), and \code{notes}. Statuses: added,
-restored (a deleted tracked copy put back), updated, current, edited
-(local edits kept), replaced (local edits backed up and overwritten),
-diverged (tracked copies differ or one is missing; nothing written),
-missing (every tracked copy gone and not restorable), removed (no longer
-in the setup), unavailable (Cloud not reached; left alone), failed (the
-entry couldn't be read), kept (belongs to a different skill, or the
-setup names a different identity), and untracked (a copy not in the
-lock, left alone). Every row that isn't a plain success has a \code{reason},
-one plain sentence, and a \code{hint} with the exact command to run when
-there is one.
+status, \code{message} (the summary line), \code{notes}, and \code{steps} (one per
+copy, with its \code{action}). Statuses: added, restored (a deleted tracked
+copy put back), updated, current, edited (local edits kept), replaced
+(local edits backed up and overwritten), diverged (copies differ, or
+one is missing beside an edited one; nothing written), missing (every
+tracked copy gone and not restorable, or a copy's folder gone), removed
+(no longer in the setup), unavailable (Cloud not reached; left alone),
+failed (a copy couldn't be read), kept (a folder tracking a different
+skill), and untracked (a copy not in the lock, left alone). Every row
+that isn't a plain success has a \code{reason}, one plain sentence, a
+\code{reason_code}, and, when there is one, a \code{hint} with the exact command
+to run and its \code{hint_key} and \code{hint_args}.
 }
 \description{
 Brings a project's skills up to date with its setup on Framework Cloud.
@@ -38,31 +39,34 @@ Cloud. Their latest Cloud versions need \code{\link[=cloud_login]{cloud_login()}
 versions in the project's setup are used.
 }
 \details{
-Locally edited skills are kept and listed. \code{overwrite = TRUE} replaces
-them too, backing the old copies up to \verb{.framework/skills-backups/}.
-Skills no longer in the setup are never deleted, only listed. The Skills
-table in AGENTS.md is refreshed.
+\code{.framework/skills.lock.json} records what each copy held when a sync
+last wrote it. A copy that still matches its record is unedited and is
+updated. Any other copy is locally edited, including one reverted by hand
+to an older version, and is kept and listed. \code{overwrite = TRUE} replaces
+edited copies too, backing the old copies up to
+\verb{.framework/skills-backups/}. Skills no longer in the setup are never
+deleted, only listed. The Skills table in AGENTS.md is refreshed.
 
-A skill whose tracked copies (in \verb{.claude/skills/} and \verb{.agents/skills/})
-differ, or with a tracked copy missing, is diverged: no copy of it is
-written, its entry in \code{.framework/skills.lock.json} is left as it is, and
-the message gives the \code{\link[=skills_copy]{skills_copy()}} call that reconciles it. The same
-applies to a new assistant folder when the existing copy is locally
-edited or tracks your own or a Cloud skill. No skill moves to an older
-version.
-
-An edited copy of your own Cloud skill is kept. With \code{overwrite = TRUE}
-it is reset, after a backup, to that same skill's Cloud version (the same
-version or a newer one), which discards your local edits. A different
-identity (another Cloud skill, a built-in, or setup content) never
-replaces your own skill.
+A skill is judged by its identity (a Framework built-in, a Cloud skill
+and its variant, or setup text), never by its folder name. A folder that
+tracks another identity is kept, and the row gives the \code{\link[=skills_move]{skills_move()}}
+call that switches it. A skill's copies (in \verb{.claude/skills/} and
+\verb{.agents/skills/}) are judged together: when an edited copy differs from
+another copy, or is missing beside it, the skill is diverged, nothing is
+written, and the row gives the \code{\link[=skills_copy]{skills_copy()}} call that reconciles it.
+\code{overwrite} never chooses between two edits. A missing copy next to
+unedited ones is restored. No skill moves to an older version: when the
+project holds a newer version than the setup names (after
+\code{\link[=push_skills]{push_skills()}}), its copies are kept, and a new assistant folder gets
+the project's copy.
 
 Pull uses the enabled assistants' skills folders (\code{.agents/skills} when
 none is set) and the paths \code{.framework/skills.lock.json} tracks. Other
 folders, such as a disabled assistant's, are not read.
 
 Offline, or without a project token, the package skills for the project's
-type are used instead, and the message says so.
+type are used instead, and the message says so. Skills tracked on Cloud
+are then left as they are and listed as unavailable.
 }
 \examples{
 \donttest{
@@ -76,5 +80,5 @@ pull_skills()
 \seealso{
 \code{\link[=push_skills]{push_skills()}} sends edited skills back; \code{\link[=skills_sync]{skills_sync()}} syncs
 one skill; \code{\link[=skills_copy]{skills_copy()}} copies an edited skill to the other
-assistant folders.
+assistant folders; \code{\link[=skills_move]{skills_move()}} moves a copy or switches its skill.
 }

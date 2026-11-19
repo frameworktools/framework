@@ -491,14 +491,21 @@ test_that("the plan names the platforms Claude Code's sandbox needs", {
   expect_true(any(grepl("macOS, Linux, or WSL on Windows", guard, fixed = TRUE)))
 })
 
-test_that("upgrade() reports a skill install the installer declines as kept", {
+test_that("upgrade() keeps a skill that changed between the plan and the write", {
   dir <- local_old_project()
   unlink(file.path(dir, ".claude"), recursive = TRUE)
-  local_mocked_bindings(.skill_package_install = function(...) FALSE)
+  real <- .skill_acquire
+  # The folder appears after the plan, just before the skills are written
+  local_mocked_bindings(.skill_acquire = function(root) {
+    folder <- file.path(root, ".claude/skills/framework-sensitive-data")
+    dir.create(folder, recursive = TRUE)
+    writeLines(c("---", "name: framework-sensitive-data", "description: Ours", "---", "Ours"), file.path(folder, "SKILL.md"))
+    real(root)
+  })
   out <- capture.output(result <- upgrade(dir, dry_run = FALSE), type = "message")
   expect_identical(result$skills_kept, ".claude/skills/framework-sensitive-data")
-  expect_true(any(grepl("Skills kept (changed since the plan, or tracked on Cloud): .claude/skills/framework-sensitive-data",
-                        out, fixed = TRUE)))
+  expect_true(any(grepl("Skills kept (changed since the plan): .claude/skills/framework-sensitive-data", out, fixed = TRUE)))
+  expect_true("Ours" %in% readLines(file.path(dir, ".claude/skills/framework-sensitive-data/SKILL.md")))
 })
 
 test_that("upgrade() leaves a skill alone when its copies differ", {

@@ -147,7 +147,7 @@ test_that("push_skills() and push_all()'s skills use the project's server, not t
   asked <- character()
   local_mocked_bindings(
     .fw_cloud_token = function(url = NULL) { asked <<- c(asked, url); NULL },
-    .skill_push_edited = function(root) list(list(present = ".claude/skills/lab-style"))
+    .skill_push_edited_names = function(root) "lab-style"
   )
   expect_error(push_skills(dir), "project.example")
   expect_error(framework:::.skills_push_plan(dir, FALSE), "project.example")

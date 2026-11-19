@@ -305,28 +305,13 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     message("  Created: ", stub)
   }
 
-  installed_skills <- character()
-  for (skill in names(spec$skills)) {
-    entry <- spec$skills[[skill]]
-    for (skills_dir in targets$skills_dirs) {
-      target <- file.path(skills_dir, skill)
-      # A declined install (an existing copy that is edited or tracked on
-      # Cloud) is reported as kept
-      installed <- TRUE
-      if (isTRUE(entry$package)) {
-        source_dir <- system.file("templates", "skills", skill, package = "framework")
-        installed <- .skill_package_install(source_dir, project_dir, target, skill)
-      } else if (!is.null(entry$sync) && !is.null(entry$bundle)) {
-        installed <- .skill_cloud_install(project_dir, target, entry)
-      } else {
-        .spec_write_text(project_dir, file.path(target, "SKILL.md"), entry$content)
-        for (f in names(entry$files)) {
-          .spec_write_text(project_dir, file.path(target, f), entry$files[[f]])
-        }
-      }
-      if (isTRUE(installed)) installed_skills <- union(installed_skills, skill)
-      else message("  Kept (edited or tracked on Cloud): ", target)
-    }
+  sources <- lapply(names(spec$skills), function(skill) .skill_source_setup(skill, spec$skills[[skill]]))
+  statuses <- .skill_install_sources(project_dir, sources, targets$skills_dirs)
+  # A declined install (an existing copy that is edited or tracked as
+  # another skill) is reported as kept
+  installed_skills <- names(Filter(function(s) s %in% c("added", "restored", "updated", "replaced", "current"), statuses))
+  for (skill in setdiff(names(spec$skills), installed_skills)) {
+    message("  Kept (edited or tracked as another skill): ", skill)
   }
   if (length(installed_skills) > 0) {
     message("  Installed ", length(installed_skills), " skill(s) in ", paste(targets$skills_dirs, collapse = ", "))
