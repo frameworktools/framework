@@ -1,4 +1,11 @@
-# framework (development version)
+# framework 2.0.16
+
+Published ggplots carry a phiz plot description, so Framework Cloud draws
+them as live charts that follow the page's light or dark mode, with the
+image as the fallback. Older Framework Cloud servers keep showing the
+image.
+
+Changes:
 
 * Publishing a ggplot writes `figure.phiz.json` beside its SVG or PNG: the
   plot as a phiz plot description (format 1). Framework Cloud receives it in
