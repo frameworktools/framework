@@ -35,5 +35,7 @@ A list with the action, skill identity, hashes, and version.
 \description{
 Synchronize a versioned skill bundle with Framework Cloud. Divergent changes
 return a conflict without replacing files. Companion files and executable
-modes are included. Untracked skills become private account skills.
+modes are included. Untracked skills become private account skills. When
+a skill's copies in several assistant folders differ, sync stops until
+\code{\link[=skills_copy]{skills_copy()}} makes them match.
 }

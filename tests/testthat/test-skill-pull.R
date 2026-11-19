@@ -43,6 +43,12 @@ skill_pull_mock <- function(envelope, env = parent.frame(), user_token = NULL, r
   )
 }
 
+# Enable assistants in settings.yml; pull only uses enabled assistants' folders
+skill_pull_assistants <- function(root, assistants) {
+  writeLines(c("default:", "  project_type: project", "  ai:", paste0("    assistants: [", paste(assistants, collapse = ", "), "]")),
+             file.path(root, "settings.yml"))
+}
+
 read_skill <- function(root, name, dir = ".claude/skills") {
   readLines(file.path(root, dir, name, "SKILL.md"), warn = FALSE)
 }
@@ -64,7 +70,7 @@ test_that("pull_skills() adds the setup's skills, reports others, and refreshes 
   expect_true(dir.exists(file.path(root, ".claude/skills/old-skill")))
   expect_identical(tail(read_skill(root, "lab-style"), 1), "Version one")
   expect_true(sprintf("Skills: %d added, 1 no longer in the project's setup", result$counts$added) %in% out)
-  expect_true("  No longer in the project's setup (kept): old-skill" %in% out)
+  expect_true("  Removed: old-skill \u2014 It's no longer in the project's setup, so it was left in place." %in% out)
   agents <- readLines(file.path(root, "AGENTS.md"))
   expect_true(any(grepl("`.claude/skills/lab-style/SKILL.md`", agents, fixed = TRUE)))
   expect_true(any(grepl("Our lab's figure style", agents, fixed = TRUE)))
@@ -90,7 +96,7 @@ test_that("pull_skills() updates unedited skills, keeps edited ones, and overwri
   expect_identical(tail(read_skill(root, "lab-style"), 1), "Version 2")
   expect_identical(read_skill(root, "framework-data"), "my edits")
   expect_true(any(grepl("^Skills: 1 updated, \\d+ up to date, 1 locally edited \\(kept\\)$", out)))
-  expect_true(any(grepl("Kept (locally edited): framework-data", out, fixed = TRUE)))
+  expect_true(any(grepl("Edited: framework-data \u2014 .claude/skills/framework-data has local edits, which were kept. pull_skills(overwrite = TRUE) replaces them", out, fixed = TRUE)))
 
   # Edited Cloud skills are kept too
   writeLines("lab edits", file.path(root, ".claude/skills/lab-style/SKILL.md"))
@@ -230,7 +236,7 @@ test_that("push_skills() pushes an edited Cloud skill after a warning, and refus
   cloud$remote$`lab-id` <- list(skill_id = "lab-id", version = 3L, bundle = web, hash = .skill_hash(web))
   out <- capture.output(result <- push_skills(root, confirm = TRUE), type = "message")
   expect_identical(result$message, "Skills pushed: 1 refused (pull first)")
-  expect_true(any(grepl("Pull first: lab-style changed on Cloud", out, fixed = TRUE)))
+  expect_true(any(grepl("Refused: lab-style \u2014 lab-style changed on Cloud", out, fixed = TRUE)))
   expect_length(cloud$posts, 1L)
 
   out <- capture.output(result <- push_skills(root, force = TRUE, confirm = TRUE), type = "message")
@@ -300,5 +306,1073 @@ test_that("push_skills() lists untracked skills", {
   writeLines(c("---", "name: scratch", "description: x", "---"), file.path(root, ".claude/skills/scratch/SKILL.md"))
   out <- capture.output(result <- push_skills(root), type = "message")
   expect_identical(result$message, "Skills pushed: 1 not tracked")
-  expect_true("  Not tracked: scratch \u2014 use skills_sync() to add it" %in% out)
+  expect_true("  Untracked: scratch \u2014 .claude/skills/scratch isn't tracked. skills_sync(\".claude/skills/scratch\") pushes it as a new skill." %in% out)
+})
+
+# A project with an older Framework skill in both assistant folders, offline
+skill_pull_two_folders <- function(env = parent.frame()) {
+  withr::local_envvar(FW_PROJECT_TOKEN = NA, .local_envir = env)
+  local_mocked_bindings(.fw_project_token = function(...) NULL, .env = env)
+  root <- withr::local_tempdir(.local_envir = env)
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [claude, codex]"),
+             file.path(root, "settings.yml"))
+  old <- withr::local_tempdir(.local_envir = env)
+  writeLines(c("---", "name: framework-data", "description: x", "---", "Old"), file.path(old, "SKILL.md"))
+  for (dir in c(".claude/skills", ".agents/skills")) {
+    expect_true(.skill_package_install(old, root, file.path(dir, "framework-data"), "framework-data"))
+  }
+  root
+}
+
+test_that("pull_skills() updates an unedited skill in every assistant folder", {
+  root <- skill_pull_two_folders()
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "updated")
+  shipped <- .skill_hash(.skill_scan(system.file("templates", "skills", "framework-data", package = "framework")))
+  for (dir in c(".claude/skills", ".agents/skills")) {
+    expect_identical(.skill_hash(.skill_scan(file.path(root, dir, "framework-data"))), shipped)
+  }
+})
+
+test_that("pull_skills() plans every skill before writing and names what it wrote when a write fails", {
+  root <- skill_pull_two_folders()
+  real <- .skill_pull_apply
+  local_mocked_bindings(.skill_pull_apply = function(root, name, entry, relative, ...) {
+    if (identical(relative, ".agents/skills/framework-data")) stop("Disk full", call. = FALSE)
+    real(root, name, entry, relative, ...)
+  })
+  error <- tryCatch(suppressMessages(pull_skills(root)), error = conditionMessage)
+  expect_match(error, "^pull_skills\\(\\) stopped at \\.agents/skills/framework-data: Disk full\\. Already written: ")
+  expect_match(error, ".claude/skills/framework-data", fixed = TRUE)
+  expect_false(grepl(".agents/skills/framework-data,", error, fixed = TRUE))
+})
+
+test_that("pull_skills() keeps an edit made between planning and writing", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  version <- 1L
+  skill_pull_mock(function() skill_pull_envelope(list(`lab-style` = skill_pull_entry(paste("Version", version), version))))
+  suppressMessages(pull_skills(root))
+  version <- 2L
+  skill_md <- file.path(root, ".claude/skills/lab-style/SKILL.md")
+  real <- .skill_pull_apply
+  local_mocked_bindings(.skill_pull_apply = function(root, name, entry, relative, ...) {
+    if (identical(name, "lab-style")) cat("Edited during the pull\n", file = skill_md, append = TRUE)
+    real(root, name, entry, relative, ...)
+  })
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  expect_identical(Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]$status, "edited")
+  expect_true("Edited during the pull" %in% readLines(skill_md))
+  expect_true("Version 1" %in% readLines(skill_md))
+  expect_false(dir.exists(file.path(root, ".framework/skills-backups")))
+})
+
+test_that("pull_skills() names a skill it wrote before failing to record it", {
+  root <- skill_pull_two_folders()
+  local_mocked_bindings(.skill_save = function(...) stop("Disk full", call. = FALSE))
+  error <- tryCatch(suppressMessages(pull_skills(root)), error = conditionMessage)
+  expect_identical(error, paste0("pull_skills() stopped at .claude/skills/framework-workflow: Disk full. ",
+                                 "Already written: .claude/skills/framework-workflow."))
+  expect_true(file.exists(file.path(root, ".claude/skills/framework-workflow/SKILL.md")))
+})
+
+# Round 5: diverged copies, new assistant folders, and Cloud identity
+
+skill_pull_lock_entry <- function(root, relative) .skill_pull_tracked(.skill_load(root), relative)
+
+test_that("pull_skills() reports differing copies as diverged and writes neither", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  version <- 2L
+  skill_pull_mock(function() skill_pull_envelope(list(`lab-style` = skill_pull_entry(paste("Version", version), version))))
+  suppressMessages(pull_skills(root))
+  v2 <- skill_pull_lock_entry(root, ".claude/skills/lab-style")
+  expect_identical(v2$version, 2L)
+  # The .agents copy goes back to version 1; the setup names version 1
+  writeLines(c("---", "name: lab-style", "description: Our lab's figure style", "---", "Version 1"),
+             file.path(root, ".agents/skills/lab-style/SKILL.md"))
+  version <- 1L
+  before <- c(.skill_pull_hash(root, ".claude/skills/lab-style"), .skill_pull_hash(root, ".agents/skills/lab-style"))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  skill <- Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]
+  expect_identical(skill$status, "diverged")
+  expect_true(any(grepl(paste0("Diverged: lab-style \u2014 .claude/skills/lab-style and .agents/skills/lab-style differ. ",
+                               "Pick one and copy it over the other: ",
+                               "skills_copy(from = \"claude\", to = \"agents\", skills = \"lab-style\")"), out, fixed = TRUE)))
+  expect_identical(skill$hint, "skills_copy(from = \"claude\", to = \"agents\", skills = \"lab-style\")")
+  expect_identical(c(.skill_pull_hash(root, ".claude/skills/lab-style"), .skill_pull_hash(root, ".agents/skills/lab-style")), before)
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), v2)
+})
+
+test_that("pull_skills() doesn't re-add a missing tracked copy at an older version", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  version <- 2L
+  skill_pull_mock(function() skill_pull_envelope(list(`lab-style` = skill_pull_entry(paste("Version", version), version))))
+  suppressMessages(pull_skills(root))
+  v2 <- skill_pull_lock_entry(root, ".claude/skills/lab-style")
+  unlink(file.path(root, ".agents/skills/lab-style"), recursive = TRUE)
+  version <- 1L
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]
+  expect_identical(skill$status, "diverged")
+  expect_match(skill$hint, "skills_copy(from = \"claude\", to = \"agents\", skills = \"lab-style\")", fixed = TRUE)
+  expect_false(dir.exists(file.path(root, ".agents/skills/lab-style")))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), v2)
+})
+
+test_that("pull_skills(overwrite = TRUE) never moves a skill to an older version", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L))))
+  suppressMessages(pull_skills(root))
+  cat("Edited\n", file = file.path(root, ".claude/skills/lab-style/SKILL.md"), append = TRUE)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))))
+  result <- suppressMessages(pull_skills(root, overwrite = TRUE))
+  expect_identical(Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]$status, "edited")
+  expect_true("Edited" %in% read_skill(root, "lab-style"))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$version, 2L)
+})
+
+test_that("pull_skills() keeps your own skill's identity and doesn't fill a new folder with an older copy", {
+  root <- skill_push_setup()
+  shipped <- system.file("templates", "skills", "framework-data", package = "framework")
+  files <- .skill_scan(shipped)
+  cloud <- new.env()
+  cloud$remote <- list(`framework:framework-data` = list(skill_id = "framework:framework-data", version = 1L,
+                                                         bundle = files, hash = .skill_hash(files), system = TRUE))
+  skill_push_mock(cloud)
+  cat("Our addition\n", file = file.path(root, ".claude/skills/framework-data/SKILL.md"), append = TRUE)
+  suppressMessages(push_skills(root, confirm = TRUE))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data")$skill_id, "own-copy")
+
+  # A new assistant folder
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version one", 1L))))
+  for (overwrite in c(FALSE, TRUE)) {
+    result <- suppressMessages(pull_skills(root, overwrite = overwrite))
+    statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
+    expect_identical(statuses[["framework-data"]], "diverged")
+    skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+    expect_match(skill$hint, "skills_copy(from = \"claude\", to = \"agents\", skills = \"framework-data\")", fixed = TRUE)
+    expect_false(dir.exists(file.path(root, ".agents/skills/framework-data")))
+    expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data")$skill_id, "own-copy")
+    expect_true("Our addition" %in% read_skill(root, "framework-data"))
+    # A Cloud skill is copied with skills_copy() too
+    expect_identical(statuses[["lab-style"]], "diverged")
+    expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$skill_id, "lab-id")
+    # An unedited built-in fills the new folder
+    expect_identical(statuses[["framework-cache"]], if (overwrite) "current" else "added")
+  }
+  expect_true(dir.exists(file.path(root, ".agents/skills/framework-cache")))
+})
+
+test_that("pull_skills(overwrite = TRUE) replaces an edited built-in and fills a new folder with it", {
+  root <- skill_pull_two_folders()
+  # framework-data ends up in .claude/skills only, edited, and tracked only
+  # there; .agents/skills is a new folder without it. (The pull below leaves
+  # .agents/skills/framework-data out because its tracked copy is missing.)
+  unlink(file.path(root, ".agents/skills"), recursive = TRUE)
+  suppressMessages(pull_skills(root))
+  cat("My edit\n", file = file.path(root, ".claude/skills/framework-data/SKILL.md"), append = TRUE)
+  # .agents/skills already exists (the pull above filled it)
+  state <- .skill_load(root)
+  key <- names(Filter(function(e) ".claude/skills/framework-data" %in% unlist(e$paths), state$skills))
+  state$skills[[key]]$paths <- list(".claude/skills/framework-data")
+  .skill_save(root, state)
+
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "diverged")
+  expect_match(skill$hint, "skills_copy(from = \"claude\", to = \"agents\", skills = \"framework-data\")", fixed = TRUE)
+  expect_false(dir.exists(file.path(root, ".agents/skills/framework-data")))
+
+  result <- suppressMessages(pull_skills(root, overwrite = TRUE))
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "replaced")
+  expect_false(any(vapply(result$skills, function(s) identical(s$status, "diverged"), logical(1))))
+  shipped <- .skill_hash(.skill_scan(system.file("templates", "skills", "framework-data", package = "framework")))
+  for (dir in c(".claude/skills", ".agents/skills")) {
+    expect_identical(.skill_pull_hash(root, file.path(dir, "framework-data")), shipped)
+  }
+  expect_false("My edit" %in% readLines(file.path(root, ".claude/skills/framework-data/SKILL.md")))
+  expect_length(list.dirs(file.path(root, ".framework/skills-backups"), recursive = FALSE), 1L)
+})
+
+# Round 6
+
+# A project whose framework-data was edited and pushed as your own skill
+# ("own-copy", version 1). Returns the root and the Cloud state.
+skill_pull_own_setup <- function(env = parent.frame()) {
+  root <- skill_push_setup(env)
+  shipped <- system.file("templates", "skills", "framework-data", package = "framework")
+  files <- .skill_scan(shipped)
+  cloud <- new.env()
+  cloud$remote <- list(`framework:framework-data` = list(skill_id = "framework:framework-data", version = 1L,
+                                                         bundle = files, hash = .skill_hash(files), system = TRUE))
+  skill_push_mock(cloud, env = env)
+  cat("Our addition\n", file = file.path(root, ".claude/skills/framework-data/SKILL.md"), append = TRUE)
+  suppressMessages(push_skills(root, confirm = TRUE))
+  list(root = root, cloud = cloud)
+}
+
+# The setup naming your own skill for framework-data
+skill_pull_own_envelope <- function(cloud) {
+  own <- cloud$remote$`own-copy`
+  skill_pull_envelope(list(
+    `lab-style` = skill_pull_entry("Version one", 1L),
+    `framework-data` = list(content = rawToChar(jsonlite::base64_dec(own$bundle[[1]]$content)), bundle = own$bundle,
+                            sync = list(skill_id = "own-copy", version = own$version, hash = own$hash,
+                                        variant = "r", server = "https://cloud.example"))))
+}
+
+test_that("a diverged skill has nothing written in any folder, even with overwrite", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  cat("Another edit\n", file = file.path(root, ".claude/skills/framework-data/SKILL.md"), append = TRUE)
+  before <- .skill_pull_hash(root, ".claude/skills/framework-data")
+  lock <- skill_pull_lock_entry(root, ".claude/skills/framework-data")
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  skill_pull_mock(skill_pull_own_envelope(setup$cloud))
+  result <- suppressMessages(pull_skills(root, overwrite = TRUE))
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "diverged")
+  expect_identical(.skill_pull_hash(root, ".claude/skills/framework-data"), before)
+  expect_false(dir.exists(file.path(root, ".agents/skills/framework-data")))
+  expect_false(dir.exists(file.path(root, ".framework/skills-backups")))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data"), lock)
+})
+
+test_that("a copy joining a skill joins its lock entry", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  skill_pull_mock(skill_pull_own_envelope(setup$cloud))
+  suppressMessages(pull_skills(root))
+  skills_copy(from = "claude", to = "agents", skills = "framework-data", project_path = root) |> suppressMessages()
+  suppressMessages(pull_skills(root))
+  entries <- Filter(function(e) identical(e$skill_id, "own-copy"), .skill_load(root)$skills)
+  expect_length(entries, 1L)
+  expect_setequal(unlist(entries[[1]]$paths), c(".claude/skills/framework-data", ".agents/skills/framework-data"))
+  # A one-sided edit is a divergence, not a push
+  cat("Codex only\n", file = file.path(root, ".agents/skills/framework-data/SKILL.md"), append = TRUE)
+  skill_push_mock(setup$cloud)
+  published <- setup$cloud$remote$`own-copy`$version
+  result <- suppressMessages(push_skills(root, confirm = TRUE))
+  statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
+  expect_identical(statuses[["framework-data"]], "failed")
+  expect_identical(setup$cloud$remote$`own-copy`$version, published)
+})
+
+test_that("a forced pull never moves a framework: skill to an older version", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L, skill_id = "framework:lab-style"))))
+  suppressMessages(pull_skills(root))
+  cat("Edited\n", file = file.path(root, ".claude/skills/lab-style/SKILL.md"), append = TRUE)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L, skill_id = "framework:lab-style"))))
+  suppressMessages(pull_skills(root, overwrite = TRUE))
+  entry <- skill_pull_lock_entry(root, ".claude/skills/lab-style")
+  expect_identical(entry$version, 2L)
+  expect_true("Version 2" %in% read_skill(root, "lab-style"))
+})
+
+test_that("an offline pull leaves a skill tracked on Cloud as it is", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  files <- .skill_scan(system.file("templates", "skills", "framework-data", package = "framework"))
+  synced <- list(content = "x", bundle = files,
+                 sync = list(skill_id = "framework:framework-data", version = 2L, hash = .skill_hash(files),
+                             variant = "r", server = "https://cloud.example"))
+  skill_pull_mock(skill_pull_envelope(list(`framework-data` = synced)))
+  suppressMessages(pull_skills(root))
+  before <- skill_pull_lock_entry(root, ".claude/skills/framework-data")
+  expect_identical(before$skill_id, "framework:framework-data")
+
+  withr::local_envvar(FW_PROJECT_TOKEN = NA)
+  local_mocked_bindings(.fw_project_token = function(...) NULL)
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "unavailable")
+  expect_true(any(grepl("Unavailable: framework-data \u2014 Framework Cloud wasn't reached, so framework-data was left as it is.", out, fixed = TRUE)))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data"), before)
+})
+
+test_that("pull_skills() reports a skill whose every copy was missing as restored", {
+  root <- skill_pull_two_folders()
+  for (d in c(".claude/skills", ".agents/skills")) unlink(file.path(root, d, "framework-data"), recursive = TRUE)
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "restored")
+  expect_true("  Restored: framework-data \u2014 Every tracked copy was missing, so it was installed again." %in% out)
+  expect_match(result$message, "1 restored")
+  for (d in c(".claude/skills", ".agents/skills")) expect_true(dir.exists(file.path(root, d, "framework-data")))
+})
+
+test_that("your own skill is reported as yours, and overwrite doesn't claim to replace it", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version one", 1L))))
+  for (overwrite in c(FALSE, TRUE)) {
+    out <- capture.output(result <- pull_skills(root, overwrite = overwrite), type = "message")
+    expect_true("  Kept: framework-data \u2014 .claude/skills/framework-data belongs to a different skill (own-copy), so pull left it alone." %in% out)
+    expect_false(any(grepl("framework-data — pull_skills(overwrite = TRUE) replaces it", out, fixed = TRUE)))
+    expect_true("Our addition" %in% read_skill(root, "framework-data"))
+  }
+})
+
+test_that("inline setup content never replaces your own skill of the same name", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  lock <- skill_pull_lock_entry(root, ".claude/skills/framework-data")
+  skill_pull_mock(skill_pull_envelope(list(`framework-data` = list(content = "---\nname: framework-data\ndescription: x\n---\nInline\n"))))
+  result <- suppressMessages(pull_skills(root, overwrite = TRUE))
+  expect_identical(Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]$status, "kept")
+  expect_true("Our addition" %in% read_skill(root, "framework-data"))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data"), lock)
+})
+
+test_that("an edited copy from before skill tracking isn't paired with the shipped text in a new folder", {
+  withr::local_envvar(FW_PROJECT_TOKEN = NA)
+  local_mocked_bindings(.fw_project_token = function(...) NULL)
+  root <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [claude, codex]"), file.path(root, "settings.yml"))
+  dir.create(file.path(root, ".claude/skills/framework-data"), recursive = TRUE)
+  writeLines(c("---", "name: framework-data", "description: x", "---", "Our own text"),
+             file.path(root, ".claude/skills/framework-data/SKILL.md"))
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "diverged")
+  expect_match(skill$hint, "skills_copy(from = \"claude\", to = \"agents\", skills = \"framework-data\")", fixed = TRUE)
+  expect_false(dir.exists(file.path(root, ".agents/skills/framework-data")))
+  expect_true("Our own text" %in% read_skill(root, "framework-data"))
+})
+
+test_that("overwrite resets an edited copy of your own skill to that skill's Cloud version", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  skill_md <- file.path(root, ".claude/skills/framework-data/SKILL.md")
+  own <- setup$cloud$remote$`own-copy`
+
+  # A different identity (the built-in) never replaces it, overwrite or not
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version one", 1L))))
+  cat("Edited again\n", file = skill_md, append = TRUE)
+  for (overwrite in c(FALSE, TRUE)) {
+    out <- capture.output(result <- pull_skills(root, overwrite = overwrite), type = "message")
+    expect_true("  Kept: framework-data \u2014 .claude/skills/framework-data belongs to a different skill (own-copy), so pull left it alone." %in% out)
+    expect_true("Edited again" %in% readLines(skill_md))
+  }
+
+  # The same skill at the same version: kept, and the printed hint resets it
+  skill_pull_mock(skill_pull_own_envelope(setup$cloud))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  expect_identical(Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]$status, "edited")
+  row <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  line <- grep("Edited: framework-data", out, fixed = TRUE, value = TRUE)
+  expect_identical(line, paste0("  Edited: framework-data \u2014 .claude/skills/framework-data has local edits, which were kept. ",
+                                "pull_skills(overwrite = TRUE) replaces them with the Cloud version."))
+  expect_identical(row$hint, "pull_skills(overwrite = TRUE)")
+  call <- str2lang(row$hint); call$project_path <- root
+  result <- suppressMessages(eval(call))
+  expect_identical(Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]$status, "replaced")
+  expect_identical(.skill_pull_hash(root, ".claude/skills/framework-data"), own$hash)
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data")$skill_id, "own-copy")
+  backup <- list.dirs(file.path(root, ".framework/skills-backups"), recursive = FALSE)
+  expect_length(backup, 1L)
+  expect_true("Edited again" %in% readLines(file.path(backup, "SKILL.md")))
+
+  # A newer version: kept without overwrite; the printed hint replaces it
+  cat("Edited once more\n", file = skill_md, append = TRUE)
+  newer <- skill_pull_bundle("Newer on Cloud", name = "framework-data")
+  setup$cloud$remote$`own-copy` <- list(skill_id = "own-copy", version = own$version + 1L, bundle = newer, hash = .skill_hash(newer))
+  skill_pull_mock(skill_pull_own_envelope(setup$cloud))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  row <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(row$status, "edited")
+  expect_identical(row$hint, "pull_skills(overwrite = TRUE)")
+  call <- str2lang(row$hint); call$project_path <- root
+  suppressMessages(eval(call))
+  expect_true("Newer on Cloud" %in% readLines(skill_md))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data")$version, own$version + 1L)
+  expect_length(list.dirs(file.path(root, ".framework/skills-backups"), recursive = FALSE), 2L)
+})
+
+# Round 7
+
+# skill_pull_own_setup() with framework-data also in .agents/skills,
+# tracked in the same lock entry
+skill_pull_own_two_folders <- function(env = parent.frame()) {
+  setup <- skill_pull_own_setup(env)
+  root <- setup$root
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  suppressMessages(skills_copy(from = "claude", to = "agents", skills = "framework-data", project_path = root))
+  skill_pull_mock(skill_pull_own_envelope(setup$cloud), env = env)
+  suppressMessages(pull_skills(root))
+  expect_setequal(unlist(skill_pull_lock_entry(root, ".agents/skills/framework-data")$paths),
+                  c(".claude/skills/framework-data", ".agents/skills/framework-data"))
+  setup
+}
+
+test_that("a forced update of your own skill updates every folder", {
+  setup <- skill_pull_own_two_folders(); root <- setup$root
+  for (d in c(".claude/skills", ".agents/skills")) cat("Same edit\n", file = file.path(root, d, "framework-data/SKILL.md"), append = TRUE)
+  own <- setup$cloud$remote$`own-copy`
+  newer <- skill_pull_bundle("Newer on Cloud", name = "framework-data")
+  setup$cloud$remote$`own-copy` <- list(skill_id = "own-copy", version = own$version + 1L, bundle = newer, hash = .skill_hash(newer))
+  skill_pull_mock(skill_pull_own_envelope(setup$cloud))
+  result <- suppressMessages(pull_skills(root, overwrite = TRUE))
+  expect_identical(Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]$status, "replaced")
+  for (d in c(".claude/skills", ".agents/skills")) {
+    expect_true("Newer on Cloud" %in% readLines(file.path(root, d, "framework-data/SKILL.md")), info = d)
+  }
+  expect_identical(skill_pull_lock_entry(root, ".agents/skills/framework-data")$version, own$version + 1L)
+})
+
+test_that("two clean copies of a Cloud skill both move to the new version", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  version <- 1L
+  skill_pull_mock(function() skill_pull_envelope(list(`lab-style` = skill_pull_entry(paste("Version", version), version))))
+  suppressMessages(pull_skills(root))
+  version <- 2L
+  result <- suppressMessages(pull_skills(root))
+  expect_identical(Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]$status, "updated")
+  for (d in c(".claude/skills", ".agents/skills")) expect_true("Version 2" %in% read_skill(root, "lab-style", d), info = d)
+  expect_identical(skill_pull_lock_entry(root, ".agents/skills/lab-style")$version, 2L)
+})
+
+test_that("restored names only the copies written and says which folders are gone", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))))
+  suppressMessages(pull_skills(root))
+  # Codex is disabled again; its tracked copy stays in the lock
+  skill_pull_assistants(root, "claude")
+  unlink(file.path(root, ".claude/skills/lab-style"), recursive = TRUE)
+  unlink(file.path(root, ".agents"), recursive = TRUE)
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  skill <- Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]
+  expect_identical(skill$status, "restored")
+  expect_true(paste0("  Restored: lab-style \u2014 Restored where its folder exists. Not restored: ",
+                     ".agents/skills/lab-style, because its folder is gone.") %in% out)
+  expect_true(dir.exists(file.path(root, ".claude/skills/lab-style")))
+
+  # A tracked folder that exists is restored too, even when not configured
+  unlink(file.path(root, ".claude/skills/lab-style"), recursive = TRUE)
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  expect_true("  Restored: lab-style \u2014 Every tracked copy was missing, so it was installed again." %in% out)
+  for (d in c(".claude/skills", ".agents/skills")) expect_true(dir.exists(file.path(root, d, "lab-style")), info = d)
+})
+
+test_that("a lock with two entries for one Cloud skill is read as one", {
+  setup <- skill_pull_own_two_folders(); root <- setup$root
+  # The lock as earlier versions wrote it: one entry per folder
+  state <- .skill_load(root)
+  key <- names(Filter(function(e) identical(e$skill_id, "own-copy"), state$skills))
+  split <- state$skills[[key]]
+  state$skills[[key]]$paths <- list(".claude/skills/framework-data")
+  split$paths <- list(".agents/skills/framework-data")
+  state$skills[["account:https://cloud.example:own-copy:r"]] <- split
+  .skill_save(root, state)
+  raw <- jsonlite::fromJSON(file.path(root, ".framework/skills.lock.json"), simplifyVector = FALSE)
+  expect_length(Filter(function(e) identical(e$skill_id, "own-copy"), raw$skills), 2L)
+
+  entries <- Filter(function(e) identical(e$skill_id, "own-copy"), .skill_load(root)$skills)
+  expect_length(entries, 1L)
+  expect_setequal(unlist(entries[[1]]$paths), c(".claude/skills/framework-data", ".agents/skills/framework-data"))
+
+  # A one-sided edit is a divergence, not a push
+  cat("Codex only\n", file = file.path(root, ".agents/skills/framework-data/SKILL.md"), append = TRUE)
+  skill_push_mock(setup$cloud)
+  published <- setup$cloud$remote$`own-copy`$version
+  result <- suppressMessages(push_skills(root, confirm = TRUE))
+  statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
+  expect_identical(statuses[["framework-data"]], "failed")
+  expect_identical(setup$cloud$remote$`own-copy`$version, published)
+})
+
+test_that("a pull with matching bytes updates the version, never to an older one", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  entry <- skill_pull_entry("Version one", 1L)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = entry)))
+  suppressMessages(pull_skills(root))
+  same <- entry; same$sync$version <- 2L
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = same)))
+  result <- suppressMessages(pull_skills(root))
+  expect_identical(Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]$status, "current")
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$version, 2L)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = entry)))
+  result <- suppressMessages(pull_skills(root))
+  expect_identical(Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]$status, "current")
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$version, 2L)
+})
+
+test_that("skills_sync() of a copy made with skills_copy() joins its skill", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  suppressMessages(skills_copy(from = "claude", to = "agents", skills = "framework-data", project_path = root))
+  posts <- length(setup$cloud$posts)
+  result <- skills_sync(".agents/skills/framework-data", root)
+  expect_identical(result$action, "unchanged")
+  expect_length(setup$cloud$posts, posts)
+  expect_length(Filter(function(e) identical(e$skill_id, "own-copy"), .skill_load(root)$skills), 1L)
+  expect_null(.skill_load(root)$skills[[".agents/skills/framework-data"]])
+})
+
+# Rule J: explicit joins
+
+test_that("the printed hint, then pull, then push keeps the copies as one skill", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  dir.create(file.path(root, ".agents/skills"), recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  skill_pull_mock(skill_pull_own_envelope(setup$cloud))
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(skill$status, "diverged")
+  command <- regmatches(skill$hint, regexpr("skills_copy\\([^)]*\\)", skill$hint))
+  expect_identical(command, "skills_copy(from = \"claude\", to = \"agents\", skills = \"framework-data\")")
+  call <- str2lang(command); call$project_path <- root
+  suppressMessages(eval(call))
+  suppressMessages(pull_skills(root))
+  entries <- Filter(function(e) identical(e$skill_id, "own-copy"), .skill_load(root)$skills)
+  expect_length(entries, 1L)
+  expect_setequal(unlist(entries[[1]]$paths), c(".claude/skills/framework-data", ".agents/skills/framework-data"))
+  cat("Codex only\n", file = file.path(root, ".agents/skills/framework-data/SKILL.md"), append = TRUE)
+  skill_push_mock(setup$cloud)
+  published <- setup$cloud$remote$`own-copy`$version
+  result <- suppressMessages(push_skills(root, confirm = TRUE))
+  statuses <- setNames(vapply(result$skills, `[[`, "", "status"), vapply(result$skills, `[[`, "", "name"))
+  expect_identical(statuses[["framework-data"]], "failed")
+  expect_identical(setup$cloud$remote$`own-copy`$version, published)
+})
+
+test_that("a copy in a custom folder moves to the new version with the others", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  version <- 1L
+  skill_pull_mock(function() skill_pull_envelope(list(`lab-style` = skill_pull_entry(paste("Version", version), version))))
+  suppressMessages(pull_skills(root))
+  suppressMessages(skills_copy(from_dir = ".claude/skills", to_dir = "custom/skills", skills = "lab-style", project_path = root))
+  expect_true("custom/skills/lab-style" %in% unlist(skill_pull_lock_entry(root, ".claude/skills/lab-style")$paths))
+  version <- 2L
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]
+  expect_identical(skill$status, "updated")
+  expect_true("custom/skills/lab-style" %in% skill$paths)
+  for (d in c(".claude/skills", "custom/skills")) expect_true("Version 2" %in% read_skill(root, "lab-style", d), info = d)
+  expect_identical(skill_pull_lock_entry(root, "custom/skills/lab-style")$version, 2L)
+})
+
+test_that("a standalone skill with the same name keeps its own identity under skills_sync()", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  before <- skill_pull_lock_entry(root, ".claude/skills/framework-data")
+  dir.create(file.path(root, "custom/skills/framework-data"), recursive = TRUE)
+  writeLines(c("---", "name: framework-data", "description: Mine", "---", "A different skill"),
+             file.path(root, "custom/skills/framework-data/SKILL.md"))
+  posts <- list()
+  local_mocked_bindings(
+    .fw_cloud_url = function(...) "https://cloud.example",
+    .fw_project_cloud_url = function(...) "https://cloud.example",
+    .fw_require_token = function(...) "user-token",
+    .fw_api = function(path, token, method = "GET", body = NULL, ...) {
+      if (identical(method, "POST")) {
+        posts[[length(posts) + 1L]] <<- body
+        return(list(skill_id = "standalone", version = 1L, bundle = body$bundle, hash = .skill_hash(body$bundle)))
+      }
+      NULL
+    })
+  result <- skills_sync("custom/skills/framework-data", root)
+  expect_identical(result$action, "push")
+  expect_length(posts, 1L)
+  expect_null(posts[[1]]$skill_id)
+  expect_identical(skill_pull_lock_entry(root, "custom/skills/framework-data")$skill_id, "standalone")
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data"), before)
+})
+
+# Round 9
+
+test_that("two independent skills with one name are not compared with each other", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))))
+  suppressMessages(pull_skills(root))
+  # A separate skill of the same name in .agents/skills, with its own ID
+  other <- file.path(root, ".agents/skills/lab-style")
+  dir.create(other, recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  writeLines(c("---", "name: lab-style", "description: Another lab", "---", "Theirs"), file.path(other, "SKILL.md"))
+  state <- .skill_load(root)
+  state$skills[["account:https://cloud.example:other-id:r"]] <- list(
+    paths = list(".agents/skills/lab-style"), variant = "r", server = "https://cloud.example",
+    skill_id = "other-id", version = 4L, hash = .skill_pull_hash(root, ".agents/skills/lab-style"))
+  .skill_save(root, state)
+  theirs <- state$skills[["account:https://cloud.example:other-id:r"]]
+
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]
+  expect_false(identical(skill$status, "diverged"))
+  expect_null(skill$hint)
+  expect_true("Theirs" %in% readLines(file.path(other, "SKILL.md")))
+  expect_identical(.skill_load(root)$skills[["account:https://cloud.example:other-id:r"]], theirs)
+})
+
+test_that("variants of one Cloud skill are never merged when the lock is read", {
+  state <- list(schema = 1L, skills = list(
+    r = list(paths = list(".claude/skills/x"), skill_id = "x-id", server = "https://c", variant = "r", version = 1L),
+    py = list(paths = list(".agents/skills/x"), skill_id = "x-id", server = "https://c", variant = "python", version = 1L),
+    split = list(paths = list("custom/skills/x"), skill_id = "x-id", server = "https://c", variant = "r", version = 2L),
+    elsewhere = list(paths = list("other/skills/x"), skill_id = "x-id", server = "https://other", variant = "r", version = 1L)))
+  merged <- .skill_merge_entries(state)
+  expect_setequal(names(merged$skills), c("split", "py", "elsewhere"))
+  expect_setequal(unlist(merged$skills$split$paths), c(".claude/skills/x", "custom/skills/x"))
+  expect_identical(unlist(merged$skills$py$paths), ".agents/skills/x")
+})
+
+# A skill tracked only in custom/skills, in a project switched from Claude
+# Code to Codex
+skill_pull_switched <- function(root) {
+  suppressMessages(skills_copy(from_dir = ".claude/skills", to_dir = "custom/skills", project_path = root))
+  state <- .skill_load(root)
+  for (k in names(state$skills)) {
+    state$skills[[k]]$paths <- as.list(setdiff(unlist(state$skills[[k]]$paths), file.path(".claude/skills", basename(unlist(state$skills[[k]]$paths)))))
+  }
+  .skill_save(root, state)
+  unlink(file.path(root, ".claude"), recursive = TRUE)
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [codex]"), file.path(root, "settings.yml"))
+}
+
+test_that("after switching assistants, a tracked custom copy moves with its skill", {
+  root <- skill_pull_two_folders()
+  unlink(file.path(root, ".agents"), recursive = TRUE)
+  state <- .skill_load(root)
+  for (k in names(state$skills)) state$skills[[k]]$paths <- as.list(grep("^\\.claude", unlist(state$skills[[k]]$paths), value = TRUE))
+  .skill_save(root, state)
+  skill_pull_switched(root)
+  expect_identical(unlist(skill_pull_lock_entry(root, "custom/skills/framework-data")$paths), "custom/skills/framework-data")
+
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_setequal(skill$paths, c(".agents/skills/framework-data", "custom/skills/framework-data"))
+  shipped <- .skill_hash(.skill_scan(system.file("templates", "skills", "framework-data", package = "framework")))
+  for (p in c(".agents/skills/framework-data", "custom/skills/framework-data")) expect_identical(.skill_pull_hash(root, p), shipped, info = p)
+  entry <- skill_pull_lock_entry(root, "custom/skills/framework-data")
+  expect_setequal(unlist(entry$paths), c(".agents/skills/framework-data", "custom/skills/framework-data"))
+  expect_identical(entry$hash, shipped)
+})
+
+test_that("after switching assistants, a Cloud skill's lock never moves ahead of its copies", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  version <- 1L
+  skill_pull_mock(function() skill_pull_envelope(list(`lab-style` = skill_pull_entry(paste("Version", version), version))))
+  suppressMessages(pull_skills(root))
+  skill_pull_switched(root)
+  version <- 3L
+  result <- suppressMessages(pull_skills(root))
+  skill <- Filter(function(s) identical(s$name, "lab-style"), result$skills)[[1]]
+  expect_true("custom/skills/lab-style" %in% skill$paths)
+  # The new folder would take a Cloud skill (Rule Q): nothing is written,
+  # and the lock stays with the copy
+  expect_identical(skill$status, "diverged")
+  expect_identical(skill_pull_lock_entry(root, "custom/skills/lab-style")$version, 1L)
+  expect_true("Version 1" %in% read_skill(root, "lab-style", "custom/skills"))
+  expect_false(dir.exists(file.path(root, ".agents/skills/lab-style")))
+  # The printed repair, then a pull, moves every copy to version 3
+  command <- regmatches(skill$hint, regexpr("skills_copy\\([^)]*\\)", skill$hint))
+  expect_identical(command, "skills_copy(from_dir = \"custom/skills\", to_dir = \".agents/skills\", skills = \"lab-style\")")
+  call <- str2lang(command); call$project_path <- root
+  suppressMessages(eval(call))
+  suppressMessages(pull_skills(root))
+  for (d in c("custom/skills", ".agents/skills")) expect_true("Version 3" %in% read_skill(root, "lab-style", d), info = d)
+  expect_identical(skill_pull_lock_entry(root, ".agents/skills/lab-style")$version, 3L)
+})
+
+# Round 10: per-entry planning
+
+# lab-style from the setup (lab-id) in .claude/skills, and an independent
+# lab-style (other-id) in .agents/skills
+skill_pull_two_skills <- function(env = parent.frame()) {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token", .local_envir = env)
+  root <- skill_pull_project(env)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))), env = env)
+  suppressMessages(pull_skills(root))
+  other <- file.path(root, ".agents/skills/lab-style")
+  dir.create(other, recursive = TRUE)
+  skill_pull_assistants(root, c("claude", "codex"))
+  writeLines(c("---", "name: lab-style", "description: Another lab", "---", "Theirs"), file.path(other, "SKILL.md"))
+  state <- .skill_load(root)
+  state$skills[["account:https://cloud.example:other-id:r"]] <- list(
+    paths = list(".agents/skills/lab-style"), variant = "r", server = "https://cloud.example",
+    skill_id = "other-id", version = 4L, hash = .skill_pull_hash(root, ".agents/skills/lab-style"))
+  .skill_save(root, state)
+  root
+}
+
+skill_pull_rows <- function(result, name = "lab-style") Filter(function(s) identical(s$name, name), result$skills)
+skill_pull_other <- function(root) .skill_load(root)$skills[["account:https://cloud.example:other-id:r"]]
+
+test_that("deleting one of two same-named skills restores it without touching the other", {
+  root <- skill_pull_two_skills()
+  theirs <- skill_pull_other(root)
+  unlink(file.path(root, ".claude/skills/lab-style"), recursive = TRUE)
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  rows <- skill_pull_rows(result)
+  statuses <- vapply(rows, `[[`, "", "status")
+  expect_true("restored" %in% statuses)
+  expect_false("diverged" %in% statuses)
+  expect_false(any(grepl("skills_copy(", out, fixed = TRUE)))
+  expect_true("Version 1" %in% read_skill(root, "lab-style"))
+  expect_true("Theirs" %in% read_skill(root, "lab-style", ".agents/skills"))
+  expect_identical(skill_pull_other(root), theirs)
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$skill_id, "lab-id")
+})
+
+test_that("a diverged entry doesn't block an update to a same-named skill", {
+  root <- skill_pull_two_skills()
+  # The other skill is also tracked in custom/skills, with different content
+  dir.create(file.path(root, "custom/skills/lab-style"), recursive = TRUE)
+  writeLines(c("---", "name: lab-style", "description: Another lab", "---", "Theirs, edited"),
+             file.path(root, "custom/skills/lab-style/SKILL.md"))
+  state <- .skill_load(root)
+  state$skills[["account:https://cloud.example:other-id:r"]]$paths <- list(".agents/skills/lab-style", "custom/skills/lab-style")
+  .skill_save(root, state)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L))))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  rows <- skill_pull_rows(result)
+  statuses <- setNames(vapply(rows, `[[`, "", "status"), vapply(rows, function(r) r$paths[1], ""))
+  expect_identical(statuses[[".claude/skills/lab-style"]], "updated")
+  expect_identical(statuses[[".agents/skills/lab-style"]], "diverged")
+  diverged <- Filter(function(r) identical(r$status, "diverged"), rows)[[1]]
+  # The hint copies within the other skill's own entry
+  expect_match(diverged$reason, ".agents/skills/lab-style and custom/skills/lab-style differ", fixed = TRUE)
+  expect_identical(diverged$hint, "skills_copy(from_dir = \".agents/skills\", to_dir = \"custom/skills\", skills = \"lab-style\")")
+  expect_true("Version 2" %in% read_skill(root, "lab-style"))
+  expect_true("Theirs" %in% read_skill(root, "lab-style", ".agents/skills"))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$version, 2L)
+})
+
+test_that("updating one of two same-named skills leaves the other alone", {
+  root <- skill_pull_two_skills()
+  theirs <- skill_pull_other(root)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L))))
+  result <- suppressMessages(pull_skills(root))
+  rows <- skill_pull_rows(result)
+  expect_true("updated" %in% vapply(rows, `[[`, "", "status"))
+  expect_true("Version 2" %in% read_skill(root, "lab-style"))
+  expect_true("Theirs" %in% read_skill(root, "lab-style", ".agents/skills"))
+  expect_identical(skill_pull_other(root), theirs)
+})
+
+test_that("a hand-made copy beside a tracked skill is never written or joined", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))))
+  suppressMessages(pull_skills(root))
+  # Version 1's text, made by hand in .agents/skills
+  dir.create(file.path(root, ".agents/skills/lab-style"), recursive = TRUE)
+  file.copy(file.path(root, ".claude/skills/lab-style/SKILL.md"), file.path(root, ".agents/skills/lab-style"))
+  skill_pull_assistants(root, c("claude", "codex"))
+  before <- .skill_pull_hash(root, ".agents/skills/lab-style")
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L))))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  rows <- skill_pull_rows(result)
+  statuses <- setNames(vapply(rows, `[[`, "", "status"), vapply(rows, function(r) r$paths[1], ""))
+  expect_identical(statuses[[".claude/skills/lab-style"]], "updated")
+  expect_identical(statuses[[".agents/skills/lab-style"]], "untracked")
+  row <- Filter(function(r) identical(r$status, "untracked"), rows)[[1]]
+  expect_identical(row$reason, paste0(".agents/skills/lab-style isn't tracked, so pull left it alone. To track it with this skill: ",
+                                      "skills_copy(from = \"agents\", to = \"claude\", skills = \"lab-style\"); ",
+                                      "skills_copy(from = \"claude\", to = \"agents\", skills = \"lab-style\")"))
+  expect_identical(.skill_pull_hash(root, ".agents/skills/lab-style"), before)
+  expect_false(".agents/skills/lab-style" %in% unlist(skill_pull_lock_entry(root, ".claude/skills/lab-style")$paths))
+  # The adopt hint, run as printed, joins the copy to the skill
+  for (text in strsplit(row$hint, "; ", fixed = TRUE)[[1]]) {
+    call <- str2lang(text); call$project_path <- root; suppressMessages(eval(call))
+  }
+  expect_setequal(unlist(skill_pull_lock_entry(root, ".claude/skills/lab-style")$paths),
+                  c(".claude/skills/lab-style", ".agents/skills/lab-style"))
+  expect_length(Filter(function(e) identical(e$skill_id, "lab-id"), .skill_load(root)$skills), 1L)
+})
+
+test_that("one broken entry fails alone and the others are pulled", {
+  root <- skill_pull_two_skills()
+  unlink(file.path(root, ".agents/skills/lab-style/SKILL.md"))
+  writeLines("notes", file.path(root, ".agents/skills/lab-style/notes.md"))
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L))))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  rows <- skill_pull_rows(result)
+  statuses <- setNames(vapply(rows, `[[`, "", "status"), vapply(rows, function(r) r$paths[1], ""))
+  expect_identical(statuses[[".agents/skills/lab-style"]], "failed")
+  expect_identical(statuses[[".claude/skills/lab-style"]], "updated")
+  expect_true(any(grepl("Failed: lab-style — .*SKILL.md is required", out)))
+  expect_true("Version 2" %in% read_skill(root, "lab-style"))
+  expect_match(result$message, "1 failed")
+})
+
+test_that("built-in origins of different variants are never merged when the lock is read", {
+  state <- list(schema = 1L, skills = list(
+    r = list(paths = list(".claude/skills/x"), origin = list(skill_id = "framework:x"), variant = "r"),
+    py = list(paths = list(".agents/skills/x"), origin = list(skill_id = "framework:x"), variant = "python"),
+    again = list(paths = list("custom/skills/x"), origin = list(skill_id = "framework:x"), variant = "r")))
+  merged <- .skill_merge_entries(state)
+  expect_length(merged$skills, 2L)
+  expect_identical(unlist(merged$skills$py$paths), ".agents/skills/x")
+})
+
+# Round 11
+
+test_that("after .claude is renamed to .agents, the tracked entry is missing and the copy is kept untracked", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))))
+  suppressMessages(pull_skills(root))
+  file.rename(file.path(root, ".claude"), file.path(root, ".agents"))
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [codex]"), file.path(root, "settings.yml"))
+  before <- .skill_load(root)
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  rows <- skill_pull_rows(result)
+  statuses <- setNames(vapply(rows, `[[`, "", "status"), vapply(rows, function(r) r$paths[1], ""))
+  expect_identical(statuses[[".claude/skills/lab-style"]], "missing")
+  expect_identical(statuses[[".agents/skills/lab-style"]], "untracked")
+  expect_false("current" %in% statuses)
+  expect_true(any(grepl(paste0("Missing: lab-style \u2014 Every tracked copy is gone. Its last pushed version is Cloud skill ",
+                               "lab-id. Its folders (.claude/skills) are gone, so pull can't restore it."), out, fixed = TRUE)))
+  expect_false(any(grepl("skills_sync(", out, fixed = TRUE)))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), before$skills[["account:https://cloud.example:lab-id:r"]])
+  # The adopt hint, run as printed, puts the copy back at the tracked path
+  # and joins the .agents copy to the same skill
+  row <- Filter(function(r) identical(r$status, "untracked"), rows)[[1]]
+  for (text in strsplit(row$hint, "; ", fixed = TRUE)[[1]]) {
+    call <- str2lang(text); call$project_path <- root; suppressMessages(eval(call))
+  }
+  entry <- skill_pull_lock_entry(root, ".agents/skills/lab-style")
+  expect_identical(entry$skill_id, "lab-id")
+  expect_setequal(unlist(entry$paths), c(".claude/skills/lab-style", ".agents/skills/lab-style"))
+})
+
+test_that("a copy tracking a different Cloud skill than the setup names is kept with the reason", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L, skill_id = "acct-1"))))
+  suppressMessages(pull_skills(root))
+  # The setup now names another Cloud skill with the same bytes and name
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L, skill_id = "acct-2"))))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  row <- skill_pull_rows(result)[[1]]
+  expect_identical(row$status, "kept")
+  expect_identical(row$reason, ".claude/skills/lab-style belongs to a different skill (acct-1), so pull left it alone.")
+  expect_true(any(grepl("Kept: lab-style \u2014 .claude/skills/lab-style belongs to a different skill (acct-1)", out, fixed = TRUE)))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$skill_id, "acct-1")
+})
+
+test_that("the only copy of your own fork comes back from its own Cloud identity, or is reported missing", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  lock <- skill_pull_lock_entry(root, ".claude/skills/framework-data")
+  unlink(file.path(root, ".claude/skills/framework-data"), recursive = TRUE)
+  # Signed out: missing, and the hint says what restores it
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version one", 1L))))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  row <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(row$status, "missing")
+  expect_identical(row$reason, paste0("Every tracked copy is gone. Sign in with cloud_login(), then run pull_skills() ",
+                                      "to restore it from Cloud skill own-copy."))
+  expect_identical(row$hint, "pull_skills()")
+  expect_false(dir.exists(file.path(root, ".claude/skills/framework-data")))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data"), lock)
+
+  # Signed in: restored from own-copy, not from the built-in
+  own <- setup$cloud$remote$`own-copy`
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version one", 1L))),
+                  user_token = "user-token", remote = own)
+  result <- suppressMessages(pull_skills(root))
+  row <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(row$status, "restored")
+  expect_identical(.skill_pull_hash(root, ".claude/skills/framework-data"), own$hash)
+  expect_true("Our addition" %in% read_skill(root, "framework-data"))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data")$skill_id, "own-copy")
+})
+
+test_that("a folder pulled under another spelling is never also reported removed", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skip_if_not(.skill_case_insensitive_at(root), "case-sensitive volume")
+  dir.create(file.path(root, ".claude/skills/Lab-Style"), recursive = TRUE)
+  writeLines(c("---", "name: lab-style", "description: x", "---", "Mine"), file.path(root, ".claude/skills/Lab-Style/SKILL.md"))
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))))
+  result <- suppressMessages(pull_skills(root))
+  expect_false(any(vapply(result$skills, function(s) identical(s$status, "removed") && identical(tolower(s$name), "lab-style"), logical(1))))
+})
+
+# Round 12
+
+test_that("a folder tracked through a case alias isn't claimed by the setup's entry", {
+  root <- skill_pull_two_skills()
+  skip_if_not(.skill_case_insensitive_at(root), "case-sensitive volume")
+  skill_pull_assistants(root, c("claude", "codex"))
+  state <- .skill_load(root)
+  state$skills[["account:https://cloud.example:other-id:r"]]$paths <- list(".Agents/Skills/lab-style")
+  .skill_save(root, state)
+  theirs <- state$skills[["account:https://cloud.example:other-id:r"]]
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L))))
+  suppressMessages(pull_skills(root, overwrite = TRUE))
+  expect_true("Theirs" %in% read_skill(root, "lab-style", ".agents/skills"))
+  expect_identical(skill_pull_other(root), theirs)
+  expect_true("Version 2" %in% read_skill(root, "lab-style"))
+})
+
+test_that("a tracked skill outside the setup with every copy gone is reported missing, truthfully", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  # A standalone personal skill, pushed and then deleted
+  state <- .skill_load(root)
+  state$skills[["account:https://cloud.example:solo-id:r"]] <- list(
+    paths = list(".claude/skills/solo"), variant = "r", server = "https://cloud.example",
+    skill_id = "solo-id", version = 1L, hash = "x")
+  .skill_save(root, state)
+  skill_push_mock(setup$cloud)
+  out <- capture.output(push_skills(root, confirm = TRUE), type = "message")
+  expect_true("  Missing: solo \u2014 Every tracked copy is gone, so there is nothing to push." %in% out)
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version one", 1L))))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  row <- Filter(function(s) identical(s$name, "solo"), result$skills)[[1]]
+  expect_identical(row$status, "missing")
+  expect_true(paste0("  Missing: solo \u2014 Every tracked copy is gone. Its last pushed version is Cloud skill solo-id. ",
+                     "The project's setup doesn't list it, so pull can't restore it.") %in% out)
+})
+
+test_that("a fork fetched by its own ID is restored even when the setup falls back to the package", {
+  setup <- skill_pull_own_setup(); root <- setup$root
+  own <- setup$cloud$remote$`own-copy`
+  unlink(file.path(root, ".claude/skills/framework-data"), recursive = TRUE)
+  withr::local_envvar(FW_PROJECT_TOKEN = NA)
+  token <- NULL
+  local_mocked_bindings(
+    .fw_project_token = function(...) NULL,
+    .fw_cloud_token = function(...) token,
+    .fw_api = function(path, ...) if (grepl("/api/v1/skills/sync/own-copy", path, fixed = TRUE)) own else stop("unexpected: ", path))
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  row <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(row$status, "missing")
+  expect_match(row$reason, "Sign in with cloud_login(), then run pull_skills()", fixed = TRUE)
+  # The printed hint: sign in, then run pull_skills()
+  token <- "user-token"
+  call <- str2lang(row$hint); call$project_path <- root
+  result <- suppressMessages(eval(call))
+  row <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(row$status, "restored")
+  expect_identical(.skill_pull_hash(root, ".claude/skills/framework-data"), own$hash)
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data")$skill_id, "own-copy")
+})
+
+test_that("a file at a disabled assistant's path doesn't block the enabled one", {
+  withr::local_envvar(FW_PROJECT_TOKEN = NA)
+  local_mocked_bindings(.fw_project_token = function(...) NULL)
+  root <- withr::local_tempdir()
+  skill_pull_assistants(root, "codex")
+  dir.create(file.path(root, ".claude/skills"), recursive = TRUE)
+  writeLines("not a skill", file.path(root, ".claude/skills/framework-data"))
+  result <- suppressMessages(pull_skills(root))
+  row <- Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]
+  expect_identical(row$status, "added")
+  expect_identical(row$paths, ".agents/skills/framework-data")
+  expect_true(file.exists(file.path(root, ".agents/skills/framework-data/SKILL.md")))
+})
+
+test_that("a copy tracking a published framework: skill is never replaced by a different Cloud skill", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 5", 5L, skill_id = "framework:lab-style"))))
+  suppressMessages(pull_skills(root))
+  before <- skill_pull_lock_entry(root, ".claude/skills/lab-style")
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Account B", 1L, skill_id = "account-B"))))
+  for (overwrite in c(FALSE, TRUE)) {
+    out <- capture.output(result <- pull_skills(root, overwrite = overwrite), type = "message")
+    expect_identical(skill_pull_rows(result)[[1]]$status, "kept", info = as.character(overwrite))
+    expect_true(any(grepl(".claude/skills/lab-style belongs to a different skill (framework:lab-style), so pull left it alone.",
+                          out, fixed = TRUE)), info = as.character(overwrite))
+    expect_true("Version 5" %in% read_skill(root, "lab-style"))
+    expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), before)
+  }
+  # The installer refuses it too, even when forced
+  bundle <- skill_pull_bundle("Account B")
+  entry <- list(bundle = bundle, sync = list(skill_id = "account-B", version = 1L, hash = .skill_hash(bundle),
+                                             variant = "r", server = "https://cloud.example"))
+  expect_false(.skill_cloud_install(root, ".claude/skills/lab-style", entry, force = TRUE))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), before)
+})
+
+test_that("another variant of the same skill ID is a different identity, kept with the reason", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 1", 1L))))
+  suppressMessages(pull_skills(root))
+  before <- skill_pull_lock_entry(root, ".claude/skills/lab-style")
+  stata <- skill_pull_entry("Stata version", 2L); stata$sync$variant <- "stata"
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = stata)))
+  for (overwrite in c(FALSE, TRUE)) {
+    out <- capture.output(result <- pull_skills(root, overwrite = overwrite), type = "message")
+    expect_identical(skill_pull_rows(result)[[1]]$status, "kept", info = as.character(overwrite))
+    expect_true(any(grepl("belongs to a different skill (lab-id, r variant on https://cloud.example), so pull left it alone.",
+                          out, fixed = TRUE)), info = as.character(overwrite))
+    expect_true("Version 1" %in% read_skill(root, "lab-style"))
+    expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), before)
+  }
+  expect_false(.skill_cloud_install(root, ".claude/skills/lab-style", stata, force = TRUE))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$variant, "r")
+})
+
+test_that("skills_copy() refuses a target another skill tracks, in dry runs too", {
+  root <- skill_pull_two_skills()
+  lock <- readBin(file.path(root, ".framework/skills.lock.json"), "raw", n = 1e6)
+  for (dry in c(TRUE, FALSE)) {
+    expect_error(suppressMessages(skills_copy(from = "claude", to = "agents", skills = "lab-style", dry_run = dry, project_path = root)),
+                 "Target .agents/skills/lab-style belongs to another skill", info = as.character(dry))
+  }
+  expect_true("Theirs" %in% read_skill(root, "lab-style", ".agents/skills"))
+  expect_identical(readBin(file.path(root, ".framework/skills.lock.json"), "raw", n = 1e6), lock)
+  expect_false(dir.exists(file.path(root, ".framework/skills-backups")))
+})
+
+test_that("skills_sync() never lands on an entry whose key only matches the path", {
+  root <- withr::local_tempdir()
+  folder <- file.path(root, ".claude/skills/x")
+  dir.create(folder, recursive = TRUE)
+  writeLines(c("---", "name: x", "description: x", "---", "Mine"), file.path(folder, "SKILL.md"))
+  # An unrelated entry keyed by the path, which now tracks another folder
+  .skill_save(root, list(schema = 1L, skills = list(`.claude/skills/x` = list(
+    paths = list("custom/skills/x"), variant = "r", server = "https://cloud.example", skill_id = "unrelated", version = 3L, hash = "h"))))
+  posts <- list()
+  local_mocked_bindings(
+    .fw_cloud_url = function(...) "https://cloud.example",
+    .fw_project_cloud_url = function(...) "https://cloud.example",
+    .fw_require_token = function(...) "token",
+    .fw_api = function(path, token, method = "GET", body = NULL, ...) {
+      if (identical(method, "POST")) {
+        posts[[length(posts) + 1L]] <<- body
+        return(list(skill_id = "new-id", version = 1L, bundle = body$bundle, hash = .skill_hash(body$bundle)))
+      }
+      stop("no lookup expected: ", path)
+    })
+  result <- skills_sync(".claude/skills/x", root)
+  expect_identical(result$action, "push")
+  expect_null(posts[[1]]$skill_id)
+  state <- .skill_load(root)
+  expect_identical(state$skills[[".claude/skills/x"]]$skill_id, "unrelated")
+  expect_identical(unlist(state$skills[[".claude/skills/x"]]$paths), "custom/skills/x")
+  new <- Filter(function(e) identical(e$skill_id, "new-id"), state$skills)
+  expect_length(new, 1L)
+  expect_identical(names(new), ".claude/skills/x#2")
+  expect_identical(unlist(new[[1]]$paths), ".claude/skills/x")
 })

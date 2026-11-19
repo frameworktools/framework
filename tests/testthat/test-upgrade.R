@@ -490,3 +490,13 @@ test_that("the plan names the platforms Claude Code's sandbox needs", {
   guard <- result$actions$change[result$actions$path == ".claude/settings.json"]
   expect_true(any(grepl("macOS, Linux, or WSL on Windows", guard, fixed = TRUE)))
 })
+
+test_that("upgrade() reports a skill install the installer declines as kept", {
+  dir <- local_old_project()
+  unlink(file.path(dir, ".claude"), recursive = TRUE)
+  local_mocked_bindings(.skill_package_install = function(...) FALSE)
+  out <- capture.output(result <- upgrade(dir, dry_run = FALSE), type = "message")
+  expect_identical(result$skills_kept, ".claude/skills/framework-sensitive-data")
+  expect_true(any(grepl("Skills kept (changed since the plan, or tracked on Cloud): .claude/skills/framework-sensitive-data",
+                        out, fixed = TRUE)))
+})

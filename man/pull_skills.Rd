@@ -16,8 +16,17 @@ pull_skills(project_path = ".", overwrite = FALSE, dry_run = FALSE)
 \value{
 Invisibly, a list: \code{source} ("cloud" or "package"), \code{dry_run},
 \code{skills} (each a list with \code{name}, \code{status}, and \code{paths}), \code{counts} by
-status (added, updated, current, edited, replaced, removed,
-unavailable), \code{message} (the summary line), and \code{notes}.
+status, \code{message} (the summary line), and \code{notes}. Statuses: added,
+restored (a deleted tracked copy put back), updated, current, edited
+(local edits kept), replaced (local edits backed up and overwritten),
+diverged (tracked copies differ or one is missing; nothing written),
+missing (every tracked copy gone and not restorable), removed (no longer
+in the setup), unavailable (Cloud not reached; left alone), failed (the
+entry couldn't be read), kept (belongs to a different skill, or the
+setup names a different identity), and untracked (a copy not in the
+lock, left alone). Every row that isn't a plain success has a \code{reason},
+one plain sentence, and a \code{hint} with the exact command to run when
+there is one.
 }
 \description{
 Brings a project's skills up to date with its setup on Framework Cloud.
@@ -34,6 +43,24 @@ them too, backing the old copies up to \verb{.framework/skills-backups/}.
 Skills no longer in the setup are never deleted, only listed. The Skills
 table in AGENTS.md is refreshed.
 
+A skill whose tracked copies (in \verb{.claude/skills/} and \verb{.agents/skills/})
+differ, or with a tracked copy missing, is diverged: no copy of it is
+written, its entry in \code{.framework/skills.lock.json} is left as it is, and
+the message gives the \code{\link[=skills_copy]{skills_copy()}} call that reconciles it. The same
+applies to a new assistant folder when the existing copy is locally
+edited or tracks your own or a Cloud skill. No skill moves to an older
+version.
+
+An edited copy of your own Cloud skill is kept. With \code{overwrite = TRUE}
+it is reset, after a backup, to that same skill's Cloud version (the same
+version or a newer one), which discards your local edits. A different
+identity (another Cloud skill, a built-in, or setup content) never
+replaces your own skill.
+
+Pull uses the enabled assistants' skills folders (\code{.agents/skills} when
+none is set) and the paths \code{.framework/skills.lock.json} tracks. Other
+folders, such as a disabled assistant's, are not read.
+
 Offline, or without a project token, the package skills for the project's
 type are used instead, and the message says so.
 }
@@ -48,5 +75,6 @@ pull_skills()
 }
 \seealso{
 \code{\link[=push_skills]{push_skills()}} sends edited skills back; \code{\link[=skills_sync]{skills_sync()}} syncs
-one skill.
+one skill; \code{\link[=skills_copy]{skills_copy()}} copies an edited skill to the other
+assistant folders.
 }

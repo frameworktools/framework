@@ -374,3 +374,42 @@ test_that("pull_all() and push_all() point a Python project to framework-py", {
   expect_error(pull_all(root, dry_run = TRUE), "Use framework-py's pull_all() or fw pull.", fixed = TRUE)
   expect_error(push_all(root, dry_run = TRUE), "Use framework-py's push_all() or fw push.", fixed = TRUE)
 })
+
+test_that("pull_all() lists diverged and failed skills in its top-level failed", {
+  root <- setup_project()
+  cloud <- new.env(); cloud$revision <- "rev-1"; cloud$packages <- setup_cloud_packages()
+  setup_mock(cloud)
+  shipped <- system.file("templates", "skills", "framework-data", package = "framework")
+  for (d in c(".claude/skills", ".agents/skills")) expect_true(.skill_package_install(shipped, root, file.path(d, "framework-data"), "framework-data"))
+  cat("Codex only\n", file = file.path(root, ".agents/skills/framework-data/SKILL.md"), append = TRUE)
+  result <- suppressMessages(pull_all(root, dry_run = TRUE))
+  failed <- result$failed[["Skill framework-data (.claude/skills/framework-data)"]]
+  expect_match(failed, "^diverged: .claude/skills/framework-data and .agents/skills/framework-data differ. Pick one")
+  result <- suppressMessages(pull_all(root, confirm = TRUE))
+  expect_match(result$failed[["Skill framework-data (.claude/skills/framework-data)"]], "^diverged: ")
+  expect_true("Codex only" %in% readLines(file.path(root, ".agents/skills/framework-data/SKILL.md")))
+})
+
+test_that("push_all() lists failed and missing skills in its top-level failed, in dry runs too", {
+  root <- setup_project()
+  cloud <- new.env(); cloud$revision <- "rev-1"; cloud$packages <- setup_cloud_packages()
+  cloud$reply <- setup_package_reply(cloud); cloud$data_reply <- setup_data_reply(cloud)
+  setup_mock(cloud)
+  local_mocked_bindings(
+    .fw_cloud_token = function(...) "user-token",
+    .skill_push_edited = function(root) list(list(present = ".claude/skills/analysis")),
+    .skill_push_plan = function(root, force) {
+      list(plans = list(
+        list(name = "analysis", path = ".claude/skills/analysis", status = "failed",
+             reason = "Assistant skill copies diverged: .claude/skills/analysis and .agents/skills/analysis differ."),
+        list(name = "solo", path = ".claude/skills/solo", status = "missing")),
+        untracked = list())
+    },
+    .skill_push_apply = function(root, plans) plans)
+  result <- suppressMessages(push_all(root, dry_run = TRUE))
+  expect_match(result$failed[["Skill analysis (.claude/skills/analysis)"]], "^failed: Assistant skill copies diverged")
+  expect_identical(result$failed[["Skill solo (.claude/skills/solo)"]],
+                   "missing: every tracked copy is gone, so there is nothing to push")
+  # A real run stops and names the skill it couldn't push
+  expect_error(suppressMessages(push_all(root, confirm = TRUE)), "not pushed: analysis: Assistant skill copies diverged")
+})

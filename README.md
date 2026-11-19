@@ -242,6 +242,7 @@ New projects include `AGENTS.md`, pointer files for configured assistants (`CLAU
 ai_regenerate_context()   # Refresh generated sections of AGENTS.md
 pull_skills()             # Pull skills from the project's Cloud setup
 push_skills()             # Push locally edited skills to Cloud
+skills_copy(from = "claude")  # Copy edited skills to the other assistant folders
 skills_sync(".claude/skills/my-skill")
 pull_all()                # Pull packages, skills, and data registry from Cloud
 push_all()                # Push packages, skills, and data registry to Cloud

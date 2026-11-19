@@ -41,41 +41,98 @@
   .skill_sha(charToRaw(manifest))
 }
 
+.skill_on_windows <- function() .Platform$OS.type == "windows"
+
+# What is at a path, without following a final link: "missing",
+# "directory", "file", "symlink", or another fs type. A path that can't be
+# looked up (permission denied) is an error, never "missing".
+.skill_kind <- function(path) {
+  force(path)
+  info <- tryCatch(fs::file_info(path, follow = FALSE),
+                   error = function(e) stop("Could not read ", path, ": ", conditionMessage(e), call. = FALSE))
+  type <- as.character(info$type)
+  if (is.na(type)) "missing" else type
+}
+
+# A symlink, or on Windows a junction: libuv's lstat reports both as links.
+# Sys.readlink() covers platforms where lstat can't tell.
+.skill_is_link <- function(path) {
+  if (identical(.skill_kind(path), "symlink")) return(TRUE)
+  link <- Sys.readlink(path)
+  !is.na(link) && nzchar(link)
+}
+
 .skill_path <- function(root, relative) {
   if (!is.character(relative) || length(relative) != 1 || grepl("^[/\\\\]|^[A-Za-z]:", relative)) stop("Skill paths must be project-relative", call. = FALSE)
   parts <- strsplit(relative, "/", fixed = TRUE)[[1]]
   if (!length(parts) || any(parts %in% c("", ".", ".."))) stop("Invalid skill path", call. = FALSE)
+  # A colon names a drive or a stream on Windows
+  if (any(grepl(":", parts, fixed = TRUE))) stop("Skill paths cannot contain \":\": ", relative, call. = FALSE)
   path <- root
   for (part in parts) {
     path <- file.path(path, part)
-    link <- Sys.readlink(path)
-    if (!is.na(link) && nzchar(link)) stop("Skill paths cannot contain symlinks", call. = FALSE)
+    if (.skill_is_link(path)) stop("Skill paths cannot contain symlinks", call. = FALSE)
   }
   path
 }
 
+# Executable paths on Windows, which has no executable bit. Older versions
+# wrote a single path as a JSON string rather than an array.
+.skill_exec_meta_read <- function(path) {
+  meta <- file.path(path, ".framework-skill.json")
+  kind <- .skill_kind(meta)
+  if (identical(kind, "missing")) return(character())
+  if (!identical(kind, "file")) stop("Skill symlinks are unsupported", call. = FALSE)
+  paths <- unlist(jsonlite::fromJSON(meta, simplifyVector = FALSE)$executable_paths, use.names = FALSE)
+  if (!is.null(paths) && !is.character(paths)) stop("Invalid .framework-skill.json", call. = FALSE)
+  as.character(paths)
+}
+.skill_exec_meta_write <- function(folder, files) {
+  meta <- file.path(folder, ".framework-skill.json")
+  executable <- vapply(Filter(function(f) isTRUE(f$executable), files), `[[`, "", "path")
+  # Always an array, even for one path
+  if (length(executable)) writeLines(jsonlite::toJSON(list(executable_paths = executable)), meta)
+  else if (file.exists(meta)) unlink(meta)
+}
+
+# A folder's entries, by their literal names. A folder that can't be read is
+# an error: fs::dir_ls() reports it (list.files() returns nothing), but
+# fs::dir_ls() turns a backslash in a name into a separator, so the names
+# come from list.files(). A backslash in a name is an error.
+# Names the caller skips (`ignore`) are not checked.
+.skill_list <- function(folder, ignore = function(name) FALSE) {
+  force(folder)
+  tryCatch(fs::dir_ls(folder, all = TRUE),
+           error = function(e) stop("Could not read ", folder, ": ", conditionMessage(e), call. = FALSE))
+  names <- list.files(folder, all.files = TRUE, no.. = TRUE)
+  bad <- names[grepl("\\", names, fixed = TRUE) & !ignore(names)]
+  if (length(bad)) stop("Skill file names cannot contain a backslash: ", file.path(folder, bad[1]), call. = FALSE)
+  file.path(folder, names)
+}
+
 .skill_scan <- function(path) {
+  if (.skill_is_link(path)) stop("Skill symlinks are unsupported", call. = FALSE)
   files <- list()
-  metadata_path <- file.path(path, ".framework-skill.json")
-  executable_paths <- if (.Platform$OS.type == "windows" && file.exists(metadata_path)) {
-    jsonlite::fromJSON(metadata_path, simplifyVector = FALSE)$executable_paths
-  } else character()
   walk <- function(folder, prefix = "") {
-    for (p in list.files(folder, all.files = TRUE, full.names = TRUE, no.. = TRUE)) {
+    for (p in .skill_list(folder, ignore = .skill_excluded)) {
       name <- basename(p)
-      if (nzchar(Sys.readlink(p))) stop("Skill symlinks are unsupported", call. = FALSE)
+      if (.skill_is_link(p)) stop("Skill symlinks are unsupported: ", prefix, name, call. = FALSE)
       if (.skill_excluded(name)) next
       relative <- paste0(prefix, name)
-      if (dir.exists(p)) walk(p, paste0(relative, "/")) else {
-        info <- file.info(p)
-        if (!identical(as.character(fs::file_info(p)$type), "file") || is.na(info$size) || info$size > 4 * 1024^2) stop("Invalid or oversized skill file", call. = FALSE)
-        raw <- readBin(p, "raw", n = info$size)
-        executable <- if (.Platform$OS.type == "windows") relative %in% unlist(executable_paths) else bitwAnd(as.integer(info$mode), 73L) != 0L
-        files[[length(files) + 1L]] <<- list(path = relative, content = jsonlite::base64_enc(raw), executable = executable)
-      }
+      info <- fs::file_info(p, follow = FALSE)
+      type <- as.character(info$type)
+      if (identical(type, "directory")) { walk(p, paste0(relative, "/")); next }
+      if (!identical(type, "file") || is.na(info$size) || info$size > 4 * 1024^2) stop("Invalid or oversized skill file", call. = FALSE)
+      raw <- readBin(p, "raw", n = info$size)
+      executable <- !.skill_on_windows() && bitwAnd(as.integer(file.info(p)$mode), 73L) != 0L
+      files[[length(files) + 1L]] <<- list(path = relative, content = jsonlite::base64_enc(raw), executable = executable)
     }
   }
   walk(path)
+  if (.skill_on_windows()) {
+    executable_paths <- .skill_exec_meta_read(path)
+    for (i in seq_along(files)) files[[i]]$executable <- files[[i]]$path %in% executable_paths
+  }
   .skill_validate(files)
 }
 
@@ -83,6 +140,34 @@
   path <- .skill_path(root, ".framework/skills.lock.json")
   state <- if (file.exists(path)) jsonlite::fromJSON(path, simplifyVector = FALSE) else list(schema = 1L, skills = list())
   if (!identical(as.integer(state$schema), 1L) || !is.list(state$skills)) stop("Unsupported skill lock file", call. = FALSE)
+  .skill_merge_entries(state)
+}
+
+# One entry per skill. Lock files from earlier versions can hold two
+# entries for one skill (a package: entry for .claude/skills and an
+# account: entry for .agents/skills). Entries that share a Cloud ID, or a
+# skill name and origin, are merged into the entry with the highest
+# version, with all their paths. A Cloud skill is identified by its server,
+# ID, and variant: an R and a Python variant of one skill stay separate.
+.skill_merge_entries <- function(state) {
+  if (length(state$skills) < 2) return(state)
+  identity <- vapply(state$skills, function(e) {
+    if (!is.null(e$skill_id)) return(paste("id", e$server %||% "", e$skill_id, e$variant %||% "r", sep = "\t"))
+    if (!is.null(e$origin$skill_id)) {
+      names <- unique(basename(unlist(e$paths)))
+      if (length(names) == 1) return(paste("origin", e$origin$skill_id, names, e$variant %||% "r", sep = "\t"))
+    }
+    NA_character_
+  }, "")
+  for (id in unique(identity[!is.na(identity) & duplicated(identity)])) {
+    keys <- names(state$skills)[!is.na(identity) & identity == id]
+    versions <- vapply(keys, function(k) as.integer(state$skills[[k]]$version %||% 0L), integer(1))
+    base <- keys[which.max(versions)]
+    merged <- state$skills[[base]]
+    merged$paths <- as.list(unique(unlist(lapply(keys, function(k) unlist(state$skills[[k]]$paths)))))
+    for (k in setdiff(keys, base)) state$skills[[k]] <- NULL
+    state$skills[[base]] <- merged
+  }
   state
 }
 .skill_save <- function(root, state) {
@@ -100,59 +185,160 @@
   paste0(substr(x, 1, 8), "-", substr(x, 9, 12), "-4", substr(x, 14, 16), "-a", substr(x, 18, 20), "-", substr(x, 21, 32))
 }
 
-.skill_install <- function(root, paths, files, expected) {
-  files <- .skill_validate(files); swaps <- list(); success <- FALSE
-  on.exit({
-    if (!success) for (swap in rev(swaps)) {
-      if (dir.exists(swap$backup)) { unlink(swap$target, recursive = TRUE); file.rename(swap$backup, swap$target) }
-      else if (!dir.exists(swap$stage) && !swap$existed) unlink(swap$target, recursive = TRUE)
-      unlink(swap$stage, recursive = TRUE)
+# Undo installs: put each backup back, or remove a copy that is new. Each
+# swap is an environment, so an undone swap is marked and a second rollback
+# of the same swap does nothing. Returns the swaps that could not be undone.
+.skill_rollback <- function(swaps) {
+  failed <- list()
+  for (swap in rev(swaps)) {
+    ok <- TRUE
+    # A rename an interrupt cut off before its flag was set: the files show
+    # whether it happened
+    if (!isTRUE(swap$moved) && isTRUE(swap$moving) && dir.exists(swap$backup_path) && !file.exists(swap$target)) swap$moved <- TRUE
+    if (!isTRUE(swap$installed) && isTRUE(swap$installing) && !is.null(swap$stage) && !dir.exists(swap$stage) && dir.exists(swap$target)) {
+      swap$installed <- TRUE
     }
-  })
-  for (relative in paths) {
-    target <- .skill_path(root, relative)
-    if (dir.exists(target) && !identical(.skill_hash(.skill_scan(target)), expected)) stop("Local skill changed during sync", call. = FALSE)
-    dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
-    stage <- tempfile(".skill-stage-", tmpdir = dirname(target)); dir.create(stage)
-    backup <- .skill_path(root, paste0(".framework/skills-backups/", .skill_uuid()))
-    if (dir.exists(target)) { .skill_private(root); dir.create(dirname(backup), recursive = TRUE, showWarnings = FALSE) }
-    swaps[[length(swaps) + 1L]] <- list(target = target, stage = stage, backup = backup, existed = dir.exists(target))
-    if (dir.exists(target)) {
-      fs::dir_copy(target, stage, overwrite = TRUE)
-      keep <- vapply(files, `[[`, "", "path")
-      for (old in .skill_scan(target)) if (!old$path %in% keep) {
-        removed <- file.path(stage, old$path); unlink(removed); parent <- dirname(removed)
-        while (!identical(parent, stage) && dir.exists(parent) && !length(list.files(parent, all.files = TRUE, no.. = TRUE))) {
-          unlink(parent, recursive = TRUE); parent <- dirname(parent)
+    if (isTRUE(swap$moved)) {
+      aside <- tempfile(".skill-undo-", tmpdir = dirname(swap$target))
+      if (isTRUE(swap$installed)) ok <- isTRUE(file.rename(swap$target, aside))
+      if (ok) ok <- isTRUE(suppressWarnings(file.rename(swap$backup_path, swap$target)))
+      if (ok) {
+        swap$moved <- FALSE; swap$installed <- FALSE
+      } else if (dir.exists(aside)) {
+        file.rename(aside, swap$target)
+      }
+      unlink(aside, recursive = TRUE)
+    } else if (isTRUE(swap$installed)) {
+      unlink(swap$target, recursive = TRUE)
+      ok <- !file.exists(swap$target)
+      if (ok) swap$installed <- FALSE
+    }
+    if (!is.null(swap$stage)) { unlink(swap$stage, recursive = TRUE); swap$stage <- NULL }
+    if (!ok) failed <- c(list(swap), failed)
+  }
+  failed
+}
+
+# file.rename(), mockable in tests
+.skill_rename <- function(from, to) file.rename(from, to)
+
+# One line per swap a rollback could not undo, naming where the old copy is
+.skill_lost_lines <- function(lost) {
+  vapply(lost, function(s) {
+    paste0("  ", s$path, if (is.null(s$backup)) " (new copy, not removed)" else paste0(" (old copy in ", s$backup, ")"))
+  }, "")
+}
+
+# Stop after a failed install whose rollback has run. A copy that could not
+# be restored is named with its backup.
+.skill_install_failed <- function(cause, lost) {
+  reason <- if (inherits(cause, "interrupt")) "interrupted" else sub("\\.$", "", conditionMessage(cause))
+  message <- if (length(lost)) {
+    paste(c(paste0("Could not install skill (", reason, "), and these copies could not be restored:"),
+            .skill_lost_lines(lost)), collapse = "\n")
+  } else reason
+  stop(errorCondition(message, class = "fw_skill_install_error", reason = reason, lost = lost, call = NULL))
+}
+
+# Give each rebuilt folder in `to` the mode of the same folder in `from`,
+# deepest first, so a 0700 folder is not recreated as 0755. Excluded
+# folders are included.
+.skill_keep_dir_modes <- function(from, to) {
+  dirs <- ""
+  walk <- function(folder, prefix) {
+    # Excluded folders (node_modules, .env.local/) are carried over by the
+    # copy, so their modes are restored too. Links are not followed.
+    for (p in .skill_list(folder, ignore = function(name) TRUE)) {
+      if (!identical(.skill_kind(p), "directory")) next
+      relative <- paste0(prefix, basename(p))
+      dirs <<- c(dirs, relative)
+      walk(p, paste0(relative, "/"))
+    }
+  }
+  walk(from, "")
+  for (relative in rev(dirs)) {
+    source <- if (nzchar(relative)) file.path(from, relative) else from
+    dest <- if (nzchar(relative)) file.path(to, relative) else to
+    # A folder that became a file in the new copy keeps the file's mode.
+    # The mode includes setuid, setgid, and sticky bits.
+    if (identical(.skill_kind(dest), "directory")) Sys.chmod(dest, file.info(source)$mode, use_umask = FALSE)
+  }
+}
+
+# Install a bundle at each path. A replaced folder is moved to
+# .framework/skills-backups/. On an error or an interrupt, the paths already
+# swapped are restored; one that can't be is named with its backup. Returns,
+# per path, a swap record with the target and its backup (backup and
+# backup_path are NULL for a new copy). A `journal` environment collects the
+# records as soon as the install completes, for a caller's rollback.
+.skill_install <- function(root, paths, files, expected, journal = NULL) {
+  files <- .skill_validate(files)
+  swaps <- list()
+  outcome <- tryCatch({
+    for (relative in paths) {
+      target <- .skill_path(root, relative)
+      existed <- identical(.skill_kind(target), "directory")
+      if (existed && !identical(.skill_hash(.skill_scan(target)), expected)) stop("Local skill changed during sync", call. = FALSE)
+      dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
+      # Registered before the staging folder exists, so any later failure removes it
+      swap <- new.env()
+      swap$path <- relative; swap$target <- target; swap$existed <- existed
+      swap$stage <- tempfile(".skill-stage-", tmpdir = dirname(target))
+      swap$backup <- NULL; swap$backup_path <- NULL; swap$moved <- FALSE; swap$installed <- FALSE
+      swap$moving <- FALSE; swap$installing <- FALSE
+      swaps[[length(swaps) + 1L]] <- swap
+      if (!dir.create(swap$stage)) stop("Could not create a staging folder for ", relative, call. = FALSE)
+      stage <- swap$stage
+      if (existed) {
+        swap$backup <- paste0(".framework/skills-backups/", .skill_uuid())
+        swap$backup_path <- .skill_path(root, swap$backup)
+        .skill_private(root); dir.create(dirname(swap$backup_path), recursive = TRUE, showWarnings = FALSE)
+        fs::dir_copy(target, stage, overwrite = TRUE)
+        keep <- vapply(files, `[[`, "", "path")
+        for (old in .skill_scan(target)) if (!old$path %in% keep) {
+          removed <- file.path(stage, old$path); unlink(removed); parent <- dirname(removed)
+          while (!identical(parent, stage) && dir.exists(parent) && !length(list.files(parent, all.files = TRUE, no.. = TRUE))) {
+            unlink(parent, recursive = TRUE); parent <- dirname(parent)
+          }
         }
       }
+      for (f in files) {
+        dest <- .skill_path(stage, f$path); dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
+        writeBin(jsonlite::base64_dec(f$content), dest)
+        Sys.chmod(dest, if (isTRUE(f$executable)) "0755" else "0644")
+      }
+      if (.skill_on_windows()) .skill_exec_meta_write(stage, files)
+      if (existed) .skill_keep_dir_modes(target, stage)
+      if (!identical(.skill_hash(.skill_scan(stage)), .skill_hash(files))) stop("Staged skill verification failed", call. = FALSE)
     }
-    for (f in files) {
-      dest <- .skill_path(stage, f$path); dir.create(dirname(dest), recursive = TRUE, showWarnings = FALSE)
-      writeBin(jsonlite::base64_dec(f$content), dest)
-      Sys.chmod(dest, if (isTRUE(f$executable)) "0755" else "0644")
+    for (swap in swaps) {
+      if (swap$existed && !identical(.skill_hash(.skill_scan(swap$target)), expected)) stop("Local skill changed during sync", call. = FALSE)
+      # Each rename and its flag form one step: interrupts wait until both
+      # are done, and the intent is recorded first in case one gets through
+      if (swap$existed) {
+        swap$moving <- TRUE
+        moved <- suspendInterrupts({ ok <- .skill_rename(swap$target, swap$backup_path); if (ok) swap$moved <- TRUE; ok })
+        if (!moved) stop("Could not back up skill", call. = FALSE)
+      }
+      swap$installing <- TRUE
+      installed <- suspendInterrupts({ ok <- .skill_rename(swap$stage, swap$target); if (ok) swap$installed <- TRUE; ok })
+      if (!installed) stop("Could not install skill", call. = FALSE)
+      swap$stage <- NULL
     }
-    if (.Platform$OS.type == "windows") {
-      mode_path <- file.path(stage, ".framework-skill.json")
-      executable_paths <- lapply(Filter(function(f) isTRUE(f$executable), files), `[[`, "path")
-      if (length(executable_paths)) writeLines(jsonlite::toJSON(list(executable_paths = executable_paths), auto_unbox = TRUE), mode_path)
-      else if (file.exists(mode_path)) unlink(mode_path)
-    }
-    if (!identical(.skill_hash(.skill_scan(stage)), .skill_hash(files))) stop("Staged skill verification failed", call. = FALSE)
-  }
-  for (swap in swaps) {
-    if (swap$existed && !identical(.skill_hash(.skill_scan(swap$target)), expected)) stop("Local skill changed during sync", call. = FALSE)
-    if (swap$existed && !file.rename(swap$target, swap$backup)) stop("Could not back up skill", call. = FALSE)
-    if (!file.rename(swap$stage, swap$target)) stop("Could not install skill", call. = FALSE)
-  }
-  success <- TRUE
+    if (!is.null(journal)) journal$done <- c(journal$done, swaps)
+    NULL
+  }, error = identity, interrupt = identity)
+  if (!is.null(outcome)) .skill_install_failed(outcome, .skill_rollback(swaps))
+  invisible(swaps)
 }
 
 #' Synchronize a Skill Directory
 #'
 #' Synchronize a versioned skill bundle with Framework Cloud. Divergent changes
 #' return a conflict without replacing files. Companion files and executable
-#' modes are included. Untracked skills become private account skills.
+#' modes are included. Untracked skills become private account skills. When
+#' a skill's copies in several assistant folders differ, sync stops until
+#' [skills_copy()] makes them match.
 #' @param path Project-relative skill directory.
 #' @param project_path Project root directory.
 #' @param direction One of auto, push, pull, or status.
@@ -171,16 +357,33 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   if (!dir.create(lock, showWarnings = FALSE)) stop("Skill sync is locked. If the previous process stopped, remove .framework/skills.sync.lock and retry.", call. = FALSE)
   on.exit(unlink(lock, recursive = TRUE))
   state <- .skill_load(root)
+  # The path as typed may not contain links (checked before any
+  # resolution, which would follow them). Then the lock's spelling: a case
+  # alias of a tracked path is that path, found by filesystem identity.
+  .skill_path(root, path)
+  path <- .skill_lock_spelling(root, state, path)
+  # The entry listing the path; never an entry whose key merely matches it
   key <- names(Filter(function(e) path %in% unlist(e$paths), state$skills))[1]
-  if (!length(key) || is.na(key)) key <- path
-  entry <- state$skills[[key]] %||% list(paths = list(path), variant = variant)
+  entry <- if (length(key) && !is.na(key)) state$skills[[key]] else NULL
+  if (is.null(entry)) {
+    # A new entry, under a key no other entry uses
+    key <- path; n <- 1L
+    while (key %in% names(state$skills)) { n <- n + 1L; key <- paste0(path, "#", n) }
+    entry <- list(paths = list(path), variant = variant)
+  }
   server <- .skill_server(root); token <- .fw_require_token(url = server)
   if (!is.null(entry$server) && !identical(entry$server, server)) stop("Skill tracks another server", call. = FALSE)
   if (!is.null(skill_id) && !is.null(entry$skill_id) && !identical(skill_id, entry$skill_id)) stop("Skill identity mismatch", call. = FALSE)
   variant <- entry$variant %||% variant; paths <- unlist(entry$paths, use.names = FALSE)
-  bundles <- lapply(paths, function(p) { target <- .skill_path(root, p); if (dir.exists(target)) .skill_scan(target) else NULL })
+  bundles <- lapply(paths, function(p) { target <- .skill_path(root, p); if (!identical(.skill_kind(target), "missing")) .skill_scan(target) else NULL })
   hashes <- vapply(bundles, function(b) if (is.null(b)) "" else .skill_hash(b), "")
-  if (length(unique(hashes)) > 1) stop("Assistant skill copies diverged. Reconcile aliases before syncing.", call. = FALSE)
+  if (length(unique(hashes)) > 1) {
+    # A missing copy is never the one to keep
+    present <- paths[nzchar(hashes)]
+    other <- if (all(nzchar(hashes))) paths[which(hashes != hashes[1])[1]] else paths[!nzchar(hashes)][1]
+    stop(.skill_diverged_message(present[1], other, missing = !all(nzchar(hashes)), root = root,
+                                 others = setdiff(paths, present[1])), call. = FALSE)
+  }
   local_hash <- if (nzchar(hashes[1])) hashes[1] else NULL; files <- bundles[[1]]
   identity <- entry$skill_id %||% skill_id; remote <- NULL
   if (!is.null(identity)) remote <- .fw_api(paste0("/api/v1/skills/sync/", utils::URLencode(identity, reserved = TRUE), "?variant=", variant), token, url = server)
@@ -229,6 +432,16 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
     result$skill_id <- remote$skill_id; result$version <- remote$version
   }
   result
+}
+
+# A path in the lock's spelling: the tracked path it is on disk, else the
+# filesystem's spelling
+.skill_lock_spelling <- function(root, state, path) {
+  spelled <- .skill_copy_spelling(root, path)
+  for (p in unique(unlist(lapply(state$skills, function(e) unlist(e$paths))))) {
+    if (identical(p, path) || identical(.skill_copy_spelling(root, p), spelled)) return(p)
+  }
+  spelled
 }
 
 # The server a project's skills sync with. A project with a token (in .env
@@ -290,17 +503,52 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
 
 # force = TRUE replaces an edited copy too (backed up by .skill_install).
 # lock = FALSE when the caller already holds the sync lock.
-.skill_package_install <- function(source, root, relative, name, force = FALSE, lock = TRUE) {
+# planned: the copy's hash when the caller decided to install ("" for no
+# copy). A copy that no longer matches is left alone and FALSE returned.
+.skill_planned_changed <- function(current, planned) {
+  !is.null(planned) && !identical(current %||% "", planned)
+}
+
+# The lock entry for a skill copy: the entry listing the path, else, for a
+# Cloud install, the entry with the same skill ID. A path never joins an
+# entry because of its folder name or its bytes; skills_copy() records the
+# copies it makes.
+.skill_entry_key <- function(state, relative, skill_id = NULL, server = NULL, variant = NULL) {
+  match <- function(f) names(Filter(f, state$skills))
+  keys <- match(function(e) relative %in% unlist(e$paths))
+  if (!length(keys) && !is.null(skill_id)) keys <- match(function(e) .skill_same_cloud(e, skill_id, server, variant))
+  if (length(keys)) keys[1] else NULL
+}
+
+# Whether a lock entry tracks this Cloud skill: same ID, server, and variant
+.skill_same_cloud <- function(e, skill_id, server = NULL, variant = NULL) {
+  identical(e$skill_id, skill_id) &&
+    (is.null(server) || is.null(e$server) || identical(sub("/$", "", e$server), sub("/$", "", server))) &&
+    identical(e$variant %||% "r", variant %||% e$variant %||% "r")
+}
+
+# prior: the lock as it was before a pull began. Decisions are judged
+# against it, so writing one folder of a skill doesn't change how its other
+# folders are judged; the write goes into the current lock.
+.skill_package_install <- function(source, root, relative, name, force = FALSE, lock = TRUE, planned = NULL, prior = NULL) {
   if (lock) { held <- .skill_acquire(root); on.exit(unlink(held, recursive = TRUE)) }
   target <- .skill_path(root, relative); state <- .skill_load(root)
-  keys <- names(Filter(function(e) relative %in% unlist(e$paths), state$skills)); key <- if (length(keys)) keys[1] else paste0("package:", name)
+  key <- .skill_entry_key(state, relative) %||% paste0("package:", name)
   entry <- state$skills[[key]] %||% list(paths = list(), variant = "r")
-  if (!force && !is.null(entry$skill_id) && !startsWith(entry$skill_id, "framework:")) return(FALSE)
+  judged <- if (is.null(prior)) entry else {
+    prior_key <- .skill_entry_key(prior, relative)
+    if (is.null(prior_key)) list(paths = list()) else prior$skills[[prior_key]]
+  }
+  # A skill tracked on Cloud (your own, or a published version of a built-in)
+  # keeps its content and identity: the package copy never replaces it, even
+  # when forced
+  if (!is.null(judged$skill_id) || !is.null(entry$skill_id)) return(FALSE)
   files <- .skill_scan(source); fresh <- .skill_hash(files)
   current <- if (dir.exists(target)) .skill_hash(.skill_scan(target)) else NULL
+  if (.skill_planned_changed(current, planned)) return(FALSE)
   # The lock's hash describes the copies at its paths; another copy of the
   # same skill (.agents/skills beside .claude/skills) has no entry yet
-  expected <- if (relative %in% unlist(entry$paths)) entry$hash else NULL
+  expected <- if (relative %in% unlist(judged$paths)) judged$hash else NULL
   if (!force && !is.null(current) && !identical(current, expected %||% fresh)) {
     # No lock entry, but the folder holds a version the package shipped
     if (!is.null(expected) || !.skill_released_copy(target, name)) return(FALSE)
@@ -315,16 +563,32 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
 
 # force = TRUE replaces an edited copy too; clean names other hashes that
 # count as unedited (the version the project's setup recorded).
-.skill_cloud_install <- function(root, relative, entry, force = FALSE, clean = NULL, lock = TRUE) {
+.skill_cloud_install <- function(root, relative, entry, force = FALSE, clean = NULL, lock = TRUE, planned = NULL, prior = NULL) {
   if (lock) { held <- .skill_acquire(root); on.exit(unlink(held, recursive = TRUE)) }
   source <- entry$sync; files <- .skill_validate(entry$bundle)
   if (!identical(.skill_hash(files), source$hash)) stop("Cloud skill verification failed", call. = FALSE)
   state <- .skill_load(root)
-  keys <- names(Filter(function(e) relative %in% unlist(e$paths), state$skills))
-  key <- if (length(keys)) keys[1] else paste0("account:", source$server, ":", source$skill_id, ":", source$variant)
+  key <- .skill_entry_key(state, relative, source$skill_id, source$server, source$variant) %||%
+    paste0("account:", source$server, ":", source$skill_id, ":", source$variant)
   tracked <- state$skills[[key]] %||% list(paths = list(), variant = source$variant)
+  # Judged against the lock before the pull (see .skill_package_install())
+  judged <- if (is.null(prior)) tracked else {
+    prior_key <- .skill_entry_key(prior, relative, source$skill_id, source$server, source$variant)
+    if (is.null(prior_key)) list(paths = list()) else prior$skills[[prior_key]]
+  }
+  # Never replace a copy's own or Cloud identity, and never move any
+  # versioned skill (framework: IDs too) to an older version, even when forced
+  # One identity is server, skill ID, and variant together
+  if (!is.null(judged$skill_id)) {
+    if (!.skill_same_cloud(judged, source$skill_id, source$server, source$variant)) return(FALSE)
+    if (isTRUE(as.integer(judged$version %||% 0L) > as.integer(source$version %||% 0L))) return(FALSE)
+  }
   target <- .skill_path(root, relative); current <- if (dir.exists(target)) .skill_hash(.skill_scan(target)) else NULL
-  if (!force && !is.null(current) && !current %in% c(tracked$hash %||% source$hash, clean)) return(FALSE)
+  if (.skill_planned_changed(current, planned)) return(FALSE)
+  # A forced install resets an edited copy of your own skill to that same
+  # skill's version (same or newer); the guards above refuse another
+  # identity or an older version
+  if (!force && !is.null(current) && !current %in% c(judged$hash %||% source$hash, clean)) return(FALSE)
   if (!identical(current, source$hash)) .skill_install(root, relative, files, current)
   tracked$paths <- as.list(unique(c(unlist(tracked$paths), relative)))
   for (name in names(source)) tracked[[name]] <- source[[name]]

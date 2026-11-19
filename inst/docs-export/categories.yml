@@ -211,6 +211,7 @@ AI:
     - ai_sync_context
     - pull_skills
     - push_skills
+    - skills_copy
 
 Cloud:
   description: Framework Cloud authentication, settings sync, and data ledger

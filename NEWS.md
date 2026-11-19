@@ -1,3 +1,156 @@
+# framework (development version)
+
+Changes:
+
+* The AI assistants guide lists known limits of skill sync: one skill per
+  folder name, copies between assistant folders made with `skills_copy()`
+  (a copy made by hand isn't tracked), one spelling per folder on macOS, and
+  a refused command changes nothing.
+
+* `skills_copy()` copies skills from one assistant skills folder to the
+  others, as from `.claude/skills/` (Claude Code) to `.agents/skills/` (Codex
+  and Copilot). Use it after editing one copy of a skill. Until the copies
+  match, `skills_sync()` stops for that skill, and `push_skills()` reports it
+  as failed and continues with the others. `from` and `to` take `"claude"`
+  or `"agents"` (`"codex"` and `"copilot"` also name `.agents/skills/`).
+  `from_dir` and `to_dir` take other project folders. They can't be empty or
+  absolute, or contain `..` or `:`. They can't be the same folder or one
+  inside the other, and the target can't be in or contain `.framework/`.
+  Without `to`, it copies to every other assistant skills folder in the
+  project. `skills` limits the copy to named skills.
+* A skill is a folder with a regular `SKILL.md` file. Folders whose names
+  start with `.` are skipped, because copies are staged in them.
+  `skills_copy()` copies a skill's `SKILL.md` and syncable companion files,
+  with executable modes. Excluded files, such as `.env`, are not copied and
+  stay in the target. Other files only in a replaced copy are removed from it
+  and kept in the backup. Replaced copies are backed up to
+  `.framework/skills-backups/` and keep their folder permissions. The result
+  and messages name each backup. Identical copies are left alone. Skills
+  only in a target folder are listed, left alone, and not read. When the
+  source skill is tracked in `.framework/skills.lock.json`, a real run adds
+  each copy's path to its entry, keeping the last synced version, so the
+  copies sync as one skill and `push_skills()` then pushes the edited
+  skill. An untracked source leaves the lock alone. `dry_run = TRUE` reports
+  and writes nothing.
+* A real `skills_copy()` run takes the skill sync lock, then reads and
+  checks every source and target before writing. A target that isn't a
+  folder fails in a dry run too. If a copy fails or is interrupted, the
+  copies already made are undone. A copy that can't be restored is named
+  with its backup, including the one being installed.
+* `skills_sync()` names both copies of a diverged skill and the
+  `skills_copy()` call that reconciles it. When one copy is missing, the
+  call copies from the copy that exists to the missing one.
+* `pull_skills()` updates an unedited skill in every assistant folder. Before,
+  in a project with both `.claude/skills/` and `.agents/skills/`, it updated
+  the first copy and reported the second as locally edited, leaving the two
+  copies different. It now plans every skill before writing. Just before
+  writing a copy, it checks the copy again: one edited since the plan is
+  kept and reported as locally edited. A failed write names the skills
+  already written, including one written before its tracking was saved.
+* `pull_skills()` reports a skill as diverged when its tracked copies differ
+  or one is missing. It writes no copy of it, leaves its lock entry alone,
+  and gives the `skills_copy()` call that reconciles it. Before, it could
+  report diverged copies as up to date and move the lock to an older
+  version. In a new assistant folder, an edited copy, or one tracking your
+  own or a Cloud skill, is reported the same way instead of being filled
+  with an older or built-in copy. A skill that tracks your own Cloud skill
+  is never replaced by a built-in, even with `overwrite = TRUE`, and no
+  skill moves to an older version.
+* Skill tracking keeps one lock entry per skill. A path joins a skill's
+  entry only explicitly: through `skills_copy()`, or a Cloud install of the
+  same skill ID. A folder name or matching bytes never join a path to a
+  skill, so a standalone skill with the same name keeps its own identity.
+  Lock files from earlier versions with two entries for one Cloud skill
+  (same server, ID, and variant) are merged when read; R and Python
+  variants stay separate. `pull_skills()` finds a skill's entry by its
+  identity, even after switching assistants, and plans every path in it,
+  custom folders included, so the copies move to the same version. When
+  some copies can't be updated, the skill is diverged and nothing is
+  written. `pull_skills()` plans each lock entry on its own: two skills that
+  share a name get their own status and hint, a repair hint only copies
+  within one entry, and a diverged or broken entry (reported as `failed`,
+  with its reason) never stops another. A copy no entry tracks, beside a
+  tracked one, is reported and never written or joined. `skills_copy()`
+  reports and records paths as the filesystem spells them (skill folder
+  included), and reads the lock before writing anything. `skills_sync()`
+  refuses a symlinked path as typed, then resolves a case alias to the
+  tracked path, whatever spelling the lock holds.
+* A skill entry whose tracked folders are gone (after switching assistants)
+  is reported as `missing`, and an untracked copy beside it as kept, with
+  how to track it. A copy tracking a different Cloud skill than the setup
+  names is kept with that reason. When every copy of your own Cloud skill
+  is gone, `pull_skills()` restores it from that skill when signed in, and
+  otherwise reports it as missing. A folder pulled under another spelling
+  is never also reported as removed. `pull_all()` lists diverged and failed
+  skills in its top-level `failed`.
+* A repair hint names a `skills_copy()` call only when that call copies
+  this skill. Copies tracked under different names, or a missing copy whose
+  name is taken by another folder, get an explanation instead.
+* `pull_skills()` judges every folder of a skill against the lock as it
+  was before the pull, so an update reaches `.claude/skills/` and
+  `.agents/skills/` alike. A pull whose bytes match records the setup's
+  newer version, never an older one. `restored` names only the copies
+  written, and the message lists tracked copies whose folder is gone.
+* No pull or install moves a skill to an older version, whatever its ID
+  (`framework:` IDs included), or replaces your own or a Cloud skill's
+  identity, whatever the source (Cloud, inline setup content, or the
+  package). When a skill is reported as diverged, nothing is written for it
+  in any folder.
+* Offline, `pull_skills()` leaves a skill tracked on Cloud as it is and
+  reports it as not pulled. Before, a pull from the package skills could
+  clear its Cloud ID, server, and version.
+* When every tracked copy of a skill is missing, `pull_skills()` installs it
+  again and reports it as `restored`, and `push_skills()` reports it as
+  missing.
+* `pull_skills()` says a skill that tracks your own Cloud skill is kept as
+  yours. With `overwrite = TRUE`, an edited copy of it is reset (after a
+  backup) to that same skill's Cloud version, the same or a newer one, as on
+  main. A different identity (another Cloud skill, a built-in, or setup
+  content) never replaces it. The message says what `overwrite = TRUE`
+  would do.
+* Skill commands use one vocabulary, shared with framework-py and fw. Pull
+  statuses are added, restored, updated, current, edited, replaced,
+  diverged, missing, removed, unavailable, failed, kept (belongs to a
+  different skill), and untracked (a copy not in the lock). Push statuses
+  are pushed, refused, missing, untracked, cancelled, and failed. Each row
+  that isn't a plain success has a `reason` and, when there is one, a `hint`
+  with the exact command. `pull_all()` and `push_all()` count failed,
+  diverged, and missing skills in their top-level `failed`, in dry runs
+  too. The hint for an untracked copy is two `skills_copy()` calls that
+  join it to the tracked skill, keeping its identity; `skills_copy()` may
+  copy an untracked folder onto a tracked one for this.
+* A Cloud skill's identity is its server, skill ID, and variant together.
+  A copy tracking another variant or server of the same ID, or any other
+  Cloud skill (published `framework:` skills included), is kept with the
+  reason and never replaced. `skills_copy()` refuses a target that another
+  skill tracks, in dry runs too. `skills_sync()` finds a skill's entry by its
+  paths only, and a new entry never reuses another entry's key.
+  `push_all(dry_run = TRUE)` lists failed and missing skills in its
+  top-level `failed`.
+* `pull_skills()` reads only the enabled assistants' skills folders and the
+  paths the lock tracks, so a file at a disabled assistant's path doesn't
+  block the enabled one. Configured paths are matched to the lock by
+  filesystem identity. A tracked skill the setup doesn't list, with every
+  copy gone, is reported as missing. With three or more copies, a
+  divergence hint names a `skills_copy()` call for each other copy. `upgrade()` and project
+  creation report a skill install that was declined as kept.
+* `push_skills()` reports a skill with a missing tracked copy as failed,
+  with the `skills_copy()` call that restores it. A skill with a file it
+  can't read or sync, such as `draft notes.md`, fails only that skill.
+* `skills_copy()` refuses a `from_dir` in or over `.framework/`, and keeps
+  the folder modes of excluded folders it carries over, such as
+  `.env.local/` and `node_modules/`.
+* Skill commands treat a folder or file that can't be looked up or read as
+  an error. Before, unreadable folders were skipped. A file name containing a
+  backslash is an error, and paths with `:` are refused. On Windows,
+  junctions count as links. When a skill install fails or is interrupted
+  and an old copy can't be restored, the error names it and its backup.
+  Names starting with `.` in a skills folder, and excluded names in a
+  skill, are skipped before they are checked. A replaced skill keeps its
+  folder permissions. The list of executable files on Windows is always
+  written as a JSON array (a single path written as a string by earlier
+  versions is still read).
+
 # framework 2.0.14
 
 Code snippets publish a chunk's code and the text it printed. Matches

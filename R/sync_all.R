@@ -240,8 +240,9 @@
 # --- Pull ------------------------------------------------------------------
 
 .setup_skills_line <- function(counts) {
-  labels <- c(added = "to add", updated = "to update", replaced = "to replace (backed up)",
-              edited = "locally edited (kept)", removed = "no longer in the project's setup (kept)")
+  labels <- c(added = "to add", restored = "to restore", updated = "to update", replaced = "to replace (backed up)",
+              edited = "locally edited (kept)", diverged = "copies differ (not pulled)", failed = "failed",
+              removed = "no longer in the project's setup (kept)")
   n <- vapply(names(labels), function(k) as.integer(counts[[k]] %||% 0L), integer(1))
   if (!any(n > 0)) return(NULL)
   paste0("  ", paste(n[n > 0], labels[n > 0], collapse = ", "))
@@ -288,24 +289,39 @@
        })
 }
 
+# Skills that failed or diverged, for pull_all()'s top-level `failed`: one
+# message per skill entry, named "Skill <name> (<path>)"
+.skills_failed_rows <- function(plan) {
+  rows <- Filter(function(s) isTRUE(s$status %in% c("failed", "diverged", "missing")), plan$skills %||% list())
+  if (!length(rows)) return(list())
+  stats::setNames(lapply(rows, function(s) paste0(s$status, ": ", s$reason %||% "")),
+                  vapply(rows, function(s) paste0("Skill ", s$name, " (", s$paths[1], ")"), ""))
+}
+
+# Skills push_all() can't push (failed, diverged, or every copy missing),
+# for its top-level `failed`, named as pull_all() names them
+.skills_push_failed_rows <- function(plans) {
+  rows <- Filter(function(p) isTRUE(p$status %in% c("failed", "diverged", "missing")), plans %||% list())
+  if (!length(rows)) return(list())
+  stats::setNames(lapply(rows, function(p) paste0(p$status, ": ", p$reason %||% if (identical(p$status, "missing")) {
+                    "every tracked copy is gone, so there is nothing to push"
+                  } else "")),
+                  vapply(rows, function(p) paste0("Skill ", p$name, " (", p$path[1], ")"), ""))
+}
+
 # Skills: what pull_skills() would add, update, or keep
 .skills_pull_plan <- function(root, overwrite) {
   plan <- suppressMessages(pull_skills(root, overwrite = overwrite, dry_run = TRUE))
   lines <- .setup_skills_line(plan$counts)
   for (skill in plan$skills) {
-    line <- switch(skill$status,
-      edited = paste0("  Kept (locally edited): ", skill$name, " \u2014 pull_all(overwrite = TRUE) replaces it"),
-      replaced = paste0("  Replaced (old copy in .framework/skills-backups/): ", skill$name),
-      removed = paste0("  No longer in the project's setup (kept): ", skill$name),
-      unavailable = paste0("  Not in this version of framework: ", skill$name),
-      NULL)
+    line <- .skill_pull_line(skill, "pull_all")
     lines <- c(lines, line)
   }
   if (identical(plan$source, "package")) {
     lines <- c(lines, "  Framework Cloud's skill list not read; using the package skills for this project type")
   }
   if (length(lines)) lines <- c(lines, if (length(plan$notes)) paste0("  ", plan$notes))
-  pending <- any(vapply(c("added", "updated", "replaced"), function(k) (plan$counts[[k]] %||% 0L) > 0, logical(1)))
+  pending <- any(vapply(c("added", "restored", "updated", "replaced"), function(k) (plan$counts[[k]] %||% 0L) > 0, logical(1)))
   list(lines = lines, quiet = !length(lines), pending = pending, plan = plan,
        apply = function() {
          if (!pending) return(NULL)
@@ -389,7 +405,7 @@ pull_all <- function(project_path = ".", overwrite = FALSE, confirm = NULL, dry_
     skills = parts$skills$plan,
     data_registry = c(list(revision = parts$data_registry$revision), parts$data_registry$entries),
     applied = character(),
-    failed = Filter(Negate(is.null), lapply(parts, `[[`, "error")),
+    failed = c(Filter(Negate(is.null), lapply(parts, `[[`, "error")), .skills_failed_rows(parts$skills$plan)),
     dry_run = dry_run, message = paste(lines, collapse = "\n"))
   if (dry_run) return(invisible(result))
   if (any(vapply(parts, function(p) isTRUE(p$pending), logical(1))) &&
@@ -401,7 +417,7 @@ pull_all <- function(project_path = ".", overwrite = FALSE, confirm = NULL, dry_
   outcome <- .sync_apply(parts)
   if (!is.null(outcome$values$skills)) result$skills <- outcome$values$skills
   result$applied <- names(Filter(function(p) p$label %in% outcome$applied, parts))
-  result$failed <- outcome$failed
+  result$failed <- c(outcome$failed, .skills_failed_rows(result$skills))
   if (length(outcome$failed)) stop(.sync_partial("pull_all()", "Applied", outcome), call. = FALSE)
   invisible(result)
 }
@@ -498,13 +514,13 @@ pull_all <- function(project_path = ".", overwrite = FALSE, confirm = NULL, dry_
 
   lines <- character()
   if (length(pushes)) lines <- c(lines, paste0("  Skills to push: ", .sync_skill_names(pushes)))
-  for (p in refused) {
-    lines <- c(lines, paste0("  Pull first: ", p$name, " changed on Cloud since this project pulled it. ",
-                             "push_all(force = TRUE) replaces it."))
-  }
-  for (p in failed) lines <- c(lines, paste0("  Not checked: ", p$name, ": ", p$reason))
+  # The same rows and wording as push_skills()
+  row_line <- function(p, label) { r <- .skill_push_row(p, fn = "push_all"); paste0("  ", label, ": ", r$name, " \u2014 ", r$reason) }
+  for (p in refused) lines <- c(lines, row_line(p, "Refused"))
+  for (p in failed) lines <- c(lines, row_line(p, "Failed"))
+  for (p in status(plans, "missing")) lines <- c(lines, row_line(p, "Missing"))
   quiet <- !length(lines)
-  for (p in planned$untracked) lines <- c(lines, paste0("  Not tracked: ", p$name, " \u2014 use skills_sync() to add it"))
+  for (p in planned$untracked) lines <- c(lines, row_line(p, "Untracked"))
   list(lines = lines, warnings = vapply(pushes, .skill_push_warning, ""), quiet = quiet,
        pending = length(pushes) > 0, plans = c(plans, planned$untracked),
        apply = function() {
@@ -595,10 +611,10 @@ push_all <- function(project_path = ".", remove = FALSE, force = FALSE, confirm 
 
   result <- list(
     packages = list(revision = parts$packages$revision, changes = parts$packages$changes),
-    skills = lapply(parts$skills$plans, function(p) list(name = p$name, status = p$status, path = p$path)),
+    skills = lapply(parts$skills$plans, .skill_push_row, fn = "push_all"),
     data_registry = list(revision = parts$data_registry$revision, changes = parts$data_registry$changes),
     applied = character(),
-    failed = Filter(Negate(is.null), lapply(parts, `[[`, "error")),
+    failed = c(Filter(Negate(is.null), lapply(parts, `[[`, "error")), .skills_push_failed_rows(parts$skills$plans)),
     dry_run = dry_run, message = paste(lines, collapse = "\n"))
   if (dry_run) return(invisible(result))
   if (any(vapply(parts, function(p) isTRUE(p$pending), logical(1))) &&
@@ -612,10 +628,10 @@ push_all <- function(project_path = ".", remove = FALSE, force = FALSE, confirm 
     if (!is.null(outcome$values[[name]]$revision)) result[[name]]$revision <- outcome$values[[name]]$revision
   }
   if (!is.null(outcome$values$skills)) {
-    result$skills <- lapply(outcome$values$skills, function(p) list(name = p$name, status = p$status, path = p$path))
+    result$skills <- lapply(outcome$values$skills, .skill_push_row, fn = "push_all")
   }
   result$applied <- names(Filter(function(p) p$label %in% outcome$applied, parts))
-  result$failed <- outcome$failed
+  result$failed <- c(outcome$failed, .skills_push_failed_rows(outcome$values$skills %||% parts$skills$plans))
   if (length(outcome$failed)) stop(.sync_partial("push_all()", "Pushed", outcome), call. = FALSE)
   invisible(result)
 }

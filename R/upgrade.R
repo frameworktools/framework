@@ -151,7 +151,14 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
       .fw_write_text(paste0(paste(lines, collapse = "\n"), "\n"), target)
     }
   }
-  for (skill in ctx$skills) skill$run()
+  # An install the installer declines (the copy changed since the plan, or
+  # it tracks a Cloud skill) is reported as kept, never as updated
+  declined <- character()
+  for (skill in ctx$skills) if (!isTRUE(skill$run())) declined <- c(declined, skill$path)
+  if (length(declined)) {
+    result$skills_kept <- declined
+    message("Skills kept (changed since the plan, or tracked on Cloud): ", paste(declined, collapse = ", "))
+  }
 
   result$applied <- TRUE
   message("[ok] Upgraded ", root, if (!is.null(result$backup_location)) {
@@ -1027,7 +1034,7 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
         ctx$actions[[length(ctx$actions) + 1]] <- list(step = "skills", path = relative, change = change)
         local({
           src <- source; rel <- relative; name <- skill; root <- ctx$root
-          ctx$skills[[length(ctx$skills) + 1]] <- list(run = function() .skill_package_install(src, root, rel, name))
+          ctx$skills[[length(ctx$skills) + 1]] <- list(path = rel, run = function() .skill_package_install(src, root, rel, name))
         })
       } else if (status %in% c("edited", "account")) {
         edited <- c(edited, relative)

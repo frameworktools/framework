@@ -18,8 +18,10 @@ in a console and stops otherwise.}
 }
 \value{
 Invisibly, a list: \code{dry_run}, \code{skills} (each with \code{name},
-\code{status}, and \code{paths}; status is pushed, refused, untracked, cancelled,
-or failed), \code{counts} by status, and \code{message} (the summary line).
+\code{status}, and \code{paths}; status is pushed, refused, missing, untracked,
+cancelled, or failed), \code{counts} by status, and \code{message} (the summary
+line). A skill whose tracked copies are all missing is reported as
+missing and not pushed.
 }
 \description{
 Sends locally edited skills to Framework Cloud as new versions of your
@@ -33,6 +35,10 @@ tracked are listed; \code{\link[=skills_sync]{skills_sync()}} adds one. Needs \c
 \details{
 Before pushing, a warning names what each new version affects, then asks
 to continue. Without a console, pass \code{confirm = TRUE}.
+
+A skill whose copies in \verb{.claude/skills/} and \verb{.agents/skills/} differ is
+reported as failed, and the other skills are still pushed. \code{\link[=skills_copy]{skills_copy()}}
+makes the copies match.
 }
 \examples{
 \donttest{
@@ -43,5 +49,5 @@ push_skills()
 }
 }
 \seealso{
-\code{\link[=pull_skills]{pull_skills()}}
+\code{\link[=pull_skills]{pull_skills()}}, \code{\link[=skills_copy]{skills_copy()}}
 }

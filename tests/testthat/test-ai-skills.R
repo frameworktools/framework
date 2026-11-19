@@ -111,7 +111,7 @@ test_that("ai_skills_update() reports what it actually did", {
   writeLines("my edits", file.path(test_dir, ".claude", "skills", "framework-data", "SKILL.md"))
   edited <- capture.output(ai_skills_update(test_dir), type = "message")
   expect_true(sprintf("Skills: %d up to date, 1 locally edited (kept)", n - 1L) %in% edited)
-  expect_true(any(grepl("Kept (locally edited): framework-data", edited, fixed = TRUE)))
+  expect_true(any(grepl("Edited: framework-data", edited, fixed = TRUE)))
 })
 
 test_that("a skill from an older release without a lock entry is updated, not kept", {
