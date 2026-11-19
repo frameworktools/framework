@@ -4,7 +4,7 @@
 \alias{.data_spec_update}
 \title{Update data spec in the correct YAML file}
 \usage{
-.data_spec_update(path, spec)
+.data_spec_update(path, spec, drop = character())
 }
 \arguments{
 \item{path}{Dot notation key (e.g., "final.public.test") indicating where
@@ -12,10 +12,14 @@ to place the spec in the configuration hierarchy}
 
 \item{spec}{A named list containing the data spec fields (path, type,
 delimiter, locked, encrypted, etc.)}
+
+\item{drop}{Fields to remove from an existing entry when \code{spec} leaves
+them out. An existing entry's other fields, such as \code{description}, are
+kept.}
 }
 \value{
-Invisibly returns NULL. Function is called for its side effect of
-updating the YAML configuration file.
+Invisibly returns whether the entry already existed. Called for
+its side effect of updating the YAML configuration file.
 }
 \description{
 Traverses a dot-notated key like "final.public.test" and updates or inserts

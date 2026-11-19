@@ -14,6 +14,11 @@
 #'
 #'   A bare file name such as "filename.csv" is an error.
 #'
+#'   A name already in the data catalog is saved to its entry's file, in its
+#'   entry's type and delimiter, and the entry is left as it is (its
+#'   description and other fields are kept). A `type` or `delimiter` that
+#'   differs from the entry's is an error.
+#'
 #'   Dot notation uses your configured directories
 #'   (e.g., `inputs.raw`, `inputs.intermediate`, `outputs.private`).
 #' @param type Type of data file ("csv" or "rds"). Auto-detected from extension if path includes one.
@@ -53,6 +58,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
                       unlock = FALSE) {
   # Left out, `locked` keeps the lock the data already has (see below)
   lock_given <- !missing(locked)
+  delimiter_given <- !missing(delimiter)
   # Validate arguments
   checkmate::assert_data_frame(data, min.rows = 1)
   checkmate::assert_string(path, min.chars = 1)
@@ -79,7 +85,40 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
     data_name <- path
   }
 
-  if (has_slash) {
+  # A name already in the data catalog is saved to its entry's file, in its
+  # entry's type and delimiter, and the entry is left as it is, as Stata's
+  # fw_save and framework-py do
+  entry <- if (is_name) .fw_save_catalog_entry(path) else NULL
+
+  if (!is.null(entry)) {
+    entry_type <- if (identical(entry$type, "tsv")) "csv" else entry$type
+    if (!is.null(type) && !identical(tolower(type), entry_type)) {
+      stop(sprintf(
+        "'%s' is a %s file in the data catalog (%s), but type is '%s'.\nLeave type out to save it as its entry says, or save it under another name.",
+        path, entry$type, .fw_project_relative_path(entry$path), type
+      ), call. = FALSE)
+    }
+    type <- entry_type
+    if (identical(type, "csv") && !is.null(entry$delimiter)) {
+      if (delimiter_given && !identical(delimiter, entry$delimiter)) {
+        stop(sprintf(
+          "'%s' is %s-delimited in the data catalog, but delimiter is '%s'. Leave delimiter out to save it as its entry says, or save it under another name.",
+          path, entry$delimiter, delimiter
+        ), call. = FALSE)
+      }
+      delimiter <- entry$delimiter
+    }
+    if (!type %in% c("csv", "rds")) {
+      stop(sprintf(
+        "data_save() writes csv or rds files. '%s' is a %s file in the data catalog.",
+        path, entry$type
+      ), call. = FALSE)
+    }
+    file_path <- entry$path
+    dir_path <- dirname(file_path)
+    file_name <- basename(file_path)
+
+  } else if (has_slash) {
     # Direct file path mode, relative to the project root (as catalog paths
     # are), so a notebook in notebooks/ writes where a script in the root would
     file_path <- path
@@ -222,6 +261,7 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
   if (!is_name && !is.null(held) && identical(held$source, "catalog")) {
     data_name <- held$name
     is_name <- TRUE
+    entry <- .fw_save_catalog_entry(data_name)
   }
   write_data(file_path)
 
@@ -263,8 +303,22 @@ data_save <- function(data, path, type = NULL, delimiter = "comma", locked = FAL
   # token; quiet no-op otherwise -- framework.db stays canonical)
   .fw_ledger_push_quietly(data_name, current_hash, file_path = file_path)
 
-  # Register saved file in settings so data_read() works without manual catalog edits
-  if (is_name) {
+  # An existing entry already names this file. Only its lock can change, so
+  # the catalog's flag agrees with framework.db; everything else is left as it is.
+  if (is_name && !is.null(entry)) {
+    if (!identical(isTRUE(entry$locked), isTRUE(locked))) {
+      tryCatch({
+        .data_spec_update(data_name, if (locked) list(locked = TRUE) else list(), drop = "locked")
+        message(sprintf("Data catalog entry %s: %s", if (locked) "locked" else "unlocked", data_name))
+      }, error = function(e) {
+        warning(sprintf(
+          "File saved but could not update the lock in the data catalog for '%s': %s",
+          data_name, e$message
+        ))
+      })
+    }
+  } else if (is_name) {
+    # Register saved file in settings so data_read() works without manual catalog edits
     # Only attempt to update config for dot-notation paths
     tryCatch({
       data_add(
@@ -475,8 +529,10 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
 
   if (update_config) {
     tryCatch({
-      .data_spec_update(name, spec)
-      message(sprintf("Data spec added to config: %s", name))
+      # An existing entry keeps its other fields (description, notes); the
+      # delimiter and lock follow this file
+      existed <- .data_spec_update(name, spec, drop = c("delimiter", "locked"))
+      message(sprintf("Data spec %s config: %s", if (existed) "updated in" else "added to", name))
     }, error = function(e) {
       warning(sprintf("Could not update config (database record was still created): %s", e$message))
     })
@@ -709,15 +765,19 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
 #'   to place the spec in the configuration hierarchy
 #' @param spec A named list containing the data spec fields (path, type,
 #'   delimiter, locked, encrypted, etc.)
+#' @param drop Fields to remove from an existing entry when `spec` leaves
+#'   them out. An existing entry's other fields, such as `description`, are
+#'   kept.
 #'
-#' @return Invisibly returns NULL. Function is called for its side effect of
-#'   updating the YAML configuration file.
+#' @return Invisibly returns whether the entry already existed. Called for
+#'   its side effect of updating the YAML configuration file.
 #'
 #' @keywords internal
-.data_spec_update <- function(path, spec) {
+.data_spec_update <- function(path, spec, drop = character()) {
   # Validate arguments
   checkmate::assert_string(path, min.chars = 1)
   checkmate::assert_list(spec)
+  checkmate::assert_character(drop)
 
   parts <- strsplit(path, "\\.")[[1]]
 
@@ -769,7 +829,18 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
 
   # Update an existing entry where it is (nested, mixed, or flat keys);
   # otherwise nest a new one
-  keys <- .data_catalog_find(current, parts) %||% parts
+  found <- .data_catalog_find(current, parts)
+  existed <- !is.null(found)
+  keys <- found %||% parts
+  if (existed) {
+    # Update the entry, not replace it: set the fields in spec, remove the
+    # fields in drop that spec leaves out, and keep every other field
+    old <- current[[keys]]
+    if (is.character(old)) old <- list(path = old)
+    for (field in setdiff(drop, names(spec))) old[[field]] <- NULL
+    for (field in names(spec)) old[[field]] <- spec[[field]]
+    spec <- old
+  }
   set_in <- function(node, keys, value) {
     if (!is.list(node)) node <- list()
     node[[keys[1]]] <- if (length(keys) == 1) value else set_in(node[[keys[1]]], keys[-1], value)
@@ -797,7 +868,19 @@ data_add <- function(file_path, name = NULL, type = NULL, delimiter = "comma",
     stop(sprintf("Failed to write configuration: %s", e$message))
   })
 
-  invisible(NULL)
+  invisible(existed)
+}
+
+# The data_info() spec of a name already in the data catalog, or NULL. An
+# entry without a path is saved like a new name.
+#' @keywords internal
+.fw_save_catalog_entry <- function(name) {
+  data <- tryCatch(settings_read()$data, error = function(e) NULL)
+  if (!is.list(data) || is.null(.data_catalog_find(data, strsplit(name, ".", fixed = TRUE)[[1]]))) {
+    return(NULL)
+  }
+  spec <- tryCatch(data_info(name), error = function(e) NULL)
+  if (is.null(spec) || !is.character(spec$path) || !nzchar(spec$path)) NULL else spec
 }
 
 #' Update data with hash in the data table

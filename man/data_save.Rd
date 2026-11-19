@@ -31,6 +31,11 @@ same record.
 
 A bare file name such as "filename.csv" is an error.
 
+A name already in the data catalog is saved to its entry's file, in its
+entry's type and delimiter, and the entry is left as it is (its
+description and other fields are kept). A \code{type} or \code{delimiter} that
+differs from the entry's is an error.
+
 Dot notation uses your configured directories
 (e.g., \code{inputs.raw}, \code{inputs.intermediate}, \code{outputs.private}).}
 
