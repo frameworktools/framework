@@ -1,7 +1,7 @@
 Package: framework
 Type: Package
 Title: Structured Data Science Project Scaffolding
-Version: 2.0.18
+Version: 2.0.19
 Authors@R:
     person("Erik", "Westlund", , "erik@framework.pub", role = c("aut", "cre", "cph"))
 Maintainer: Erik Westlund <erik@framework.pub>
@@ -47,6 +47,7 @@ Suggests:
     duckdb,
     evaluate,
     ggplot2,
+    ggrepel,
     scales,
     haven,
     htmltools,
@@ -81,6 +82,7 @@ Suggests:
     MASS,
     mgcv,
     nnet,
+    palmerpenguins,
     patchwork,
     plotly,
     posterior,

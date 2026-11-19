@@ -1,3 +1,19 @@
+# framework 2.0.19
+
+Skill sync bug fixes, and R CMD check passes on CI again.
+
+Changes:
+
+* `upgrade()` leaves a skill alone when its copies differ, as `pull_skills()`
+  does, and names `skills_copy()` to make them match. Before, it could update
+  one copy and leave the other.
+* `pull_skills(overwrite = TRUE)` never replaces a built-in tracked on Cloud
+  with inline setup text. The copy is kept.
+* An offline `pull_skills()` reports each custom skill tracked on Cloud as
+  unavailable. Before, those skills were left out of the report.
+* The brms tests skip when rstan can't compile a model, and ggrepel and
+  palmerpenguins are listed in Suggests for the tests that use them.
+
 # framework 2.0.18
 
 Live ggplot charts on Framework Cloud follow ggplot2 more closely. Needs phiz
