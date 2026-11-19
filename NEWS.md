@@ -1,4 +1,9 @@
-# framework (development version)
+# framework 2.0.18
+
+Live ggplot charts on Framework Cloud follow ggplot2 more closely. Needs phiz
+0.6.6, which framework.pub runs.
+
+Changes:
 
 * Facet panels keep their factor order.
 * `geom_abline()` translates, drawn across each panel. It needs the same
