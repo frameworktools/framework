@@ -127,15 +127,15 @@
 }
 
 # Whether a copy tracks a Cloud skill other than the one the setup names
-# for it. Any Cloud identity counts, framework: IDs too, when the setup
-# names a different Cloud skill; a personal ID counts against any setup
-# content (the package or inline text).
+# for it. A personal ID counts against any setup content. A framework: ID
+# counts against inline text and a different Cloud skill; only the package's
+# own copy of that built-in may update it.
 .skill_pull_own <- function(root, relative, entry) {
   tracked <- .skill_pull_tracked(.skill_load(root), relative)
   id <- tracked$skill_id
   # One identity is server, skill ID, and variant together
   same <- !is.null(entry$sync) && .skill_same_cloud(tracked, entry$sync$skill_id, entry$sync$server, entry$sync$variant)
-  !is.null(id) && !same && (!startsWith(id, "framework:") || !is.null(entry$sync))
+  !is.null(id) && !same && (!startsWith(id, "framework:") || !isTRUE(entry$package))
 }
 
 # Whether the setup has a newer version of the Cloud skill a copy tracks
@@ -550,6 +550,12 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
     reason <- sub("\\.$", "", conditionMessage(fetched))
     message("Framework Cloud not reached (", reason, "); using the package skills for this project type.")
     wanted <- .skill_pull_package_skills(settings)
+    # Skills tracked on Cloud that the package doesn't ship are still
+    # reported (as unavailable) and left as they are
+    for (tracked in .skill_load(root)$skills) {
+      if (is.null(tracked$skill_id)) next
+      for (name in setdiff(unique(basename(unlist(tracked$paths))), names(wanted))) wanted[[name]] <- list(package = TRUE)
+    }
     source <- "package"
   } else {
     wanted <- fetched$skills; notes <- fetched$notes

@@ -1376,3 +1376,41 @@ test_that("skills_sync() never lands on an entry whose key only matches the path
   expect_identical(names(new), ".claude/skills/x#2")
   expect_identical(unlist(new[[1]]$paths), ".claude/skills/x")
 })
+
+test_that("inline setup content never replaces a built-in tracked on Cloud", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  files <- .skill_scan(system.file("templates", "skills", "framework-data", package = "framework"))
+  synced <- list(content = "x", bundle = files,
+                 sync = list(skill_id = "framework:framework-data", version = 2L, hash = .skill_hash(files),
+                             variant = "r", server = "https://cloud.example"))
+  skill_pull_mock(skill_pull_envelope(list(`framework-data` = synced)))
+  suppressMessages(pull_skills(root))
+  lock <- skill_pull_lock_entry(root, ".claude/skills/framework-data")
+  before <- read_skill(root, "framework-data")
+
+  skill_pull_mock(skill_pull_envelope(list(`framework-data` = list(content = "---\nname: framework-data\ndescription: x\n---\nInline\n"))))
+  result <- suppressMessages(pull_skills(root, overwrite = TRUE))
+  expect_identical(Filter(function(s) identical(s$name, "framework-data"), result$skills)[[1]]$status, "kept")
+  expect_identical(read_skill(root, "framework-data"), before)
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/framework-data"), lock)
+})
+
+test_that("an offline pull reports a custom Cloud skill as unavailable and leaves it alone", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L, skill_id = "lab-style"))))
+  suppressMessages(pull_skills(root))
+  before <- skill_pull_lock_entry(root, ".claude/skills/lab-style")
+  expect_identical(before$skill_id, "lab-style")
+
+  withr::local_envvar(FW_PROJECT_TOKEN = NA)
+  local_mocked_bindings(.fw_project_token = function(...) NULL)
+  out <- capture.output(result <- pull_skills(root), type = "message")
+  skill <- Filter(function(s) identical(s$name, "lab-style"), result$skills)
+  expect_length(skill, 1L)
+  expect_identical(skill[[1]]$status, "unavailable")
+  expect_true(any(grepl("Unavailable: lab-style — Framework Cloud wasn't reached, so lab-style was left as it is.", out, fixed = TRUE)))
+  expect_true("Version 2" %in% read_skill(root, "lab-style"))
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), before)
+})
