@@ -61,7 +61,10 @@ skip_unless_brms <- function() {
                    !is.null(tryCatch(getExportedValue(cmdstanr, "cmdstan_version")(error_on_NA = FALSE),
                                      error = function(e) NULL))) {
     "cmdstanr"
-  } else if (requireNamespace("rstan", quietly = TRUE)) {
+  } else if (requireNamespace("rstan", quietly = TRUE) &&
+             all(vapply(c("BH", "RcppEigen", "StanHeaders"), requireNamespace, logical(1), quietly = TRUE))) {
+    # rstan compiles each model against these headers. A binary install of
+    # rstan leaves out BH, so the compile fails without it.
     "rstan"
   } else {
     skip("No Stan backend for brms.")
