@@ -743,6 +743,13 @@
                 },
                 "server": {
                   "type": "string"
+                },
+                "known_hashes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
                 }
               },
               "additionalProperties": false,

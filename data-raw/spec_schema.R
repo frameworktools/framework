@@ -77,7 +77,10 @@ definitions <- list(
         files = map_of(str(), key_pattern = REL_PATH),
         bundle = arr(obj(list(path = str(), content = str(), executable = bool()), required = c("path", "content", "executable")), maxItems = 256),
         sync = obj(list(skill_id = str(), version = list(type = "integer", minimum = 1),
-                        hash = str(pattern = "^[a-f0-9]{64}$"), variant = str(enum = list("r", "python", "stata")), server = str()),
+                        hash = str(pattern = "^[a-f0-9]{64}$"), variant = str(enum = list("r", "python", "stata")), server = str(),
+                        # Every version's bundle hash for this variant: known hashes for
+                        # skills lock v2 (docs/architecture/skills-lock-v2.md)
+                        known_hashes = arr(str(pattern = "^[a-f0-9]{64}$"))),
                    required = c("skill_id", "version", "hash", "variant", "server"))
       ),
       required = c("content")
