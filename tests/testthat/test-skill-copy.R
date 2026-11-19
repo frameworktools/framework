@@ -883,7 +883,9 @@ test_that("skills_sync() refuses a symlinked skill path, as typed", {
   local_mocked_bindings(.fw_cloud_url = function(...) "https://cloud.example", .fw_require_token = function(...) "token",
                         .fw_api = function(...) stop("no request expected"))
   expect_error(skills_sync(".claude/skills/example", root), "symlinks")
-  expect_error(skills_sync(".CLAUDE/skills/example", root), "symlinks")
+  if (.skill_case_insensitive_at(root)) {
+    expect_error(skills_sync(".CLAUDE/skills/example", root), "symlinks")
+  }
   expect_length(.skill_load(root)$skills, 0L)
 })
 

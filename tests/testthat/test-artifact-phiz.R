@@ -35,10 +35,11 @@ phiz_refused <- function(plot) {
 # string, so every string scheme fails the schema (reported to phiz).
 expect_phiz_valid <- function(description, known = NULL) {
   json <- framework:::.fw_phiz_json(description)
-  if (requireNamespace("jsonvalidate", quietly = TRUE)) {
+  # The schema is a test fixture, which the built package leaves out
+  schema <- testthat::test_path("fixtures", "phiz-plot-description.schema.json")
+  if (requireNamespace("jsonvalidate", quietly = TRUE) && file.exists(schema)) {
     # The schema file, verbatim from phiz, has no final newline.
-    validator <- suppressWarnings(jsonvalidate::json_schema$new(
-      testthat::test_path("fixtures", "phiz-plot-description.schema.json"), engine = "ajv"))
+    validator <- suppressWarnings(jsonvalidate::json_schema$new(schema, engine = "ajv"))
     valid <- validator$validate(json, verbose = TRUE)
     errors <- attr(valid, "errors")
     if (!valid && !is.null(known)) {
