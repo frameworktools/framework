@@ -500,3 +500,21 @@ test_that("upgrade() reports a skill install the installer declines as kept", {
   expect_true(any(grepl("Skills kept (changed since the plan, or tracked on Cloud): .claude/skills/framework-sensitive-data",
                         out, fixed = TRUE)))
 })
+
+test_that("upgrade() leaves a skill alone when its copies differ", {
+  dir <- local_old_project()
+  claude <- file.path(dir, ".claude", "skills", "framework-data")
+  agents <- file.path(dir, ".agents", "skills", "framework-data")
+  dir.create(agents, recursive = TRUE)
+  writeLines(c(readLines(file.path(claude, "SKILL.md")), "", "Edited in .agents."), file.path(agents, "SKILL.md"))
+  state <- framework:::.skill_load(dir)
+  state$skills[["framework-data"]] <- list(name = "framework-data",
+                                           paths = list(".claude/skills/framework-data", ".agents/skills/framework-data"))
+  framework:::.skill_save(dir, state)
+  before <- c(readLines(file.path(claude, "SKILL.md")), readLines(file.path(agents, "SKILL.md")))
+  out <- capture.output(plan <- upgrade(dir), type = "message")
+  expect_false(any(grepl("/framework-data$", plan$actions$path)))
+  expect_true(any(grepl("Skills kept because their copies differ: framework-data", out, fixed = TRUE)))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  expect_identical(c(readLines(file.path(claude, "SKILL.md")), readLines(file.path(agents, "SKILL.md"))), before)
+})

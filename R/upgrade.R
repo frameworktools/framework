@@ -1023,9 +1023,22 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
     dirs <- existing
   }
   edited <- character()
+  diverged <- character()
+  state <- tryCatch(.skill_load(ctx$root), error = function(e) NULL)
   for (skill in skills) {
     source <- system.file("templates", "skills", skill, package = "framework")
     if (!nzchar(source)) next
+    # Copies in one lock entry that differ, or one of them missing, are a
+    # diverged skill. Nothing is written to any of its folders, as in pull.
+    if (!is.null(state)) {
+      relatives <- file.path(dirs, skill)
+      keys <- names(Filter(function(e) any(relatives %in% unlist(e$paths)), state$skills))
+      split <- tryCatch(.skill_pull_diverged(ctx$root, state, keys), error = function(e) NULL)
+      if (!is.null(split$a)) {
+        diverged <- c(diverged, skill)
+        next
+      }
+    }
     for (dir in dirs) {
       relative <- file.path(dir, skill)
       status <- tryCatch(.skill_package_status(source, ctx$root, relative, skill), error = function(e) "edited")
@@ -1044,6 +1057,10 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   if (length(edited) > 0) {
     .upgrade_note(ctx, "Skills kept because they were edited (or come from your account): ",
                   paste(edited, collapse = ", "), ". ai_skills_update() leaves them too.")
+  }
+  if (length(diverged) > 0) {
+    .upgrade_note(ctx, "Skills kept because their copies differ: ", paste(diverged, collapse = ", "),
+                  ". framework::skills_copy() makes one copy match the other.")
   }
   invisible()
 }
