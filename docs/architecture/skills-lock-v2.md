@@ -135,7 +135,7 @@ hashes into it. Sources supply known hashes as follows:
   SKILL.md. R regenerates its file with `data-raw/skill_history.R`, Python with
   `scripts/skill_history.py`, and `fw` adds one for its Stata skills.
 - Cloud skills: the setup's `sync.hash`, the latest version's hash when one is
-  fetched, and `sync.known_hashes` once Cloud sends it (see "Cloud API").
+  fetched, and `sync.known_hashes` when Cloud sends it (see "Cloud API").
   `GET /api/v1/skills/sync/{id}/history?variant=` already returns every
   version's hash and may be used when a user token is present.
 - Inline skills: the setup's current hash only.
@@ -242,19 +242,24 @@ def plan_pull(disk, lock, offer, opt):
             if owner == key:
                 continue                    # planned as one of E's copies
             if owner is not None:
-                O = lock.skills[owner]
-                same_id = O.identity.skill_id == S.identity.skill_id
-                plan.step(p, owner, "none", "kept",
-                          "other_variant" if same_id else "other_identity",
-                          hint("retarget", path=p, identity=S.identity))
                 accounted.add(p)
+                if disk[p] is ABSENT:
+                    continue                # the owner's entry plans it (restored or missing)
+                O = lock.skills[owner]
+                other_variant = (O.identity.skill_id == S.identity.skill_id
+                                 and O.identity.variant != S.identity.variant)
+                plan.step(p, owner, "none", "kept",
+                          "other_variant" if other_variant else "other_identity",
+                          hint("retarget", path=p, identity=S.identity))
+                plan.kept_paths.add(p)
                 continue
             extra.append(p)
+        plan.planned.add(key)
         plan_entry(plan, key, E, S, extra, disk, opt, offer)
         accounted |= set(E.copies if E else []) | set(extra)
 
     for key, E in lock.skills.items():
-        if planned(plan, key) or (opt.scope == "builtin" and E.identity.kind != "builtin"):
+        if key in plan.planned or (opt.scope == "builtin" and E.identity.kind != "builtin"):
             continue
         plan_unlisted(plan, key, E, offer.by_identity.get(key), disk, opt)
         accounted |= set(E.copies)
@@ -364,6 +369,22 @@ def finish(plan, key, E, S):
     plan.lock_after.skills[key] = F
 ```
 
+`plan.planned` holds the keys of setup skills: an entry is planned by
+`plan_entry` exactly when it is a setup skill's identity. Every other entry,
+including one that owns a folder a setup skill reported as `kept`, goes
+through `plan_unlisted`, so its own state (diverged, missing, restored) is
+still reported. Such a folder then has two steps, `kept` and the owner's, and
+is never also `removed`.
+
+A folder another entry tracks is `kept` only while it holds a copy. When the
+owner's copy there is absent, the setup skill does not claim the path; the
+owner's entry plans it, so a deleted copy of your fork is restored by its own
+identity (or reported `missing` with a `login` hint), never replaced by the
+built-in the setup names.
+
+`other_variant` needs the same skill ID and a different variant. The same ID
+on another server is `other_identity`.
+
 `plan_unlisted` covers a lock entry the setup does not name:
 
 ```python
@@ -423,6 +444,11 @@ def plan_copy(disk, lock, from_dir, to_dirs, names, opt):
                 plan.step(t + "/" + n, None, "none", "missing")
 ```
 
+A copy onto a folder another entry tracks is refused (`copy_target_owned`)
+only when the source is tracked too. An untracked source may be copied onto a
+tracked folder: that is how a hand-made copy is adopted, and the lock stays as
+it is.
+
 The target takes the source copy's record. An edited source makes an edited
 target, so push still sees the skill as edited and pull keeps both copies as
 `edited`. An untracked source changes no lock entry.
@@ -450,7 +476,7 @@ def plan_push(disk, lock, offer, opt):
         local = present[0].disk
         R = offer.remote.get(key)
         if R is not None and R.hash == local:
-            step_all(key, C, "record", None)             # Cloud already has it: adopt
+            step_all(key, C, "record", "current")        # Cloud already has it: adopt
         elif E.identity.kind == "builtin":
             step_all(key, C, "push", "pushed", fork=True)   # becomes your own skill
         elif E.base is None:
@@ -472,8 +498,17 @@ def plan_push(disk, lock, offer, opt):
 After a push, the lock entry takes the response: `base = {cloud, hash,
 version, server}`, every copy's record = the pushed hash, `known += hash`,
 and `pending` cleared. A pushed built-in becomes a `cloud` entry under the
-response's `skill_id` (a new key). `confirm = FALSE` turns every `pushed`
-step into `cancelled`.
+response's `skill_id` (a new key) whose `known` is only the pushed hash: the
+built-in's versions are not versions of the fork. `confirm = FALSE` turns
+every `pushed` step into `cancelled`.
+
+When Cloud's head already holds the local bytes (pushed from another
+checkout), nothing is sent. The steps are `record` with status `current`, and
+the entry adopts Cloud's head as for a push: `base = {cloud, hash, version,
+server}`, every record = that hash, `known += hash`. The row is `current`
+with no reason code. A push request that fails (network, a refused reply)
+makes its entry's steps `failed` with no reason code; the prose names the
+error.
 
 ### Move
 
@@ -601,7 +636,8 @@ first v2 write. Two steps:
 Pull, upgrade, and pull_all keep the v1 statuses: `added`, `restored`,
 `updated`, `current`, `edited`, `replaced`, `diverged`, `missing`, `removed`,
 `unavailable`, `failed`, `kept`, `untracked`. Push keeps `pushed`, `refused`,
-`missing`, `untracked`, `cancelled`, `failed`. Copy keeps `copied`, `current`,
+`missing`, `untracked`, `cancelled`, `failed`, and adds `current` for an
+entry whose edited bytes Cloud already has. Copy keeps `copied`, `current`,
 `missing`.
 
 One status is new: `moved`, for `skills_move()`. No existing word fits a path
@@ -715,7 +751,9 @@ Go (`fw`):
 
 ## Cloud API
 
-v2 works with the current API. One addition is recommended:
+v2 works with the current API. One addition is recommended, and the spec
+schemas (`layer.v1.json`, `layers.v1.json`, `spec.v1.json`) already accept it
+as an optional `sync.known_hashes` array of hashes:
 
 - `sync.known_hashes` in each setup layer entry (`Skill::layerEntry()`) and
   `known_hashes` in the snapshot (`SkillSyncController::snapshot()`): the
@@ -732,7 +770,7 @@ No other change. Push responses already include `skill_id`, `version`, and
 
 ## Scenarios
 
-`inst/conformance/skills/` holds 63 language-neutral cases. Python and Go
+`inst/conformance/skills/` holds 64 language-neutral cases. Python and Go
 copy them with their existing asset sync (`scripts/sync_assets.py`,
 `tools/syncassets`), pinned to an R tag, beside the other conformance
 fixtures. The README there defines the format.
