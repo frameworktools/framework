@@ -1,3 +1,20 @@
+# framework 2.0.17
+
+`data_save()` to a name already in the data catalog keeps that entry's
+description, notes, and other fields. Matches framework-py and Stata's
+`fw_save`.
+
+Changes:
+
+* `data_save()` by a catalog name writes to the entry's own path, in its
+  type and delimiter, and changes only the entry's lock. A `type` or
+  `delimiter` that differs from the entry is an error. Before, the save
+  replaced the whole entry and dropped `description`, `notes`, and `locked`.
+* `data_add()` to an existing name updates the entry and keeps its other
+  fields. Its message says whether the entry was updated or added.
+* The Python create conformance fixtures list a `.gitkeep` in every empty
+  folder, as framework-py now writes them.
+
 # framework 2.0.16
 
 Published ggplots carry a phiz plot description, so Framework Cloud draws
