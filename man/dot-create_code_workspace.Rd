@@ -4,7 +4,14 @@
 \alias{.create_code_workspace}
 \title{Create .code-workspace file for VSCode/Positron}
 \usage{
-.create_code_workspace(project_dir, name)
+.create_code_workspace(project_dir, name, quarto = TRUE)
+}
+\arguments{
+\item{project_dir}{Project directory.}
+
+\item{name}{Project name.}
+
+\item{quarto}{Whether the project uses Quarto, which maps \code{.qmd} files.}
 }
 \description{
 Create .code-workspace file for VSCode/Positron

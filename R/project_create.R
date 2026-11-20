@@ -826,6 +826,9 @@ duplicate its content in this file.
 }
 
 #' Create .code-workspace file for VSCode/Positron
+#' @param project_dir Project directory.
+#' @param name Project name.
+#' @param quarto Whether the project uses Quarto, which maps `.qmd` files.
 #' @keywords internal
 .create_code_workspace <- function(project_dir, name, quarto = TRUE) {
   kebab_name <- .to_kebab_case(name)
