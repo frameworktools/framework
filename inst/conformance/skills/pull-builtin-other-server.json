@@ -1,0 +1,124 @@
+{
+  "id": "pull-builtin-other-server",
+  "area": "pull",
+  "description": "Cloud versions of a built-in compare only when one server delivered both: version 2 from another server is not older than version 3, so the unedited copy updates.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "c3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@c3",
+          "version": 3,
+          "server": "https://other.test"
+        },
+        "known": [
+          "@c3"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@c3"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "c2",
+        "hash": "@c2",
+        "known": [
+          "@c2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "c2",
+        "backup": true
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "updated",
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".claude/skills/demo": "c2"
+    },
+    "backups": [
+      ".claude/skills/demo"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "framework:demo@r": {
+          "identity": {
+            "kind": "builtin",
+            "skill_id": "framework:demo",
+            "variant": "r"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@c2",
+            "version": 2,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@c2",
+            "@c3"
+          ],
+          "copies": {
+            ".claude/skills/demo": {
+              "hash": "@c2"
+            }
+          }
+        }
+      }
+    }
+  }
+}

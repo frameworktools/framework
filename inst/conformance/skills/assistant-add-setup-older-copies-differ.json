@@ -1,0 +1,165 @@
+{
+  "id": "assistant-add-setup-older-copies-differ",
+  "area": "assistants",
+  "description": "A new folder while the setup names an older version and the unedited copies differ: no copy is chosen by path order; diverged, and the person picks.",
+  "covers": [
+    "Review: map order changes installed bytes"
+  ],
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/mine": "m1",
+    "custom/skills/mine": "m3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m3",
+          "version": 3,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1",
+          "@m2",
+          "@m3"
+        ],
+        "copies": {
+          "custom/skills/mine": {
+            "hash": "@m3"
+          },
+          ".agents/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m2",
+        "hash": "@m2",
+        "known": [
+          "@m1",
+          "@m2",
+          "@m3"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": null,
+          "to": [
+            ".agents/skills/mine",
+            ".claude/skills/mine",
+            "custom/skills/mine"
+          ],
+          "pick": true
+        }
+      },
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": null,
+          "to": [
+            ".agents/skills/mine",
+            ".claude/skills/mine",
+            "custom/skills/mine"
+          ],
+          "pick": true
+        }
+      },
+      {
+        "path": "custom/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": null,
+          "to": [
+            ".agents/skills/mine",
+            ".claude/skills/mine",
+            "custom/skills/mine"
+          ],
+          "pick": true
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "diverged",
+        "paths": [
+          ".agents/skills/mine",
+          ".claude/skills/mine",
+          "custom/skills/mine"
+        ],
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": null,
+          "to": [
+            ".agents/skills/mine",
+            ".claude/skills/mine",
+            "custom/skills/mine"
+          ],
+          "pick": true
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/mine": "m1",
+      "custom/skills/mine": "m3"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

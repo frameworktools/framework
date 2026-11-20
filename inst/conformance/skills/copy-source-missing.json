@@ -1,0 +1,35 @@
+{
+  "id": "copy-source-missing",
+  "area": "copy",
+  "description": "skills_copy stops when a named skill isn't in the source folder; nothing is copied.",
+  "command": "copy",
+  "options": {
+    "from": "claude",
+    "to": "agents",
+    "skills": [
+      "demo"
+    ]
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/other": "s1"
+  },
+  "lock": null,
+  "expected": {
+    "error": "copy_source_missing",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".claude/skills/other": "s1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

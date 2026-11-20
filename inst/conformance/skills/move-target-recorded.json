@@ -1,0 +1,66 @@
+{
+  "id": "move-target-recorded",
+  "area": "move",
+  "description": "The destination already has a record in the same entry (its copy reverted by hand): the move stops rather than overwrite that record.",
+  "covers": [
+    "Review: move erases the destination's record"
+  ],
+  "command": "move",
+  "options": {
+    "from": "claude",
+    "to": "agents"
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [
+    ".claude/skills"
+  ],
+  "disk": {
+    ".agents/skills/mine": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m2",
+          "version": 2,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1",
+          "@m2"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          },
+          ".agents/skills/mine": {
+            "hash": "@m2"
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "error": "move_target_owned",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".agents/skills/mine": "m1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

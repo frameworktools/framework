@@ -1,0 +1,104 @@
+{
+  "id": "kept-owner-two-copies",
+  "area": "identity",
+  "description": "A folder tracking another skill that has two copies is kept with no retarget hint: skills_move() would switch both copies.",
+  "covers": [
+    "Review: a hint whose command must fail"
+  ],
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "o1",
+    "custom/skills/demo": "o1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-other@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-other",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@o1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@o1"
+        ],
+        "copies": {
+          ".agents/skills/demo": {
+            "hash": "@o1"
+          },
+          "custom/skills/demo": {
+            "hash": "@o1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "https://cloud.test/uuid-other@r",
+        "name": "demo",
+        "action": "none",
+        "status": "kept",
+        "reason_code": "other_identity",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "kept",
+        "paths": [
+          ".agents/skills/demo"
+        ],
+        "reason_code": "other_identity",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "o1",
+      "custom/skills/demo": "o1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

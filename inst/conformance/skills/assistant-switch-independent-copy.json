@@ -1,7 +1,7 @@
 {
   "id": "assistant-switch-independent-copy",
   "area": "assistants",
-  "description": "After switching to Codex, .agents/skills/demo is a different skill: kept. The tracked .claude copy still updates.",
+  "description": "After switching to Codex, .agents/skills/demo is a different skill: kept. No retarget hint, since framework:demo is already tracked and skills_move() would refuse. The tracked .claude copy still updates.",
   "command": "pull",
   "options": {},
   "project": {
@@ -95,15 +95,7 @@
         "action": "none",
         "status": "kept",
         "reason_code": "other_identity",
-        "hint": {
-          "key": "retarget",
-          "path": ".agents/skills/demo",
-          "identity": {
-            "kind": "builtin",
-            "skill_id": "framework:demo",
-            "variant": "r"
-          }
-        }
+        "hint": null
       },
       {
         "path": ".claude/skills/demo",
@@ -125,15 +117,7 @@
           ".agents/skills/demo"
         ],
         "reason_code": "other_identity",
-        "hint": {
-          "key": "retarget",
-          "path": ".agents/skills/demo",
-          "identity": {
-            "kind": "builtin",
-            "skill_id": "framework:demo",
-            "variant": "r"
-          }
-        }
+        "hint": null
       },
       {
         "name": "demo",

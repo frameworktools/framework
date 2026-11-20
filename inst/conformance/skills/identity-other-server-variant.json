@@ -1,0 +1,114 @@
+{
+  "id": "identity-other-server-variant",
+  "area": "identity",
+  "description": "The same skill ID on another server, in another variant, is another identity, not another variant.",
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/mine": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://other.test/uuid-mine@python": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "python",
+          "server": "https://other.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://other.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".claude/skills/mine": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m2",
+        "hash": "@m2",
+        "known": [
+          "@m2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://other.test/uuid-mine@python",
+        "name": "mine",
+        "action": "none",
+        "status": "kept",
+        "reason_code": "other_identity",
+        "hint": {
+          "key": "retarget",
+          "path": ".claude/skills/mine",
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          }
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "kept",
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "reason_code": "other_identity",
+        "hint": {
+          "key": "retarget",
+          "path": ".claude/skills/mine",
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          }
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/mine": "m1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

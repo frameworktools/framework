@@ -1,0 +1,141 @@
+{
+  "id": "pull-partial-write-then-older",
+  "area": "pull",
+  "description": "A pull wrote v3 to one copy and the other kept v1 (it changed during the pull, then was reverted). The setup now names v2, which doesn't know v3: diverged, never a downgrade of the v3 copy.",
+  "covers": [
+    "Review: partial pull defeats downgrade protection"
+  ],
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/mine": "m1",
+    ".claude/skills/mine": "m3"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1",
+          "@m3"
+        ],
+        "copies": {
+          ".agents/skills/mine": {
+            "hash": "@m1"
+          },
+          ".claude/skills/mine": {
+            "hash": "@m3"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m2",
+        "hash": "@m2",
+        "known": [
+          "@m1",
+          "@m2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": null,
+          "to": [
+            ".agents/skills/mine",
+            ".claude/skills/mine"
+          ],
+          "pick": true
+        }
+      },
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "diverged",
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": null,
+          "to": [
+            ".agents/skills/mine",
+            ".claude/skills/mine"
+          ],
+          "pick": true
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "diverged",
+        "paths": [
+          ".agents/skills/mine",
+          ".claude/skills/mine"
+        ],
+        "reason_code": "copies_differ",
+        "hint": {
+          "key": "copy",
+          "from": null,
+          "to": [
+            ".agents/skills/mine",
+            ".claude/skills/mine"
+          ],
+          "pick": true
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/mine": "m1",
+      ".claude/skills/mine": "m3"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

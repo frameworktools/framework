@@ -46,7 +46,7 @@ Replace each with the real hash before running and before comparing.
   `move`.
 - `options`: the command's options. Pull: `overwrite`, `dry_run`, `offline`.
   Push: `confirm`, `force`, `dry_run`. Copy: `from`, `to` (folder names or
-  paths). Move: `from`, `to`, `skill_id`, `variant`, `builtin`. A missing
+  paths), `skills` (names; every skill in `from` when missing). Move: `from`, `to`, `skill_id`, `variant`, `builtin`. A missing
   option takes its default.
 - `project.variant`: the project's language.
 - `project.dirs`: the enabled assistants' skills folders, in order
@@ -72,9 +72,11 @@ Replace each with the real hash before running and before comparing.
     entry key (`skill_id`, `version`, `hash`, `server`).
 - `expected`:
   - `error`: an error code when the command stops before writing, else
-    `null`. Codes: `lock_schema_unsupported`, `move_target_exists`,
-    `move_target_owned`, `move_nothing`, `move_untracked`,
-    `move_identity_exists`, `copy_target_owned`.
+    `null`. Codes: `lock_schema_unsupported`, `lock_migrate_conflict`,
+    `paths_alias`, `move_target_exists`, `move_target_owned`,
+    `move_nothing`, `move_untracked`, `move_identity_exists`,
+    `copy_target_owned`, `copy_source_missing`, `copy_source_unreadable`,
+    `copy_target_unreadable`. The spec's "Errors" section says when.
   - `steps`: one per copy, sorted by path. `path`, `entry` (lock key, or
     `null`), `name`, `action` (`none`, `write`, `copy`, `record`, `move`,
     `push`), `status`, `reason_code`, and `hint`. A `write` names its

@@ -1,0 +1,76 @@
+{
+  "id": "push-first-push-pending",
+  "area": "push",
+  "description": "A v1 skills_sync() first push stopped before Cloud replied: refused, since it may already be on Cloud. force pushes it.",
+  "covers": [
+    "Review: interrupted first push"
+  ],
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/notes": "n1"
+  },
+  "lock": {
+    "schema": 1,
+    "skills": {
+      ".claude/skills/notes": {
+        "paths": [
+          ".claude/skills/notes"
+        ],
+        "variant": "r",
+        "pending": {
+          "request_id": "00000000-0000-4000-a000-000000000002",
+          "hash": "@n1",
+          "basis": "0::r"
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "remote": {}
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".claude/skills/notes",
+        "entry": "local:.claude/skills/notes",
+        "name": "notes",
+        "action": "none",
+        "status": "refused",
+        "reason_code": "first_push_pending",
+        "hint": {
+          "key": "force"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "notes",
+        "status": "refused",
+        "paths": [
+          ".claude/skills/notes"
+        ],
+        "reason_code": "first_push_pending",
+        "hint": {
+          "key": "force"
+        }
+      }
+    ],
+    "disk": {
+      ".claude/skills/notes": "n1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

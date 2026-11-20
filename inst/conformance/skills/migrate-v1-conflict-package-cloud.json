@@ -1,0 +1,81 @@
+{
+  "id": "migrate-v1-conflict-package-cloud",
+  "area": "migration",
+  "description": "A v1 package copy and a v1 Cloud copy of one built-in claim different versions: stop and name both entries; nothing is written.",
+  "covers": [
+    "Review: v1 migration collision"
+  ],
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/demo": "c3",
+    ".claude/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 1,
+    "skills": {
+      "package:demo": {
+        "paths": [
+          ".claude/skills/demo"
+        ],
+        "variant": "r",
+        "hash": "@d1",
+        "origin": {
+          "skill_id": "framework:demo",
+          "hash": "@d1"
+        }
+      },
+      "account:https://cloud.test:framework:demo:r": {
+        "paths": [
+          ".agents/skills/demo"
+        ],
+        "variant": "r",
+        "server": "https://cloud.test",
+        "skill_id": "framework:demo",
+        "version": 3,
+        "hash": "@c3"
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "demo",
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "channel": "package",
+        "version": null,
+        "server": null,
+        "content": "d2",
+        "hash": "@d2",
+        "known": [
+          "@d1",
+          "@d2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": "lock_migrate_conflict",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".agents/skills/demo": "c3",
+      ".claude/skills/demo": "d1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

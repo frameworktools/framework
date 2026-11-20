@@ -12,7 +12,8 @@ migration from version 1, one planner that every skill command calls, the new
 resolves each item in the three `docs/notes/skills-followups.md` files.
 
 The bundle format, the bundle hash (`framework-skill-bundle-v1` manifest,
-LF-normalized text), the installer (staging, backups, rollback), and the sync
+LF-normalized text), the installer (staging, backups, rollback; see "Apply"
+for one change to rollback), and the sync
 lock folder (`.framework/skills.sync.lock`) do not change.
 
 ## Problems in v1
@@ -170,9 +171,10 @@ setup names the skill:
 
 `S` is **older** than `E` when:
 
-- both are on the `cloud` channel for the same identity and
-  `S.version < E.base.version` (as after a push, then a pull without a login),
-  or
+- both are on the `cloud` channel for the same identity, the same server
+  delivered both (`S.server == E.base.server`), and `S.version <
+  E.base.version` (as after a push, then a pull without a login). Versions
+  from different servers don't compare: such a source is not older. Or
 - both are on the `package` channel and `E.base.hash` is not in `S.known`
   (the copy came from a newer package).
 
@@ -238,6 +240,9 @@ def plan_pull(disk, lock, offer, opt):
         extra = []
         for d in opt.dirs:
             p = d + "/" + S.name
+            if alias(p) in claimed and claimed[alias(p)] != p:
+                raise PlanError("paths_alias", path=p)   # two setup names, one folder on this volume
+            claimed[alias(p)] = p
             owner = owner_of(lock, p)       # filesystem identity
             if owner == key:
                 continue                    # planned as one of E's copies
@@ -246,11 +251,16 @@ def plan_pull(disk, lock, offer, opt):
                 if disk[p] is ABSENT:
                     continue                # the owner's entry plans it (restored or missing)
                 O = lock.skills[owner]
-                other_variant = (O.identity.skill_id == S.identity.skill_id
+                other_variant = (O.identity.kind == S.identity.kind
+                                 and O.identity.skill_id == S.identity.skill_id
+                                 and O.identity.server == S.identity.server   # cloud only
                                  and O.identity.variant != S.identity.variant)
+                # skills_move() switches O's whole entry, and refuses an
+                # identity the lock already tracks: hint only when it works
+                movable = len(O.copies) == 1 and E is None
                 plan.step(p, owner, "none", "kept",
                           "other_variant" if other_variant else "other_identity",
-                          hint("retarget", path=p, identity=S.identity))
+                          hint("retarget", path=p, identity=S.identity) if movable else None)
                 plan.kept_paths.add(p)
                 continue
             extra.append(p)
@@ -275,8 +285,8 @@ def plan_pull(disk, lock, offer, opt):
 
 def plan_entry(plan, key, E, S, extra, disk, opt, offer):
     E = E or Entry(identity=S.identity, base=None, known=set(), copies={})
-    C = [state_tracked(p, E, S, disk) for p in E.copies] + \
-        [state_untracked(p, E, S, disk) for p in extra]
+    C = sorted([state_tracked(p, E, S, disk) for p in E.copies] +
+               [state_untracked(p, E, S, disk) for p in extra], key=path)   # byte order, always
 
     if any(c.state == "unreadable" for c in C):
         return all_rows(plan, key, C, "failed", "unreadable")
@@ -330,17 +340,27 @@ def plan_entry(plan, key, E, S, extra, disk, opt, offer):
             plan.step(c.path, key, "write", added_or_restored(c))
         return finish(plan, key, E, S)
 
+    # Unedited copies at different versions (a pull that wrote only some of
+    # them): update only to a source that knows every version they hold
+    disks = {c.disk for c in present}
+    if len(disks) > 1 and (older or not disks <= set(S.known) | {S.hash}):
+        return all_rows(plan, key, present + holes, "diverged", "copies_differ",
+                        hint("copy", from_=None, to=paths(present + holes), pick=True))
+
     if older:
+        # present copies all hold one version here; prefer the one at base.hash
+        src = first([c for c in present if c.disk == E.base.hash]) or first(present)
         for c in present:
             plan.step(c.path, key, "none", "current", "newer_in_project")
         for c in holes:
-            if present: plan.step(c.path, key, "copy", added_or_restored(c), from_=present[0].path)
-            else:       plan.step(c.path, key, "none", "unavailable", "setup_older", hint("login"))
+            if src: plan.step(c.path, key, "copy", added_or_restored(c), from_=src.path)
+            else:   plan.step(c.path, key, "none", "unavailable", "setup_older", hint("login"))
         return finish(plan, key, E, None)    # copies recorded; base unchanged
 
     for c in present:
         if c.state == "current":
-            stale = E.copies.get(c.path) != S.hash or E.base != base_of(S)
+            record = E.copies[c.path].hash if c.path in E.copies else None
+            stale = record != S.hash or E.base != base_of(S)
             plan.step(c.path, key, "record" if stale else "none", "current")
         else:
             plan.step(c.path, key, "write", "updated", backup=True)
@@ -431,6 +451,9 @@ def plan_copy(disk, lock, from_dir, to_dirs, names, opt):
     for t in to_dirs:
         for n in names:
             src, dst = from_dir + "/" + n, t + "/" + n
+            if disk[src] is ABSENT:      raise PlanError("copy_source_missing", path=src)
+            if disk[src] is UNREADABLE:  raise PlanError("copy_source_unreadable", path=src)
+            if disk[dst] is UNREADABLE:  raise PlanError("copy_target_unreadable", path=dst)
             E = owner_of(lock, src); D = owner_of(lock, dst)
             if D is not None and E is not None and D != E:
                 raise PlanError("copy_target_owned", path=dst)
@@ -479,6 +502,9 @@ def plan_push(disk, lock, offer, opt):
             step_all(key, C, "record", "current")        # Cloud already has it: adopt
         elif E.identity.kind == "builtin":
             step_all(key, C, "push", "pushed", fork=True)   # becomes your own skill
+        elif E.base is None and E.pending is not None and not opt.force:
+            # a first push that stopped before Cloud replied may have reached it
+            step_all(key, C, "none", "refused", "first_push_pending", hint("force"))
         elif E.base is None:
             step_all(key, C, "push" if opt.force else "none",
                      "pushed" if opt.force else "refused", None if opt.force else "no_base",
@@ -496,7 +522,9 @@ def plan_push(disk, lock, offer, opt):
 ```
 
 After a push, the lock entry takes the response: `base = {cloud, hash,
-version, server}`, every copy's record = the pushed hash, `known += hash`,
+version, server}`, the record of every copy whose disk hash equals the pushed
+hash = the pushed hash (a copy whose folder is gone keeps its own record),
+`known += hash`,
 and `pending` cleared. A pushed built-in becomes a `cloud` entry under the
 response's `skill_id` (a new key) whose `known` is only the pushed hash: the
 built-in's versions are not versions of the fork. `confirm = FALSE` turns
@@ -505,7 +533,8 @@ every `pushed` step into `cancelled`.
 When Cloud's head already holds the local bytes (pushed from another
 checkout), nothing is sent. The steps are `record` with status `current`, and
 the entry adopts Cloud's head as for a push: `base = {cloud, hash, version,
-server}`, every record = that hash, `known += hash`. The row is `current`
+server}`, every record = that hash, `known += hash`, with the same rule for which copies take the record. The
+row is `current`
 with no reason code. A push request that fails (network, a refused reply)
 makes its entry's steps `failed` with no reason code; the prose names the
 error.
@@ -519,14 +548,17 @@ def plan_move(disk, lock, from_, to, identity, opt):
     for src, dst in pairs:
         E = owner_of(lock, src)
         if E is None:                       raise PlanError("move_untracked", path=src)
-        if owner_of(lock, dst) not in (None, E): raise PlanError("move_target_owned", path=dst)
+        # a destination with a record, even in the same entry, is never overwritten
+        if owner_of(lock, dst) is not None and alias(dst) != alias(src):
+            raise PlanError("move_target_owned", path=dst)
         if disk[src] is not ABSENT and disk[dst] is not ABSENT:
             raise PlanError("move_target_exists", path=dst)
         if disk[src] is ABSENT and disk[dst] is ABSENT:
             raise PlanError("move_nothing", path=src)
         action = "move" if disk[src] is not ABSENT else "record"   # record: already moved on disk
         plan.step(dst, E, action, "moved", "path_moved" if action == "move" else "lock_moved")
-        lock_after.skills[E].copies[dst] = lock.skills[E].copies.pop(src)
+        record = lock_after.skills[E].copies.pop(src)    # the input lock is never changed
+        lock_after.skills[E].copies[dst] = record
     if identity:                            # retarget one entry
         E = entry_for(from_)
         new_key = key_of(identity)
@@ -577,7 +609,9 @@ The command applies steps in path order under the sync lock:
    changed since planning is left alone and its step becomes `edited`
    (`changed_during_pull`).
 2. It installs with the v1 installer (backup to
-   `.framework/skills-backups/`).
+   `.framework/skills-backups/`). One change: a rollback never deletes a copy
+   it wrote, since the copy may hold an edit made after the write. It moves
+   that copy to `.framework/skills-backups/` and names it in the error.
 3. It saves `lock_after`, adjusted for declined steps: a declined copy keeps
    its old record, and its entry keeps its old `base` while `known` still
    gains the source's hashes. Per-copy records keep this lock accurate after
@@ -589,10 +623,10 @@ The command applies steps in path order under the sync lock:
 
 ## Migration from v1
 
-`migrate()` is pure and runs on every read. A v1 lock is never rejected.
+`migrate()` is pure and runs on every read. A v1 lock is never rejected for
+its age.
 
-1. Merge duplicate v1 entries as `.skill_merge_entries()` does.
-2. Map each v1 entry:
+1. Map each v1 entry on its own:
 
    | v1 entry | v2 identity | v2 base |
    |---|---|---|
@@ -602,13 +636,19 @@ The command applies steps in path order under the sync lock:
    | neither | `local`, `variant` | null |
 
    `variant` defaults to `r`.
-3. Every path gets the v1 `hash` as its record. A v1 entry without `hash`
+2. Every path gets its own v1 entry's `hash` as its record. A v1 entry without `hash`
    gets records equal to `origin.hash`; with neither, no record (its copies
    classify as `edited`).
-4. `known` is `{hash, origin.hash}` without nulls. The package history and
+3. `known` is `{hash, origin.hash}` without nulls. The package history and
    Cloud known hashes join it at the next sync.
-5. `pending` is copied unchanged.
-6. Keys are rebuilt from identities.
+4. `pending` is copied unchanged.
+5. Keys are rebuilt from identities. v1 entries that map to one key merge
+   (copies and known joined) when their bases are equal and at most one has
+   `pending`. Otherwise (a package copy and a Cloud copy of one built-in, or
+   two Cloud versions of one skill) the command stops with
+   `lock_migrate_conflict`, naming both v1 keys, and writes nothing. The
+   person deletes the entry for the copy they don't keep. This replaces v1's
+   merge, which gave every path the winning entry's hash.
 
 A non-dry-run command that changes the lock saves it as v2. A command that
 changes nothing leaves a v1 file as it is.
@@ -671,6 +711,7 @@ keys only.
 | `changed_during_pull` | edited | Changed between plan and write (apply only) |
 | `cloud_changed` | refused | Cloud moved since the base |
 | `no_base` | refused | The entry has no base (after a retarget) |
+| `first_push_pending` | refused | A first push stopped before Cloud replied; it may be on Cloud. Check Cloud, then `skills_sync(path, skill_id =)` or `force` |
 | `cancelled` | cancelled | Push not confirmed |
 | `path_moved`, `lock_moved`, `retargeted` | moved | Move |
 
@@ -770,10 +811,45 @@ No other change. Push responses already include `skill_id`, `version`, and
 
 ## Scenarios
 
-`inst/conformance/skills/` holds 64 language-neutral cases. Python and Go
+`inst/conformance/skills/` holds 80 language-neutral cases. Python and Go
 copy them with their existing asset sync (`scripts/sync_assets.py`,
 `tools/syncassets`), pinned to an R tag, beside the other conformance
 fixtures. The README there defines the format.
+
+## Errors
+
+A command stops before writing anything with one of these codes:
+
+| Code | When |
+|---|---|
+| `lock_schema_unsupported` | The lock's schema is above 2 |
+| `lock_migrate_conflict` | Two v1 entries map to one identity with different versions |
+| `paths_alias` | Two setup names are one folder on this volume (a case alias) |
+| `copy_target_owned` | `skills_copy()` onto a folder another tracked skill owns |
+| `copy_source_missing` | `skills_copy()` of a skill not in the source folder |
+| `copy_source_unreadable` | `skills_copy()` of a source folder that isn't a valid skill |
+| `copy_target_unreadable` | `skills_copy()` onto a folder that isn't a valid skill |
+| `move_target_exists` | `skills_move()` onto a folder that exists |
+| `move_target_owned` | `skills_move()` onto a path the lock already tracks, in any entry |
+| `move_nothing` | Neither the source nor the destination exists |
+| `move_untracked` | The source isn't tracked |
+| `move_identity_exists` | A retarget to an identity the lock already tracks |
+
+These are rare states. Each stops rather than guess, and its message says
+what to run.
+
+## Accepted limits
+
+- **A deleted or rewound lock loses provenance.** Without a lock, a copy
+  whose bytes are a known version counts as unedited (`clean`), so a
+  deliberate revert to a shipped version is updated, with a backup
+  (`pull-adopt-known-before-lock`). A lock rewound to an older state does the
+  same (`pull-rewound-lock-revert`).
+- **A deleted copy is restored while its folder exists.** Pull treats a
+  tracked copy that is absent beside its existing parent folder as missing,
+  not removed, and installs it again (`restored`). To stop tracking a skill,
+  remove it from the setup or the lock, not just its folder. A copy whose
+  whole assistant folder is gone is never recreated.
 
 ## Open questions
 

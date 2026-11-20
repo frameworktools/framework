@@ -1,0 +1,151 @@
+{
+  "id": "pull-restored-sibling",
+  "area": "pull",
+  "description": "After that push, the gone folder is restored from a backup: its copy is unedited at the old version and is updated.",
+  "covers": [
+    "Review: push certifies a copy it never saw"
+  ],
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/mine": "m2",
+    ".claude/skills/mine": "e1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@e1",
+          "version": 3,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@e1",
+          "@m2"
+        ],
+        "copies": {
+          ".agents/skills/mine": {
+            "hash": "@m2"
+          },
+          ".claude/skills/mine": {
+            "hash": "@e1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 3,
+        "server": "https://cloud.test",
+        "content": "e1",
+        "hash": "@e1",
+        "known": [
+          "@e1",
+          "@m2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "write",
+        "status": "updated",
+        "reason_code": null,
+        "hint": null,
+        "content": "e1",
+        "backup": true
+      },
+      {
+        "path": ".claude/skills/mine",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "mine",
+        "action": "none",
+        "status": "current",
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "mine",
+        "status": "updated",
+        "paths": [
+          ".agents/skills/mine",
+          ".claude/skills/mine"
+        ],
+        "reason_code": null,
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/mine": "e1",
+      ".claude/skills/mine": "e1"
+    },
+    "backups": [
+      ".agents/skills/mine"
+    ],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-mine@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-mine",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": {
+            "channel": "cloud",
+            "hash": "@e1",
+            "version": 3,
+            "server": "https://cloud.test"
+          },
+          "known": [
+            "@e1",
+            "@m2"
+          ],
+          "copies": {
+            ".agents/skills/mine": {
+              "hash": "@e1"
+            },
+            ".claude/skills/mine": {
+              "hash": "@e1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

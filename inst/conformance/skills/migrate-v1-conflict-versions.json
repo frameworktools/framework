@@ -1,0 +1,81 @@
+{
+  "id": "migrate-v1-conflict-versions",
+  "area": "migration",
+  "description": "Two v1 entries for one Cloud skill at different versions (each path with its own hash) stop with the conflict; no path takes the other's hash.",
+  "covers": [
+    "Review: v1 migration collision"
+  ],
+  "command": "pull",
+  "options": {},
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/mine": "m1",
+    ".claude/skills/mine": "m2"
+  },
+  "lock": {
+    "schema": 1,
+    "skills": {
+      "account:https://cloud.test:uuid-mine:r": {
+        "paths": [
+          ".claude/skills/mine"
+        ],
+        "variant": "r",
+        "server": "https://cloud.test",
+        "skill_id": "uuid-mine",
+        "version": 2,
+        "hash": "@m2"
+      },
+      ".agents/skills/mine": {
+        "paths": [
+          ".agents/skills/mine"
+        ],
+        "variant": "r",
+        "server": "https://cloud.test",
+        "skill_id": "uuid-mine",
+        "version": 1,
+        "hash": "@m1"
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "skills": [
+      {
+        "name": "mine",
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "channel": "cloud",
+        "version": 2,
+        "server": "https://cloud.test",
+        "content": "m2",
+        "hash": "@m2",
+        "known": [
+          "@m1",
+          "@m2"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "error": "lock_migrate_conflict",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".agents/skills/mine": "m1",
+      ".claude/skills/mine": "m2"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}
