@@ -257,6 +257,8 @@
       if (identical(hint$key, "sync")) paste0(lead, " ", command, " pushes it as a new skill.")
       else if (identical(hint$key, "move")) paste0(lead, " If it is ", hint$from, ", moved by hand: ", command)
       else if (!is.null(command)) paste0(lead, " To track it with this skill: ", command)
+      else if (push) paste0(lead, " It looks like a moved copy of a tracked skill, but more than one matches. ",
+                            "Record the move with skills_move(from, to).")
       else lead
     },
     "edited/local_edits" = paste0(first, " has local edits, which were kept. ", fn, "(overwrite = TRUE) replaces them with the ",
@@ -288,7 +290,9 @@
     "missing/folder_gone" = paste0(
       if (!is.null(ctx$disk) && ctx$disk$folder_exists(dirname(first))) paste0(first, " is gone") else paste0(first, "'s folder is gone"),
       ", so ", if (push) "it can't be pushed." else "it can't be restored.",
-                                   if (identical(hint$key, "move")) paste0(" If the skill moved to ", hint$to, ": ", command) else ""),
+                                   if (identical(hint$key, "move")) paste0(" If the skill moved to ", hint$to, ": ", command)
+                                   else if (push) " More than one untracked folder could be it; record the move with skills_move(from, to)."
+                                   else ""),
     "missing/all_gone" = {
       if (push) "Every tracked copy is gone, so there is nothing to push."
       else if (identical(hint$key, "login")) paste0("Every tracked copy is gone. Sign in with cloud_login(), then pull again ",

@@ -17,7 +17,7 @@ Changes:
 * One planner decides every skill command: `pull_skills()`, `pull_all()`,
   `push_skills()`, `push_all()`, `upgrade()`, `skills_copy()`, and adding or
   switching assistants. The rules are in
-  `docs/architecture/skills-lock-v2.md`; the 84 cases in
+  `docs/architecture/skills-lock-v2.md`; the 86 cases in
   `inst/conformance/skills/` run in the tests and are shared with
   framework-py and fw.
 * A copy is unedited only when it matches what the last sync wrote there. A
@@ -58,6 +58,8 @@ Changes:
 * After a push, only copies that hold the pushed files take its record.
 * A push stops (`lock_changed`) when the skills lock changed while it waited
   for confirmation, and sends nothing.
+* Push recognizes a skill folder renamed by hand (its files match a tracked
+  copy that is gone) and suggests `skills_move()`, never `skills_sync()`.
 * `skills_move()` undoes its renames when a later step fails, and names any
   it can't undo.
 * Push skips a skill whose edited files Cloud already has, and records

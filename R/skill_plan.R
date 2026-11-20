@@ -384,6 +384,22 @@
     if (!p %in% tracked && !disk$alias(p) %in% tracked) untracked <- c(untracked, p)
   }
   absent_all <- function(E) length(E$copies) && all(vapply(names(E$copies), function(p) identical(disk$hash(p), .skill_absent), logical(1)))
+  # Twin rule: an untracked folder is a hand-moved copy of an entry with no
+  # copy left when it has the copy's name (in another folder) or holds the
+  # copy's recorded bytes (a rename). A match counts only when it is the
+  # entry's only match and the folder's only match.
+  twins <- list()
+  for (key in names(lock$skills)) {
+    E <- lock$skills[[key]]
+    if (!absent_all(E)) next
+    for (cp in .skill_sorted(names(E$copies))) for (u in untracked) {
+      if (identical(basename(u), basename(cp)) || identical(disk$hash(u), unname(E$copies[cp]))) {
+        twins[[length(twins) + 1L]] <- list(key = key, from = cp, to = u)
+      }
+    }
+  }
+  twin_keys <- vapply(twins, `[[`, "", "key"); twin_tos <- vapply(twins, `[[`, "", "to")
+  unique_twin <- function(t) sum(twin_keys == t$key) == 1 && sum(twin_tos == t$to) == 1
 
   for (key in names(lock$skills)) {
     E <- lock$skills[[key]]
@@ -394,10 +410,11 @@
     if (any(vapply(C, function(c) identical(c$state, "unreadable"), logical(1)))) { step_all("none", "failed", "unreadable"); next }
     present <- .skill_states_in(C, c("clean", "edited"))
     if (!length(present)) {
-      twin <- Filter(function(p) basename(p) %in% basename(names(E$copies)), untracked)
-      if (length(twin)) {
-        from <- names(E$copies)[basename(names(E$copies)) == basename(twin[1])][1]
-        step_all("none", "missing", "folder_gone", .skill_hint("move", from = from, to = twin[1]))
+      mine <- Filter(function(t) identical(t$key, key), twins)
+      if (length(mine) == 1 && unique_twin(mine[[1]])) {
+        step_all("none", "missing", "folder_gone", .skill_hint("move", from = mine[[1]]$from, to = mine[[1]]$to))
+      } else if (length(mine)) {
+        step_all("none", "missing", "folder_gone")     # more than one match: no hint
       } else {
         step_all("none", "missing", "all_gone")
       }
@@ -431,14 +448,10 @@
     }
   }
   for (p in untracked) {
-    twin <- NULL
-    for (key in names(lock$skills)) {
-      E <- lock$skills[[key]]
-      named <- names(E$copies)[basename(names(E$copies)) == basename(p)]
-      if (length(named) && absent_all(E)) { twin <- named[1]; break }
-    }
-    .skill_step(plan, p, NULL, "none", "untracked", "untracked",
-                if (!is.null(twin)) .skill_hint("move", from = twin, to = p) else .skill_hint("sync", path = p))
+    mine <- Filter(function(t) identical(t$to, p), twins)
+    hint <- if (length(mine) == 1 && unique_twin(mine[[1]])) .skill_hint("move", from = mine[[1]]$from, to = p)
+      else if (!length(mine)) .skill_hint("sync", path = p)
+    .skill_step(plan, p, NULL, "none", "untracked", "untracked", hint)
   }
   plan
 }
