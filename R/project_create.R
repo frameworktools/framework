@@ -397,6 +397,24 @@ project_create <- function(
   use_split_files <- identical(settings_layout %||% .spec_default_settings_layout(type), "split")
   if (!is.null(packages) && !is.null(tools$renv)) packages$use_renv <- isTRUE(tools$renv)
 
+  # An app never calls scaffold() and renders nothing with Quarto, so its
+  # settings keep only the workflow and editor choices
+  app <- .fw_is_app(type)
+  scaffold_settings <- list(
+    seed_on_scaffold = scaffold$seed_on_scaffold %||% FALSE,
+    seed = scaffold$seed %||% "",
+    set_theme_on_scaffold = scaffold$set_theme_on_scaffold %||% TRUE,
+    ggplot_theme = scaffold$ggplot_theme %||% "theme_minimal",
+    notebook_format = .scaffold_notebook_format(scaffold) %||% "quarto",
+    workflow = scaffold$workflow,
+    positron = scaffold$positron %||% FALSE,
+    source_all_functions = scaffold$source_all_functions %||% TRUE
+  )
+  if (app) {
+    scaffold_settings <- scaffold_settings[c("notebook_format", "workflow", "positron")]
+    quarto <- NULL
+  }
+
   if (use_split_files) {
     # Ensure settings directory exists
     dir.create(settings_dir, recursive = TRUE, showWarnings = FALSE)
@@ -421,7 +439,7 @@ project_create <- function(
         ai = "settings/ai.yml",
         scaffold = "settings/scaffold.yml",
         connections = connections_file,
-        quarto = "settings/quarto.yml",
+        quarto = if (!app) "settings/quarto.yml",
         data = "settings/data.yml",
         security = security,
         data_hooks = if (length(data_hooks) > 0) data_hooks else NULL
@@ -458,19 +476,10 @@ project_create <- function(
       assistants = ai$assistants
     )), file.path(settings_dir, "ai.yml"))
 
-    .fw_write_yaml(list(scaffold = list(
-      seed_on_scaffold = scaffold$seed_on_scaffold %||% FALSE,
-      seed = scaffold$seed %||% "",
-      set_theme_on_scaffold = scaffold$set_theme_on_scaffold %||% TRUE,
-      ggplot_theme = scaffold$ggplot_theme %||% "theme_minimal",
-      notebook_format = .scaffold_notebook_format(scaffold) %||% "quarto",
-      workflow = scaffold$workflow,
-      positron = scaffold$positron %||% FALSE,
-      source_all_functions = scaffold$source_all_functions %||% TRUE
-    )), file.path(settings_dir, "scaffold.yml"))
+    .fw_write_yaml(list(scaffold = scaffold_settings), file.path(settings_dir, "scaffold.yml"))
 
     # Write quarto settings to split file
-    .fw_write_yaml(list(quarto = quarto %||% list()), file.path(settings_dir, "quarto.yml"))
+    if (!app) .fw_write_yaml(list(quarto = quarto %||% list()), file.path(settings_dir, "quarto.yml"))
 
     # The data catalog: the spec's entries nested by name, else empty
     .fw_write_yaml(list(data = .data_catalog_nest(data)), file.path(settings_dir, "data.yml"))
@@ -515,16 +524,7 @@ project_create <- function(
         ),
 
         # Scaffold configuration
-        scaffold = list(
-          seed_on_scaffold = scaffold$seed_on_scaffold %||% FALSE,
-          seed = scaffold$seed %||% "",
-          set_theme_on_scaffold = scaffold$set_theme_on_scaffold %||% TRUE,
-          ggplot_theme = scaffold$ggplot_theme %||% "theme_minimal",
-          notebook_format = .scaffold_notebook_format(scaffold) %||% "quarto",
-          workflow = scaffold$workflow,
-          positron = scaffold$positron %||% FALSE,
-          source_all_functions = scaffold$source_all_functions %||% TRUE
-        ),
+        scaffold = scaffold_settings,
 
         # Data catalog (inline for course/presentation)
         data = .data_catalog_nest(data),
@@ -539,6 +539,7 @@ project_create <- function(
     )
 
     config_path <- file.path(project_dir, "settings.yml")
+    if (app) config$default$quarto <- NULL
     if (!is.null(publish)) config$default$publish <- publish
     .fw_write_yaml(config, config_path)
     message("  Created: settings.yml")

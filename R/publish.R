@@ -275,8 +275,8 @@ NULL
     return("cloud")
   }
   stop(
-    "Nowhere to publish. Add a storage bucket in settings.yml, or set up this ",
-    'project from Framework Cloud with setup("<project token>").
+    "Nowhere to publish. Add a storage bucket in settings.yml, or link this ",
+    'project to Framework Cloud with fw project link --from SLUG (fw projects list shows the slugs).
 
 ',
     "A storage bucket looks like this:

@@ -102,7 +102,8 @@ test_that("ai_skills_update() reports what it actually did", {
 
   first <- capture.output(result <- ai_skills_update(test_dir), type = "message")
   n <- result$counts$added
-  expect_match(first[1], "Framework Cloud not reached (no project token); using the package skills", fixed = TRUE)
+  expect_match(first[1], "Framework Cloud not reached (this project isn't linked to Framework Cloud); using the package skills", fixed = TRUE)
+  expect_match(first[2], "fw project link --from SLUG", fixed = TRUE)
   expect_identical(tail(first, 1), sprintf("Skills: %d added", n))
 
   again <- capture.output(ai_skills_update(test_dir), type = "message")

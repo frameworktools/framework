@@ -45,7 +45,7 @@ test_that("after scaffold() loads project A's .env, project B uses its own token
   # A project with no token of its own never borrows A's, which scaffold() loaded
   d <- scope_project(parent, "D")
   expect_null(framework:::.fw_project_token(d))
-  expect_error(framework:::.setup_connection(d), "no project token")
+  expect_error(framework:::.setup_connection(d), "fw project link --from SLUG", fixed = TRUE)
 })
 
 test_that("a child R process doesn't take the token scaffold() loaded in its parent for a shell token", {

@@ -27,6 +27,9 @@ package_add("arrow", install = FALSE)       # record only
 `packages_list()` shows the project's packages. `packages_install()` installs
 any that are missing, for example after cloning.
 
+An app (Shiny or Plumber) never calls `scaffold()`. Run `packages_install()`
+to install its packages, and load them with `library()` in the app's code.
+
 Packages without `auto_attach` are installed but not loaded. Load them with
 `library()` where they are used.
 

@@ -225,7 +225,7 @@ test_that("publishing with no bucket and no project token names both fixes", {
   local_cloud_env()
   yaml::write_yaml(list(default = list(project_type = "project")), "settings.yml")
   writeLines("<p>hi</p>", "report.html")
-  expect_error(publish("report.html"), "Nowhere to publish.*setup\\(\"<project token>\"\\)")
+  expect_error(publish("report.html"), "Nowhere to publish.*fw project link --from SLUG")
   expect_identical(
     tryCatch(framework:::.fw_publish_target(), error = function(e) "error"),
     "error"

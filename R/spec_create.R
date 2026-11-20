@@ -139,7 +139,8 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     .spec_write_ai(project_dir, spec)
   }
 
-  if (core) {
+  # An app has its own entry point and never calls scaffold()
+  if (core && !.fw_is_app(type)) {
     .create_scaffold_file(project_dir, spec$scaffold)
   }
   editors <- .ide_files(spec$scaffold$ide)

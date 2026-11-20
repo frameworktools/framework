@@ -29,6 +29,9 @@ NULL
 #' Skills that apply to a given project type
 #' @keywords internal
 .ai_skills_for_type <- function(project_type) {
+  # An app manages packages through Framework and nothing else
+  if (.fw_is_app(project_type)) return("framework-packages")
+
   base_skills <- c(
     "framework-workflow",
     "framework-data",

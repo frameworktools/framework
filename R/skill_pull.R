@@ -52,7 +52,7 @@
 # package defaults. Errors when the setup can't be read.
 .skill_pull_cloud_skills <- function(root, notes) {
   token <- .fw_project_token(root)
-  if (is.null(token)) stop(errorCondition("no project token", class = "fw_no_project_token", call = NULL))
+  if (is.null(token)) stop(errorCondition("this project isn't linked to Framework Cloud", class = "fw_no_project_token", call = NULL))
   server <- .fw_project_cloud_url(root)
   envelope <- .fw_api("/api/v1/projects/pull", token = token, url = server)
   if (!is.list(envelope) || !identical(as.integer(envelope$spec_version %||% NA), 1L)) {
@@ -117,6 +117,7 @@
   if (inherits(fetched, "error")) {
     reason <- sub("\\.$", "", conditionMessage(fetched))
     message("Framework Cloud not reached (", reason, "); using the package skills for this project type.")
+    if (inherits(fetched, "fw_no_project_token")) message(.fw_unlinked_message())
     names <- .skill_pull_package_names(settings)
     return(list(source = "package", offline = TRUE, notes = character(),
                 skills = lapply(names, .skill_source_package)))

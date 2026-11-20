@@ -199,7 +199,7 @@ test_that("pull_all() stops cleanly offline, without a token, or without the end
   cloud$missing <- NULL; cloud$offline <- "Could not resolve host"
   expect_error(pull_all(root, dry_run = TRUE), "Framework Cloud not reached (Could not resolve host). Nothing changed.", fixed = TRUE)
   withr::local_envvar(FW_PROJECT_TOKEN = "")
-  expect_error(pull_all(root, dry_run = TRUE), "no project token")
+  expect_error(pull_all(root, dry_run = TRUE), "fw project link --from SLUG", fixed = TRUE)
 })
 
 test_that("pull_all() warns when a pinned version did not install", {

@@ -23,12 +23,21 @@
   writeLines(jsonlite::toJSON(data, auto_unbox = TRUE, pretty = TRUE), path, useBytes = TRUE)
 }
 
+# Why a project has no Framework Cloud connection and how to make one. A
+# clone from GitHub has none, since .env stays out of git.
+.fw_unlinked_message <- function() {
+  paste0(
+    "This project isn't linked to Framework Cloud (no FW_PROJECT_TOKEN in the environment or the project's .env). ",
+    "Link it with: fw project link --from SLUG. fw projects list shows the slugs. ",
+    "Or copy a project token from the project's page on Framework Cloud into .env as FW_PROJECT_TOKEN."
+  )
+}
+
 # The project's server and token; an error that changes nothing without one
 .setup_connection <- function(root) {
   token <- .fw_project_token(root)
   if (is.null(token)) {
-    stop("Framework Cloud not reached (no project token in FW_PROJECT_TOKEN or the project's .env). Nothing changed.",
-         call. = FALSE)
+    stop(.fw_unlinked_message(), " Nothing changed.", call. = FALSE)
   }
   list(server = .fw_project_cloud_url(root), token = token)
 }

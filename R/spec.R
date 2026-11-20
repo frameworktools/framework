@@ -237,6 +237,12 @@ spec_check <- function(spec) {
 
 .spec_types <- function() c("project", "project_sensitive", "course", "presentation", "bare")
 
+# App project types: an app with its own entry point (app.R, plumber.R) that
+# never calls scaffold(). Framework manages its packages, skills, and settings.
+.fw_app_types <- function() c("shiny", "plumber", "shiny_python", "fastapi")
+
+.fw_is_app <- function(type) isTRUE(type %in% .fw_app_types())
+
 # What a spec's settings mean, with today's behavior for specs that predate
 # core_files, settings_layout, and tools
 .spec_default_settings_layout <- function(type) {
@@ -499,7 +505,9 @@ spec_check <- function(spec) {
   type_config <- config$project_types[[type]] %||% list()
 
   packages <- list()
-  for (pkg in defaults$packages$default_packages %||% list()) {
+  # An app's packages are the ones its starter files use, never the tidyverse
+  app_defaults <- if (.fw_is_app(label)) list() else defaults$packages$default_packages
+  for (pkg in app_defaults %||% list()) {
     packages[[pkg$name]] <- list(source = pkg$source %||% "cran", auto_attach = isTRUE(pkg$auto_attach))
   }
 

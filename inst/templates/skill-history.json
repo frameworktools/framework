@@ -35,6 +35,7 @@
     },
     "framework-packages": {
       "r": [
+        "5832cc289fdca70f0193668f7bce3598f3da586b4449ffb1c37b20c4f52bfce9",
         "a063a1af90edac8e9d4919392e188cba52eac61636be6a6706719713d48b3a85",
         "b9fb5c0b6d593335f5f7c223a32ded2d39cda5da7e6a487ed71cd8fde822d80e",
         "d559d6c82022e0ad7f263494196490c51be14e1322471dbb29e755b02cccd888",

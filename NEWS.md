@@ -1,3 +1,22 @@
+# framework (development version)
+
+App projects (Shiny and Plumber) set up as apps, and a clone with no project
+token says how to link it.
+
+Changes:
+
+* An app project's AGENTS.md describes the app: where its code goes, how to
+  run it, and how to add packages. It has no `scaffold()`, Data Management, or
+  Workflow Guidelines sections, and no longer suggests `auto_attach`.
+* An app project gets no `scaffold.R`, no Quarto settings, and only the
+  workflow and editor keys under `scaffold`. Its package defaults leave out the
+  tidyverse, and its default skills are `framework-packages` only.
+* Workflow Guidelines appear only when the `framework-workflow` skill is
+  installed, since they point at it.
+* `pull_all()`, `pull_skills()`, `pull_data_registry()`, `ledger_push()`,
+  `ledger_list()`, and `publish()` name `fw project link --from SLUG` when the
+  project has no token, as in a fresh clone.
+
 # framework 2.1.0
 
 Skills lock v2. `.framework/skills.lock.json` records each skill copy

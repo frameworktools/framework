@@ -251,7 +251,7 @@ test_that("offline, signed out, and older servers change nothing", {
   expect_error(pull_data_registry(root), "no data registry endpoint yet")
   withr::local_envvar(FW_PROJECT_TOKEN = "")
   local_mocked_bindings(.fw_project_token = function(...) NULL)
-  expect_error(pull_data_registry(root), "no project token")
+  expect_error(pull_data_registry(root), "isn't linked to Framework Cloud")
 })
 
 test_that("project creation writes the spec's data entries into the settings", {

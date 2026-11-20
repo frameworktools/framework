@@ -1591,8 +1591,7 @@ data_verify <- function(name) {
 ledger_push <- function() {
   token <- .fw_project_token()
   if (is.null(token)) {
-    stop("No project token found (FW_PROJECT_TOKEN / .env). ",
-         "Create the project with framework::new() while logged in.", call. = FALSE)
+    stop(.fw_unlinked_message(), call. = FALSE)
   }
 
   con <- .get_db_connection()
@@ -1682,8 +1681,7 @@ ledger_push <- function() {
 ledger_list <- function(name = NULL) {
   token <- .fw_project_token()
   if (is.null(token)) {
-    stop("No project token found (FW_PROJECT_TOKEN / .env). ",
-         "Create the project with framework::new() while logged in.", call. = FALSE)
+    stop(.fw_unlinked_message(), call. = FALSE)
   }
 
   path <- "/api/v1/ledger"

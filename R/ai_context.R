@@ -102,16 +102,20 @@ if (is.null(project_name)) {
     .generate_packages_section(config)
   )
 
-  # 5. Data Management (regeneratable) - add heading with marker
-  sections$data <- paste0(
-    "## Data Management <!-- @framework:regenerate -->\n\n",
-    .generate_data_section(config, project_type)
-  )
+  # An app reads its own files and has no Framework workflow
+  if (!.fw_is_app(project_type)) {
+    # 5. Data Management (regeneratable) - add heading with marker
+    sections$data <- paste0(
+      "## Data Management <!-- @framework:regenerate -->\n\n",
+      .generate_data_section(config, project_type)
+    )
 
-  # 6. Project-type specific content (static per type)
-  sections$type_specific <- .generate_project_type_section(
-    project_type, sensitive = .fw_settings_sensitive(config)
-  )
+    # 6. Project-type specific content (static per type)
+    sections$type_specific <- .generate_project_type_section(
+      project_type, sensitive = .fw_settings_sensitive(config),
+      skills = skills %||% .ai_skills_for_type(project_type)
+    )
+  }
 
   # 7. Project Notes (user-editable, never touched)
   sections$notes <- .generate_notes_section()
@@ -280,6 +284,8 @@ they won't be overwritten.
 #' Generate Framework Environment section
 #' @keywords internal
 .generate_environment_section <- function(config, project_type) {
+  if (.fw_is_app(project_type)) return(.generate_app_section(config, project_type))
+
   # Get configuration values
   seed <- config$scaffold$seed %||% config$seed %||% "123"
   seed_enabled <- config$scaffold$seed_on_scaffold %||% FALSE
@@ -370,7 +376,12 @@ Start each notebook and script with `scaffold()`. It:
     lines <- c(lines, sprintf("**Installed** (call library() when needed): %s", paste(installed_names, collapse = ", ")))
   }
 
-  lines <- c(lines, "", "Add packages with `package_add(\"name\")` or `package_add(\"name\", auto_attach = TRUE)`.")
+  # An app loads its own packages; auto_attach applies only through scaffold()
+  lines <- c(lines, "", if (.fw_is_app(config$project_type)) {
+    "Add packages with `package_add(\"name\")`."
+  } else {
+    "Add packages with `package_add(\"name\")` or `package_add(\"name\", auto_attach = TRUE)`."
+  })
 
   paste(lines, collapse = "\n")
 }
@@ -596,7 +607,7 @@ make_script("data-processing")        # Creates scripts/data-processing.R
 
 #' Generate project-type specific section
 #' @keywords internal
-.generate_project_type_section <- function(project_type, sensitive = FALSE) {
+.generate_project_type_section <- function(project_type, sensitive = FALSE, skills = NULL) {
   # Sensitive data is a setting, whatever structure the project uses
   if (isTRUE(sensitive)) project_type <- "project_sensitive"
   switch(project_type,
@@ -647,14 +658,51 @@ quarto render presentation.qmd
 make_notebook("backup-slides", stub = "revealjs")
 ```
 ',
-    # Default: standard project
-    '## Workflow Guidelines
+    # Default: standard project, which points at the workflow skill when it has it
+    if ("framework-workflow" %in% skills) '## Workflow Guidelines
 
 Follow the standard Framework workflow (see the `framework-workflow` skill):
 import with `data_read()`, clean and save with `data_save()`, analyze from
 final datasets, export with `save_table()`, `save_figure()`, or `save_model()`.
 '
   )
+}
+
+
+# The Framework Environment section of an app: where its code goes and how to
+# run it. An app never calls scaffold().
+#' @keywords internal
+.generate_app_section <- function(config, project_type) {
+  dirs <- config$directories %||% list()
+  dir <- function(key, default) paste0("`", dirs[[key]] %||% default, "/`")
+  folders <- sprintf("Static files go in %s, data files in %s, and tests in %s.",
+                     dir("www", "www"), dir("data", "data"), dir("tests", "tests"))
+
+  lines <- switch(project_type,
+    shiny = c(
+      "This is a Shiny app. Framework manages its packages, skills, and settings. The app doesn't call `scaffold()`.",
+      "",
+      sprintf("- The interface and server are in `app.R`. Shiny sources the files in %s on its own. %s", dir("functions", "R"), folders),
+      "- Run it with `shiny::runApp()`.",
+      "- Add packages with `package_add(\"name\")`, then load them with `library()` in `app.R`."
+    ),
+    plumber = c(
+      "This is a Plumber API. Framework manages its packages, skills, and settings. The API doesn't call `scaffold()`.",
+      "",
+      sprintf("- The endpoints are in `plumber.R`, and the logic is in %s, which `plumber.R` sources. Data files go in %s, and tests in %s.",
+              dir("functions", "R"), dir("data", "data"), dir("tests", "tests")),
+      "- Run it with `Rscript run.R`. The API docs are at `/__docs__/`.",
+      "- Add packages with `package_add(\"name\")`, then load them with `library()` where they are used."
+    ),
+    c(
+      "This is an app. Framework manages its packages, skills, and settings. The app doesn't call `scaffold()`.",
+      "",
+      "- Add packages with `package_add(\"name\")`."
+    )
+  )
+  paste0(paste(c(lines,
+    "- Ask before publishing anything public. GitHub Pages is public even from a private repository."
+  ), collapse = "\n"), "\n")
 }
 
 
