@@ -10,7 +10,10 @@ Changes:
   Workflow Guidelines sections, and no longer suggests `auto_attach`.
 * An app project gets no `scaffold.R`, no Quarto settings, and only the
   workflow and editor keys under `scaffold`. Its package defaults leave out the
-  tidyverse, and its default skills are `framework-packages` only.
+  tidyverse, and its default skills are `framework-packages` only. Its
+  settings name no framework database connection.
+* The VS Code workspace maps `.qmd` and `.Rmd` files only when the project
+  uses Quarto.
 * Workflow Guidelines appear only when the `framework-workflow` skill is
   installed, since they point at it.
 * `pull_all()`, `pull_skills()`, `pull_data_registry()`, `ledger_push()`,

@@ -148,7 +148,7 @@ project_create_from_layers <- function(layers_file, path = ".", interactive = FA
     .create_rproj_file(project_dir, spec$name)
   }
   if (!is_bare && editors$workspace) {
-    .create_code_workspace(project_dir, spec$name)
+    .create_code_workspace(project_dir, spec$name, quarto = .spec_tool_on(spec, "quarto"))
   }
   .create_stub_files(project_dir, type, spec$name, spec$author)
 

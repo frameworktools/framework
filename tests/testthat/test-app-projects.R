@@ -47,6 +47,9 @@ test_that("a Shiny app gets no scaffold() setup, Quarto settings, or tidyverse",
 
   settings <- yaml::read_yaml(file.path(dir, "settings.yml"))$default
   expect_false("quarto" %in% names(settings))
+  expect_false("connections" %in% names(settings))
+  workspace <- jsonlite::read_json(file.path(dir, "demo-app.code-workspace"))
+  expect_null(workspace$settings$files.associations)
   expect_setequal(names(settings$scaffold), c("notebook_format", "workflow", "positron"))
   packages <- vapply(settings$packages$default_packages, `[[`, "", "name")
   expect_setequal(packages, c("shiny", "bslib"))

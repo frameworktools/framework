@@ -539,7 +539,8 @@ project_create <- function(
     )
 
     config_path <- file.path(project_dir, "settings.yml")
-    if (app) config$default$quarto <- NULL
+    # Nor does it use the framework database connection the defaults name
+    if (app) config$default[c("quarto", "connections")] <- NULL
     if (!is.null(publish)) config$default$publish <- publish
     .fw_write_yaml(config, config_path)
     message("  Created: settings.yml")
@@ -826,8 +827,10 @@ duplicate its content in this file.
 
 #' Create .code-workspace file for VSCode/Positron
 #' @keywords internal
-.create_code_workspace <- function(project_dir, name) {
+.create_code_workspace <- function(project_dir, name, quarto = TRUE) {
   kebab_name <- .to_kebab_case(name)
+  # Quarto files only where the project uses Quarto
+  associations <- if (isTRUE(quarto)) list(`*.qmd` = "quarto", `*.Rmd` = "rmarkdown")
 
   # Create basic workspace configuration
   workspace_config <- list(
@@ -838,13 +841,11 @@ duplicate its content in this file.
       `r.rterm.option` = c("--no-save", "--no-restore"),
       `r.sessionWatcher` = TRUE,
       `r.alwaysUseActiveTerminal` = TRUE,
-      `files.associations` = list(
-        `*.qmd` = "quarto",
-        `*.Rmd` = "rmarkdown"
-      )
+      `files.associations` = associations
     )
   )
 
+  workspace_config$settings <- Filter(Negate(is.null), workspace_config$settings)
   workspace_path <- file.path(project_dir, sprintf("%s.code-workspace", kebab_name))
   workspace_json <- jsonlite::toJSON(workspace_config, pretty = TRUE, auto_unbox = TRUE)
   writeLines(workspace_json, workspace_path)
