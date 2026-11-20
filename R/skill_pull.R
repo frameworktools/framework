@@ -420,7 +420,10 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
     F <- E
     F$identity <- identity
     F$base <- list(channel = "cloud", hash = hash, version = as.integer(version), server = sub("/$", "", server))
-    F$copies[] <- hash
+    # Only copies seen holding the pushed files take its record; a copy whose
+    # folder is gone keeps its own
+    seen <- vapply(names(F$copies), function(p) identical(disk$hash(p), hash), logical(1))
+    F$copies[seen] <- hash
     F$known <- if (fresh) .skill_known(hash) else .skill_known(E$known, hash)
     F$pending <- NULL
     new_key <- .skill_key(identity, names(E$copies)[1])

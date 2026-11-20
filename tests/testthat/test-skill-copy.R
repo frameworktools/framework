@@ -538,10 +538,13 @@ test_that("a batch error names the copy being installed when its restore failed"
     real(root, paths, ...)
   })
   error <- tryCatch(skill_copy_quiet("claude", project_path = root), error = conditionMessage)
-  expect_identical(error, paste0(
-    "Skill copy failed while copying .claude/skills/b -> .agents/skills/b: Disk full. ",
-    "These copies were replaced and could not be restored:\n",
+  lines <- strsplit(error, "\n", fixed = TRUE)[[1]]
+  expect_identical(lines[1:2], c(
+    "Skill copy failed while copying .claude/skills/b -> .agents/skills/b: Disk full. These copies were replaced and could not be restored:",
     "  .agents/skills/b (old copy in .framework/skills-backups/kept-b)"))
+  # The undone copy of a is kept, never deleted
+  expect_identical(lines[3], "What was copied is kept in the backups:")
+  expect_match(lines[4], "^  \\.agents/skills/a \\(the copy written before the failure is in \\.framework/skills-backups/")
   # The earlier copy was undone
   expect_match(skill_copy_text(root, ".agents/skills/a"), "Old")
 })

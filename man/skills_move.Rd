@@ -67,8 +67,9 @@ since the new skill has no pulled version to push over.
 }
 
 Every check runs before anything is written: a target folder that
-exists, a target another skill tracks, a copy that isn't tracked, or an
-identity the project already tracks stops the move with nothing changed.
+exists, a target the lock already tracks (even for the same skill), a copy
+that isn't tracked, or an identity the project already tracks stops the
+move with nothing changed.
 }
 \examples{
 \donttest{

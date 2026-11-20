@@ -48,6 +48,14 @@
 }
 
 .skill_paths <- function(copies) vapply(copies, `[[`, "", "path")
+.skill_sorted <- function(paths) sort(as.character(paths), method = "radix")
+
+# Two identities name the same skill in different variants: same skill ID,
+# and, for Cloud skills, the same server
+.skill_other_variant <- function(a, b) {
+  identical(a$skill_id, b$skill_id) && identical(a$kind, b$kind) && !identical(a$variant, b$variant) &&
+    (!identical(a$kind, "cloud") || identical(a$server, b$server))
+}
 
 # A planning error: stops the command before any write
 .skill_plan_error <- function(code, message, path = NULL) .skill_stop(code, message, path = path)
@@ -59,8 +67,9 @@
 .skill_is_older <- function(S, E) {
   b <- E$base
   if (is.null(S) || is.null(b)) return(FALSE)
+  # Cloud versions compare only when the same server delivered both
   if (identical(S$channel, "cloud") && identical(b$channel, "cloud")) {
-    return(isTRUE(as.integer(S$version %||% 0L) < as.integer(b$version %||% 0L)))
+    return(identical(S$server, b$server) && isTRUE(as.integer(S$version %||% 0L) < as.integer(b$version %||% 0L)))
   }
   if (identical(S$channel, "package") && identical(b$channel, "package")) return(!b$hash %in% S$known)
   FALSE
@@ -97,12 +106,21 @@
 .skill_plan_pull <- function(disk, lock, offer, opt) {
   plan <- .skill_plan_new(lock)
   accounted <- character()
+  claimed <- character()
   for (S in offer$skills) {
     key <- .skill_key(S$identity)
     E <- lock$skills[[key]]
     extra <- character()
     for (d in opt$dirs) {
       p <- paste0(d, "/", S$name)
+      # Two setup names for one folder (a case alias): stop, write nothing
+      a <- disk$alias(p)
+      if (a %in% names(claimed) && !identical(claimed[[a]], p)) {
+        .skill_plan_error("paths_alias", paste0(
+          claimed[[a]], " and ", p, " are the same folder on this volume. Give the skills names that differ ",
+          "by more than letter case, then pull again."), p)
+      }
+      claimed[[a]] <- p
       owner <- .skill_owner(lock, p, disk$alias)
       if (identical(owner, key)) next
       if (!is.null(owner)) {
@@ -111,10 +129,12 @@
         # reported missing), never claimed by this skill
         if (identical(disk$hash(p), .skill_absent)) next
         O <- lock$skills[[owner]]
-        other_variant <- identical(O$identity$skill_id, S$identity$skill_id) &&
-          !identical(O$identity$variant, S$identity$variant)
+        other_variant <- .skill_other_variant(O$identity, S$identity)
+        # skills_move() switches the whole entry: offer it only when the entry
+        # has just this copy and the setup's identity isn't tracked yet
+        movable <- length(O$copies) == 1 && is.null(E)
         .skill_step(plan, p, owner, "none", "kept", if (other_variant) "other_variant" else "other_identity",
-                    .skill_hint("retarget", path = p, identity = S$identity), name = S$name)
+                    if (movable) .skill_hint("retarget", path = p, identity = S$identity), name = S$name)
         plan$kept <- c(plan$kept, p)
         next
       }
@@ -146,8 +166,9 @@
 
 .skill_plan_entry <- function(plan, key, E, S, extra, disk, opt) {
   E <- E %||% .skill_entry_new(S$identity)
-  C <- c(lapply(names(E$copies), .skill_state_tracked, E = E, S = S, disk = disk),
-         lapply(extra, .skill_state_untracked, E = E, S = S, disk = disk))
+  C <- c(lapply(.skill_sorted(names(E$copies)), .skill_state_tracked, E = E, S = S, disk = disk),
+         lapply(.skill_sorted(extra), .skill_state_untracked, E = E, S = S, disk = disk))
+  C <- C[order(.skill_paths(C), method = "radix")]
   step <- function(c, action, status, reason = NULL, hint = NULL, ...) {
     .skill_step(plan, c$path, key, action, status, reason, hint, name = S$name, ...)
   }
@@ -200,10 +221,21 @@
     return(.skill_plan_finish(plan, key, E, S))
   }
 
+  # Unedited copies at different versions (a pull that wrote only some of
+  # them) update only to a source that knows every version they hold;
+  # otherwise the person picks
+  disks <- unique(vapply(present, `[[`, "", "disk"))
+  if (length(disks) > 1 && (older || !all(disks %in% c(S$known, S$hash)))) {
+    return(all_rows(c(present, holes), "diverged", "copies_differ", .skill_hint_copy(NULL, .skill_paths(c(present, holes)))))
+  }
+
   if (older) {
+    # A new copy comes from the copy holding the version the project tracks
+    from <- Filter(function(c) identical(c$disk, E$base$hash), present)
+    from <- if (length(from)) from[[1]] else if (length(present)) present[[1]]
     for (c in present) step(c, "none", "current", "newer_in_project")
     for (c in holes) {
-      if (length(present)) step(c, "copy", .skill_added_or_restored(c), from = present[[1]]$path)
+      if (!is.null(from)) step(c, "copy", .skill_added_or_restored(c), from = from$path)
       else step(c, "none", "unavailable", "setup_older", .skill_hint("login"))
     }
     return(.skill_plan_finish(plan, key, E, NULL))   # copies recorded; base unchanged
@@ -241,7 +273,7 @@
 
 # A lock entry the setup doesn't name
 .skill_plan_unlisted <- function(plan, key, E, S, disk, opt) {
-  C <- lapply(names(E$copies), .skill_state_tracked, E = E, S = S, disk = disk)
+  C <- lapply(.skill_sorted(names(E$copies)), .skill_state_tracked, E = E, S = S, disk = disk)
   step <- function(c, action, status, reason = NULL, hint = NULL, ...) {
     .skill_step(plan, c$path, key, action, status, reason, hint, ...)
   }
@@ -286,6 +318,18 @@
     planned <- character()
     for (n in names) {
       src <- paste0(from_dir, "/", n); dst <- paste0(t, "/", n)
+      # The source must be a readable skill; the target, when present, too
+      if (identical(disk$hash(src), .skill_absent)) {
+        .skill_plan_error("copy_source_missing", paste0(src, " doesn't exist, so there is nothing to copy."), src)
+      }
+      if (identical(disk$hash(src), .skill_unreadable)) {
+        .skill_plan_error("copy_source_unreadable", paste0(src, " isn't a valid skill (", disk$error(src) %||% "no SKILL.md",
+                                                           "). Nothing was copied."), src)
+      }
+      if (identical(disk$hash(dst), .skill_unreadable)) {
+        .skill_plan_error("copy_target_unreadable", paste0(dst, " isn't a valid skill (", disk$error(dst) %||% "no SKILL.md",
+                                                           "). Move it aside, then copy again. Nothing was copied."), dst)
+      }
       E <- .skill_owner(lock, src, disk$alias); D <- .skill_owner(lock, dst, disk$alias)
       if (!is.null(D) && !is.null(E) && !identical(D, E)) {
         .skill_plan_error("copy_target_owned", paste0(
@@ -343,7 +387,7 @@
 
   for (key in names(lock$skills)) {
     E <- lock$skills[[key]]
-    C <- lapply(names(E$copies), .skill_state_tracked, E = E, S = NULL, disk = disk)
+    C <- lapply(.skill_sorted(names(E$copies)), .skill_state_tracked, E = E, S = NULL, disk = disk)
     step_all <- function(action, status, reason = NULL, hint = NULL) {
       for (c in C) .skill_step(plan, c$path, key, action, status, reason, hint)
     }
@@ -375,6 +419,9 @@
       step_all("record", "current")                  # Cloud already has it: adopt its version
     } else if (identical(E$identity$kind, "builtin")) {
       step_all("push", "pushed")                     # becomes your own skill
+    } else if (is.null(E$base) && !is.null(E$pending) && !isTRUE(opt$force)) {
+      # A first push that stopped before its reply: it may have reached Cloud
+      step_all("none", "refused", "first_push_pending", .skill_hint("force"))
     } else if (is.null(E$base)) {
       if (isTRUE(opt$force)) step_all("push", "pushed") else step_all("none", "refused", "no_base", .skill_hint("force"))
     } else if (is.null(R) || identical(as.integer(R$version), as.integer(E$base$version))) {
@@ -408,8 +455,12 @@
     if (is.null(E)) .skill_plan_error("move_untracked", paste0(src, " isn't tracked in .framework/skills.lock.json, so there is nothing to move."), src)
     src <- .skill_lock_path(lock$skills[[E]], src, disk$alias)
     owner <- .skill_owner(lock, dst, disk$alias)
-    if (!is.null(owner) && !identical(owner, E)) {
-      .skill_plan_error("move_target_owned", paste0(dst, " belongs to another skill (tracked separately in .framework/skills.lock.json)."), dst)
+    # A destination with a record of its own, even in the same entry, is
+    # never overwritten
+    if (!is.null(owner) && !identical(disk$alias(src), disk$alias(dst))) {
+      .skill_plan_error("move_target_owned", paste0(
+        dst, " is already tracked in .framework/skills.lock.json", if (!identical(owner, E)) " by another skill",
+        ". Pick the copy to keep with skills_copy(), or move to another folder. Nothing was moved."), dst)
     }
     there <- !identical(disk$hash(src), .skill_absent); here <- !identical(disk$hash(dst), .skill_absent)
     if (there && here && !identical(disk$alias(src), disk$alias(dst))) {

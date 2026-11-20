@@ -121,11 +121,16 @@
   a
 }
 
-# Schema 1 to schema 2, in memory. Pure; a schema 1 lock is never rejected.
+# Schema 1 to schema 2, in memory. Pure; a schema 1 lock is never rejected
+# for its age. Each schema 1 entry maps to one identity and keeps its own
+# record for each of its paths. Entries that map to one identity merge when
+# they agree on the version they last synced; two that disagree (a package
+# copy and a Cloud copy of one built-in, or two Cloud versions) stop with
+# lock_migrate_conflict, naming both, and nothing is written.
 .skill_migrate <- function(state) {
-  state <- .skill_merge_entries(state)
-  skills <- list(); seen <- character()
-  for (e in state$skills) {
+  skills <- list(); from <- list(); seen <- character()
+  for (old_key in names(state$skills)) {
+    e <- state$skills[[old_key]]
     variant <- e$variant %||% "r"
     id <- e$skill_id; origin <- e$origin
     if (!is.null(id)) {
@@ -151,37 +156,20 @@
     entry$copies <- stats::setNames(rep(as.character(record), length(paths)), paths)
     if (is.list(e$pending)) entry$pending <- e$pending
     key <- .skill_key(identity, paths[1])
-    skills[[key]] <- if (is.null(skills[[key]])) entry else .skill_entry_merge(skills[[key]], entry)
+    if (!is.null(skills[[key]])) {
+      other <- skills[[key]]
+      if (!.skill_same_base(other$base, entry$base) || (!is.null(other$pending) && !is.null(entry$pending))) {
+        .skill_stop("lock_migrate_conflict", paste0(
+          "Entries \"", from[[key]], "\" and \"", old_key, "\" in .framework/skills.lock.json both track ", key,
+          " at different versions. Delete the entry for the copy you don't keep from the file, then run the command again."))
+      }
+      entry <- .skill_entry_merge(other, entry)
+    } else {
+      from[[key]] <- old_key
+    }
+    skills[[key]] <- entry
   }
   list(schema = .skill_lock_schema, skills = skills)
-}
-
-# One entry per skill. Lock files from earlier versions can hold two
-# entries for one skill (a package: entry for .claude/skills and an
-# account: entry for .agents/skills). Entries that share a Cloud ID, or a
-# skill name and origin, are merged into the entry with the highest
-# version, with all their paths. A Cloud skill is identified by its server,
-# ID, and variant: an R and a Python variant of one skill stay separate.
-.skill_merge_entries <- function(state) {
-  if (length(state$skills) < 2) return(state)
-  identity <- vapply(state$skills, function(e) {
-    if (!is.null(e$skill_id)) return(paste("id", e$server %||% "", e$skill_id, e$variant %||% "r", sep = "\t"))
-    if (!is.null(e$origin$skill_id)) {
-      names <- unique(basename(unlist(e$paths)))
-      if (length(names) == 1) return(paste("origin", e$origin$skill_id, names, e$variant %||% "r", sep = "\t"))
-    }
-    NA_character_
-  }, "")
-  for (id in unique(identity[!is.na(identity) & duplicated(identity)])) {
-    keys <- names(state$skills)[!is.na(identity) & identity == id]
-    versions <- vapply(keys, function(k) as.integer(state$skills[[k]]$version %||% 0L), integer(1))
-    base <- keys[which.max(versions)]
-    merged <- state$skills[[base]]
-    merged$paths <- as.list(unique(unlist(lapply(keys, function(k) unlist(state$skills[[k]]$paths)))))
-    for (k in setdiff(keys, base)) state$skills[[k]] <- NULL
-    state$skills[[base]] <- merged
-  }
-  state
 }
 
 # The lock as JSON: schema 2, keys and paths sorted, known as arrays

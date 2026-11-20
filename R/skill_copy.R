@@ -167,9 +167,11 @@
   installer <- inherits(cause, "fw_skill_install_error")
   reason <- if (installer) cause$reason else if (inherits(cause, "interrupt")) "interrupted" else sub("\\.$", "", conditionMessage(cause))
   lost <- c(.skill_rollback(done), if (installer) cause$lost)
+  displaced <- .skill_displaced_lines(c(done, if (installer) cause$displaced))
   head <- paste0("Skill copy failed", if (!is.null(row)) paste0(" while copying ", row$from, " -> ", row$to), ": ", reason, ".")
-  if (!length(lost)) stop(head, " No skills were changed.", call. = FALSE)
-  stop(paste(c(paste(head, "These copies were replaced and could not be restored:"), .skill_lost_lines(lost)),
+  kept <- if (length(displaced)) c("What was copied is kept in the backups:", displaced)
+  if (!length(lost)) stop(paste(c(paste(head, "No skills were changed."), kept), collapse = "\n"), call. = FALSE)
+  stop(paste(c(paste(head, "These copies were replaced and could not be restored:"), .skill_lost_lines(lost), kept),
              collapse = "\n"), call. = FALSE)
 }
 
@@ -275,7 +277,15 @@ skills_copy <- function(from = NULL, to = NULL, skills = NULL, from_dir = NULL, 
   available <- .skill_copy_skills(root, source)
   names <- skills %||% available
   unknown <- setdiff(names, available)
-  if (length(unknown)) stop("Not in ", source, ": ", paste(unknown, collapse = ", "), call. = FALSE)
+  if (length(unknown)) {
+    # A folder without a valid SKILL.md is unreadable; no folder is missing
+    there <- dir.exists(file.path(root, source, unknown))
+    if (any(there)) {
+      .skill_stop("copy_source_unreadable", paste0("Not a valid skill in ", source, " (no regular SKILL.md): ",
+                                                    paste(unknown[there], collapse = ", "), ". Nothing was copied."))
+    }
+    .skill_stop("copy_source_missing", paste0("Not in ", source, ": ", paste(unknown, collapse = ", "), ". Nothing was copied."))
+  }
 
   source_key <- .skill_copy_key(root, source)
   targets <- if (!is.null(target)) target else {

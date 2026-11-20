@@ -990,16 +990,16 @@ test_that("two independent skills with one name are not compared with each other
   expect_identical(skill_pull_other(root), theirs)
 })
 
-test_that("variants of one Cloud skill are never merged when the lock is read", {
+test_that("variants and servers of one Cloud skill are never merged when the lock is read", {
   state <- list(schema = 1L, skills = list(
-    r = list(paths = list(".claude/skills/x"), skill_id = "x-id", server = "https://c", variant = "r", version = 1L),
-    py = list(paths = list(".agents/skills/x"), skill_id = "x-id", server = "https://c", variant = "python", version = 1L),
-    split = list(paths = list("custom/skills/x"), skill_id = "x-id", server = "https://c", variant = "r", version = 2L),
-    elsewhere = list(paths = list("other/skills/x"), skill_id = "x-id", server = "https://other", variant = "r", version = 1L)))
-  merged <- .skill_merge_entries(state)
-  expect_setequal(names(merged$skills), c("split", "py", "elsewhere"))
-  expect_setequal(unlist(merged$skills$split$paths), c(".claude/skills/x", "custom/skills/x"))
-  expect_identical(unlist(merged$skills$py$paths), ".agents/skills/x")
+    r = list(paths = list(".claude/skills/x"), skill_id = "x-id", server = "https://c", variant = "r", version = 2L, hash = "h2"),
+    py = list(paths = list(".agents/skills/x"), skill_id = "x-id", server = "https://c", variant = "python", version = 1L, hash = "h1"),
+    split = list(paths = list("custom/skills/x"), skill_id = "x-id", server = "https://c", variant = "r", version = 2L, hash = "h2"),
+    elsewhere = list(paths = list("other/skills/x"), skill_id = "x-id", server = "https://other", variant = "r", version = 1L, hash = "h1")))
+  migrated <- .skill_migrate(state)
+  expect_setequal(names(migrated$skills), c("https://c/x-id@r", "https://c/x-id@python", "https://other/x-id@r"))
+  expect_setequal(names(migrated$skills[["https://c/x-id@r"]]$copies), c(".claude/skills/x", "custom/skills/x"))
+  expect_identical(names(migrated$skills[["https://c/x-id@python"]]$copies), ".agents/skills/x")
 })
 
 # A skill tracked only in custom/skills, in a project switched from Claude
@@ -1177,12 +1177,12 @@ test_that("one broken entry fails alone and the others are pulled", {
 
 test_that("built-in origins of different variants are never merged when the lock is read", {
   state <- list(schema = 1L, skills = list(
-    r = list(paths = list(".claude/skills/x"), origin = list(skill_id = "framework:x"), variant = "r"),
-    py = list(paths = list(".agents/skills/x"), origin = list(skill_id = "framework:x"), variant = "python"),
-    again = list(paths = list("custom/skills/x"), origin = list(skill_id = "framework:x"), variant = "r")))
-  merged <- .skill_merge_entries(state)
-  expect_length(merged$skills, 2L)
-  expect_identical(unlist(merged$skills$py$paths), ".agents/skills/x")
+    r = list(paths = list(".claude/skills/x"), origin = list(skill_id = "framework:x", hash = "h"), variant = "r", hash = "h"),
+    py = list(paths = list(".agents/skills/x"), origin = list(skill_id = "framework:x", hash = "h"), variant = "python", hash = "h"),
+    again = list(paths = list("custom/skills/x"), origin = list(skill_id = "framework:x", hash = "h"), variant = "r", hash = "h")))
+  migrated <- .skill_migrate(state)
+  expect_length(migrated$skills, 2L)
+  expect_identical(names(migrated$skills[["framework:x@python"]]$copies), ".agents/skills/x")
 })
 
 # Round 11

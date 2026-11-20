@@ -193,7 +193,8 @@ scenario_run <- function(case, root, sources, by_identity, options, env = parent
     },
     copy = {
       from <- folder(options$from); to <- folder(options$to)
-      r <- skills_copy(from = from$name, to = to$name, from_dir = from$dir, to_dir = to$dir, project_path = root,
+      r <- skills_copy(from = from$name, to = to$name, from_dir = from$dir, to_dir = to$dir,
+                       skills = if (!is.null(options$skills)) unlist(options$skills), project_path = root,
                        dry_run = isTRUE(options$dry_run))
       list(steps = r$steps, rows = lapply(r$skills, function(s) {
         list(name = s$name, status = s$status, paths = list(s$to), reason_code = NULL, hint = NULL)
@@ -269,7 +270,7 @@ for (file in sort(list.files(scenario_dir(), pattern = "\\.json$", full.names = 
 }
 
 test_that("the scenario folder holds every case the spec counts", {
-  expect_length(list.files(scenario_dir(), pattern = "\\.json$"), 64L)
+  expect_length(list.files(scenario_dir(), pattern = "\\.json$"), 80L)
 })
 
 test_that("a Cloud setup's sync.known_hashes are the source's known hashes", {

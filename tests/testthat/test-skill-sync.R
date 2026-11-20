@@ -79,3 +79,51 @@ test_that("skill synchronization handles push, pull, dry-run, and conflicts", {
   expect_identical(skills_sync(".agents/skills/example",root,resolve="local")$action,"push")
   expect_equal(remote$version,4L)
 })
+
+test_that("a rollback never deletes a written copy, so an edit made before the failure stays recoverable", {
+  root <- withr::local_tempdir()
+  bundle <- list(list(path = "SKILL.md", executable = FALSE,
+                      content = jsonlite::base64_enc(charToRaw("---\nname: x\ndescription: x\n---\nWritten\n"))))
+  first <- file.path(root, ".claude/skills/x/SKILL.md")
+  real <- .skill_rename
+  local_mocked_bindings(.skill_rename = function(from, to) {
+    # The second install's rename fails, after someone edited the first copy
+    if (identical(normalizePath(to, mustWork = FALSE), normalizePath(file.path(root, ".agents/skills/x"), mustWork = FALSE))) {
+      cat("Edited after the write\n", file = first, append = TRUE)
+      return(FALSE)
+    }
+    real(from, to)
+  })
+  error <- tryCatch(.skill_install(root, c(".claude/skills/x", ".agents/skills/x"), bundle, NULL), error = identity)
+  expect_s3_class(error, "fw_skill_install_error")
+  expect_false(dir.exists(file.path(root, ".claude/skills/x")))
+  kept <- error$displaced[[1]]$displaced
+  expect_match(conditionMessage(error), kept, fixed = TRUE)
+  expect_true("Edited after the write" %in% readLines(file.path(root, kept, "SKILL.md")))
+})
+
+test_that("two setup names for one folder on this volume stop the pull", {
+  # A volume that ignores case, as the planner sees it
+  disk <- list(hash = function(p) .skill_absent, folder_exists = function(d) TRUE, folders = function(d) character(),
+               alias = function(p) tolower(p), error = function(p) NULL)
+  bundle <- list(list(path = "SKILL.md", content = jsonlite::base64_enc(charToRaw("x")), executable = FALSE))
+  source <- function(name) .skill_source(name, .skill_identity("inline", paste0("inline:", name)), "inline", bundle)
+  offer <- list(source = "cloud", skills = list(source("Demo"), source("demo")), by_identity = list())
+  error <- tryCatch(.skill_plan_pull(disk, list(schema = 2L, skills = list()), offer,
+                                     list(command = "pull", source = "cloud", dirs = ".claude/skills", scope = "all")),
+                    error = identity)
+  expect_identical(error$code, "paths_alias")
+  expect_match(conditionMessage(error), ".claude/skills/Demo and .claude/skills/demo are the same folder", fixed = TRUE)
+})
+
+test_that("a second pull with nothing to change leaves the lock's bytes as they are", {
+  withr::local_envvar(FW_PROJECT_TOKEN = NA)
+  local_mocked_bindings(.fw_project_token = function(...) NULL)
+  root <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project", "  ai:", "    assistants: [claude, codex]"), file.path(root, "settings.yml"))
+  suppressMessages(pull_skills(root))
+  lock <- file.path(root, ".framework/skills.lock.json")
+  before <- readBin(lock, "raw", n = 1e6)
+  suppressMessages(pull_skills(root))
+  expect_identical(readBin(lock, "raw", n = 1e6), before)
+})

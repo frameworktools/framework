@@ -17,7 +17,7 @@ Changes:
 * One planner decides every skill command: `pull_skills()`, `pull_all()`,
   `push_skills()`, `push_all()`, `upgrade()`, `skills_copy()`, and adding or
   switching assistants. The rules are in
-  `docs/architecture/skills-lock-v2.md`; the 64 cases in
+  `docs/architecture/skills-lock-v2.md`; the 80 cases in
   `inst/conformance/skills/` run in the tests and are shared with
   framework-py and fw.
 * A copy is unedited only when it matches what the last sync wrote there. A
@@ -44,6 +44,18 @@ Changes:
   leaving them out. A built-in last updated from Cloud is kept offline and
   by `upgrade()`.
 * `upgrade()` writes nothing into a skill whose copies diverged.
+* Rare states stop with an error code and write nothing: two schema 1 lock
+  entries for one skill at different versions (`lock_migrate_conflict`),
+  two setup skills whose folders are one folder on a case-insensitive
+  volume (`paths_alias`), and `skills_copy()` of a missing or invalid source
+  or onto an invalid target. A first push that stopped before Cloud replied
+  is refused (`first_push_pending`) until you check Cloud.
+* Unedited copies at different versions update only to a version that knows
+  them all; otherwise they are diverged, so a partial pull never leads to a
+  downgrade.
+* A failed install never deletes what it wrote: the copy goes to
+  `.framework/skills-backups/` and the error names it.
+* After a push, a copy whose folder is gone keeps its own record.
 * Push skips a skill whose edited files Cloud already has, and records
   Cloud's version (status `current`).
 * `pull_all()` applies a pull whose only change is the lock, such as a new

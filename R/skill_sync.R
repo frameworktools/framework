@@ -142,9 +142,11 @@
   paste0(substr(x, 1, 8), "-", substr(x, 9, 12), "-4", substr(x, 14, 16), "-a", substr(x, 18, 20), "-", substr(x, 21, 32))
 }
 
-# Undo installs: put each backup back, or remove a copy that is new. Each
-# swap is an environment, so an undone swap is marked and a second rollback
-# of the same swap does nothing. Returns the swaps that could not be undone.
+# Undo installs: put each backup back. The copy an install wrote is never
+# deleted: it moves to .framework/skills-backups/ (swap$displaced), since it
+# may hold an edit made after it was written. Each swap is an environment,
+# so an undone swap is marked and a second rollback of the same swap does
+# nothing. Returns the swaps that could not be undone.
 .skill_rollback <- function(swaps) {
   failed <- list()
   for (swap in rev(swaps)) {
@@ -161,19 +163,35 @@
       if (ok) ok <- isTRUE(suppressWarnings(file.rename(swap$backup_path, swap$target)))
       if (ok) {
         swap$moved <- FALSE; swap$installed <- FALSE
+        if (dir.exists(aside)) .skill_displace(swap, aside)
       } else if (dir.exists(aside)) {
         file.rename(aside, swap$target)
       }
-      unlink(aside, recursive = TRUE)
     } else if (isTRUE(swap$installed)) {
-      unlink(swap$target, recursive = TRUE)
-      ok <- !file.exists(swap$target)
+      ok <- .skill_displace(swap, swap$target)
       if (ok) swap$installed <- FALSE
     }
     if (!is.null(swap$stage)) { unlink(swap$stage, recursive = TRUE); swap$stage <- NULL }
     if (!ok) failed <- c(list(swap), failed)
   }
   failed
+}
+
+# Move a copy an install wrote into .framework/skills-backups/, recording
+# where in swap$displaced
+.skill_displace <- function(swap, folder) {
+  relative <- paste0(".framework/skills-backups/", .skill_uuid())
+  target <- file.path(swap$root, relative)
+  dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
+  ok <- isTRUE(file.rename(folder, target))
+  if (ok) swap$displaced <- relative
+  ok
+}
+
+# Lines naming where each undone copy's written files went
+.skill_displaced_lines <- function(swaps) {
+  swaps <- Filter(function(s) !is.null(s$displaced), swaps)
+  vapply(swaps, function(s) paste0("  ", s$path, " (the copy written before the failure is in ", s$displaced, ")"), "")
 }
 
 # file.rename(), mockable in tests
@@ -188,13 +206,18 @@
 
 # Stop after a failed install whose rollback has run. A copy that could not
 # be restored is named with its backup.
-.skill_install_failed <- function(cause, lost) {
+.skill_install_failed <- function(cause, lost, swaps = list()) {
+  force(lost)   # the rollback runs here, before its displaced copies are named
   reason <- if (inherits(cause, "interrupt")) "interrupted" else sub("\\.$", "", conditionMessage(cause))
+  displaced <- .skill_displaced_lines(swaps)
   message <- if (length(lost)) {
     paste(c(paste0("Could not install skill (", reason, "), and these copies could not be restored:"),
-            .skill_lost_lines(lost)), collapse = "\n")
+            .skill_lost_lines(lost), displaced), collapse = "\n")
+  } else if (length(displaced)) {
+    paste(c(paste0(reason, ". The copies were put back; what was written is kept:"), displaced), collapse = "\n")
   } else reason
-  stop(errorCondition(message, class = "fw_skill_install_error", reason = reason, lost = lost, call = NULL))
+  stop(errorCondition(message, class = "fw_skill_install_error", reason = reason, lost = lost,
+                      displaced = Filter(function(s) !is.null(s$displaced), swaps), call = NULL))
 }
 
 # Give each rebuilt folder in `to` the mode of the same folder in `from`,
@@ -239,7 +262,7 @@
       dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
       # Registered before the staging folder exists, so any later failure removes it
       swap <- new.env()
-      swap$path <- relative; swap$target <- target; swap$existed <- existed
+      swap$path <- relative; swap$target <- target; swap$existed <- existed; swap$root <- root
       swap$stage <- tempfile(".skill-stage-", tmpdir = dirname(target))
       swap$backup <- NULL; swap$backup_path <- NULL; swap$moved <- FALSE; swap$installed <- FALSE
       swap$moving <- FALSE; swap$installing <- FALSE
@@ -285,7 +308,7 @@
     if (!is.null(journal)) journal$done <- c(journal$done, swaps)
     NULL
   }, error = identity, interrupt = identity)
-  if (!is.null(outcome)) .skill_install_failed(outcome, .skill_rollback(swaps))
+  if (!is.null(outcome)) .skill_install_failed(outcome, .skill_rollback(swaps), swaps)
   invisible(swaps)
 }
 

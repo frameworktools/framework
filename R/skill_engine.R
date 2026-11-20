@@ -266,7 +266,7 @@
           calls <- .skill_hint_text(.skill_hint_copy(k, setdiff(copies, k)), fn)
           if (is.null(calls)) "" else paste0(" To keep ", k, ": ", calls, ".")
         }, "")
-        paste0(.skill_list_and(copies), " are edited and differ. Pick the copy to keep.", paste(keep, collapse = ""))
+        paste0(.skill_list_and(copies), " differ. Pick the copy to keep.", paste(keep, collapse = ""))
       } else {
         paste0(.skill_list_and(c(hint$from, unlist(hint$to))), " differ, and only ", hint$from, " is edited.",
                if (!is.null(command)) paste0(" Copy it over the other", if (length(hint$to) > 1) "s", ": ", command)
@@ -286,6 +286,10 @@
     },
     "removed/not_in_setup" = "It's no longer in the project's setup, so it was left in place.",
     "refused/cloud_changed" = paste0(row$name, " changed on Cloud since this project pulled it. ", command, " replaces it."),
+    "refused/first_push_pending" = paste0(
+      row$name, "'s first push stopped before Cloud replied, so it may already be on Cloud. Check your skills on ",
+      "Framework Cloud: if it's there, run skills_sync(\"", first, "\", skill_id = \"<its ID>\"); if not, ", command,
+      " pushes it as a new skill."),
     "refused/no_base" = paste0(row$name, " has no pulled version to push over, since it was switched to another skill. ",
                                command, " pushes it as the latest version."),
     "cancelled/cancelled" = "The push was cancelled, so nothing was sent.",
