@@ -48,9 +48,12 @@
   paste(parts, collapse = "/")
 }
 
-# A path's device and inode, or NA when nothing is there
+# A path's device and inode, or NA when nothing is there. Windows file IDs
+# are 64-bit and R reads them as doubles, so two folders made together can
+# share one; there the path's spelling on disk identifies it instead.
 .skill_copy_id <- function(path) {
   force(path)
+  if (.Platform$OS.type == "windows") return(NA_character_)
   info <- tryCatch(fs::file_info(path, follow = FALSE),
                    error = function(e) stop("Could not read ", path, ": ", conditionMessage(e), call. = FALSE))
   if (is.na(info$type)) NA_character_ else paste(info$device_id, info$inode)
@@ -60,6 +63,7 @@
 # its nearest ancestor with letters in its name, is the same file under its
 # name with the case swapped. Without such a name, the platform default.
 .skill_case_insensitive_at <- function(path) {
+  if (.Platform$OS.type == "windows") return(TRUE)
   lower <- paste(letters, collapse = ""); upper <- paste(LETTERS, collapse = "")
   repeat {
     name <- basename(path)
