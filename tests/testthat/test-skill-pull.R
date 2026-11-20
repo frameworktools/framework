@@ -1442,7 +1442,7 @@ test_that("an offline pull reports a custom Cloud skill as unavailable and leave
   skill_pull_mock(skill_pull_envelope(list(`lab-style` = skill_pull_entry("Version 2", 2L, skill_id = "lab-style"))))
   suppressMessages(pull_skills(root))
   before <- skill_pull_lock_entry(root, ".claude/skills/lab-style")
-  expect_identical(before$skill_id, "lab-style")
+  expect_identical(before$identity$skill_id, "lab-style")
 
   withr::local_envvar(FW_PROJECT_TOKEN = NA)
   local_mocked_bindings(.fw_project_token = function(...) NULL)
