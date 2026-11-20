@@ -1,0 +1,119 @@
+{
+  "id": "move-retarget-lock-only",
+  "area": "move",
+  "description": "The folder was already moved by hand: skills_move records the move, then switches the entry. The copy at its new path is unedited.",
+  "command": "move",
+  "options": {
+    "from": ".claude/skills/demo",
+    "to": ".agents/skills/demo",
+    "skill_id": "uuid-fork"
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [
+    ".claude/skills"
+  ],
+  "disk": {
+    ".agents/skills/demo": "d1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "framework:demo@r": {
+        "identity": {
+          "kind": "builtin",
+          "skill_id": "framework:demo",
+          "variant": "r"
+        },
+        "base": {
+          "channel": "package",
+          "hash": "@d1",
+          "version": null,
+          "server": null
+        },
+        "known": [
+          "@d1"
+        ],
+        "copies": {
+          ".claude/skills/demo": {
+            "hash": "@d1"
+          }
+        }
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/demo",
+        "entry": "framework:demo@r",
+        "name": "demo",
+        "action": "record",
+        "status": "moved",
+        "reason_code": "lock_moved",
+        "hint": null,
+        "from": ".claude/skills/demo"
+      },
+      {
+        "path": ".agents/skills/demo",
+        "entry": "https://cloud.test/uuid-fork@r",
+        "name": "demo",
+        "action": "record",
+        "status": "moved",
+        "reason_code": "retargeted",
+        "hint": null
+      }
+    ],
+    "rows": [
+      {
+        "name": "demo",
+        "status": "moved",
+        "paths": [
+          ".agents/skills/demo"
+        ],
+        "reason_code": "lock_moved",
+        "hint": null
+      },
+      {
+        "name": "demo",
+        "status": "moved",
+        "paths": [
+          ".agents/skills/demo"
+        ],
+        "reason_code": "retargeted",
+        "hint": null
+      }
+    ],
+    "disk": {
+      ".agents/skills/demo": "d1"
+    },
+    "backups": [],
+    "lock": {
+      "schema": 2,
+      "skills": {
+        "https://cloud.test/uuid-fork@r": {
+          "identity": {
+            "kind": "cloud",
+            "skill_id": "uuid-fork",
+            "variant": "r",
+            "server": "https://cloud.test"
+          },
+          "base": null,
+          "known": [
+            "@d1"
+          ],
+          "copies": {
+            ".agents/skills/demo": {
+              "hash": "@d1"
+            }
+          }
+        }
+      }
+    }
+  }
+}

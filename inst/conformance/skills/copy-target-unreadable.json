@@ -1,0 +1,34 @@
+{
+  "id": "copy-target-unreadable",
+  "area": "copy",
+  "description": "skills_copy stops when a target folder isn't a valid skill; nothing is copied.",
+  "command": "copy",
+  "options": {
+    "from": "claude",
+    "to": "agents"
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".claude/skills",
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".claude/skills/demo": "d1",
+    ".agents/skills/demo": "!unreadable"
+  },
+  "lock": null,
+  "expected": {
+    "error": "copy_target_unreadable",
+    "steps": [],
+    "rows": [],
+    "disk": {
+      ".claude/skills/demo": "d1",
+      ".agents/skills/demo": "!unreadable"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

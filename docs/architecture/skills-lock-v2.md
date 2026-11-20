@@ -114,7 +114,10 @@ writer that meets a key in another form rewrites it.
 ### Invariants
 
 1. A path is in at most one entry's `copies`. Paths compare by filesystem
-   identity (case on a case-insensitive volume), as v1 does.
+   identity (case on a case-insensitive volume), as v1 does. A path that
+   exists compares by its device and inode. One that doesn't compares by its
+   nearest existing parent, resolved on disk, then the rest of the path,
+   folded to lower case only when that parent's volume ignores case.
 2. `base.hash` is in `known`, and every record written by a pull, upgrade, or
    push is in `known`.
 3. A `builtin` entry's identity has no server. The server of a Cloud-delivered
@@ -136,7 +139,9 @@ hashes into it. Sources supply known hashes as follows:
   SKILL.md. R regenerates its file with `data-raw/skill_history.R`, Python with
   `scripts/skill_history.py`, and `fw` adds one for its Stata skills.
 - Cloud skills: the setup's `sync.hash`, the latest version's hash when one is
-  fetched, and `sync.known_hashes` when Cloud sends it (see "Cloud API").
+  fetched, `sync.known_hashes` when Cloud sends it (see "Cloud API"), and the
+  `known_hashes` of any `GET /api/v1/skills/sync/{id}` snapshot the command
+  reads (the latest version, or a skill fetched by its own identity).
   `GET /api/v1/skills/sync/{id}/history?variant=` already returns every
   version's hash and may be used when a user token is present.
 - Inline skills: the setup's current hash only.
@@ -438,6 +443,11 @@ def plan_unlisted(plan, key, E, S, disk, opt):
             plan.step(c.path, key, "none", "removed", "not_in_setup")
 ```
 
+Upgrade applies `write`, `copy`, and `record` steps (a project whose copies
+are already current but has no lock gets one). A lock it can't read
+(`lock_schema_unsupported`, `lock_migrate_conflict`) stops `upgrade()` before
+it writes anything.
+
 Upgrade calls `plan_pull` with `offer.source = "package"`, the package
 skills for the project type, `scope = "builtin"`, and its own `dirs` (v1:
 the assistants' folders plus `.agents/skills` when it exists). It ignores
@@ -522,8 +532,8 @@ def plan_push(disk, lock, offer, opt):
 ```
 
 After a push, the lock entry takes the response: `base = {cloud, hash,
-version, server}`, the record of every copy whose disk hash equals the pushed
-hash = the pushed hash (a copy whose folder is gone keeps its own record),
+version, server}`, the record of every copy whose disk hash, read again just
+before the lock is saved, equals the pushed hash = the pushed hash (a copy whose folder is gone keeps its own record),
 `known += hash`,
 and `pending` cleared. A pushed built-in becomes a `cloud` entry under the
 response's `skill_id` (a new key) whose `known` is only the pushed hash: the
@@ -537,7 +547,22 @@ server}`, every record = that hash, `known += hash`, with the same rule for whic
 row is `current`
 with no reason code. A push request that fails (network, a refused reply)
 makes its entry's steps `failed` with no reason code; the prose names the
-error.
+error. The same holds when Cloud can't be asked at all: an entry whose Cloud
+identity is on another server than the project's fails, with no hint, where
+the plan would push, adopt, or refuse it.
+
+Twin rule (push only): an entry with no copy left and an untracked folder
+of the same name in a configured folder gets `missing` (`folder_gone`) with a
+`move` hint, and that folder's `untracked` row gets the same hint, whether or
+not the old parent folder still exists. Pull applies it only when the old
+parent folder is gone; while it exists, pull restores the absent copy (see
+"Accepted limits"), and the twin stays `untracked` with a `copy` or `move`
+hint as above.
+
+Push plans under no lock while it waits for confirmation. Under the sync
+lock, before sending or saving, it reads the lock again; if the lock changed
+since planning (another command ran), it stops with `lock_changed` and the
+person runs the push again.
 
 ### Move
 
@@ -563,16 +588,23 @@ def plan_move(disk, lock, from_, to, identity, opt):
         E = entry_for(from_)
         new_key = key_of(identity)
         if new_key in lock.skills:          raise PlanError("move_identity_exists", key=new_key)
-        clean = {r.hash for p, r in E.copies.items() if disk[p] == r.hash}
+        E = lock_after.skills[key]          # after the moves above
+        # a moved copy's bytes: at dst, or at src when this move hasn't renamed it yet
+        bytes = lambda p: disk[p] if disk[p] is not ABSENT else disk[src_of(p)] if p in moved else ABSENT
+        clean = {r.hash for p, r in E.copies.items() if bytes(p) == r.hash}
         F = Entry(identity=identity, base=None, known=sorted(clean), copies=E.copies)
         lock_after.skills.pop(key); lock_after.skills[new_key] = F
-        for p in E.copies: plan.step(p, new_key, "record", "moved", "retargeted")
+        # a moved copy has two steps: path_moved or lock_moved under the old
+        # key (above), then retargeted under the new key
+        for p in sorted(E.copies): plan.step(p, new_key, "record", "moved", "retargeted")
 ```
 
 A retargeted entry keeps its records. Its unedited copies stay unedited
 (their hashes go into `known`), so the next pull updates them to the new
 identity's version. Its edited copies stay edited, and push refuses them
-(`no_base`) until `force = TRUE`. Move refuses errors before any write and
+(`no_base`) until `force = TRUE`. When a rename or the lock save fails,
+`skills_move()` undoes the renames it made, newest first, and names any it
+could not undo. Move refuses errors before any write and
 writes nothing in a dry run.
 
 API:
@@ -811,7 +843,7 @@ No other change. Push responses already include `skill_id`, `version`, and
 
 ## Scenarios
 
-`inst/conformance/skills/` holds 80 language-neutral cases. Python and Go
+`inst/conformance/skills/` holds 84 language-neutral cases. Python and Go
 copy them with their existing asset sync (`scripts/sync_assets.py`,
 `tools/syncassets`), pinned to an R tag, beside the other conformance
 fixtures. The README there defines the format.
@@ -829,6 +861,7 @@ A command stops before writing anything with one of these codes:
 | `copy_source_missing` | `skills_copy()` of a skill not in the source folder |
 | `copy_source_unreadable` | `skills_copy()` of a source folder that isn't a valid skill |
 | `copy_target_unreadable` | `skills_copy()` onto a folder that isn't a valid skill |
+| `lock_changed` | The lock changed between a push's plan and its send (push and `push_all()`) |
 | `move_target_exists` | `skills_move()` onto a folder that exists |
 | `move_target_owned` | `skills_move()` onto a path the lock already tracks, in any entry |
 | `move_nothing` | Neither the source nor the destination exists |

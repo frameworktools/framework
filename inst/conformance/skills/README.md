@@ -76,7 +76,7 @@ Replace each with the real hash before running and before comparing.
     `paths_alias`, `move_target_exists`, `move_target_owned`,
     `move_nothing`, `move_untracked`, `move_identity_exists`,
     `copy_target_owned`, `copy_source_missing`, `copy_source_unreadable`,
-    `copy_target_unreadable`. The spec's "Errors" section says when.
+    `copy_target_unreadable`, `lock_changed`. The spec's "Errors" section says when.
   - `steps`: one per copy, sorted by path. `path`, `entry` (lock key, or
     `null`), `name`, `action` (`none`, `write`, `copy`, `record`, `move`,
     `push`), `status`, `reason_code`, and `hint`. A `write` names its
