@@ -219,9 +219,12 @@ scaffold:
   set_theme_on_scaffold: true
   ggplot_theme: theme_minimal
   source_all_functions: true
+  print_description_on_read: false
 ```
 
 When `seed_on_scaffold: true`, `scaffold()` calls `set.seed(seed)`. Seeding is disabled by default. Project `seed` values take precedence over `FW_SEED`, and `seed_on_scaffold: false` disables seeding even when `FW_SEED` is set.
+
+With `print_description_on_read: true`, `data_read()` prints a catalog entry's `description` on each read as `Note: <name>: <description>`. Printing is off by default. `data_list()` always shows descriptions.
 
 ## Environment variables
 

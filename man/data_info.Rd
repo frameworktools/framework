@@ -26,7 +26,7 @@ A list with data specification including:
 \item \code{delimiter} - Delimiter for CSV files (comma, tab, etc.)
 \item \code{locked} - Whether file is locked for integrity checking
 \item \code{private} - Whether file is in private data directory
-\item \code{description} - Optional description of the dataset (displayed when loading)
+\item \code{description} - Optional description of the dataset (printed by \code{\link[=data_read]{data_read()}} when \code{scaffold.print_description_on_read} is \code{true})
 }
 With \code{columns = TRUE}, also:
 \itemize{

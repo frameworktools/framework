@@ -1006,3 +1006,43 @@ test_that("a save by path to a locked catalog entry's file updates the entry", {
   expect_true(settings("data.inputs.raw.w")$locked)
   expect_equal(suppressMessages(data_read("inputs.raw.w"))$a, 7:9)
 })
+
+test_that("data_read prints a catalog description only when print_description_on_read is on", {
+  test_dir <- create_test_project()
+  old_wd <- getwd()
+  on.exit({
+    setwd(old_wd)
+    cleanup_test_dir(test_dir)
+  })
+  setwd(test_dir)
+
+  utils::write.csv(data.frame(x = 1:3), "inputs/raw/described.csv", row.names = FALSE)
+  config <- settings_read()
+  config$data$inputs <- list(raw = list(described = list(
+    path = "inputs/raw/described.csv",
+    type = "csv",
+    description = "Three rows of x."
+  )))
+  settings_write(config)
+
+  messages <- character()
+  withCallingHandlers(
+    data_read("inputs.raw.described"),
+    message = function(m) {
+      messages <<- c(messages, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    },
+    warning = function(w) invokeRestart("muffleWarning")
+  )
+  expect_false(any(grepl("Three rows of x.", messages, fixed = TRUE)))
+
+  config <- settings_read()
+  config$scaffold <- list(print_description_on_read = TRUE)
+  settings_write(config)
+
+  expect_message(
+    suppressWarnings(data_read("inputs.raw.described")),
+    "Note: inputs.raw.described: Three rows of x.",
+    fixed = TRUE
+  )
+})

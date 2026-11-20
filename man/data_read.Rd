@@ -29,6 +29,12 @@ whitespace is trimmed from values and column names (\code{trim_ws = TRUE}), so a
 padded number such as \code{"   1"} reads as a number. Pass \code{trim_ws = FALSE} to
 keep the whitespace.
 
+With \code{print_description_on_read: true} under \verb{scaffold:} in
+\code{settings/scaffold.yml} (or \code{settings.yml}), \code{data_read()} prints a
+catalog entry's \code{description} on each read as
+\verb{Note: <name>: <description>}. Printing is off by default. \code{\link[=data_list]{data_list()}}
+always shows descriptions.
+
 A read of private data (a catalog entry that \code{\link[=data_info]{data_info()}} marks
 private, or a file in a folder named like private, confidential, or
 sensitive) is remembered for the session. In a project with

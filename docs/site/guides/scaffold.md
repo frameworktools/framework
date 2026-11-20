@@ -73,6 +73,7 @@ scaffold:
   set_theme_on_scaffold: true
   ggplot_theme: theme_minimal
   source_all_functions: true
+  print_description_on_read: false
 
 packages:
   use_renv: false
@@ -122,6 +123,17 @@ directories:
     - functions
     - helpers
 ```
+
+### Data descriptions
+
+`data_read()` does not print catalog descriptions by default. Set `print_description_on_read: true` under `scaffold:` to print each entry's `description` on read as `Note: <name>: <description>`:
+
+```yaml
+scaffold:
+  print_description_on_read: true
+```
+
+`data_list()` always shows descriptions.
 
 ## Project scaffold.R
 

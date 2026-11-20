@@ -1,3 +1,12 @@
+# framework (development version)
+
+Changes:
+
+* `data_read()` no longer prints a catalog entry's `description` on each read
+  by default. Set `print_description_on_read: true` under `scaffold:` in
+  `settings/scaffold.yml` (or `settings.yml`) to print descriptions as
+  `Note: <name>: <description>`. `data_list()` always shows descriptions.
+
 # framework 2.1.1
 
 App projects (Shiny and Plumber) set up as apps, and a clone with no project

@@ -48,7 +48,7 @@ data_add("inputs/raw/sales_2024.csv", name = "inputs.raw.sales")
 
 `data_add()` infers `type` from the file extension, derives a dot-notation key from the path when `name` is omitted, and stores the file's SHA-256 hash in `framework.db`. Entries are unlocked unless you pass `locked = TRUE`. Run `scaffold()` once before the first `data_add()` so `framework.db` is initialized.
 
-`data_list()` returns a data frame of catalog entries with `name`, `path`, `type`, `locked`, and `description`. `data_info("inputs.raw.sales")` returns a single entry's path, type, delimiter, lock flag, and privacy status.
+`data_list()` returns a data frame of catalog entries with `name`, `path`, `type`, `locked`, and `description`. `data_read()` prints an entry's `description` only when `scaffold.print_description_on_read` is `true`. `data_info("inputs.raw.sales")` returns a single entry's path, type, delimiter, lock flag, and privacy status.
 
 ## Supported file formats
 

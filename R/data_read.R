@@ -14,6 +14,11 @@
 #' padded number such as `"   1"` reads as a number. Pass `trim_ws = FALSE` to
 #' keep the whitespace.
 #' @return The loaded data, typically a data frame or tibble.
+#' @details With `print_description_on_read: true` under `scaffold:` in
+#'   `settings/scaffold.yml` (or `settings.yml`), `data_read()` prints a
+#'   catalog entry's `description` on each read as
+#'   `Note: <name>: <description>`. Printing is off by default. [data_list()]
+#'   always shows descriptions.
 #' @details A read of private data (a catalog entry that [data_info()] marks
 #'   private, or a file in a folder named like private, confidential, or
 #'   sensitive) is remembered for the session. In a project with
@@ -164,8 +169,8 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
 
   data <- .fw_read_spec(spec, delim = delim, keep_attributes = keep_attributes, ...)
 
-  # Output description if available
-  if (!is.null(spec$description) && nzchar(spec$description)) {
+  # The catalog description, only when the project turns it on
+  if (!is.null(spec$description) && nzchar(spec$description) && .fw_print_description_on_read()) {
     message(sprintf("Note: %s: %s", path, spec$description))
   }
 
@@ -173,6 +178,18 @@ data_read <- function(path, delim = NULL, keep_attributes = FALSE, ...) {
   data
 }
 
+
+# Whether data_read() prints a catalog entry's description. Off unless the
+# project sets print_description_on_read: true. New projects keep it under
+# scaffold: (settings/scaffold.yml); older ones under options: or the top level
+#' @keywords internal
+.fw_print_description_on_read <- function() {
+  config <- tryCatch(settings_read(), error = function(e) NULL)
+  if (is.null(config)) return(FALSE)
+  isTRUE(config$scaffold$print_description_on_read %||%
+           config$options$print_description_on_read %||%
+           config$print_description_on_read)
+}
 
 # Read the file a data spec describes. No hash check and nothing recorded in
 # framework.db: data_read() does that, and data_info(columns = TRUE) reads
@@ -561,7 +578,7 @@ data_read_or_cache <- function(path, expire_after = NULL, refresh = FALSE) {
 #'     \item \code{delimiter} - Delimiter for CSV files (comma, tab, etc.)
 #'     \item \code{locked} - Whether file is locked for integrity checking
 #'     \item \code{private} - Whether file is in private data directory
-#'     \item \code{description} - Optional description of the dataset (displayed when loading)
+#'     \item \code{description} - Optional description of the dataset (printed by [data_read()] when `scaffold.print_description_on_read` is `true`)
 #'   }
 #'   With `columns = TRUE`, also:
 #'   \itemize{
