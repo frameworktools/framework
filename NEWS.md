@@ -1,4 +1,4 @@
-# framework 2.1.0 (unreleased)
+# framework 2.1.0
 
 Skills lock v2. `.framework/skills.lock.json` records each skill copy
 separately, so pull, push, upgrade, and `skills_copy()` judge every copy the
