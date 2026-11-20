@@ -384,22 +384,23 @@
     if (!p %in% tracked && !disk$alias(p) %in% tracked) untracked <- c(untracked, p)
   }
   absent_all <- function(E) length(E$copies) && all(vapply(names(E$copies), function(p) identical(disk$hash(p), .skill_absent), logical(1)))
-  # Twin rule: an untracked folder is a hand-moved copy of an entry with no
-  # copy left when it has the copy's name (in another folder) or holds the
-  # copy's recorded bytes (a rename). A match counts only when it is the
-  # entry's only match and the folder's only match.
+  # Twin rule: an untracked folder is a hand-moved copy of an absent copy of
+  # any entry when it has that copy's name (in another folder) or holds its
+  # recorded bytes (a rename). A match counts only when it is the copy's
+  # only match and the folder's only match (and, for an entry with no copy
+  # left, the entry's only match).
   twins <- list()
   for (key in names(lock$skills)) {
     E <- lock$skills[[key]]
-    if (!absent_all(E)) next
-    for (cp in .skill_sorted(names(E$copies))) for (u in untracked) {
+    absent <- Filter(function(p) identical(disk$hash(p), .skill_absent), .skill_sorted(names(E$copies)))
+    for (cp in absent) for (u in untracked) {
       if (identical(basename(u), basename(cp)) || identical(disk$hash(u), unname(E$copies[cp]))) {
         twins[[length(twins) + 1L]] <- list(key = key, from = cp, to = u)
       }
     }
   }
-  twin_keys <- vapply(twins, `[[`, "", "key"); twin_tos <- vapply(twins, `[[`, "", "to")
-  unique_twin <- function(t) sum(twin_keys == t$key) == 1 && sum(twin_tos == t$to) == 1
+  twin_froms <- vapply(twins, `[[`, "", "from"); twin_tos <- vapply(twins, `[[`, "", "to")
+  unique_twin <- function(t) sum(twin_froms == t$from) == 1 && sum(twin_tos == t$to) == 1
 
   for (key in names(lock$skills)) {
     E <- lock$skills[[key]]
@@ -425,6 +426,13 @@
     holes <- .skill_states_in(C, "absent")
     differ <- length(unique(vapply(present, `[[`, "", "disk"))) > 1
     if (differ || length(holes)) {
+      # One absent copy with a unique twin was moved by hand: move it back
+      # into the lock rather than copy over it
+      moved <- if (!differ && length(holes) == 1) Filter(function(t) identical(t$from, holes[[1]]$path) && unique_twin(t), twins)
+      if (length(moved)) {
+        step_all("none", "failed", "copy_absent", .skill_hint("move", from = moved[[1]]$from, to = moved[[1]]$to))
+        next
+      }
       src <- if (length(edited) == 1) edited[[1]]$path
       step_all("none", "failed", if (differ) "copies_differ" else "copy_absent",
                .skill_hint_copy(src, setdiff(.skill_paths(c(present, holes)), src)))

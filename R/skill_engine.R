@@ -284,7 +284,10 @@
                else " Copy it over the others yourself; skills_copy() keeps a skill's name.")
       }
     },
-    "diverged/copy_absent" = , "failed/copy_absent" = paste0(
+    "diverged/copy_absent" = , "failed/copy_absent" = if (identical(hint$key, "move")) {
+      paste0(hint$from, " is missing beside an edited copy, and ", hint$to, " looks like it, moved by hand. ",
+             "Record the move: ", command)
+    } else paste0(
       .skill_list_and(unlist(hint$to)), if (length(hint$to) > 1) " are" else " is", " missing beside the edited copy ", hint$from, ".",
       if (!is.null(command)) paste0(" Copy it there: ", command) else ""),
     "missing/folder_gone" = paste0(

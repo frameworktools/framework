@@ -270,7 +270,7 @@ for (file in sort(list.files(scenario_dir(), pattern = "\\.json$", full.names = 
 }
 
 test_that("the scenario folder holds every case the spec counts", {
-  expect_length(list.files(scenario_dir(), pattern = "\\.json$"), 86L)
+  expect_length(list.files(scenario_dir(), pattern = "\\.json$"), 88L)
 })
 
 test_that("a Cloud setup's sync.known_hashes are the source's known hashes", {
