@@ -496,9 +496,9 @@ def plan_push(disk, lock, offer, opt):
             step_all(key, C, "failed", "unreadable"); continue
         present = [c for c in C if c.state in ("clean", "edited")]
         if not present:
-            twin = untracked_twin(disk, lock, E, opt.dirs)       # same name, configured folder
-            step_all(key, C, "missing", "folder_gone" if twin else "all_gone",
-                     hint("move", from_=first(E.copies), to=twin) if twin else None); continue
+            m = twins_of_entry(key)      # same name, or bytes == a copy's record (see "Twin rule")
+            step_all(key, C, "missing", "folder_gone" if m else "all_gone",
+                     hint("move", from_=m[0].from_, to=m[0].to) if unique(m) else None); continue
         edited = [c for c in present if c.state == "edited"]
         if not edited:
             continue                                     # nothing to push
@@ -526,9 +526,10 @@ def plan_push(disk, lock, offer, opt):
                      "pushed" if opt.force else "refused", None if opt.force else "cloud_changed",
                      None if opt.force else hint("force"))
     for p in untracked_folders(disk, lock, opt.dirs):
-        twin_of = entry_with_gone_copy_named(lock, basename(p))
+        m = twins_of_folder(p)       # same name, or bytes == a gone copy's record (see "Twin rule")
         step(p, None, "none", "untracked", "untracked",
-             hint("move", from_=twin_of.path, to=p) if twin_of else hint("sync", path=p))
+             hint("move", from_=m[0].from_, to=p) if unique(m) else
+             None if m else hint("sync", path=p))
 ```
 
 After a push, the lock entry takes the response: `base = {cloud, hash,
@@ -551,10 +552,19 @@ error. The same holds when Cloud can't be asked at all: an entry whose Cloud
 identity is on another server than the project's fails, with no hint, where
 the plan would push, adopt, or refuse it.
 
-Twin rule (push only): an entry with no copy left and an untracked folder
-of the same name in a configured folder gets `missing` (`folder_gone`) with a
-`move` hint, and that folder's `untracked` row gets the same hint, whether or
-not the old parent folder still exists. Pull applies it only when the old
+Twin rule (push only): an untracked folder in a configured folder is a
+hand-moved copy of an entry with no copy left when it has the name of one of
+the entry's copies (moved to another folder) or holds that copy's recorded
+bytes (renamed, in the same folder or another). When the match is the
+entry's only match and the folder's only match, the entry gets `missing`
+(`folder_gone`) with a `move` hint from that copy to the folder, and the
+folder's `untracked` row gets the same hint, whether or not the old parent
+folder still exists. When more than one copy or folder matches, the entry is
+`missing` (`folder_gone`) and the folders are `untracked`, all with no hint;
+the prose says to record the move with `skills_move()`. Only a folder with
+no match gets the `sync` hint, so a moved copy is never offered as a new
+Cloud skill. Pull never gives the `sync` hint: an untracked folder the setup
+doesn't name is `removed`. Pull applies it only when the old
 parent folder is gone; while it exists, pull restores the absent copy (see
 "Accepted limits"), and the twin stays `untracked` with a `copy` or `move`
 hint as above.
@@ -843,7 +853,7 @@ No other change. Push responses already include `skill_id`, `version`, and
 
 ## Scenarios
 
-`inst/conformance/skills/` holds 84 language-neutral cases. Python and Go
+`inst/conformance/skills/` holds 86 language-neutral cases. Python and Go
 copy them with their existing asset sync (`scripts/sync_assets.py`,
 `tools/syncassets`), pinned to an R tag, beside the other conformance
 fixtures. The README there defines the format.

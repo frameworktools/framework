@@ -1,0 +1,119 @@
+{
+  "id": "push-renamed-in-folder",
+  "area": "rename",
+  "description": "Twin rule by bytes: the tracked copy was renamed by hand in its own folder. The untracked folder holds the copy's recorded bytes, so both rows give the skills_move hint, never skills_sync.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/team-data": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".agents/skills/framework-data": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "remote": {
+      "https://cloud.test/uuid-mine@r": {
+        "version": 1,
+        "hash": "@m1"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/framework-data",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "framework-data",
+        "action": "none",
+        "status": "missing",
+        "reason_code": "folder_gone",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data"
+        }
+      },
+      {
+        "path": ".agents/skills/team-data",
+        "entry": null,
+        "name": "team-data",
+        "action": "none",
+        "status": "untracked",
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "framework-data",
+        "status": "missing",
+        "paths": [
+          ".agents/skills/framework-data"
+        ],
+        "reason_code": "folder_gone",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data"
+        }
+      },
+      {
+        "name": "team-data",
+        "status": "untracked",
+        "paths": [
+          ".agents/skills/team-data"
+        ],
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data"
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/team-data": "m1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}
