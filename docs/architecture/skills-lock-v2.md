@@ -496,7 +496,7 @@ def plan_push(disk, lock, offer, opt):
             step_all(key, C, "failed", "unreadable"); continue
         present = [c for c in C if c.state in ("clean", "edited")]
         if not present:
-            m = twins_of_entry(key)      # same name, or bytes == a copy's record (see "Twin rule")
+            m = twins_of_entry(key)      # matches of its absent copies (see "Twin rule")
             step_all(key, C, "missing", "folder_gone" if m else "all_gone",
                      hint("move", from_=m[0].from_, to=m[0].to) if unique(m) else None); continue
         edited = [c for c in present if c.state == "edited"]
@@ -504,7 +504,10 @@ def plan_push(disk, lock, offer, opt):
             continue                                     # nothing to push
         differ = len({c.disk for c in present}) > 1
         if differ or any(c.state == "absent" for c in C):
+            absent = [c for c in C if c.state == "absent"]
+            m = twins_of_copy(absent[0].path) if not differ and len(absent) == 1 else []
             step_all(key, C, "failed", "copies_differ" if differ else "copy_absent",
+                     hint("move", from_=m[0].from_, to=m[0].to) if unique(m) else
                      hint("copy", from_=edited[0].path if len(edited) == 1 else None, ...)); continue
         local = present[0].disk
         R = offer.remote.get(key)
@@ -526,7 +529,7 @@ def plan_push(disk, lock, offer, opt):
                      "pushed" if opt.force else "refused", None if opt.force else "cloud_changed",
                      None if opt.force else hint("force"))
     for p in untracked_folders(disk, lock, opt.dirs):
-        m = twins_of_folder(p)       # same name, or bytes == a gone copy's record (see "Twin rule")
+        m = twins_of_folder(p)       # absent copies of any entry it matches by name or bytes (see "Twin rule")
         step(p, None, "none", "untracked", "untracked",
              hint("move", from_=m[0].from_, to=p) if unique(m) else
              None if m else hint("sync", path=p))
@@ -553,15 +556,25 @@ identity is on another server than the project's fails, with no hint, where
 the plan would push, adopt, or refuse it.
 
 Twin rule (push only): an untracked folder in a configured folder is a
-hand-moved copy of an entry with no copy left when it has the name of one of
-the entry's copies (moved to another folder) or holds that copy's recorded
-bytes (renamed, in the same folder or another). When the match is the
-entry's only match and the folder's only match, the entry gets `missing`
-(`folder_gone`) with a `move` hint from that copy to the folder, and the
-folder's `untracked` row gets the same hint, whether or not the old parent
-folder still exists. When more than one copy or folder matches, the entry is
-`missing` (`folder_gone`) and the folders are `untracked`, all with no hint;
-the prose says to record the move with `skills_move()`. Only a folder with
+hand-moved copy of an absent copy of any entry (whether or not the entry
+still has other copies) when it has that copy's name (moved to another
+folder) or holds that copy's recorded bytes (renamed, in the same folder or
+another). A match is unique when it is that copy's only match and that
+folder's only match.
+
+- The folder's `untracked` row gets a `move` hint from the copy to the folder
+  on a unique match, no hint when it has several matches, and the `sync`
+  hint only when it has none.
+- An entry with no copy left gets `missing` (`folder_gone`) with the same
+  `move` hint when it has exactly one match and that match is unique, with no
+  hint when it has several, and `missing` (`all_gone`) when it has none. This
+  holds whether or not the old parent folder still exists.
+- An entry with copies left keeps its row. One exception: when it fails with
+  `copy_absent` and its one absent copy has a unique match, the hint is that
+  `move` instead of a `copy` over the absent copy.
+
+The prose for a match with no hint says to record the move with
+`skills_move()`. Only a folder with
 no match gets the `sync` hint, so a moved copy is never offered as a new
 Cloud skill. Pull never gives the `sync` hint: an untracked folder the setup
 doesn't name is `removed`. Pull applies it only when the old
@@ -853,7 +866,7 @@ No other change. Push responses already include `skill_id`, `version`, and
 
 ## Scenarios
 
-`inst/conformance/skills/` holds 86 language-neutral cases. Python and Go
+`inst/conformance/skills/` holds 88 language-neutral cases. Python and Go
 copy them with their existing asset sync (`scripts/sync_assets.py`,
 `tools/syncassets`), pinned to an R tag, beside the other conformance
 fixtures. The README there defines the format.

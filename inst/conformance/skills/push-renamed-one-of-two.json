@@ -1,0 +1,98 @@
+{
+  "id": "push-renamed-one-of-two",
+  "area": "rename",
+  "description": "Twin rule for a copy of an entry that still has another copy: one of two copies was renamed by hand. The untracked folder holds the absent copy's recorded bytes, so it gets the skills_move hint, never skills_sync. The entry, unedited, has nothing to push.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/team-data": "m1",
+    ".agents/skills/team-data2": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".agents/skills/framework-data": {
+            "hash": "@m1"
+          },
+          ".agents/skills/team-data": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "remote": {
+      "https://cloud.test/uuid-mine@r": {
+        "version": 1,
+        "hash": "@m1"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/team-data2",
+        "entry": null,
+        "name": "team-data2",
+        "action": "none",
+        "status": "untracked",
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data2"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "team-data2",
+        "status": "untracked",
+        "paths": [
+          ".agents/skills/team-data2"
+        ],
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data2"
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/team-data": "m1",
+      ".agents/skills/team-data2": "m1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}

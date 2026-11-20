@@ -1,0 +1,138 @@
+{
+  "id": "push-renamed-one-of-two-edited",
+  "area": "rename",
+  "description": "The same rename with the remaining copy edited: the entry fails with copy_absent, and its hint records the move instead of copying over the absent copy.",
+  "command": "push",
+  "options": {
+    "confirm": true
+  },
+  "project": {
+    "variant": "r",
+    "dirs": [
+      ".agents/skills"
+    ]
+  },
+  "folders": [],
+  "disk": {
+    ".agents/skills/team-data": "e1",
+    ".agents/skills/team-data2": "m1"
+  },
+  "lock": {
+    "schema": 2,
+    "skills": {
+      "https://cloud.test/uuid-mine@r": {
+        "identity": {
+          "kind": "cloud",
+          "skill_id": "uuid-mine",
+          "variant": "r",
+          "server": "https://cloud.test"
+        },
+        "base": {
+          "channel": "cloud",
+          "hash": "@m1",
+          "version": 1,
+          "server": "https://cloud.test"
+        },
+        "known": [
+          "@m1"
+        ],
+        "copies": {
+          ".agents/skills/framework-data": {
+            "hash": "@m1"
+          },
+          ".agents/skills/team-data": {
+            "hash": "@m1"
+          }
+        }
+      }
+    }
+  },
+  "offer": {
+    "source": "cloud",
+    "remote": {
+      "https://cloud.test/uuid-mine@r": {
+        "version": 1,
+        "hash": "@m1"
+      }
+    }
+  },
+  "expected": {
+    "error": null,
+    "steps": [
+      {
+        "path": ".agents/skills/framework-data",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "framework-data",
+        "action": "none",
+        "status": "failed",
+        "reason_code": "copy_absent",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data2"
+        }
+      },
+      {
+        "path": ".agents/skills/team-data",
+        "entry": "https://cloud.test/uuid-mine@r",
+        "name": "team-data",
+        "action": "none",
+        "status": "failed",
+        "reason_code": "copy_absent",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data2"
+        }
+      },
+      {
+        "path": ".agents/skills/team-data2",
+        "entry": null,
+        "name": "team-data2",
+        "action": "none",
+        "status": "untracked",
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data2"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "framework-data",
+        "status": "failed",
+        "paths": [
+          ".agents/skills/framework-data",
+          ".agents/skills/team-data"
+        ],
+        "reason_code": "copy_absent",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data2"
+        }
+      },
+      {
+        "name": "team-data2",
+        "status": "untracked",
+        "paths": [
+          ".agents/skills/team-data2"
+        ],
+        "reason_code": "untracked",
+        "hint": {
+          "key": "move",
+          "from": ".agents/skills/framework-data",
+          "to": ".agents/skills/team-data2"
+        }
+      }
+    ],
+    "disk": {
+      ".agents/skills/team-data": "e1",
+      ".agents/skills/team-data2": "m1"
+    },
+    "backups": [],
+    "lock": "unchanged"
+  }
+}
