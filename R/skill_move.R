@@ -151,10 +151,19 @@ skills_move <- function(from, to = NULL, skill_id = NULL, variant = NULL, builti
       }
       .skill_save_changed(root, lock, plan$lock_after)
       NULL
-    }, error = identity, interrupt = identity)
+    }, error = base::identity, interrupt = base::identity)
     if (!is.null(outcome)) {
-      for (s in rev(moved)) .skill_rename(.skill_path(root, s$path), .skill_path(root, s$from))
+      # Undo the renames already made, newest first; name any that can't be
+      stuck <- character()
+      for (s in rev(moved)) {
+        back <- tryCatch(isTRUE(.skill_rename(.skill_path(root, s$path), .skill_path(root, s$from))), error = function(e) FALSE)
+        if (!back) stuck <- c(stuck, paste0("  ", s$from, " is now at ", s$path))
+      }
       reason <- if (inherits(outcome, "interrupt")) "interrupted" else sub("\\.$", "", conditionMessage(outcome))
+      if (length(stuck)) {
+        stop(paste(c(paste0("Skill move failed: ", reason, ". These moves could not be undone:"), stuck), collapse = "\n"),
+             call. = FALSE)
+      }
       stop("Skill move failed: ", reason, ". Nothing was moved.", call. = FALSE)
     }
   }

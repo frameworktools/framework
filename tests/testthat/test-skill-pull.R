@@ -1454,3 +1454,44 @@ test_that("an offline pull reports a custom Cloud skill as unavailable and leave
   expect_true("Version 2" %in% read_skill(root, "lab-style"))
   expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style"), before)
 })
+
+test_that("an edited skill tracked on another server fails its push, with no force hint", {
+  withr::local_envvar(FW_PROJECT_TOKEN = "project-token")
+  root <- skill_pull_project()
+  dir.create(file.path(root, ".claude/skills/far"), recursive = TRUE)
+  writeLines(c("---", "name: far", "description: x", "---", "Edited"), file.path(root, ".claude/skills/far/SKILL.md"))
+  for (base in list(list(channel = "cloud", hash = "h", version = 1L, server = "https://other.example"), NULL)) {
+    state <- .skill_load(root)
+    entry <- .skill_entry_new(.skill_identity("cloud", "far-id", "r", "https://other.example"))
+    entry$base <- base
+    entry$copies <- c(".claude/skills/far" = "h")
+    state$skills <- list(`https://other.example/far-id@r` = entry)
+    .skill_save(root, state)
+    local_mocked_bindings(.fw_project_cloud_url = function(...) "https://cloud.example",
+                          .fw_require_token = function(...) "user-token",
+                          .fw_api = function(...) stop("no request expected"))
+    result <- suppressMessages(push_skills(root, confirm = TRUE))
+    row <- Filter(function(r) identical(r$name, "far"), result$skills)[[1]]
+    expect_identical(row$status, "failed")
+    expect_identical(row$reason, "It tracks a skill on another server (https://other.example).")
+    expect_null(row$hint)
+  }
+})
+
+test_that("a push stops with lock_changed when the lock changed while it waited", {
+  root <- skill_push_setup()
+  entry <- skill_pull_entry("Version one", 1L)
+  cloud <- new.env()
+  cloud$remote <- list(`lab-id` = list(skill_id = "lab-id", version = 1L, bundle = entry$bundle, hash = entry$sync$hash))
+  skill_push_mock(cloud)
+  cat("Edited\n", file = file.path(root, ".claude/skills/lab-style/SKILL.md"), append = TRUE)
+  # Another terminal moves a skill while push asks to continue
+  local_mocked_bindings(.fw_confirm = function(...) {
+    suppressMessages(skills_move(".claude/skills/framework-data", ".agents/skills/framework-data", project_path = root))
+    TRUE
+  })
+  error <- tryCatch(suppressMessages(push_skills(root)), error = identity)
+  expect_identical(error$code, "lock_changed")
+  expect_null(cloud$posts)
+  expect_identical(skill_pull_lock_entry(root, ".claude/skills/lab-style")$base$version, 1L)
+})

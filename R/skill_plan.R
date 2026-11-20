@@ -484,16 +484,23 @@
         "This project already tracks ", new_key, ". Move or remove its copies first."), from)
     }
     E <- plan$lock_after$skills[[key]]
+    # A copy's bytes: at its path, or, when this move hasn't renamed it yet,
+    # at the path it moves from
+    sources <- stats::setNames(vapply(plan$steps, function(s) s$from %||% s$path, ""), vapply(plan$steps, `[[`, "", "path"))
+    bytes <- function(p) {
+      h <- disk$hash(p)
+      if (identical(h, .skill_absent) && p %in% names(sources)) disk$hash(sources[[p]]) else h
+    }
     # Unedited copies stay unedited: their records become known hashes
-    clean <- names(E$copies)[vapply(names(E$copies), function(p) identical(disk$hash(p), unname(E$copies[p])), logical(1))]
+    clean <- names(E$copies)[vapply(names(E$copies), function(p) identical(bytes(p), unname(E$copies[p])), logical(1))]
     F <- .skill_entry_new(identity)
     F$known <- .skill_known(E$copies[clean])
     F$copies <- E$copies
     plan$lock_after$skills[[key]] <- NULL
     plan$lock_after$skills[[new_key]] <- F
-    moved <- vapply(plan$steps, `[[`, "", "path")
-    for (i in seq_along(plan$steps)) if (identical(plan$steps[[i]]$entry, key)) plan$steps[[i]]$entry <- new_key
-    for (p in setdiff(names(E$copies), moved)) .skill_step(plan, p, new_key, "record", "moved", "retargeted")
+    # A moved copy has two steps: the move under the old key, then the
+    # retarget under the new one
+    for (p in .skill_sorted(names(E$copies))) .skill_step(plan, p, new_key, "record", "moved", "retargeted")
   }
   plan
 }

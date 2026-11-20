@@ -531,8 +531,7 @@ pull_all <- function(project_path = ".", overwrite = FALSE, confirm = NULL, dry_
          bad <- c(status(done, "refused"), status(done, "failed"))
          if (length(bad)) {
            why <- vapply(bad, function(r) {
-             if (identical(r$status, "refused")) paste0(r$name, " changed on Cloud since this project pulled it; push_all(force = TRUE) replaces it")
-             else paste0(r$name, ": ", sub("\\.$", "", r$reason %||% "failed"))
+             paste0(r$name, ": ", sub("\\.$", "", r$reason %||% r$status))
            }, "")
            stop(if (length(pushed)) paste0("pushed ", .sync_skill_names(pushed), "; "), "not pushed: ",
                 paste(why, collapse = "; "), call. = FALSE)

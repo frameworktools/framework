@@ -270,7 +270,7 @@ for (file in sort(list.files(scenario_dir(), pattern = "\\.json$", full.names = 
 }
 
 test_that("the scenario folder holds every case the spec counts", {
-  expect_length(list.files(scenario_dir(), pattern = "\\.json$"), 80L)
+  expect_length(list.files(scenario_dir(), pattern = "\\.json$"), 84L)
 })
 
 test_that("a Cloud setup's sync.known_hashes are the source's known hashes", {
@@ -287,4 +287,20 @@ test_that("a Cloud setup's sync.known_hashes are the source's known hashes", {
   scenario_write(root, ".claude/skills/mine", "m1")
   status <- suppressMessages(.skill_install_sources(root, list(source), ".claude/skills"))
   expect_identical(status$mine, "updated")
+})
+
+test_that("a Cloud snapshot's known_hashes join a source's known hashes", {
+  b1 <- scenario_bundle("m1"); b2 <- scenario_bundle("m2")
+  entry <- list(bundle = b1, sync = list(skill_id = "uuid-mine", version = 1L, hash = .skill_hash(b1), variant = "r",
+                                         server = "https://cloud.test"))
+  older <- .skill_hash(scenario_bundle("m0"))
+  local_mocked_bindings(
+    .fw_cloud_token = function(...) "token",
+    .fw_api = function(...) list(skill_id = "uuid-mine", version = 2L, bundle = b2, hash = .skill_hash(b2), known_hashes = list(older)))
+  got <- .skill_pull_latest(list(mine = entry), "https://cloud.test", character())
+  source <- .skill_source_setup("mine", got$skills$mine)
+  expect_setequal(source$known, c(older, .skill_hash(b1), .skill_hash(b2)))
+  lock <- list(skills = list())
+  by_id <- .skill_fetch_identity("k", list(identity = .skill_identity("cloud", "uuid-mine", "r", "https://cloud.test")), "mine")
+  expect_true(older %in% by_id$known)
 })

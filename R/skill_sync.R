@@ -336,6 +336,7 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
   held <- .skill_acquire(root)
   on.exit(unlink(held, recursive = TRUE))
   state <- .skill_load(root)
+  loaded <- state
   # The path as typed may not contain links (checked before any
   # resolution, which would follow them). Then the lock's spelling: a case
   # alias of a tracked path is that path, found by filesystem identity.
@@ -428,7 +429,8 @@ skills_sync <- function(path, project_path = ".", direction = "auto", dry_run = 
     new_key <- .skill_key(identity, paths[1])
     state$skills[[key]] <- NULL
     state$skills[[new_key]] <- if (!is.null(state$skills[[new_key]])) .skill_entry_merge(F, state$skills[[new_key]]) else F
-    .skill_save(root, state)
+    # A sync that changes nothing leaves a schema 1 lock as it is
+    .skill_save_changed(root, loaded, state)
     result$skill_id <- remote$skill_id; result$version <- remote$version
   }
   result

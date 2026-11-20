@@ -85,6 +85,11 @@
       notes <<- c(notes, paste0("Latest version of ", name, " not checked (", conditionMessage(e), "); using the setup's."))
       NULL
     })
+    # Every version's hash the snapshot lists is a known version
+    if (!is.null(remote$known_hashes)) {
+      entry$sync$known_hashes <- c(unlist(entry$sync$known_hashes), unlist(remote$known_hashes))
+      skills[[name]] <- entry
+    }
     if (!is.null(remote) && as.integer(remote$version) > as.integer(source$version)) {
       # The setup's version stays known: an unedited copy of it is updated
       entry$setup_hash <- entry$setup_hash %||% source$hash
@@ -130,7 +135,7 @@
     r <- .fw_api(paste0("/api/v1/skills/sync/", utils::URLencode(entry$identity$skill_id, reserved = TRUE),
                         "?variant=", entry$identity$variant), token, url = server)
     if (!identical(.skill_hash(r$bundle), r$hash)) stop("Cloud skill verification failed", call. = FALSE)
-    .skill_source(name, entry$identity, "cloud", .skill_validate(r$bundle), known = r$hash,
+    .skill_source(name, entry$identity, "cloud", .skill_validate(r$bundle), known = c(r$hash, unlist(r$known_hashes)),
                   version = r$version, server = server)
   }, error = function(e) NULL)
 }
@@ -367,7 +372,7 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
     E <- lock$skills[[key]]
     if (!.skill_push_changed(E, disk)) next
     if (identical(E$identity$kind, "cloud") && !identical(E$identity$server, server)) {
-      errors[[key]] <- paste0("It tracks a skill on another server (", E$identity$server, ").")
+      errors[[key]] <- paste0("It tracks a skill on another server (", E$identity$server, ")")
       next
     }
     got <- tryCatch(.skill_push_remote(key, E, server, token), error = identity)
@@ -377,9 +382,13 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
   plan <- .skill_plan_push(disk, lock, list(remote = remote), list(command = "push", dirs = dirs, force = force))
   for (i in seq_along(plan$steps)) {
     s <- plan$steps[[i]]
-    if (!is.null(s$entry) && !is.null(errors[[s$entry]]) && identical(s$action, "push")) {
+    # An entry whose Cloud check failed (another server, a failed request)
+    # fails whatever the plan would have done with Cloud's answer
+    if (!is.null(s$entry) && !is.null(errors[[s$entry]]) &&
+        (s$action %in% c("push", "record") || identical(s$status, "refused"))) {
       plan$steps[[i]]$action <- "none"; plan$steps[[i]]$status <- "failed"
-      plan$steps[[i]]$detail <- paste0(errors[[s$entry]], ".")
+      plan$steps[[i]]$reason_code <- NULL; plan$steps[[i]]["hint"] <- list(NULL)
+      plan$steps[[i]]$detail <- paste0(sub("\\.$", "", errors[[s$entry]]), ".")
     }
   }
   list(plan = plan, lock = lock, disk = disk, remote = remote, server = server, token = token, force = force)
@@ -411,6 +420,13 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
   steps <- prepared$plan$steps
   before <- prepared$lock
   state <- .skill_load(root)
+  # Another command changed the lock while this push waited (a skills_move()
+  # in another terminal): stop before sending or saving anything
+  if (!identical(as.character(.skill_lock_json(state)), as.character(.skill_lock_json(before)))) {
+    .skill_stop("lock_changed", paste0(
+      ".framework/skills.lock.json changed since this push was planned, so nothing was sent. ",
+      "Run the push again."))
+  }
   disk <- prepared$disk; server <- prepared$server
   set_steps <- function(key, ...) {
     changes <- list(...)
@@ -420,9 +436,9 @@ pull_skills <- function(project_path = ".", overwrite = FALSE, dry_run = FALSE) 
     F <- E
     F$identity <- identity
     F$base <- list(channel = "cloud", hash = hash, version = as.integer(version), server = sub("/$", "", server))
-    # Only copies seen holding the pushed files take its record; a copy whose
-    # folder is gone keeps its own
-    seen <- vapply(names(F$copies), function(p) identical(disk$hash(p), hash), logical(1))
+    # Only copies holding the pushed files now (read again, just before the
+    # lock is saved) take its record; any other copy keeps its own
+    seen <- vapply(names(F$copies), function(p) identical(.skill_disk_hash(root, p), hash), logical(1))
     F$copies[seen] <- hash
     F$known <- if (fresh) .skill_known(hash) else .skill_known(E$known, hash)
     F$pending <- NULL

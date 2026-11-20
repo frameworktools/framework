@@ -525,3 +525,32 @@ test_that("upgrade() leaves a skill alone when its copies differ", {
   suppressMessages(upgrade(dir, dry_run = FALSE))
   expect_identical(c(readLines(file.path(claude, "SKILL.md")), readLines(file.path(agents, "SKILL.md"))), before)
 })
+
+test_that("upgrade() stops on a skills lock it can't read, before writing anything", {
+  dir <- local_old_project()
+  dir.create(file.path(dir, ".framework"))
+  writeLines('{"schema": 3, "skills": {}}', file.path(dir, ".framework/skills.lock.json"))
+  before <- snapshot(dir)
+  error <- tryCatch(suppressMessages(upgrade(dir, dry_run = FALSE)), error = identity)
+  expect_identical(error$code, "lock_schema_unsupported")
+  expect_identical(snapshot(dir), before)
+})
+
+test_that("upgrade() records current skills in a project without a lock, and words kept built-ins as built-ins", {
+  dir <- local_old_project()
+  for (skill in .ai_skills_for_type("project_sensitive")) {
+    if (identical(skill, "framework-data")) next
+    dir.create(file.path(dir, ".claude/skills", skill), recursive = TRUE)
+    file.copy(file.path(.skill_pull_shipped(skill), "SKILL.md"), file.path(dir, ".claude/skills", skill))
+  }
+  cat("Our note\n", file = file.path(dir, ".claude/skills/framework-data/SKILL.md"), append = TRUE)
+  plan <- suppressMessages(upgrade(dir))
+  records <- plan$actions[plan$actions$step == "skills", ]
+  expect_true(all(grepl("^record in", records$change)))
+  expect_true(any(grepl("framework-data (.claude/skills/framework-data has local edits, which were kept. ", plan$notes, fixed = TRUE) &
+                  grepl("with the built-in version.", plan$notes, fixed = TRUE)))
+  suppressMessages(upgrade(dir, dry_run = FALSE))
+  entry <- skill_lock_entry(dir, ".claude/skills/framework-workflow")
+  expect_identical(entry$identity$skill_id, "framework:framework-workflow")
+  expect_identical(skill_lock_entry(dir, ".claude/skills/framework-data"), list())
+})

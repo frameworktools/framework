@@ -35,13 +35,22 @@
     },
     folders = function(d) .skill_pull_folders(root, d),
     spell = function(p) .skill_copy_spelling(root, p),
-    # A path's filesystem identity: its device and inode when it exists,
-    # else its spelling on disk. A case alias of a tracked path is that path.
+    # A path's filesystem identity: its device and inode when it exists.
+    # Otherwise its nearest existing parent as resolved on disk, then the
+    # rest, folded to lower case when that parent's volume ignores case. A
+    # case alias of a tracked path is that path.
     alias = function(p) {
       a <- get0(p, envir = aliases, inherits = FALSE)
       if (is.null(a)) {
         id <- tryCatch(.skill_copy_id(file.path(root, p)), error = function(e) NA_character_)
-        a <- if (!is.na(id)) paste0("id:", id) else paste0("path:", .skill_copy_spelling(root, p))
+        a <- if (!is.na(id)) paste0("id:", id) else {
+          k <- tryCatch(.skill_copy_key(root, p), error = function(e) NULL)
+          if (is.null(k)) paste0("path:", p) else {
+            tail <- k$parts[seq_along(k$parts) > k$given]
+            if (isTRUE(k$fold)) tail <- tolower(tail)
+            paste0("path:", paste(c(k$parts[seq_len(k$given)], tail), collapse = "/"))
+          }
+        }
         assign(p, a, envir = aliases)
       }
       a
@@ -276,7 +285,9 @@
     "diverged/copy_absent" = , "failed/copy_absent" = paste0(
       .skill_list_and(unlist(hint$to)), if (length(hint$to) > 1) " are" else " is", " missing beside the edited copy ", hint$from, ".",
       if (!is.null(command)) paste0(" Copy it there: ", command) else ""),
-    "missing/folder_gone" = paste0(first, "'s folder is gone, so ", if (push) "it can't be pushed." else "it can't be restored.",
+    "missing/folder_gone" = paste0(
+      if (!is.null(ctx$disk) && ctx$disk$folder_exists(dirname(first))) paste0(first, " is gone") else paste0(first, "'s folder is gone"),
+      ", so ", if (push) "it can't be pushed." else "it can't be restored.",
                                    if (identical(hint$key, "move")) paste0(" If the skill moved to ", hint$to, ": ", command) else ""),
     "missing/all_gone" = {
       if (push) "Every tracked copy is gone, so there is nothing to push."

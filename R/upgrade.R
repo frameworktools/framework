@@ -1025,7 +1025,9 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   # or Cloud-tracked ones kept
   sources <- lapply(Filter(function(skill) nzchar(.skill_pull_shipped(skill)), skills), .skill_source_package)
   root <- ctx$root
-  lock <- tryCatch(.skill_load(root), error = function(e) e)
+  # A lock this version can't read, or a schema 1 lock whose entries
+  # conflict, stops upgrade() before it writes anything
+  lock <- tryCatch(.skill_load(root), error = function(e) if (inherits(e, "fw_skill_error")) stop(e) else e)
   if (inherits(lock, "error")) {
     .upgrade_note(ctx, "Skills not checked: ", sub("\\.$", "", conditionMessage(lock)), ".")
     return(invisible())
@@ -1038,9 +1040,10 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
     change <- if (identical(s$action, "copy")) paste0("add (copied from ", s$from, ")")
       else if (identical(s$action, "write") && s$status %in% c("added", "restored")) "add"
       else if (identical(s$action, "write")) "update (an unedited older version)"
+      else if (identical(s$action, "record")) "record in .framework/skills.lock.json (files already current)"
     if (!is.null(change)) ctx$actions[[length(ctx$actions) + 1]] <- list(step = "skills", path = s$path, change = change)
   }
-  if (any(vapply(plan$steps, function(s) s$action %in% c("write", "copy"), logical(1)))) {
+  if (any(vapply(plan$steps, function(s) s$action %in% c("write", "copy", "record"), logical(1)))) {
     ctx$skill_apply <- function() {
       held <- .skill_acquire(root)
       on.exit(unlink(held, recursive = TRUE))
@@ -1051,7 +1054,8 @@ upgrade <- function(path = ".", dry_run = TRUE, backup = TRUE, type = NULL, move
   rows <- Filter(function(r) !r$status %in% c("added", "restored", "updated", "replaced", "current", "removed"),
                  .skill_rows(plan$steps, "upgrade"))
   if (length(rows) > 0) {
-    out <- .skill_rows_out(rows, list(fn = "pull_skills", lock = lock, disk = disk))
+    named <- stats::setNames(sources, vapply(sources, function(x) .skill_key(x$identity), ""))
+    out <- .skill_rows_out(rows, list(fn = "pull_skills", lock = lock, disk = disk, sources = named))
     .upgrade_note(ctx, "Skills kept: ", paste(vapply(out, function(r) paste0(r$name, " (", r$reason %||% r$status, ")"), ""),
                                              collapse = "; "))
   }

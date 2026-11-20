@@ -313,15 +313,24 @@ skills_copy <- function(from = NULL, to = NULL, skills = NULL, from_dir = NULL, 
   targets <- unname(vapply(targets, function(t) .skill_copy_spelling(root, t), ""))
 
   # Read and check every source and target before writing anything
-  bundles <- lapply(stats::setNames(nm = names), function(name) .skill_copy_scan(root, file.path(source, name)))
+  # A copy that can't be read stops with a typed code and its diagnostic
+  typed <- function(code, expr) tryCatch(expr, error = function(e) {
+    if (inherits(e, "fw_skill_error")) stop(e)
+    .skill_stop(code, conditionMessage(e))
+  })
+  bundles <- lapply(stats::setNames(nm = names), function(name) {
+    typed("copy_source_unreadable", .skill_copy_scan(root, file.path(source, name)))
+  })
   disk <- .skill_disk(root)
   # Skills only in a target: its folders with a regular SKILL.md
   disk$folders <- function(d) .skill_copy_skills(root, d)
   for (t in targets) for (name in names) {
     to_path <- file.path(t, name)
-    kind <- .skill_kind(.skill_path(root, to_path))
-    if (!kind %in% c("missing", "directory")) stop("Target is not a folder: ", to_path, call. = FALSE)
-    if (identical(kind, "directory")) .skill_copy_scan(root, to_path)
+    typed("copy_target_unreadable", {
+      kind <- .skill_kind(.skill_path(root, to_path))
+      if (!kind %in% c("missing", "directory")) stop("Target is not a folder: ", to_path, call. = FALSE)
+      if (identical(kind, "directory")) .skill_copy_scan(root, to_path)
+    })
   }
   # A target another skill's lock entry tracks is refused, in dry runs too.
   # An untracked source may be copied onto a tracked path: that is how a

@@ -127,3 +127,64 @@ test_that("a second pull with nothing to change leaves the lock's bytes as they 
   suppressMessages(pull_skills(root))
   expect_identical(readBin(lock, "raw", n = 1e6), before)
 })
+
+test_that("skills_move() undoes its renames when a later step fails, and names any it can't", {
+  root <- withr::local_tempdir()
+  writeLines(c("default:", "  project_type: project"), file.path(root, "settings.yml"))
+  for (name in c("a", "b")) {
+    source <- withr::local_tempdir()
+    writeLines(c("---", paste0("name: ", name), "description: x", "---", name), file.path(source, "SKILL.md"))
+    expect_true(skill_install_builtin(source, root, file.path(".claude/skills", name)))
+  }
+  lock <- readBin(file.path(root, ".framework/skills.lock.json"), "raw", n = 1e6)
+  real <- .skill_rename
+  # The second rename fails
+  local_mocked_bindings(.skill_rename = function(from, to) if (grepl("agents/skills/b$", to)) FALSE else real(from, to))
+  expect_error(suppressMessages(skills_move("claude", "agents", project_path = root)),
+               "Skill move failed: Could not move .claude/skills/b to .agents/skills/b. Nothing was moved.", fixed = TRUE)
+  expect_true(dir.exists(file.path(root, ".claude/skills/a")))
+  expect_false(dir.exists(file.path(root, ".agents/skills/a")))
+  expect_identical(readBin(file.path(root, ".framework/skills.lock.json"), "raw", n = 1e6), lock)
+
+  # The lock save fails, and one rename can't be undone
+  local_mocked_bindings(.skill_save = function(...) stop("Disk full", call. = FALSE),
+                        .skill_rename = function(from, to) if (grepl("claude/skills/a$", to)) FALSE else real(from, to))
+  error <- tryCatch(suppressMessages(skills_move("claude", "agents", project_path = root)), error = conditionMessage)
+  expect_identical(error, paste0("Skill move failed: Disk full. These moves could not be undone:\n",
+                                 "  .claude/skills/a is now at .agents/skills/a"))
+  expect_true(dir.exists(file.path(root, ".claude/skills/b")))
+})
+
+test_that("a skills_sync() that changes nothing leaves a schema 1 lock as it is", {
+  root <- withr::local_tempdir()
+  folder <- file.path(root, ".claude/skills/x")
+  dir.create(folder, recursive = TRUE)
+  writeLines(c("---", "name: x", "description: x", "---", "Mine"), file.path(folder, "SKILL.md"))
+  bundle <- .skill_scan(folder); hash <- .skill_hash(bundle)
+  dir.create(file.path(root, ".framework"))
+  writeLines(jsonlite::toJSON(list(schema = 1L, skills = list(`account:https://cloud.example:x-id:r` = list(
+    paths = list(".claude/skills/x"), variant = "r", server = "https://cloud.example", skill_id = "x-id", version = 2L,
+    hash = hash))), auto_unbox = TRUE), file.path(root, ".framework/skills.lock.json"))
+  before <- readBin(file.path(root, ".framework/skills.lock.json"), "raw", n = 1e6)
+  local_mocked_bindings(
+    .fw_cloud_url = function(...) "https://cloud.example",
+    .fw_require_token = function(...) "token",
+    .fw_api = function(...) list(skill_id = "x-id", version = 2L, bundle = bundle, hash = hash))
+  expect_identical(skills_sync(".claude/skills/x", root)$action, "unchanged")
+  expect_identical(readBin(file.path(root, ".framework/skills.lock.json"), "raw", n = 1e6), before)
+})
+
+test_that("two setup names for one folder not yet created stop on a case-insensitive volume", {
+  root <- withr::local_tempdir()
+  skip_if_not(.skill_case_insensitive_at(root), "case-sensitive volume")
+  dir.create(file.path(root, ".claude/skills"), recursive = TRUE)
+  disk <- .skill_disk(root)
+  expect_identical(disk$alias(".claude/skills/Demo"), disk$alias(".claude/skills/demo"))
+  bundle <- list(list(path = "SKILL.md", content = jsonlite::base64_enc(charToRaw("x")), executable = FALSE))
+  source <- function(name) .skill_source(name, .skill_identity("inline", paste0("inline:", name)), "inline", bundle)
+  error <- tryCatch(.skill_plan_pull(disk, list(schema = 2L, skills = list()),
+                                     list(source = "cloud", skills = list(source("Demo"), source("demo")), by_identity = list()),
+                                     list(command = "pull", source = "cloud", dirs = ".claude/skills", scope = "all")),
+                    error = identity)
+  expect_identical(error$code, "paths_alias")
+})
