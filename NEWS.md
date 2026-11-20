@@ -1,4 +1,4 @@
-# framework (development version)
+# framework 2.1.1
 
 App projects (Shiny and Plumber) set up as apps, and a clone with no project
 token says how to link it.
