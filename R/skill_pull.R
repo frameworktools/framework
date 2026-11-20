@@ -185,7 +185,7 @@
               diverged = "Diverged", missing = "Missing", removed = "Removed", unavailable = "Unavailable",
               failed = "Failed", current = "Current")
   if (!skill$status %in% names(labels) || is.null(skill$reason)) return(NULL)
-  paste0("  ", labels[[skill$status]], ": ", skill$name, " — ", skill$reason)
+  paste0("  ", labels[[skill$status]], ": ", skill$name, " \u2014 ", skill$reason)
 }
 
 .skill_pull_summary <- function(counts, dry_run) {
@@ -592,7 +592,7 @@ push_skills <- function(project_path = ".", force = FALSE, confirm = NULL, dry_r
   message(summary)
   labels <- c(refused = "Refused", missing = "Missing", untracked = "Untracked", cancelled = "Cancelled", failed = "Failed")
   for (skill in skills) {
-    if (skill$status %in% names(labels)) message("  ", labels[[skill$status]], ": ", skill$name, " — ", skill$reason)
+    if (skill$status %in% names(labels)) message("  ", labels[[skill$status]], ": ", skill$name, " \u2014 ", skill$reason)
   }
   invisible(list(dry_run = dry_run, skills = skills, counts = as.list(counts), message = summary, steps = steps))
 }

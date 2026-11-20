@@ -172,6 +172,6 @@ skills_move <- function(from, to = NULL, skill_id = NULL, variant = NULL, builti
   for (i in seq_along(skills)) skills[[i]]$from <- rows[[i]]$from
   summary <- paste0(if (dry_run) "Skills (dry run, nothing written): " else "Skills: ", length(skills), " moved")
   message(summary)
-  for (skill in skills) message("  ", if (dry_run) "Would move" else "Moved", ": ", skill$paths[1], " — ", skill$reason)
+  for (skill in skills) message("  ", if (dry_run) "Would move" else "Moved", ": ", skill$paths[1], " \u2014 ", skill$reason)
   invisible(list(dry_run = dry_run, skills = skills, message = summary, steps = steps))
 }
