@@ -65,6 +65,7 @@ publish(fitted_model, to = "cloud", slug = "adjusted-model", password = "reviewe
 - **Bayesian models**: `brms` models and `rstanarm` models from `stan_glm()`, `stan_glm.nb()`, `stan_lm()`, `stan_aov()`, `stan_glmer()`, `stan_lmer()`, and `stan_glmer.nb()` publish posterior means, posterior SDs, 95% equal-tailed credible intervals, R-hat, and bulk and tail ESS. Logit and log-link count models add odds or rate ratios summarized over the exponentiated draws. Group-level SDs and correlations, distributional parameters such as `sigma`, priors, and sampler diagnostics (chains, draws, divergent transitions, maximum tree depth hits) are included, with Bayes R² for models where it is cheap to compute. LOO and WAIC appear only when the fit already stores them, as after `brms::add_criterion()`. The draws are never published.
 - **Static plots**: `ggplot2` / `patchwork` objects, `bayesplot` plots (including `pp_check()` and `mcmc_pairs()`), lists of ggplots such as `brms::conditional_effects()` (combined with `patchwork`), `recordPlot()` captures, and `lattice` plots export as 7x5 in SVG when `svglite` is installed (falling back to 300 dpi PNG when `svglite` is absent or the SVG exceeds 5 MB).
 - **Interactive widgets and formatted tables**: `plotly` and other `htmlwidgets` export as self-contained HTML via Pandoc (using Quarto's bundled Pandoc if needed), and `gt`, `gtsummary`, and `flextable` objects export as HTML.
+- **DAGs**: `dagitty` graphs and `ggdag` `tidy_dagitty` objects publish as causal diagrams. See [DAGs](#dags).
 
 When published to S3 buckets instead of Cloud, tables export as CSV, `lm` and `glm` export as HTML summaries, and other models and tests export as JSON.
 
@@ -128,6 +129,36 @@ publish:
 ```
 
 With a GitHub repository, Framework Cloud links the snippet to its lines at that commit. Each render publishes again. When the snippet matches its newest version, Framework Cloud adds no version and Framework reports `Unchanged, still version N`.
+
+### DAGs
+
+A DAG artifact is a causal diagram with the DAGitty model text that defines it. Framework Cloud lays it out and draws it, and a reader can copy the text into dagitty.net or `dagitty::dagitty()` to get the same graph back. `publish()` takes a `dagitty` graph or a `ggdag` `tidy_dagitty`. `publish_dag()` adds the code that built the graph:
+
+```r
+library(ggdag)
+
+dag <- dagify(
+  cancer ~ smoking + age + genotype,
+  smoking ~ age + genotype,
+  exposure = "smoking", outcome = "cancer", latent = "genotype",
+  labels = c(smoking = "Smoking", cancer = "Lung cancer", age = "Age", genotype = "Genotype")
+)
+
+publish(dag, slug = "smoking-dag")
+publish_dag(dag, code = "dag <- dagify(...)", slug = "smoking-dag", title = "Smoking and lung cancer")
+```
+
+The DAG carries:
+
+| Part | Contents |
+|------|----------|
+| DAGitty text | `as.character(dag)`: exposures, outcomes, and latent, adjusted, and selected nodes, and positions set with `coordinates()` or `dagify(coords = )`. Positions follow DAGitty, with y pointing down. A graph without positions is laid out left to right. |
+| Labels | ggdag's labels (`dagify(labels = )`, `label<-`, or a `tidy_dagitty`'s `label` column), then `publish_dag(labels = )`, which wins |
+| Adjustment sets | With an exposure and an outcome, the minimal sufficient sets from `adjustmentSets()`. An empty set means no adjustment is needed. No sets means no set of observed variables works, as when a latent variable confounds the effect. |
+| Implications | The testable conditional independencies from `impliedConditionalIndependencies()` |
+| Code | `publish_dag(code = )` only |
+
+`publish_dag(effect = "direct")` computes adjustment sets for the direct effect. When dagitty can't compute the sets or implications, they are left out. Only DAGs publish; a pdag, mag, or pag is an error.
 
 ### Collection attachment
 

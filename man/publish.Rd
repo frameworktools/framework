@@ -69,9 +69,14 @@ the image is published alone. Extensions such as ggrepel, patchwork,
 needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
 \item gt, gtsummary, and flextable tables become HTML when their packages
 are installed.
+\item dagitty graphs and ggdag \code{tidy_dagitty} objects become a DAG: the
+DAGitty model text with its roles and positions, ggdag's labels, and
+the adjustment sets and testable implications dagitty computes.
+\code{\link[=publish_dag]{publish_dag()}} adds the code that built the graph, labels, and the
+effect (total or direct).
 }
 
-Framework Cloud receives tables, tests, and models as structured JSON.
+Framework Cloud receives tables, tests, models, and DAGs as structured JSON.
 Legacy storage uploads receive CSV tables, HTML summaries for \code{lm} and
 \code{glm}, and JSON for other models and tests. Named destinations receive
 typed bundles with offline readers and SHA-256 file manifests.}

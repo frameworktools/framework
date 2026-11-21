@@ -5,12 +5,13 @@
   "table, or xtabs; an ANOVA table; a hypothesis test (htest); an lm, glm, aov, glm.nb,",
   "polr, multinom, lme4, coxph, survreg, fixest, mgcv gam, brms, or rstanarm model; a ggplot,",
   "patchwork, list of ggplots, brms conditional_effects(), bayesplot plot, recorded base plot,",
-  "lattice plot, or htmlwidget such as plotly; or a gt, gtsummary, or flextable table."
+  "lattice plot, or htmlwidget such as plotly; a gt, gtsummary, or flextable table; or a dagitty",
+  "or ggdag DAG."
 )
 
 # Export supported objects locally. Models publish a summary, without observations
 # or serialized model internals. Cloud receives typed JSON documents (table.json,
-# model.json, test.json); buckets receive CSV tables and HTML lm/glm summaries,
+# model.json, test.json, dag.json); buckets receive CSV tables and HTML lm/glm summaries,
 # and JSON for other models and tests. Figures are the same for both.
 #' @keywords internal
 .fw_artifact_file <- function(object, directory, cloud = FALSE) {
@@ -144,7 +145,7 @@ NULL
     }
     return(reasons)
   }
-  what <- if (is.data.frame(source)) "this data frame" else if (inherits(source, "framework_code_snippet")) "this code snippet" else paste("this", class(source)[1])
+  what <- if (is.data.frame(source)) "this data frame" else if (inherits(source, "framework_code_snippet")) "this code snippet" else if (inherits(source, "framework_dag")) "this DAG" else paste("this", class(source)[1])
   .fw_sensitive_reasons(what)
 }
 
@@ -358,8 +359,13 @@ NULL
 #'     needs pandoc (Quarto's copy is used when pandoc isn't on the PATH).
 #'   * gt, gtsummary, and flextable tables become HTML when their packages
 #'     are installed.
+#'   * dagitty graphs and ggdag `tidy_dagitty` objects become a DAG: the
+#'     DAGitty model text with its roles and positions, ggdag's labels, and
+#'     the adjustment sets and testable implications dagitty computes.
+#'     [publish_dag()] adds the code that built the graph, labels, and the
+#'     effect (total or direct).
 #'
-#'   Framework Cloud receives tables, tests, and models as structured JSON.
+#'   Framework Cloud receives tables, tests, models, and DAGs as structured JSON.
 #'   Legacy storage uploads receive CSV tables, HTML summaries for `lm` and
 #'   `glm`, and JSON for other models and tests. Named destinations receive
 #'   typed bundles with offline readers and SHA-256 file manifests.
@@ -462,6 +468,9 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
   checkmate::assert_flag(self_contained)
   checkmate::assert_flag(include_private)
   .fw_assert_slug(slug)
+  # A dagitty graph is a character vector; make it a document before
+  # character sources are taken as paths
+  if (.fw_dag_is(source)) source <- .fw_dag_document(source)
   if (is.character(source) && is.null(dim(source))) {
     checkmate::assert_string(source, min.chars = 1)
     if (!file.exists(source)) stop("Source not found: ", source, call. = FALSE)
@@ -496,8 +505,9 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
     if (basename(source) %in% c("figure.svg", "figure.png") && file.exists(file.path(stage, "figure.phiz.json"))) {
       plot_description <- file.path(stage, "figure.phiz.json")
     }
-    if (is_cloud && is.null(kind) && basename(source) %in% c("table.json", "model.json", "test.json", "code_snippet.json", "table.html")) {
-      kind <- switch(basename(source), model.json = "model", test.json = "test", code_snippet.json = "code_snippet", "table")
+    if (is_cloud && is.null(kind) && basename(source) %in% c("table.json", "model.json", "test.json", "code_snippet.json", "dag.json", "table.html")) {
+      kind <- switch(basename(source), model.json = "model", test.json = "test", code_snippet.json = "code_snippet",
+                     dag.json = "dag", "table")
     }
   }
   checkmate::assert_string(source, min.chars = 1)

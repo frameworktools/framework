@@ -1,3 +1,22 @@
+# framework (development version)
+
+DAGs publish to Framework Cloud. Matches Framework Cloud's `dag` artifacts
+and framework-embed 0.7.0.
+
+Changes:
+
+* `publish()` takes a dagitty graph or a ggdag `tidy_dagitty` and publishes
+  it as a DAG: the DAGitty model text with its roles and positions, ggdag's
+  labels, and what dagitty computes from it. Framework Cloud lays it out and
+  draws it. With an exposure and an outcome, the minimal sufficient
+  adjustment sets are included (`[[]]`: no adjustment needed; `[]`: none
+  exists), and the testable implications always are. A computation that
+  fails is left out.
+* `publish_dag()` adds `code`, the R code that built the graph, `labels`,
+  which win over ggdag's, and `effect = "direct"` for direct-effect
+  adjustment sets.
+* dagitty and ggdag join Suggests.
+
 # framework 2.1.2
 
 Changes:

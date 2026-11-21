@@ -142,6 +142,7 @@ Publishing:
     - publish_list
     - publish_notebook
     - publish_snippet
+    - publish_dag
     - fw_snippet
     - storage_test
 
