@@ -439,12 +439,19 @@ NULL
 #'   Framework Cloud), `details` (models and tests),
 #'   `variable_tips` (models), `column_summaries` (tables), `output` and
 #'   `links` (code snippets), `legend`, `analysis`, `dagitty`, and `code`
-#'   (DAGs), and `interactive` (live charts). Every setting is on until
-#'   turned off. Framework Cloud keeps them for every version, and a publish
-#'   changes only the settings it names; `TRUE` turns one back on. The
+#'   (DAGs), and `interactive` (live charts). Settings start on, except
+#'   that a DAG embeds as its drawing alone: its `description`, `analysis`,
+#'   `dagitty`, and `code` start off, and `TRUE` shows them. Framework Cloud
+#'   keeps the settings for every version, and a publish changes only the
+#'   settings it names; `TRUE` turns one on. The
 #'   reader page on Framework Cloud shows everything. Other destinations
 #'   ignore `display`, with a message. Default: no change.
 #' @return Character. Published URLs, or the local path for a folder without a URL.
+#'   After a Framework Cloud publish, the `embed_link` attribute holds the
+#'   link to paste into a site that takes Framework embeds (a public
+#'   artifact's short link, or an unlisted artifact's own link), which is
+#'   also printed as `Embed: <link>`. It is absent when the artifact can't
+#'   be embedded (private, or with a password).
 #'
 #' @export
 #'

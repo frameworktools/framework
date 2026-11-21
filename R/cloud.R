@@ -1350,6 +1350,12 @@ cloud_settings <- function() {
   } else {
     message("Published: ", res$url)
   }
+  # The link to paste into a site that takes Framework embeds: a public
+  # artifact's short link or an unlisted one's own link. Null when the
+  # artifact can't be embedded (private or with a password), and missing
+  # from older servers.
+  embed_link <- .fw_embed_link(res)
+  if (!is.null(embed_link)) message("Embed: ", embed_link)
   # The server's notice assumes an unlisted link. Say it plainly for a
   # public artifact whose owner has no handle yet.
   public <- identical(res$visibility, "public") ||
@@ -1371,7 +1377,17 @@ cloud_settings <- function() {
               conditionMessage(e), ". Attach it from the project Outputs page; publishing again creates another version.", call. = FALSE)
     })
   }
-  invisible(res$url)
+  url <- res$url
+  if (!is.null(embed_link)) attr(url, "embed_link") <- embed_link
+  invisible(url)
+}
+
+# The embed_link of a publish answer, or NULL when it is null, missing, or
+# not a link.
+#' @keywords internal
+.fw_embed_link <- function(res) {
+  link <- res$embed_link
+  if (is.character(link) && length(link) == 1L && !is.na(link) && nzchar(link)) link else NULL
 }
 
 # --- Data integrity ledger -----------------------------------------------

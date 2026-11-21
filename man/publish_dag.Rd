@@ -65,12 +65,15 @@ readers.}
 \item{include_private}{Skip the private-data confirmation. See \code{\link[=publish]{publish()}}.}
 
 \item{display}{Framework Cloud only: what the DAG shows when other sites
-embed it, such as \code{list(analysis = FALSE, legend = FALSE)}. The DAG
-settings are \code{legend}, \code{analysis}, \code{dagitty} (the DAGitty text), and
-\code{code}, with \code{title}, \code{description}, and \code{author}. See \code{\link[=publish]{publish()}}.}
+embed it. A DAG embeds as its drawing alone, with its title, author,
+legend, and link back: \code{description}, \code{analysis}, \code{dagitty} (the
+DAGitty text), and \code{code} start off. Turn them on with \code{TRUE}, as in
+\code{list(analysis = TRUE, code = TRUE)}, and others off with \code{FALSE}, as
+in \code{list(legend = FALSE)}. See \code{\link[=publish]{publish()}}.}
 }
 \value{
-The artifact URL, invisibly.
+The artifact URL, invisibly, with the embed link in its
+\code{embed_link} attribute. See \code{\link[=publish]{publish()}}.
 }
 \description{
 Publishes a causal diagram to Framework Cloud as a DAG artifact: a dagitty

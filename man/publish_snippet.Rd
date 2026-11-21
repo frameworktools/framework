@@ -67,7 +67,9 @@ starts the output hidden, with Show output; the \code{output} argument
 leaves it out entirely. See \code{\link[=publish]{publish()}}.}
 }
 \value{
-The artifact URL, invisibly, or \code{NULL} when nothing was published.
+The artifact URL, invisibly, with the embed link in its
+\code{embed_link} attribute (see \code{\link[=publish]{publish()}}), or \code{NULL} when nothing was
+published.
 }
 \description{
 Publishes a chunk of a Quarto or R Markdown notebook to Framework Cloud as

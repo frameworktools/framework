@@ -24,7 +24,8 @@ default, \code{NULL}, lets Framework Cloud fold output longer than 12 lines.}
 \code{share_unlisted}, \code{to}, \code{repository}, \code{include_private}, and \code{display}.}
 }
 \value{
-The artifact URL, invisibly.
+The artifact URL, invisibly, with the embed link in its
+\code{embed_link} attribute. See \code{\link[=publish]{publish()}}.
 }
 \description{
 Runs a braced block of code, prints its output as usual, and publishes the

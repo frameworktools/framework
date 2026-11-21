@@ -1,3 +1,21 @@
+# framework 2.1.5
+
+Publishing to Framework Cloud prints the embed link. Matches Framework
+Cloud's `embed_link` and its DAG embed defaults.
+
+Changes:
+
+* After a publish to Framework Cloud, Framework prints `Embed: <link>`, the
+  link to paste into a blog or a site that takes Framework embeds: a public
+  artifact's short link (`https://framework.pub/go/...`), or an unlisted
+  artifact's own link. The returned URL carries it in its `embed_link`
+  attribute. A private artifact, or one with a password, can't be embedded
+  and gets none, as does a publish to an older server.
+* A DAG embeds as its drawing alone: its `description`, `analysis`,
+  `dagitty`, and `code` display settings start off. Turn them on with
+  `display = list(analysis = TRUE, code = TRUE)`. The documentation no
+  longer says every setting starts on.
+
 # framework 2.1.4
 
 Display settings choose what an artifact shows when another site embeds it, including whether it links back to Framework Cloud (`credit`).

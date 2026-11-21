@@ -166,14 +166,21 @@ sites embed it, as a named list or named logical vector of settings:
 Framework Cloud), \code{details} (models and tests),
 \code{variable_tips} (models), \code{column_summaries} (tables), \code{output} and
 \code{links} (code snippets), \code{legend}, \code{analysis}, \code{dagitty}, and \code{code}
-(DAGs), and \code{interactive} (live charts). Every setting is on until
-turned off. Framework Cloud keeps them for every version, and a publish
-changes only the settings it names; \code{TRUE} turns one back on. The
+(DAGs), and \code{interactive} (live charts). Settings start on, except
+that a DAG embeds as its drawing alone: its \code{description}, \code{analysis},
+\code{dagitty}, and \code{code} start off, and \code{TRUE} shows them. Framework Cloud
+keeps the settings for every version, and a publish changes only the
+settings it names; \code{TRUE} turns one on. The
 reader page on Framework Cloud shows everything. Other destinations
 ignore \code{display}, with a message. Default: no change.}
 }
 \value{
 Character. Published URLs, or the local path for a folder without a URL.
+After a Framework Cloud publish, the \code{embed_link} attribute holds the
+link to paste into a site that takes Framework embeds (a public
+artifact's short link, or an unlisted artifact's own link), which is
+also printed as \verb{Embed: <link>}. It is absent when the artifact can't
+be embedded (private, or with a password).
 }
 \description{
 Functions for publishing notebooks, data, and files to S3

@@ -186,10 +186,13 @@
 #' @param to Publishing destination. See [publish()].
 #' @param include_private Skip the private-data confirmation. See [publish()].
 #' @param display Framework Cloud only: what the DAG shows when other sites
-#'   embed it, such as `list(analysis = FALSE, legend = FALSE)`. The DAG
-#'   settings are `legend`, `analysis`, `dagitty` (the DAGitty text), and
-#'   `code`, with `title`, `description`, and `author`. See [publish()].
-#' @return The artifact URL, invisibly.
+#'   embed it. A DAG embeds as its drawing alone, with its title, author,
+#'   legend, and link back: `description`, `analysis`, `dagitty` (the
+#'   DAGitty text), and `code` start off. Turn them on with `TRUE`, as in
+#'   `list(analysis = TRUE, code = TRUE)`, and others off with `FALSE`, as
+#'   in `list(legend = FALSE)`. See [publish()].
+#' @return The artifact URL, invisibly, with the embed link in its
+#'   `embed_link` attribute. See [publish()].
 #' @seealso [publish()]
 #' @export
 #'

@@ -357,7 +357,9 @@
 #'   sites embed it, such as `list(links = FALSE)`. `output = FALSE` there
 #'   starts the output hidden, with Show output; the `output` argument
 #'   leaves it out entirely. See [publish()].
-#' @return The artifact URL, invisibly, or `NULL` when nothing was published.
+#' @return The artifact URL, invisibly, with the embed link in its
+#'   `embed_link` attribute (see [publish()]), or `NULL` when nothing was
+#'   published.
 #' @seealso [fw_snippet()] for scripts, [publish()].
 #' @export
 #'
@@ -466,7 +468,8 @@ publish_snippet <- function(label, folded = NULL, output = TRUE, links = NULL, s
 #' @param ... Passed to [publish_snippet()]'s publishing arguments: `slug`,
 #'   `title`, `description`, `visibility`, `password`, `collection`,
 #'   `share_unlisted`, `to`, `repository`, `include_private`, and `display`.
-#' @return The artifact URL, invisibly.
+#' @return The artifact URL, invisibly, with the embed link in its
+#'   `embed_link` attribute. See [publish()].
 #' @seealso [publish_snippet()], [publish()].
 #' @export
 #'

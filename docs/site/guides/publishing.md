@@ -170,17 +170,17 @@ Positions keep the picture drawn in R. ggdag draws y pointing up; `dagitty::plot
 
 `publish_dag(effect = "direct")` computes adjustment sets for the direct effect. When dagitty can't compute the sets or implications, they are left out. Only DAGs publish; a pdag, mag, or pag is an error.
 
-A blog post that embeds the DAG shows its legend, analysis, DAGitty text, and code. `display` turns sections off:
+A blog post that embeds the DAG shows its drawing alone, with its title, author, legend, and link back. Its description, analysis, DAGitty text, and code start off. `display` turns them on:
 
 ```r
-publish_dag(dag, code = code, slug = "smoking-dag", display = list(analysis = FALSE, legend = FALSE))
+publish_dag(dag, code = code, slug = "smoking-dag", display = list(analysis = TRUE, code = TRUE))
 ```
 
 The DAG settings are `legend`, `analysis`, `dagitty`, and `code`. See [Display settings](#display-settings).
 
 ### Display settings
 
-Display settings choose what an artifact shows when another site embeds it: a blog post, academic.page, or a WordPress, Drupal, or Statamic page. Every setting is on until turned off. `publish()`, `publish_notebook()`, `publish_dag()`, `publish_snippet()`, and `fw_snippet()` take `display` as a named list or a named logical vector:
+Display settings choose what an artifact shows when another site embeds it: a blog post, academic.page, or a WordPress, Drupal, or Statamic page. Settings start on, except a DAG's `description`, `analysis`, `dagitty`, and `code`, which start off. `publish()`, `publish_notebook()`, `publish_dag()`, `publish_snippet()`, and `fw_snippet()` take `display` as a named list or a named logical vector:
 
 ```r
 publish(fitted_model, slug = "adjusted-model", display = list(details = FALSE))
@@ -189,17 +189,33 @@ publish(results_table, slug = "estimates", display = c(column_summaries = FALSE)
 
 | Setting | Applies to | Off |
 |---------|------------|-----|
-| `title`, `description`, `author` | All artifacts | Not shown |
+| `title`, `description`, `author` | All artifacts | Not shown. A DAG's description starts off. |
 | `credit` | All artifacts | No link back to the artifact on Framework Cloud |
 | `details` | Models and tests | No details section |
 | `variable_tips` | Models | No tips on terms |
 | `column_summaries` | Tables | No column summaries in tips |
 | `output` | Code snippets | Output starts hidden, with Show output |
 | `links` | Code snippets | No notebook and model links |
-| `legend`, `analysis`, `dagitty`, `code` | DAGs | No role legend, analysis, DAGitty text, or source code |
+| `legend`, `analysis`, `dagitty`, `code` | DAGs | No role legend, analysis, DAGitty text, or source code. All but `legend` start off. |
 | `interactive` | Live charts | The static image shows instead |
 
-Framework Cloud keeps the settings with the artifact, for every version. A publish changes only the settings it names, and `TRUE` turns one back on. The owner can also change them on the artifact's Settings tab, under Embed contents. The reader page on Framework Cloud shows everything. A name that isn't a setting, or a value that isn't `TRUE` or `FALSE`, stops the publish before anything uploads. GitHub Pages, folders, and storage buckets ignore `display`, with a message.
+Framework Cloud keeps the settings with the artifact, for every version. A publish changes only the settings it names. `TRUE` turns one on, and `FALSE` turns it off. The owner can also change them on the artifact's Settings tab, under Embed contents. The reader page on Framework Cloud shows everything. A name that isn't a setting, or a value that isn't `TRUE` or `FALSE`, stops the publish before anything uploads. GitHub Pages, folders, and storage buckets ignore `display`, with a message.
+
+### Embed links
+
+After a publish to Framework Cloud, Framework prints the link to paste into a blog or a site that takes Framework embeds:
+
+```text
+Published version 1: https://framework.pub/@ada/study/estimates
+Embed: https://framework.pub/go/428p
+```
+
+A public artifact's embed link is its short link (`https://framework.pub/go/...`), and an unlisted artifact's is its own link. A private artifact, or one with a password, can't be embedded and prints no embed link. `publish()` and the other publishing functions return the URL with the embed link in its `embed_link` attribute:
+
+```r
+url <- publish(results_table, slug = "estimates")
+attr(url, "embed_link")
+```
 
 ### Collection attachment
 
