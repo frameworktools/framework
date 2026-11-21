@@ -435,7 +435,8 @@ NULL
 #' @param display Framework Cloud only. What the artifact shows when other
 #'   sites embed it, as a named list or named logical vector of settings:
 #'   `list(analysis = FALSE, code = FALSE)` or `c(legend = FALSE)`. Settings:
-#'   `title`, `description`, `author`, `details` (models and tests),
+#'   `title`, `description`, `author`, `credit` (the link back to
+#'   Framework Cloud), `details` (models and tests),
 #'   `variable_tips` (models), `column_summaries` (tables), `output` and
 #'   `links` (code snippets), `legend`, `analysis`, `dagitty`, and `code`
 #'   (DAGs), and `interactive` (live charts). Every setting is on until

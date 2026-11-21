@@ -1,6 +1,6 @@
 # framework 2.1.4
 
-Display settings choose what an artifact shows when another site embeds it.
+Display settings choose what an artifact shows when another site embeds it, including whether it links back to Framework Cloud (`credit`).
 Matches Framework Cloud's artifact display settings.
 
 Changes:

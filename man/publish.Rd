@@ -162,7 +162,8 @@ of a non-public bucket policy and Public Access Block settings.}
 \item{display}{Framework Cloud only. What the artifact shows when other
 sites embed it, as a named list or named logical vector of settings:
 \code{list(analysis = FALSE, code = FALSE)} or \code{c(legend = FALSE)}. Settings:
-\code{title}, \code{description}, \code{author}, \code{details} (models and tests),
+\code{title}, \code{description}, \code{author}, \code{credit} (the link back to
+Framework Cloud), \code{details} (models and tests),
 \code{variable_tips} (models), \code{column_summaries} (tables), \code{output} and
 \code{links} (code snippets), \code{legend}, \code{analysis}, \code{dagitty}, and \code{code}
 (DAGs), and \code{interactive} (live charts). Every setting is on until

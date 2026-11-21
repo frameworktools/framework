@@ -4,7 +4,7 @@
 # docs/plans/2026-11-21-artifact-display.md, and Cloud refuses others.
 
 .fw_display_keys <- c(
-  "title", "description", "author", "details", "variable_tips", "column_summaries",
+  "title", "description", "author", "credit", "details", "variable_tips", "column_summaries",
   "output", "links", "legend", "analysis", "dagitty", "code", "interactive"
 )
 

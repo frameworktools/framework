@@ -190,6 +190,7 @@ publish(results_table, slug = "estimates", display = c(column_summaries = FALSE)
 | Setting | Applies to | Off |
 |---------|------------|-----|
 | `title`, `description`, `author` | All artifacts | Not shown |
+| `credit` | All artifacts | No link back to the artifact on Framework Cloud |
 | `details` | Models and tests | No details section |
 | `variable_tips` | Models | No tips on terms |
 | `column_summaries` | Tables | No column summaries in tips |
