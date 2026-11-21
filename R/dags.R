@@ -192,7 +192,7 @@
 #'   `list(analysis = TRUE, code = TRUE)`, and others off with `FALSE`, as
 #'   in `list(legend = FALSE)`. See [publish()].
 #' @return The artifact URL, invisibly, with the embed link in its
-#'   `embed_link` attribute. See [publish()].
+#'   `embed_link` and `artifact_url` attributes. See [publish()].
 #' @seealso [publish()]
 #' @export
 #'

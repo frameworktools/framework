@@ -176,11 +176,13 @@ ignore \code{display}, with a message. Default: no change.}
 }
 \value{
 Character. Published URLs, or the local path for a folder without a URL.
-After a Framework Cloud publish, the \code{embed_link} attribute holds the
-link to paste into a site that takes Framework embeds (a public
-artifact's short link, or an unlisted artifact's own link), which is
-also printed as \verb{Embed: <link>}. It is absent when the artifact can't
-be embedded (private, or with a password).
+After a Framework Cloud publish, Framework prints the version and two
+links, which the URL also carries as attributes. \verb{Share:}
+(\code{embed_link}) is the link people open and paste into a site that takes
+Framework embeds: a public artifact's short link, or an unlisted
+artifact's own link. A private artifact, or one with a password, has
+none. \verb{Manage:} (\code{artifact_url}) is the owner's page for the artifact.
+An older server sends neither, and the first line names the URL.
 }
 \description{
 Functions for publishing notebooks, data, and files to S3

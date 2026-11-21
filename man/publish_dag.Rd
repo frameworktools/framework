@@ -73,7 +73,7 @@ in \code{list(legend = FALSE)}. See \code{\link[=publish]{publish()}}.}
 }
 \value{
 The artifact URL, invisibly, with the embed link in its
-\code{embed_link} attribute. See \code{\link[=publish]{publish()}}.
+\code{embed_link} and \code{artifact_url} attributes. See \code{\link[=publish]{publish()}}.
 }
 \description{
 Publishes a causal diagram to Framework Cloud as a DAG artifact: a dagitty

@@ -358,7 +358,8 @@
 #'   starts the output hidden, with Show output; the `output` argument
 #'   leaves it out entirely. See [publish()].
 #' @return The artifact URL, invisibly, with the embed link in its
-#'   `embed_link` attribute (see [publish()]), or `NULL` when nothing was
+#'   `embed_link` and `artifact_url` attributes (see [publish()]), or `NULL`
+#'   when nothing was
 #'   published.
 #' @seealso [fw_snippet()] for scripts, [publish()].
 #' @export
@@ -469,7 +470,7 @@ publish_snippet <- function(label, folded = NULL, output = TRUE, links = NULL, s
 #'   `title`, `description`, `visibility`, `password`, `collection`,
 #'   `share_unlisted`, `to`, `repository`, `include_private`, and `display`.
 #' @return The artifact URL, invisibly, with the embed link in its
-#'   `embed_link` attribute. See [publish()].
+#'   `embed_link` and `artifact_url` attributes. See [publish()].
 #' @seealso [publish_snippet()], [publish()].
 #' @export
 #'

@@ -1342,20 +1342,25 @@ cloud_settings <- function() {
 
   res <- httr2::resp_body_json(httr2::req_perform(req))
 
-  if (isTRUE(res$unchanged)) {
+  # Share is the link people open and paste into a site that takes
+  # Framework embeds: a public artifact's short link or an unlisted one's own
+  # link, null when it can't be embedded (private or with a password).
+  # Manage is the owner's page for the artifact. An older server sends
+  # neither, so the first line keeps the URL.
+  embed_link <- .fw_answer_link(res$embed_link)
+  artifact_url <- .fw_answer_link(res$artifact_url)
+  links <- !is.null(embed_link) || !is.null(artifact_url)
+  status <- if (isTRUE(res$unchanged)) {
     # A code snippet that matches its newest version adds none
-    message("Unchanged, still version ", res$version, ": ", res$url)
+    paste0("Unchanged, still version ", res$version)
   } else if (!is.null(res$version)) {
-    message("Published version ", res$version, ": ", res$url)
+    paste0("Published version ", res$version)
   } else {
-    message("Published: ", res$url)
+    "Published"
   }
-  # The link to paste into a site that takes Framework embeds: a public
-  # artifact's short link or an unlisted one's own link. Null when the
-  # artifact can't be embedded (private or with a password), and missing
-  # from older servers.
-  embed_link <- .fw_embed_link(res)
-  if (!is.null(embed_link)) message("Embed: ", embed_link)
+  message(if (links) paste0(status, ".") else paste0(status, ": ", res$url))
+  if (!is.null(embed_link)) message("Share:  ", embed_link)
+  if (!is.null(artifact_url)) message("Manage: ", artifact_url)
   # The server's notice assumes an unlisted link. Say it plainly for a
   # public artifact whose owner has no handle yet.
   public <- identical(res$visibility, "public") ||
@@ -1379,14 +1384,14 @@ cloud_settings <- function() {
   }
   url <- res$url
   if (!is.null(embed_link)) attr(url, "embed_link") <- embed_link
+  if (!is.null(artifact_url)) attr(url, "artifact_url") <- artifact_url
   invisible(url)
 }
 
-# The embed_link of a publish answer, or NULL when it is null, missing, or
-# not a link.
+# A link from a publish answer (embed_link, artifact_url), or NULL when it
+# is null, missing, or not a non-empty string.
 #' @keywords internal
-.fw_embed_link <- function(res) {
-  link <- res$embed_link
+.fw_answer_link <- function(link) {
   if (is.character(link) && length(link) == 1L && !is.na(link) && nzchar(link)) link else NULL
 }
 

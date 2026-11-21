@@ -447,11 +447,13 @@ NULL
 #'   reader page on Framework Cloud shows everything. Other destinations
 #'   ignore `display`, with a message. Default: no change.
 #' @return Character. Published URLs, or the local path for a folder without a URL.
-#'   After a Framework Cloud publish, the `embed_link` attribute holds the
-#'   link to paste into a site that takes Framework embeds (a public
-#'   artifact's short link, or an unlisted artifact's own link), which is
-#'   also printed as `Embed: <link>`. It is absent when the artifact can't
-#'   be embedded (private, or with a password).
+#'   After a Framework Cloud publish, Framework prints the version and two
+#'   links, which the URL also carries as attributes. `Share:`
+#'   (`embed_link`) is the link people open and paste into a site that takes
+#'   Framework embeds: a public artifact's short link, or an unlisted
+#'   artifact's own link. A private artifact, or one with a password, has
+#'   none. `Manage:` (`artifact_url`) is the owner's page for the artifact.
+#'   An older server sends neither, and the first line names the URL.
 #'
 #' @export
 #'

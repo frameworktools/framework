@@ -68,7 +68,8 @@ leaves it out entirely. See \code{\link[=publish]{publish()}}.}
 }
 \value{
 The artifact URL, invisibly, with the embed link in its
-\code{embed_link} attribute (see \code{\link[=publish]{publish()}}), or \code{NULL} when nothing was
+\code{embed_link} and \code{artifact_url} attributes (see \code{\link[=publish]{publish()}}), or \code{NULL}
+when nothing was
 published.
 }
 \description{

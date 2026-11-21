@@ -201,20 +201,24 @@ publish(results_table, slug = "estimates", display = c(column_summaries = FALSE)
 
 Framework Cloud keeps the settings with the artifact, for every version. A publish changes only the settings it names. `TRUE` turns one on, and `FALSE` turns it off. The owner can also change them on the artifact's Settings tab, under Embed contents. The reader page on Framework Cloud shows everything. A name that isn't a setting, or a value that isn't `TRUE` or `FALSE`, stops the publish before anything uploads. GitHub Pages, folders, and storage buckets ignore `display`, with a message.
 
-### Embed links
+### Links after publishing
 
-After a publish to Framework Cloud, Framework prints the link to paste into a blog or a site that takes Framework embeds:
+After a publish to Framework Cloud, Framework prints the version and two links:
 
 ```text
-Published version 1: https://framework.pub/@ada/study/estimates
-Embed: https://framework.pub/go/428p
+Published version 3.
+Share:  https://framework.pub/go/az7h
+Manage: https://framework.pub/artifacts/123
 ```
 
-A public artifact's embed link is its short link (`https://framework.pub/go/...`), and an unlisted artifact's is its own link. A private artifact, or one with a password, can't be embedded and prints no embed link. `publish()` and the other publishing functions return the URL with the embed link in its `embed_link` attribute:
+`Share:` is the link people open and paste into a blog or a site that takes Framework embeds. A public artifact's is its short link (`https://framework.pub/go/...`), and an unlisted artifact's is its own link. A private artifact, or one with a password, has no share link. `Manage:` is the owner's page for the artifact on Framework Cloud. An unchanged code snippet prints `Unchanged, still version N.` first.
+
+`publish()` and the other publishing functions return the URL, with the links in its `embed_link` and `artifact_url` attributes:
 
 ```r
 url <- publish(results_table, slug = "estimates")
 attr(url, "embed_link")
+attr(url, "artifact_url")
 ```
 
 ### Collection attachment
