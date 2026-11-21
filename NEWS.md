@@ -1,4 +1,4 @@
-# framework (development version)
+# framework 2.1.4
 
 Display settings choose what an artifact shows when another site embeds it.
 Matches Framework Cloud's artifact display settings.
