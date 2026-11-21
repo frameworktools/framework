@@ -1194,7 +1194,8 @@ cloud_settings <- function() {
 .fw_cloud_publish <- function(source, dest = NULL, title = NULL, self_contained = TRUE,
                               slug = NULL, description = NULL, kind = NULL,
                               password = NULL, visibility = NULL, collection = NULL,
-                              share_unlisted = FALSE, plot_description = NULL) {
+                              share_unlisted = FALSE, plot_description = NULL, display = NULL) {
+  display <- .fw_display_settings(display)
   token <- .fw_project_token()
   selected <- NULL
   if (!is.null(collection)) {
@@ -1328,6 +1329,8 @@ cloud_settings <- function() {
     value <- get(field)
     if (!is.null(value)) body[[field]] <- value
   }
+  # Display settings, as a JSON object of the settings to change
+  if (!is.null(display)) body$display <- .fw_display_json(display)
   req <- httr2::req_body_multipart(req, !!!body)
   if (nzchar(Sys.getenv("FW_CLOUD_INSECURE", ""))) {
     req <- httr2::req_options(req, ssl_verifypeer = 0, ssl_verifyhost = 0)

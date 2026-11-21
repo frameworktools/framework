@@ -18,7 +18,8 @@ publish_dag(
   collection = NULL,
   share_unlisted = FALSE,
   to = NULL,
-  include_private = FALSE
+  include_private = FALSE,
+  display = NULL
 )
 }
 \arguments{
@@ -62,6 +63,11 @@ readers.}
 \item{to}{Publishing destination. See \code{\link[=publish]{publish()}}.}
 
 \item{include_private}{Skip the private-data confirmation. See \code{\link[=publish]{publish()}}.}
+
+\item{display}{Framework Cloud only: what the DAG shows when other sites
+embed it, such as \code{list(analysis = FALSE, legend = FALSE)}. The DAG
+settings are \code{legend}, \code{analysis}, \code{dagitty} (the DAGitty text), and
+\code{code}, with \code{title}, \code{description}, and \code{author}. See \code{\link[=publish]{publish()}}.}
 }
 \value{
 The artifact URL, invisibly.

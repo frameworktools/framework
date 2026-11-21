@@ -21,7 +21,7 @@ default, \code{NULL}, lets Framework Cloud fold output longer than 12 lines.}
 
 \item{...}{Passed to \code{\link[=publish_snippet]{publish_snippet()}}'s publishing arguments: \code{slug},
 \code{title}, \code{description}, \code{visibility}, \code{password}, \code{collection},
-\code{share_unlisted}, \code{to}, \code{repository}, and \code{include_private}.}
+\code{share_unlisted}, \code{to}, \code{repository}, \code{include_private}, and \code{display}.}
 }
 \value{
 The artifact URL, invisibly.

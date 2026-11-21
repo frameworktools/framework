@@ -18,7 +18,8 @@ publish_snippet(
   share_unlisted = FALSE,
   to = NULL,
   repository = NULL,
-  include_private = FALSE
+  include_private = FALSE,
+  display = NULL
 )
 }
 \arguments{
@@ -59,6 +60,11 @@ readers.}
 \code{settings.yml}, else none.}
 
 \item{include_private}{Skip the private-data confirmation. See \code{\link[=publish]{publish()}}.}
+
+\item{display}{Framework Cloud only: what the snippet shows when other
+sites embed it, such as \code{list(links = FALSE)}. \code{output = FALSE} there
+starts the output hidden, with Show output; the \code{output} argument
+leaves it out entirely. See \code{\link[=publish]{publish()}}.}
 }
 \value{
 The artifact URL, invisibly, or \code{NULL} when nothing was published.

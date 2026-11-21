@@ -17,6 +17,7 @@ publish_notebook(
   share_unlisted = FALSE,
   title = NULL,
   description = NULL,
+  display = NULL,
   ...
 )
 }
@@ -62,6 +63,9 @@ document's YAML \code{title}, else its file name.}
 
 \item{description}{Character or NULL. A short description of the
 published document.}
+
+\item{display}{Framework Cloud only: what the notebook shows when other
+sites embed it, such as \code{list(title = FALSE)}. See \code{\link[=publish]{publish()}}.}
 
 \item{...}{Additional arguments passed to quarto render.}
 }

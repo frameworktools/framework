@@ -19,7 +19,8 @@ publish(
   password = NULL,
   visibility = NULL,
   collection = NULL,
-  share_unlisted = FALSE
+  share_unlisted = FALSE,
+  display = NULL
 )
 }
 \arguments{
@@ -157,6 +158,18 @@ of a non-public bucket policy and Public Access Block settings.}
 \item{collection}{Existing project collection ID or slug. Follows the latest artifact version.}
 
 \item{share_unlisted}{Explicit consent to share an unlisted artifact with collection readers.}
+
+\item{display}{Framework Cloud only. What the artifact shows when other
+sites embed it, as a named list or named logical vector of settings:
+\code{list(analysis = FALSE, code = FALSE)} or \code{c(legend = FALSE)}. Settings:
+\code{title}, \code{description}, \code{author}, \code{details} (models and tests),
+\code{variable_tips} (models), \code{column_summaries} (tables), \code{output} and
+\code{links} (code snippets), \code{legend}, \code{analysis}, \code{dagitty}, and \code{code}
+(DAGs), and \code{interactive} (live charts). Every setting is on until
+turned off. Framework Cloud keeps them for every version, and a publish
+changes only the settings it names; \code{TRUE} turns one back on. The
+reader page on Framework Cloud shows everything. Other destinations
+ignore \code{display}, with a message. Default: no change.}
 }
 \value{
 Character. Published URLs, or the local path for a folder without a URL.

@@ -185,6 +185,10 @@
 #'   readers.
 #' @param to Publishing destination. See [publish()].
 #' @param include_private Skip the private-data confirmation. See [publish()].
+#' @param display Framework Cloud only: what the DAG shows when other sites
+#'   embed it, such as `list(analysis = FALSE, legend = FALSE)`. The DAG
+#'   settings are `legend`, `analysis`, `dagitty` (the DAGitty text), and
+#'   `code`, with `title`, `description`, and `author`. See [publish()].
 #' @return The artifact URL, invisibly.
 #' @seealso [publish()]
 #' @export
@@ -208,7 +212,8 @@
 publish_dag <- function(dag, code = NULL, labels = NULL, effect = c("total", "direct"),
                         y = c("auto", "up", "down"), slug = NULL, title = NULL, description = NULL, visibility = NULL,
                         password = NULL, collection = NULL, share_unlisted = FALSE, to = NULL,
-                        include_private = FALSE) {
+                        include_private = FALSE, display = NULL) {
+  display <- .fw_display_settings(display)
   if (!.fw_dag_is(dag)) {
     stop("publish_dag() takes a dagitty graph or a ggdag tidy_dagitty.", call. = FALSE)
   }
@@ -216,5 +221,6 @@ publish_dag <- function(dag, code = NULL, labels = NULL, effect = c("total", "di
                                y = match.arg(y))
   publish(document, slug = slug, title = title, description = description,
           visibility = visibility, password = password, collection = collection,
-          share_unlisted = share_unlisted, to = to, include_private = include_private)
+          share_unlisted = share_unlisted, to = to, include_private = include_private,
+          display = display)
 }

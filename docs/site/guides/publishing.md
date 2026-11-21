@@ -170,6 +170,36 @@ Positions keep the picture drawn in R. ggdag draws y pointing up; `dagitty::plot
 
 `publish_dag(effect = "direct")` computes adjustment sets for the direct effect. When dagitty can't compute the sets or implications, they are left out. Only DAGs publish; a pdag, mag, or pag is an error.
 
+A blog post that embeds the DAG shows its legend, analysis, DAGitty text, and code. `display` turns sections off:
+
+```r
+publish_dag(dag, code = code, slug = "smoking-dag", display = list(analysis = FALSE, legend = FALSE))
+```
+
+The DAG settings are `legend`, `analysis`, `dagitty`, and `code`. See [Display settings](#display-settings).
+
+### Display settings
+
+Display settings choose what an artifact shows when another site embeds it: a blog post, academic.page, or a WordPress, Drupal, or Statamic page. Every setting is on until turned off. `publish()`, `publish_notebook()`, `publish_dag()`, `publish_snippet()`, and `fw_snippet()` take `display` as a named list or a named logical vector:
+
+```r
+publish(fitted_model, slug = "adjusted-model", display = list(details = FALSE))
+publish(results_table, slug = "estimates", display = c(column_summaries = FALSE))
+```
+
+| Setting | Applies to | Off |
+|---------|------------|-----|
+| `title`, `description`, `author` | All artifacts | Not shown |
+| `details` | Models and tests | No details section |
+| `variable_tips` | Models | No tips on terms |
+| `column_summaries` | Tables | No column summaries in tips |
+| `output` | Code snippets | Output starts hidden, with Show output |
+| `links` | Code snippets | No notebook and model links |
+| `legend`, `analysis`, `dagitty`, `code` | DAGs | No role legend, analysis, DAGitty text, or source code |
+| `interactive` | Live charts | The static image shows instead |
+
+Framework Cloud keeps the settings with the artifact, for every version. A publish changes only the settings it names, and `TRUE` turns one back on. The owner can also change them on the artifact's Settings tab, under Embed contents. The reader page on Framework Cloud shows everything. A name that isn't a setting, or a value that isn't `TRUE` or `FALSE`, stops the publish before anything uploads. GitHub Pages, folders, and storage buckets ignore `display`, with a message.
+
 ### Collection attachment
 
 Attach an artifact to an existing project collection by collection ID or slug:

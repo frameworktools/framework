@@ -432,6 +432,17 @@ NULL
 #'   of a non-public bucket policy and Public Access Block settings.
 #' @param collection Existing project collection ID or slug. Follows the latest artifact version.
 #' @param share_unlisted Explicit consent to share an unlisted artifact with collection readers.
+#' @param display Framework Cloud only. What the artifact shows when other
+#'   sites embed it, as a named list or named logical vector of settings:
+#'   `list(analysis = FALSE, code = FALSE)` or `c(legend = FALSE)`. Settings:
+#'   `title`, `description`, `author`, `details` (models and tests),
+#'   `variable_tips` (models), `column_summaries` (tables), `output` and
+#'   `links` (code snippets), `legend`, `analysis`, `dagitty`, and `code`
+#'   (DAGs), and `interactive` (live charts). Every setting is on until
+#'   turned off. Framework Cloud keeps them for every version, and a publish
+#'   changes only the settings it names; `TRUE` turns one back on. The
+#'   reader page on Framework Cloud shows everything. Other destinations
+#'   ignore `display`, with a message. Default: no change.
 #' @return Character. Published URLs, or the local path for a folder without a URL.
 #'
 #' @export
@@ -462,7 +473,9 @@ NULL
 publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
                     self_contained = TRUE, slug = NULL, include_private = FALSE,
                     to = NULL, title = NULL, description = NULL, kind = NULL,
-                    password = NULL, visibility = NULL, collection = NULL, share_unlisted = FALSE) {
+                    password = NULL, visibility = NULL, collection = NULL, share_unlisted = FALSE,
+                    display = NULL) {
+  display <- .fw_display_settings(display)
   checkmate::assert_flag(share_unlisted)
   checkmate::assert_flag(overwrite)
   checkmate::assert_flag(self_contained)
@@ -485,6 +498,8 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
   visibility <- .fw_publish_visibility(destination, visibility)
   .fw_publish_capabilities(destination, visibility, password, collection)
   if (!isTRUE(destination$legacy) && destination$driver != "cloud") {
+    .fw_display_ignored(display, switch(destination$driver, github = "GitHub Pages",
+                                        s3 = "storage buckets", "folder destinations"))
     return(.fw_publish_bundle(source, destination, dest, connection, overwrite,
                               self_contained, slug, include_private, title,
                               description, kind, password, visibility, collection))
@@ -535,6 +550,7 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
       stop("Artifact metadata requires publishing to Framework Cloud.", call. = FALSE)
     }
     .fw_pages_reject(dest = dest, connection = connection, slug = slug)
+    .fw_display_ignored(display, "GitHub Pages")
     return(.fw_github_publish(source, slug = slug, self_contained = self_contained))
   }
   if (identical(.fw_publish_target(connection, to), "cloud")) {
@@ -543,9 +559,11 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
                  password = password, visibility = visibility,
                  collection = collection, share_unlisted = share_unlisted)
     if (!is.null(plot_description)) args$plot_description <- plot_description
+    if (!is.null(display)) args$display <- display
     return(do.call(.fw_cloud_publish, args))
   }
   .fw_warn_slug_ignored(slug)
+  .fw_display_ignored(display, "storage buckets")
 
   # Resolve S3 connection
   s3_config <- .resolve_s3_connection(connection)
@@ -614,6 +632,8 @@ publish <- function(source, dest = NULL, connection = NULL, overwrite = TRUE,
 #'   document's YAML `title`, else its file name.
 #' @param description Character or NULL. A short description of the
 #'   published document.
+#' @param display Framework Cloud only: what the notebook shows when other
+#'   sites embed it, such as `list(title = FALSE)`. See [publish()].
 #' @param ... Additional arguments passed to quarto render.
 #' @return Character. Public URL of the published notebook.
 #'
@@ -645,7 +665,9 @@ publish_notebook <- function(file,
                              share_unlisted = FALSE,
                              title = NULL,
                              description = NULL,
+                             display = NULL,
                              ...) {
+  display <- .fw_display_settings(display)
   checkmate::assert_file_exists(file, extension = c("qmd", "Qmd", "QMD"))
   checkmate::assert_string(title, null.ok = TRUE)
   checkmate::assert_string(description, null.ok = TRUE)
@@ -657,7 +679,7 @@ publish_notebook <- function(file,
     return(publish(file, dest = dest, connection = connection, self_contained = self_contained,
                    slug = slug, include_private = include_private, to = to,
                    collection = collection, share_unlisted = share_unlisted,
-                   title = title, description = description))
+                   title = title, description = description, display = display))
   }
   if (destination$driver == "cloud") to <- "cloud"
   if (isTRUE(destination$legacy) && identical(to, "s3")) to <- "bucket"
@@ -681,6 +703,7 @@ publish_notebook <- function(file,
       stop("GitHub Pages publishes HTML only (got format = \"", format, "\").", call. = FALSE)
     }
     .fw_pages_reject(dest = dest, connection = connection, slug = slug)
+    .fw_display_ignored(display, "GitHub Pages")
     return(.fw_github_publish(file, slug = slug, self_contained = self_contained))
   }
 
@@ -696,8 +719,10 @@ publish_notebook <- function(file,
     }
     return(.fw_cloud_publish(file, dest = dest, self_contained = self_contained, slug = slug,
                              title = title, description = description,
-                             collection = collection, share_unlisted = share_unlisted))
+                             collection = collection, share_unlisted = share_unlisted,
+                             display = display))
   }
+  .fw_display_ignored(display, "storage buckets")
   if (!is.null(collection)) stop("Collections require publishing to Framework Cloud.", call. = FALSE)
   .fw_warn_slug_ignored(slug)
 

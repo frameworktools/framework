@@ -1,3 +1,21 @@
+# framework (development version)
+
+Display settings choose what an artifact shows when another site embeds it.
+Matches Framework Cloud's artifact display settings.
+
+Changes:
+
+* `publish()`, `publish_notebook()`, `publish_dag()`, `publish_snippet()`,
+  and `fw_snippet()` take `display`, a named list or named logical vector
+  of settings to change: `display = list(analysis = FALSE, code = FALSE)` or
+  `display = c(legend = FALSE)`. The settings are `title`, `description`,
+  `author`, `details`, `variable_tips`, `column_summaries`, `output`,
+  `links`, `legend`, `analysis`, `dagitty`, `code`, and `interactive`.
+  Framework Cloud keeps them for every version, and a publish changes only
+  the settings it names. A name that isn't a setting, or a value that isn't
+  `TRUE` or `FALSE`, stops the publish before anything uploads. GitHub
+  Pages, folders, and storage buckets ignore `display`, with a message.
+
 # framework 2.1.3
 
 DAGs publish to Framework Cloud. Matches Framework Cloud's `dag` artifacts

@@ -286,11 +286,13 @@
 #' @keywords internal
 .fw_snippet_publish <- function(document, label, slug = NULL, title = NULL, description = NULL,
                                 visibility = NULL, password = NULL, collection = NULL,
-                                share_unlisted = FALSE, to = NULL, include_private = FALSE) {
+                                share_unlisted = FALSE, to = NULL, include_private = FALSE,
+                                display = NULL) {
   if (is.null(slug)) slug <- .fw_bundle_slug(label)
   publish(document, slug = slug, title = title %||% label, description = description,
           visibility = visibility, password = password, collection = collection,
-          share_unlisted = share_unlisted, to = to, include_private = include_private)
+          share_unlisted = share_unlisted, to = to, include_private = include_private,
+          display = display)
 }
 
 #' Publish a notebook chunk as a code snippet
@@ -351,6 +353,10 @@
 #'   `"https://github.com/owner/repo"`. Default: `publish.repository` in
 #'   `settings.yml`, else none.
 #' @param include_private Skip the private-data confirmation. See [publish()].
+#' @param display Framework Cloud only: what the snippet shows when other
+#'   sites embed it, such as `list(links = FALSE)`. `output = FALSE` there
+#'   starts the output hidden, with Show output; the `output` argument
+#'   leaves it out entirely. See [publish()].
 #' @return The artifact URL, invisibly, or `NULL` when nothing was published.
 #' @seealso [fw_snippet()] for scripts, [publish()].
 #' @export
@@ -368,8 +374,9 @@
 publish_snippet <- function(label, folded = NULL, output = TRUE, links = NULL, slug = NULL,
                             title = NULL, description = NULL, visibility = NULL, password = NULL,
                             collection = NULL, share_unlisted = FALSE, to = NULL,
-                            repository = NULL, include_private = FALSE) {
+                            repository = NULL, include_private = FALSE, display = NULL) {
   checkmate::assert_string(label, min.chars = 1)
+  display <- .fw_display_settings(display)
   checkmate::assert_flag(output)
   checkmate::assert_flag(folded, null.ok = TRUE)
   if (!.fw_snippet_in_render()) {
@@ -409,7 +416,8 @@ publish_snippet <- function(label, folded = NULL, output = TRUE, links = NULL, s
   withCallingHandlers(
     .fw_snippet_publish(document, label, slug = slug, title = title, description = description,
                         visibility = visibility, password = password, collection = collection,
-                        share_unlisted = share_unlisted, to = to, include_private = include_private),
+                        share_unlisted = share_unlisted, to = to, include_private = include_private,
+                        display = display),
     message = function(m) {
       cat(conditionMessage(m), file = stderr())
       invokeRestart("muffleMessage")
@@ -457,7 +465,7 @@ publish_snippet <- function(label, folded = NULL, output = TRUE, links = NULL, s
 #' @param links Links shown with the snippet. See [publish_snippet()].
 #' @param ... Passed to [publish_snippet()]'s publishing arguments: `slug`,
 #'   `title`, `description`, `visibility`, `password`, `collection`,
-#'   `share_unlisted`, `to`, `repository`, and `include_private`.
+#'   `share_unlisted`, `to`, `repository`, `include_private`, and `display`.
 #' @return The artifact URL, invisibly.
 #' @seealso [publish_snippet()], [publish()].
 #' @export
@@ -481,12 +489,14 @@ fw_snippet <- function(label, code, output = TRUE, folded = NULL, links = NULL, 
   }
   options <- list(...)
   allowed <- c("slug", "title", "description", "visibility", "password", "collection",
-               "share_unlisted", "to", "repository", "include_private")
+               "share_unlisted", "to", "repository", "include_private", "display")
   given <- names(options) %||% rep("", length(options))
   if (any(!given %in% allowed)) {
     stop("fw_snippet() takes these publishing arguments by name: ", paste(allowed, collapse = ", "), ".",
          call. = FALSE)
   }
+  # Checked before the block runs
+  options$display <- .fw_display_settings(options$display)
   expression <- substitute(code)
   if (!is.call(expression) || !identical(expression[[1]], as.name("{"))) {
     stop("fw_snippet() takes a braced block of code: fw_snippet(\"", label, "\", { ... }).", call. = FALSE)
