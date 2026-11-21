@@ -23,6 +23,8 @@ smoking_dag <- function() {
 
 test_that("a dagitty graph becomes a dag document with its roles and positions", {
   skip_if_not_installed("dagitty")
+  # As drawn by dagitty::plot(): positions are sent as written
+  testthat::local_mocked_bindings(.fw_dag_ggdag_loaded = function() FALSE)
   json <- dag_json(smoking_dag())
   expect_identical(json$schema, "framework.artifact/v1")
   expect_identical(json$kind, "dag")
@@ -146,6 +148,65 @@ test_that("only DAGs publish", {
   expect_error(publish_dag(data.frame(x = 1)), "dagitty graph or a ggdag tidy_dagitty")
 })
 
+test_that("pos y values are negated with dagitty's formatting, and nothing else changes", {
+  flip <- framework:::.fw_dag_flip_y
+  text <- 'dag {\na [exposure,pos="0.000,1.000"]\nb [pos="1.500,-2.250"]\nc [pos="2.000,0.000"]\nd\na -> b\nb -> c\n}\n'
+  expect_identical(flip(text),
+                   'dag {\na [exposure,pos="0.000,-1.000"]\nb [pos="1.500,2.250"]\nc [pos="2.000,0.000"]\nd\na -> b\nb -> c\n}\n')
+  expect_identical(flip('dag {\nx [pos="1,-0.000"]\n}'), 'dag {\nx [pos="1,0.000"]\n}')
+  expect_identical(flip("dag {\na -> b\n}"), "dag {\na -> b\n}")
+})
+
+ggdag_coords_dag <- function() {
+  # As ggdag draws it: age above smoking and cancer
+  dagitty::dagitty('dag {
+    age [pos="1,1"]
+    cancer [outcome,pos="2,0"]
+    smoking [exposure,pos="0,0"]
+    age -> cancer
+    age -> smoking
+    smoking -> cancer
+  }')
+}
+
+test_that("y = 'auto' flips a dagitty graph only while ggdag is loaded", {
+  skip_if_not_installed("dagitty")
+  testthat::local_mocked_bindings(.fw_dag_ggdag_loaded = function() TRUE)
+  up <- dag_json(ggdag_coords_dag())
+  expect_match(up$dagitty, 'age [pos="1.000,-1.000"]', fixed = TRUE)
+  expect_match(up$dagitty, 'cancer [outcome,pos="2.000,0.000"]', fixed = TRUE)
+  expect_match(up$dagitty, 'smoking [exposure,pos="0.000,0.000"]', fixed = TRUE)
+  expect_false(grepl("-0.000", up$dagitty, fixed = TRUE))
+  expect_match(up$dagitty, "age -> smoking", fixed = TRUE)
+
+  testthat::local_mocked_bindings(.fw_dag_ggdag_loaded = function() FALSE)
+  down <- dag_json(ggdag_coords_dag())
+  expect_identical(down$dagitty, paste(as.character(ggdag_coords_dag()), collapse = "\n"))
+})
+
+test_that("y = 'auto' flips a tidy_dagitty even when ggdag counts as not loaded", {
+  skip_if_not_installed("dagitty")
+  skip_if_not_installed("ggdag")
+  tidy <- ggdag::tidy_dagitty(ggdag_coords_dag())
+  testthat::local_mocked_bindings(.fw_dag_ggdag_loaded = function() FALSE)
+  expect_match(dag_json(tidy)$dagitty, 'age [pos="1.000,-1.000"]', fixed = TRUE)
+})
+
+test_that("an explicit y wins over the inference", {
+  skip_if_not_installed("dagitty")
+  testthat::local_mocked_bindings(.fw_dag_ggdag_loaded = function() FALSE)
+  up <- framework:::.fw_dag_document(ggdag_coords_dag(), y = "up")
+  expect_match(up$dagitty, 'age [pos="1.000,-1.000"]', fixed = TRUE)
+  testthat::local_mocked_bindings(.fw_dag_ggdag_loaded = function() TRUE)
+  down <- framework:::.fw_dag_document(ggdag_coords_dag(), y = "down")
+  expect_match(down$dagitty, 'age [pos="1.000,1.000"]', fixed = TRUE)
+  expect_error(framework:::.fw_dag_document(ggdag_coords_dag(), y = "sideways"))
+  # A graph without positions is unaffected
+  plain <- dagitty::dagitty("dag { a -> b }")
+  expect_identical(framework:::.fw_dag_document(plain, y = "up")$dagitty,
+                   framework:::.fw_dag_document(plain, y = "down")$dagitty)
+})
+
 test_that("publish() and publish_dag() upload dag.json with kind dag", {
   skip_if_not_installed("httr2")
   skip_if_not_installed("dagitty")
@@ -176,7 +237,7 @@ test_that("publish() and publish_dag() upload dag.json with kind dag", {
   expect_identical(sent[[1]]$fields$slug, "dag")
   expect_null(sent[[1]]$json$code)
 
-  expect_message(url <- publish_dag(smoking_dag(), code = "dag <- dagitty('...')", slug = "smoking",
+  expect_message(url <- publish_dag(smoking_dag(), code = "dag <- dagitty('...')", y = "up", slug = "smoking",
                                     title = "Smoking and cancer", visibility = "unlisted"),
                  "Published version 1")
   expect_identical(url, "http://localhost:8080/d/abc")
@@ -186,4 +247,5 @@ test_that("publish() and publish_dag() upload dag.json with kind dag", {
   expect_identical(sent[[2]]$fields$visibility, "unlisted")
   expect_identical(sent[[2]]$json$code$text, "dag <- dagitty('...')")
   expect_identical(sent[[2]]$json$source$class, list("dagitty"))
+  expect_match(sent[[2]]$json$dagitty, 'smoking [exposure,pos="0.000,-1.000"]', fixed = TRUE)
 })

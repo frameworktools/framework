@@ -9,6 +9,7 @@ publish_dag(
   code = NULL,
   labels = NULL,
   effect = c("total", "direct"),
+  y = c("auto", "up", "down"),
   slug = NULL,
   title = NULL,
   description = NULL,
@@ -35,6 +36,12 @@ are used too; these win.}
 
 \item{effect}{\code{"total"} (the default) or \code{"direct"}: the effect the
 adjustment sets identify.}
+
+\item{y}{Which way y points in the graph's positions: \code{"up"}, as ggdag
+draws them, or \code{"down"}, as \code{dagitty::plot()} does. \code{"up"} negates each
+y in the published DAGitty text. The default, \code{"auto"}, is \code{"up"} for a
+\code{tidy_dagitty} or while ggdag is loaded, and \code{"down"} otherwise. A graph
+without positions is unaffected.}
 
 \item{slug}{Artifact slug. Default: \code{dag}. See \code{\link[=publish]{publish()}}.}
 
@@ -68,10 +75,15 @@ the defaults; \code{publish_dag()} adds the code, labels, and effect.
 \details{
 The DAG is sent as DAGitty model text (\code{as.character(dag)}), which keeps
 exposures, outcomes, latent, adjusted, and selected nodes, and positions
-set with \code{coordinates()} or \code{dagify(coords = )}. Framework Cloud reads
-positions as DAGitty does, with y pointing down, and lays out a graph
-without them. A reader can copy the text into dagitty.net or
+set with \code{coordinates()} or \code{dagify(coords = )}. Framework Cloud lays out
+a graph without positions. A reader can copy the text into dagitty.net or
 \code{dagitty::dagitty()} and get the same graph back.
+
+Positions keep the picture drawn in R. ggdag draws y pointing up, and
+\code{dagitty::plot()}, dagitty.net, and Framework Cloud draw it pointing down.
+By default (\code{y = "auto"}), a \code{tidy_dagitty}, or a dagitty graph published
+while ggdag is loaded, has its y positions negated in the DAGitty text; a
+dagitty graph published without ggdag keeps them.
 
 When the graph has an exposure and an outcome, the minimal sufficient
 adjustment sets from \code{dagitty::adjustmentSets()} are included, and the

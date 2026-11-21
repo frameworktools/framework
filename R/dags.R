@@ -74,17 +74,57 @@
   if (length(analysis)) analysis else NULL
 }
 
+# Whether ggdag is loaded. A stub point for tests.
+#' @keywords internal
+.fw_dag_ggdag_loaded <- function() {
+  isNamespaceLoaded("ggdag")
+}
+
+# Which way y points in the graph's coordinates: "up" as ggdag draws them,
+# "down" as dagitty::plot() and dagitty.net do. "auto" infers it from what
+# the user could have seen: a tidy_dagitty is ggdag's, and a dagitty graph
+# is too while ggdag is loaded. Otherwise only dagitty::plot() drew it.
+#' @keywords internal
+.fw_dag_y <- function(object, y = "auto") {
+  if (!identical(y, "auto")) return(y)
+  if (inherits(object, "tidy_dagitty") || .fw_dag_ggdag_loaded()) "up" else "down"
+}
+
+# DAGitty text with each pos y negated, so y points down as DAGitty and
+# Framework Cloud read it. Only pos values change, each keeping dagitty's
+# formatting: "1.000" becomes "-1.000", "-1.000" becomes "1.000", and a
+# zero is written without a sign, never as "-0.000".
+#' @keywords internal
+.fw_dag_flip_y <- function(text) {
+  pattern <- 'pos="([^",]+),([^",]+)"'
+  matches <- gregexpr(pattern, text, perl = TRUE)
+  regmatches(text, matches) <- lapply(regmatches(text, matches), function(found) {
+    if (!length(found)) return(found)
+    x <- sub(pattern, "\\1", found, perl = TRUE)
+    y <- trimws(sub(pattern, "\\2", found, perl = TRUE))
+    value <- suppressWarnings(as.numeric(y))
+    flipped <- ifelse(is.na(value), y, ifelse(value == 0, sub("^[-+]", "", y),
+                      ifelse(startsWith(y, "-"), substring(y, 2L), paste0("-", sub("^\\+", "", y)))))
+    sprintf('pos="%s,%s"', x, flipped)
+  })
+  text
+}
+
 # The framework.artifact/v1 dag document for a dagitty or tidy_dagitty object.
 #' @keywords internal
-.fw_dag_document <- function(object, code = NULL, labels = NULL, effect = c("total", "direct")) {
+.fw_dag_document <- function(object, code = NULL, labels = NULL, effect = c("total", "direct"),
+                             y = c("auto", "up", "down")) {
   effect <- match.arg(effect)
+  y <- match.arg(y)
   checkmate::assert_character(code, any.missing = FALSE, null.ok = TRUE)
   graph <- .fw_dag_graph(object)
   # as.character() keeps roles and pos; a graph without positions gets none,
-  # and Framework Cloud lays it out.
+  # and Framework Cloud lays it out. Positions drawn with y up are flipped.
+  text <- paste(as.character(graph), collapse = "\n")
+  if (identical(.fw_dag_y(object, y), "up")) text <- .fw_dag_flip_y(text)
   document <- list(schema = "framework.artifact/v1", kind = "dag",
                    source = list(language = "r", class = as.list(class(object))),
-                   dagitty = paste(as.character(graph), collapse = "\n"))
+                   dagitty = text)
   document$labels <- .fw_dag_labels(object, graph, labels)
   if (length(code)) {
     text <- sub("\n+$", "", gsub("\r\n?", "\n", paste(code, collapse = "\n")))
@@ -103,10 +143,15 @@
 #'
 #' The DAG is sent as DAGitty model text (`as.character(dag)`), which keeps
 #' exposures, outcomes, latent, adjusted, and selected nodes, and positions
-#' set with `coordinates()` or `dagify(coords = )`. Framework Cloud reads
-#' positions as DAGitty does, with y pointing down, and lays out a graph
-#' without them. A reader can copy the text into dagitty.net or
+#' set with `coordinates()` or `dagify(coords = )`. Framework Cloud lays out
+#' a graph without positions. A reader can copy the text into dagitty.net or
 #' `dagitty::dagitty()` and get the same graph back.
+#'
+#' Positions keep the picture drawn in R. ggdag draws y pointing up, and
+#' `dagitty::plot()`, dagitty.net, and Framework Cloud draw it pointing down.
+#' By default (`y = "auto"`), a `tidy_dagitty`, or a dagitty graph published
+#' while ggdag is loaded, has its y positions negated in the DAGitty text; a
+#' dagitty graph published without ggdag keeps them.
 #'
 #' When the graph has an exposure and an outcome, the minimal sufficient
 #' adjustment sets from `dagitty::adjustmentSets()` are included, and the
@@ -124,6 +169,11 @@
 #'   are used too; these win.
 #' @param effect `"total"` (the default) or `"direct"`: the effect the
 #'   adjustment sets identify.
+#' @param y Which way y points in the graph's positions: `"up"`, as ggdag
+#'   draws them, or `"down"`, as `dagitty::plot()` does. `"up"` negates each
+#'   y in the published DAGitty text. The default, `"auto"`, is `"up"` for a
+#'   `tidy_dagitty` or while ggdag is loaded, and `"down"` otherwise. A graph
+#'   without positions is unaffected.
 #' @param slug Artifact slug. Default: `dag`. See [publish()].
 #' @param title Artifact title.
 #' @param description Artifact description.
@@ -156,13 +206,14 @@
 #' }
 #' }
 publish_dag <- function(dag, code = NULL, labels = NULL, effect = c("total", "direct"),
-                        slug = NULL, title = NULL, description = NULL, visibility = NULL,
+                        y = c("auto", "up", "down"), slug = NULL, title = NULL, description = NULL, visibility = NULL,
                         password = NULL, collection = NULL, share_unlisted = FALSE, to = NULL,
                         include_private = FALSE) {
   if (!.fw_dag_is(dag)) {
     stop("publish_dag() takes a dagitty graph or a ggdag tidy_dagitty.", call. = FALSE)
   }
-  document <- .fw_dag_document(dag, code = code, labels = labels, effect = match.arg(effect))
+  document <- .fw_dag_document(dag, code = code, labels = labels, effect = match.arg(effect),
+                               y = match.arg(y))
   publish(document, slug = slug, title = title, description = description,
           visibility = visibility, password = password, collection = collection,
           share_unlisted = share_unlisted, to = to, include_private = include_private)

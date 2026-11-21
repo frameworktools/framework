@@ -15,6 +15,11 @@ Changes:
 * `publish_dag()` adds `code`, the R code that built the graph, `labels`,
   which win over ggdag's, and `effect = "direct"` for direct-effect
   adjustment sets.
+* Positions keep the picture drawn in R. ggdag draws y pointing up and
+  dagitty draws it pointing down, so a `tidy_dagitty`, or a dagitty graph
+  published while ggdag is loaded, has each `pos` y negated in the DAGitty
+  text. A dagitty graph published without ggdag keeps its positions.
+  `publish_dag(y = "up")` or `y = "down"` says which way they were written.
 * dagitty and ggdag join Suggests.
 
 # framework 2.1.2

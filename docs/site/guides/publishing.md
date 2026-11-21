@@ -152,11 +152,21 @@ The DAG carries:
 
 | Part | Contents |
 |------|----------|
-| DAGitty text | `as.character(dag)`: exposures, outcomes, and latent, adjusted, and selected nodes, and positions set with `coordinates()` or `dagify(coords = )`. Positions follow DAGitty, with y pointing down. A graph without positions is laid out left to right. |
+| DAGitty text | `as.character(dag)`: exposures, outcomes, and latent, adjusted, and selected nodes, and positions set with `coordinates()` or `dagify(coords = )`. A graph without positions is laid out left to right. |
 | Labels | ggdag's labels (`dagify(labels = )`, `label<-`, or a `tidy_dagitty`'s `label` column), then `publish_dag(labels = )`, which wins |
 | Adjustment sets | With an exposure and an outcome, the minimal sufficient sets from `adjustmentSets()`. An empty set means no adjustment is needed. No sets means no set of observed variables works, as when a latent variable confounds the effect. |
 | Implications | The testable conditional independencies from `impliedConditionalIndependencies()` |
 | Code | `publish_dag(code = )` only |
+
+Positions keep the picture drawn in R. ggdag draws y pointing up; `dagitty::plot()`, dagitty.net, and Framework Cloud draw it pointing down. `publish_dag(y = )` says which way the positions were written:
+
+| `y` | Positions |
+|-----|-----------|
+| `"auto"` | The default: `"up"` for a `tidy_dagitty`, or for a dagitty graph while ggdag is loaded; `"down"` otherwise |
+| `"up"` | Written for ggdag. Each y is negated in the published DAGitty text. |
+| `"down"` | Written for dagitty. Sent as `as.character(dag)` writes them. |
+
+`publish()` uses `"auto"`. Only `pos` values change.
 
 `publish_dag(effect = "direct")` computes adjustment sets for the direct effect. When dagitty can't compute the sets or implications, they are left out. Only DAGs publish; a pdag, mag, or pag is an error.
 
