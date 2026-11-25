@@ -46,6 +46,9 @@ Changes:
   and collection and report pins move to version 1. It asks first in a
   console (default No); scripts pass `confirm = TRUE`. `project` names the
   project when several have an artifact with the slug.
+* The static reader's table download is the whole table: Download CSV (or
+  TSV) gets the published file when the page shows part of the table, and
+  every row otherwise. The preview wording is gone.
 
 # framework 2.1.5
 
