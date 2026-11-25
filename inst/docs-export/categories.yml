@@ -145,6 +145,7 @@ Publishing:
     - publish_dag
     - publish_structure
     - fw_structure
+    - flatten_versions
     - fw_snippet
     - storage_test
 

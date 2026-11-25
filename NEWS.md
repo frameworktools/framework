@@ -2,7 +2,8 @@
 
 Project structure artifacts: a folder tree, with notes on its paths, that a
 tutorial or course page embeds to explain how a project is laid out.
-Matches Framework Cloud's `tree` artifacts.
+Flattening an artifact's versions keeps only its newest. Matches Framework
+Cloud's `tree` artifacts and version flattening.
 
 Changes:
 
@@ -39,6 +40,12 @@ Changes:
   `highlight` naming a path not in the tree stops before anything uploads.
 * `display` takes `notes` and `ignored`, the project structure embed
   settings.
+* `flatten_versions()` keeps only an artifact's newest version on Framework
+  Cloud, as version 1. Older versions and their files are deleted for good,
+  Trash included. Links and embeds of an old version open the newest one,
+  and collection and report pins move to version 1. It asks first in a
+  console (default No); scripts pass `confirm = TRUE`. `project` names the
+  project when several have an artifact with the slug.
 
 # framework 2.1.5
 

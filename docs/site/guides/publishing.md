@@ -280,6 +280,33 @@ attr(url, "embed_link")
 attr(url, "artifact_url")
 ```
 
+### Flattening versions
+
+Each publish adds a version. `flatten_versions()` keeps only the newest, as version 1:
+
+```r
+flatten_versions("main-results")
+```
+
+```text
+Flattening main-results keeps only its newest version, as version 1. Older versions and their files are deleted for good, Trash included.
+Flatten main-results? [y/n] y
+Flattened main-results to version 1; removed 3 older versions.
+Manage: https://framework.pub/artifacts/123
+```
+
+Older versions and their files are deleted for good, Trash included. Links and embeds of an old version open the newest one, and collection and report pins move to version 1. The next publish continues after the highest old version number, so an artifact flattened from version 4 publishes version 5 next. Every artifact kind can be flattened; an external publication is refused.
+
+Flattening can't be undone, so `flatten_versions()` asks first in a console, and the default is No. In a script, pass `confirm = TRUE`. `confirm = FALSE` cancels.
+
+The project's token reaches only artifacts in its own project. Without one, the account login is used. When several of the account's projects have an artifact with the slug, name the project:
+
+```r
+flatten_versions("main-results", project = "thesis", confirm = TRUE)
+```
+
+`flatten_versions()` returns the artifact's page on Framework Cloud, with the number of versions removed in its `removed` attribute.
+
 ### Collection attachment
 
 Attach an artifact to an existing project collection by collection ID or slug:
