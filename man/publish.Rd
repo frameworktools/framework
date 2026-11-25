@@ -166,9 +166,11 @@ sites embed it, as a named list or named logical vector of settings:
 Framework Cloud), \code{details} (models and tests),
 \code{variable_tips} (models), \code{column_summaries} (tables), \code{output} and
 \code{links} (code snippets), \code{legend}, \code{analysis}, \code{dagitty}, and \code{code}
-(DAGs), and \code{interactive} (live charts). Settings start on, except
-that a DAG embeds as its drawing alone: its \code{description}, \code{analysis},
-\code{dagitty}, and \code{code} start off, and \code{TRUE} shows them. Framework Cloud
+(DAGs), \code{interactive} (live charts), and \code{notes} and \code{ignored}
+(project structures). Settings start on, except that a DAG embeds as
+its drawing alone: its \code{description}, \code{analysis}, \code{dagitty}, and \code{code}
+start off, and \code{TRUE} shows them. A project structure's \code{description}
+starts off too. Framework Cloud
 keeps the settings for every version, and a publish changes only the
 settings it names; \code{TRUE} turns one on. The
 reader page on Framework Cloud shows everything. Other destinations

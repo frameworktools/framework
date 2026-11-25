@@ -178,9 +178,67 @@ publish_dag(dag, code = code, slug = "smoking-dag", display = list(analysis = TR
 
 The DAG settings are `legend`, `analysis`, `dagitty`, and `code`. See [Display settings](#display-settings).
 
+### Project structure
+
+A structure artifact is a folder tree, with notes on its paths. A tutorial or course page embeds it to explain how a project is laid out. `fw_structure()` prints the tree and uploads nothing. `publish_structure()` publishes it:
+
+```r
+fw_structure(notes = c("R/" = "Reusable functions", "README.md" = "Start here"), exclude = ".gitignore")
+
+publish_structure(
+  notes = c("R/" = "Reusable functions", "README.md" = "Start here"),
+  highlight = "README.md",
+  exclude = "renv/"
+)
+```
+
+```text
+my-project/
+├── data/
+│   ├── private/   private · 1 file
+│   └── raw/       ignored by data/raw/ (.gitignore:1) · 2 files
+├── outputs/
+│   ├── table.csv
+│   ├── draws.rds  ignored by *.rds (.gitignore:2)
+│   └── fit.rds    ignored by *.rds (.gitignore:2)
+├── R/             Reusable functions
+│   └── clean.R
+└── README.md      Start here
+```
+
+Ignored paths show the `.gitignore` rule that ignores them, so the tree explains the `.gitignore` too. With git installed and the project in a work tree, git decides what is ignored. Otherwise the project root's `.gitignore` is read on its own.
+
+The published tree never names an ignored or private path:
+
+| Path | Published as |
+|------|--------------|
+| `.git/` | Left out |
+| Ignored folder | Its name, rule, and file count |
+| Ignored files in a folder that isn't ignored | One group per rule, with a count |
+| Private folder (`private`, `*_private`, or a settings folder marked private) | Its name and file count |
+| Folder below `depth` | Its name and file count |
+| `exclude` match | Left out |
+| Symbolic link | A file, never followed |
+
+A rule from the global excludes file or `.git/info/exclude` names that source, never its path. File counts stop at 10,000. `publish_structure()` prints the tree as it will publish, with groups in place of ignored file names, then uploads it as `<slug>.json`.
+
+| Argument | Meaning |
+|----------|---------|
+| `path` | One folder or several, relative to the project root. Default: the project root. Several folders publish as one tree. |
+| `depth` | Levels to list. Default: no limit. |
+| `exclude` | Globs to leave out, written like `.gitignore` lines |
+| `notes` | Text named by path: `c("R/" = "Reusable functions")`. Up to 500 characters each. |
+| `open` | Folders that start open in the embed. Default: the top level. |
+| `highlight` | Paths drawn as highlighted |
+| `ignored` | `"rules"` (the default) or `"hide"`, which leaves ignored paths out |
+| `slug` | Default: `structure`, or `structure-<folder>` for one subfolder |
+| `title` | Default: `<folder> structure` |
+
+`notes`, `open`, or `highlight` naming a path not in the published tree stops the publish before anything uploads. So does a `path` that is private or ignored.
+
 ### Display settings
 
-Display settings choose what an artifact shows when another site embeds it: a blog post, academic.page, or a WordPress, Drupal, or Statamic page. Settings start on, except a DAG's `description`, `analysis`, `dagitty`, and `code`, which start off. `publish()`, `publish_notebook()`, `publish_dag()`, `publish_snippet()`, and `fw_snippet()` take `display` as a named list or a named logical vector:
+Display settings choose what an artifact shows when another site embeds it: a blog post, academic.page, or a WordPress, Drupal, or Statamic page. Settings start on, except a DAG's `description`, `analysis`, `dagitty`, and `code`, and a project structure's `description`, which start off. `publish()`, `publish_notebook()`, `publish_dag()`, `publish_structure()`, `publish_snippet()`, and `fw_snippet()` take `display` as a named list or a named logical vector:
 
 ```r
 publish(fitted_model, slug = "adjusted-model", display = list(details = FALSE))
@@ -189,7 +247,7 @@ publish(results_table, slug = "estimates", display = c(column_summaries = FALSE)
 
 | Setting | Applies to | Off |
 |---------|------------|-----|
-| `title`, `description`, `author` | All artifacts | Not shown. A DAG's description starts off. |
+| `title`, `description`, `author` | All artifacts | Not shown. A DAG's or project structure's description starts off. |
 | `credit` | All artifacts | No link back to the artifact on Framework Cloud |
 | `details` | Models and tests | No details section |
 | `variable_tips` | Models | No tips on terms |
@@ -198,6 +256,7 @@ publish(results_table, slug = "estimates", display = c(column_summaries = FALSE)
 | `links` | Code snippets | No notebook and model links |
 | `legend`, `analysis`, `dagitty`, `code` | DAGs | No role legend, analysis, DAGitty text, or source code. All but `legend` start off. |
 | `interactive` | Live charts | The static image shows instead |
+| `notes`, `ignored` | Project structures | No notes, or no ignored folders and groups. Private folders stay. |
 
 Framework Cloud keeps the settings with the artifact, for every version. A publish changes only the settings it names. `TRUE` turns one on, and `FALSE` turns it off. The owner can also change them on the artifact's Settings tab, under Embed contents. The reader page on Framework Cloud shows everything. A name that isn't a setting, or a value that isn't `TRUE` or `FALSE`, stops the publish before anything uploads. GitHub Pages, folders, and storage buckets ignore `display`, with a message.
 

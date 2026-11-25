@@ -5,7 +5,7 @@
 
 .fw_display_keys <- c(
   "title", "description", "author", "credit", "details", "variable_tips", "column_summaries",
-  "output", "links", "legend", "analysis", "dagitty", "code", "interactive"
+  "output", "links", "legend", "analysis", "dagitty", "code", "interactive", "notes", "ignored"
 )
 
 # `display` as a named list of TRUE/FALSE, or NULL when not given. Takes a

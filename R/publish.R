@@ -439,9 +439,11 @@ NULL
 #'   Framework Cloud), `details` (models and tests),
 #'   `variable_tips` (models), `column_summaries` (tables), `output` and
 #'   `links` (code snippets), `legend`, `analysis`, `dagitty`, and `code`
-#'   (DAGs), and `interactive` (live charts). Settings start on, except
-#'   that a DAG embeds as its drawing alone: its `description`, `analysis`,
-#'   `dagitty`, and `code` start off, and `TRUE` shows them. Framework Cloud
+#'   (DAGs), `interactive` (live charts), and `notes` and `ignored`
+#'   (project structures). Settings start on, except that a DAG embeds as
+#'   its drawing alone: its `description`, `analysis`, `dagitty`, and `code`
+#'   start off, and `TRUE` shows them. A project structure's `description`
+#'   starts off too. Framework Cloud
 #'   keeps the settings for every version, and a publish changes only the
 #'   settings it names; `TRUE` turns one on. The
 #'   reader page on Framework Cloud shows everything. Other destinations

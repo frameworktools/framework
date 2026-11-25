@@ -1,3 +1,45 @@
+# framework 2.1.6
+
+Project structure artifacts: a folder tree, with notes on its paths, that a
+tutorial or course page embeds to explain how a project is laid out.
+Matches Framework Cloud's `tree` artifacts.
+
+Changes:
+
+* `fw_structure()` prints a project's folder tree and uploads nothing.
+  Ignored files are listed by name with the `.gitignore` rule that ignores
+  them, up to 20 per folder and rule:
+
+  ```
+  my-project/
+  ├── data/
+  │   ├── private/  private · 1 file
+  │   └── raw/      ignored by data/raw/ (.gitignore:1) · 2 files
+  ├── outputs/
+  │   ├── table.csv
+  │   └── fit.rds   ignored by *.rds (.gitignore:2)
+  └── README.md     Start here
+  ```
+
+* `publish_structure()` prints the tree as it will publish, uploads it to
+  Framework Cloud as `<slug>.json` with `kind = "tree"`, and prints
+  `Published version N.`, `Share:`, and `Manage:`. The default slug is
+  `structure`, or `structure-<folder>` for one subfolder.
+* Names of ignored and private paths are never published. An ignored folder
+  publishes as its name, rule, and file count, and ignored files as one
+  group per folder and rule, with a count. A private folder, or a folder
+  below `depth`, publishes as its name and file count. `.git` and `exclude`
+  matches are left out, and symbolic links publish as files. A rule from the
+  global excludes file or `.git/info/exclude` publishes as `global` or
+  `info/exclude`, never its path. File counts stop at 10,000.
+* With git installed and the project in a work tree, git decides what is
+  ignored. Otherwise the project root's `.gitignore` is read on its own.
+* Both take `path` (one folder or several), `depth`, `exclude`, `notes`,
+  `open`, `highlight`, and `ignored = "hide"`. `notes`, `open`, or
+  `highlight` naming a path not in the tree stops before anything uploads.
+* `display` takes `notes` and `ignored`, the project structure embed
+  settings.
+
 # framework 2.1.5
 
 Publishing to Framework Cloud prints the link to share and the link to
