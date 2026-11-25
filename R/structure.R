@@ -137,7 +137,7 @@
 }
 
 # A git rule source as published: a .gitignore relative to `dir`, the
-# published folder, or "global" or "info/exclude", never an absolute path.
+# project root, or "global" or "info/exclude", never an absolute path.
 # git names in-tree sources relative to the work tree's top; `prefix` is
 # `dir` relative to that top.
 #' @keywords internal
@@ -150,7 +150,9 @@
   while (common < length(from) && common < length(to) - 1L && from[common + 1L] == to[common + 1L]) {
     common <- common + 1L
   }
-  paste(c(rep("..", length(from) - common), to[seq_along(to) > common]), collapse = "/")
+  # A rule file above the project root is outside it, as a global one is
+  if (common < length(from)) return("global")
+  paste(to[seq_along(to) > common], collapse = "/")
 }
 
 # How ignored paths under `dir` are found. With git, git decides: the
@@ -161,7 +163,8 @@
 #' @keywords internal
 .fw_structure_ignores <- function(dir, project_root, base) {
   if (identical(.fw_structure_git_line(dir, c("rev-parse", "--is-inside-work-tree")), "true")) {
-    prefix <- .fw_structure_git_line(dir, c("rev-parse", "--show-prefix")) %||% ""
+    # Sources are named from the project root, so a subfolder's rules read .gitignore, not ../.gitignore
+    prefix <- .fw_structure_git_line(project_root, c("rev-parse", "--show-prefix")) %||% ""
     listed <- .fw_structure_git(dir, c("ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"))
     if (!is.null(listed)) {
       rules <- list()
@@ -189,7 +192,7 @@
     return(list(method = "none", lookup = function(path, is_dir) NULL, root_ignored = FALSE))
   }
   rules <- .fw_structure_ignore_file(file)
-  source <- .fw_structure_rule_source(".gitignore", base)
+  source <- ".gitignore"
   in_project <- function(path) if (nzchar(base)) if (nzchar(path)) paste0(base, "/", path) else base else path
   lookup <- function(path, is_dir) {
     rule <- .fw_structure_ignore_match(rules, in_project(path), is_dir)

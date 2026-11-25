@@ -234,7 +234,7 @@ test_that("one subfolder is the root, with rule sources relative to it", {
   expect_identical(tree$root, "data")
   expect_identical(tree$base, "data")
   expect_identical(node_lines(tree$nodes), sort(c(
-    "private|dir private hidden 1", "raw|dir ignored data/raw/ ../.gitignore:1 hidden 2"
+    "private|dir private hidden 1", "raw|dir ignored data/raw/ .gitignore:1 hidden 2"
   ), method = "radix"))
   expect_error(fw_structure("data/private"), "data/private is a private folder")
   expect_error(fw_structure("data/raw"), "data/raw is ignored by git")
@@ -248,11 +248,13 @@ test_that("rules outside the tree name their source, never an absolute path", {
   expect_identical(source("/Users/someone/.gitignore_global", ""), "global")
   expect_identical(source("C:/Users/someone/.gitignore", ""), "global")
   expect_identical(source(".git/info/exclude", "data/"), "info/exclude")
+  # Sources are relative to the project root; prefix is the root's place in the work tree
   expect_identical(source(".gitignore", ""), ".gitignore")
-  expect_identical(source(".gitignore", "data/"), "../.gitignore")
-  expect_identical(source("data/.gitignore", "data/"), ".gitignore")
-  expect_identical(source("a/.gitignore", "a/b/"), "../.gitignore")
-  expect_identical(source("x/.gitignore", "a/b/"), "../../x/.gitignore")
+  expect_identical(source("data/.gitignore", ""), "data/.gitignore")
+  expect_identical(source("proj/.gitignore", "proj/"), ".gitignore")
+  expect_identical(source("proj/data/.gitignore", "proj/"), "data/.gitignore")
+  # A rule file above the project root is outside it
+  expect_identical(source(".gitignore", "proj/"), "global")
 
   skip_without_git()
   local_structure_fixture()
