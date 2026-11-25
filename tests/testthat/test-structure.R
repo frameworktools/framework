@@ -320,7 +320,7 @@ test_that("the local tree lists up to 20 ignored names per folder and rule", {
   for (i in 1:23) writeLines("x", sprintf("outputs/m%02d.rds", i))
   out <- utils::capture.output(print(fw_structure(exclude = c("data/", "R/", "*.md", ".*"))))
   expect_identical(sum(grepl("\\.rds  *ignored by", out)), 20L)
-  expect_identical(out[length(out)], "    \u2514\u2500\u2500 ... 5 more  ignored by *.rds (.gitignore:2)")
+  expect_identical(out[length(out)], "    \u2514\u2500\u2500 \u2026 5 more   ignored by *.rds (.gitignore:2)")
 })
 
 test_that("publish_structure() prints the publish form and uploads <slug>.json with kind tree", {
@@ -366,13 +366,13 @@ test_that("publish_structure() prints the publish form and uploads <slug>.json w
     "\u2502   \u2514\u2500\u2500 raw/      ignored by data/raw/ (.gitignore:1) \u00b7 2 files",
     "\u251c\u2500\u2500 outputs/",
     "\u2502   \u251c\u2500\u2500 table.csv",
-    "\u2502   \u2514\u2500\u2500 *.rds     ignored (.gitignore:2) \u00b7 2 files",
+    "\u2502   \u2514\u2500\u2500 *.rds     ignored by *.rds (.gitignore:2) \u00b7 2 files",
     "\u251c\u2500\u2500 R/            Reusable functions",
     "\u2502   \u2514\u2500\u2500 clean.R",
     "\u251c\u2500\u2500 .gitignore",
     "\u251c\u2500\u2500 README.md",
-    "\u251c\u2500\u2500 .env          ignored (.gitignore:3) \u00b7 1 file",
-    "\u2514\u2500\u2500 settings.yml  ignored (.gitignore:4) \u00b7 1 file"
+    "\u251c\u2500\u2500 .env          ignored by .env (.gitignore:3) \u00b7 1 file",
+    "\u2514\u2500\u2500 settings.yml  ignored by settings.yml (.gitignore:4) \u00b7 1 file"
   ))
   expect_identical(messages, c("Published version 2.\n", "Share:  http://localhost:8080/d/abc\n",
                                "Manage: http://localhost:8080/artifacts/7\n"))

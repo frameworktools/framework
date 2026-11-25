@@ -497,9 +497,9 @@
 .fw_structure_glyphs <- function() {
   if (isTRUE(l10n_info()[["UTF-8"]])) {
     list(tee = "\u251c\u2500\u2500 ", last = "\u2514\u2500\u2500 ", pipe = "\u2502   ", blank = "    ",
-         dot = "\u00b7")
+         dot = "\u00b7", more = "\u2026")
   } else {
-    list(tee = "|-- ", last = "`-- ", pipe = "|   ", blank = "    ", dot = "-")
+    list(tee = "|-- ", last = "`-- ", pipe = "|   ", blank = "    ", dot = "-", more = "...")
   }
 }
 
@@ -590,7 +590,7 @@
       if (node$type != "ignored") next
       rows[[length(rows) + 1L]] <- list(
         parent = node$path, name = sub("/+$", "", node$ignored$rule), sort = 2L,
-        comment = join(paste0("ignored (", .fw_structure_rule_where(node$ignored), ")"),
+        comment = join(paste("ignored by", .fw_structure_rule_text(node$ignored)),
                        .fw_structure_files(node$hidden))
       )
     }
@@ -599,7 +599,7 @@
       more <- length(shown[[key]]) - .fw_structure_local_names
       if (more <= 0L) next
       parts <- strsplit(key, "\r", fixed = TRUE)[[1]]
-      rows[[length(rows) + 1L]] <- list(parent = parts[1], name = sprintf("... %d more", more), sort = 3L,
+      rows[[length(rows) + 1L]] <- list(parent = parts[1], name = paste(.fw_structure_glyphs()$more, format(more, big.mark = ",", scientific = FALSE, trim = TRUE), "more"), sort = 3L,
                                         comment = paste("ignored by", parts[2]))
     }
   }
